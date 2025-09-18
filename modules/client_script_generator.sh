@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # IPv6 WireGuard 客户端脚本生成器
-# 版本: 1.11
+# 版本: 1.13
 # 用于生成预配置的客户端安装脚本
 
 set -euo pipefail
@@ -357,7 +357,7 @@ generate_windows_client_script() {
     
     cat > "$script_file" << 'WINDOWS_SCRIPT_END'
 # IPv6 WireGuard 客户端自动安装脚本 (Windows PowerShell)
-# 版本: 1.11
+# 版本: 1.13
 # 支持 Windows 10/11
 
 param(

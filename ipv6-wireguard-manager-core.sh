@@ -2,7 +2,7 @@
 
 # IPv6 WireGuard VPN Manager - Core Script
 # 支持IPv6前缀分发和BGP路由的WireGuard VPN服务器管理工具
-# 版本: 1.12
+# 版本: 1.13
 # 作者: IPv6 WireGuard Manager
 
 set -euo pipefail
@@ -531,7 +531,7 @@ show_main_menu() {
     clear
     echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${WHITE}║                IPv6 WireGuard VPN Manager                  ║${NC}"
-    echo -e "${WHITE}║                    版本: 1.11                             ║${NC}"
+    echo -e "${WHITE}║                    版本: 1.13                             ║${NC}"
     echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo
     

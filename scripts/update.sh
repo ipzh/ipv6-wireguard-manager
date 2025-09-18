@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # IPv6 WireGuard Manager 更新脚本
-# 版本: 1.11
+# 版本: 1.13
 
 set -euo pipefail
 

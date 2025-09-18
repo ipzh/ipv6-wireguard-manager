@@ -2,7 +2,7 @@
 
 # WireGuard配置模块
 # 用于配置和管理WireGuard VPN服务器
-# 版本: 1.12
+# 版本: 1.13
 
 # 加载公共函数库
 if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # IPv6 WireGuard 客户端一键安装脚本
-# 版本: 1.12
+# 版本: 1.13
 # 支持 Linux、Windows、macOS、Android、iOS
 
 set -euo pipefail

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # IPv6 WireGuard Manager 独立安装脚本
-# 版本: 1.12
+# 版本: 1.13
 # 此脚本会自动下载完整的项目文件
 
 set -euo pipefail

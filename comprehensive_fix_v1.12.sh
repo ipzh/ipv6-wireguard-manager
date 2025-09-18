@@ -45,7 +45,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-log "INFO" "开始全面修复和版本更新到1.12..."
+log "INFO" "开始全面修复和版本更新到1.13..."
 
 # 需要修复的脚本文件列表
 SCRIPT_FILES=(
@@ -181,8 +181,8 @@ for file in "${SCRIPT_FILES[@]}"; do
     fi
 done
 
-# 3. 更新所有文件版本到1.12
-log "INFO" "3. 更新所有文件版本到1.12..."
+# 3. 更新所有文件版本到1.13
+log "INFO" "3. 更新所有文件版本到1.13..."
 
 # 更新脚本文件版本
 for file in "${SCRIPT_FILES[@]}"; do
@@ -190,17 +190,18 @@ for file in "${SCRIPT_FILES[@]}"; do
         log "INFO" "更新版本: $file"
         
         # 更新文件头部的版本信息
-        sed -i 's/版本: 1\.11/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.9/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.8/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.7/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.6/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.5/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.4/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.3/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.2/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.1/版本: 1.12/g' "$file"
-        sed -i 's/版本: 1\.0\.0/版本: 1.12/g' "$file"
+        sed -i 's/版本: 1\.12/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.11/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.9/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.8/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.7/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.6/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.5/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.4/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.3/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.2/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.1/版本: 1.13/g' "$file"
+        sed -i 's/版本: 1\.0\.0/版本: 1.13/g' "$file"
         
         # 更新脚本中的版本变量
         sed -i 's/current_version="1\.11"/current_version="1.12"/g' "$file"
@@ -217,9 +218,10 @@ for file in "${SCRIPT_FILES[@]}"; do
         sed -i 's/v1\.11/v1.12/g' "$file"
         sed -i 's/v1\.0\.9/v1.12/g' "$file"
         sed -i 's/v1\.0\.8/v1.12/g' "$file"
-        sed -i 's/1\.11版本/1.12版本/g' "$file"
-        sed -i 's/1\.0\.9版本/1.12版本/g' "$file"
-        sed -i 's/1\.0\.8版本/1.12版本/g' "$file"
+        sed -i 's/1\.12版本/1.13版本/g' "$file"
+        sed -i 's/1\.11版本/1.13版本/g' "$file"
+        sed -i 's/1\.0\.9版本/1.13版本/g' "$file"
+        sed -i 's/1\.0\.8版本/1.13版本/g' "$file"
     fi
 done
 
@@ -260,14 +262,14 @@ if [[ -f "CHANGELOG.md" ]]; then
 
 ### 新增功能
 - **全面代码优化**: 修复所有重复的log函数和颜色定义
-- **版本统一**: 所有文件统一更新到1.12版本
+- **版本统一**: 所有文件统一更新到1.13版本
 - **代码清理**: 删除冗余代码，提高代码质量
 - **文档更新**: 所有文档同步更新到1.12版本
 
 ### 修复问题
 - **重复定义**: 修复所有脚本文件中的重复log函数定义
 - **颜色定义**: 修复所有脚本文件中的重复颜色定义
-- **版本一致性**: 统一所有文件的版本号为1.12
+- **版本一致性**: 统一所有文件的版本号为1.13
 - **代码结构**: 优化代码结构，提高可维护性
 
 ### 技术改进
@@ -326,9 +328,9 @@ version_files=("ipv6-wireguard-manager.sh" "install.sh" "uninstall.sh" "client-i
 for file in "${version_files[@]}"; do
     if [[ -f "$file" ]]; then
         if grep -q "1.12" "$file"; then
-            log "INFO" "$file 版本已更新到1.12"
+            log "INFO" "$file 版本已更新到1.13"
         else
-            log "WARN" "$file 版本未更新到1.12"
+            log "WARN" "$file 版本未更新到1.13"
         fi
     fi
 done
