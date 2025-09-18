@@ -15,6 +15,15 @@ BIRD_VERSION=""
 BIRD_MAJOR_VERSION=""
 BIRD_CONFIG_TEMPLATE=""
 
+# BGP配置参数
+BGP_ROUTER_ID=""
+BGP_AS_NUMBER=""
+BGP_NEIGHBORS=""
+BGP_PASSWORDS=""
+BGP_UPSTREAM_ASN=""
+BGP_MULTIHOP=""
+BGP_IPV6_PREFIXES=""
+
 # 检测BIRD版本
 detect_bird_version() {
     log "INFO" "Detecting BIRD version..."
@@ -94,6 +103,163 @@ detect_bird_version() {
     return 0
 }
 
+# 交互式BGP配置
+interactive_bgp_config() {
+    echo -e "${CYAN}=== BGP配置设置 ===${NC}"
+    
+    # 路由器ID配置
+    echo
+    echo -e "${YELLOW}1. 路由器ID配置${NC}"
+    local default_router_id=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    if [[ -z "$default_router_id" ]]; then
+        default_router_id="10.0.0.1"
+    fi
+    
+    while true; do
+        read -p "请输入路由器ID (默认: $default_router_id): " router_id
+        router_id="${router_id:-$default_router_id}"
+        
+        if [[ "$router_id" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            BGP_ROUTER_ID="$router_id"
+            echo -e "${GREEN}✓${NC} 路由器ID设置为: $router_id"
+            break
+        else
+            echo -e "${RED}错误: 请输入有效的IPv4地址作为路由器ID${NC}"
+        fi
+    done
+    
+    # AS号配置
+    echo
+    echo -e "${YELLOW}2. AS号配置${NC}"
+    local default_as="65001"
+    
+    while true; do
+        read -p "请输入AS号 (默认: $default_as): " as_number
+        as_number="${as_number:-$default_as}"
+        
+        # 清理输入，只保留数字
+        as_number=$(echo "$as_number" | tr -d '[:alpha:][:punct:][:space:]')
+        
+        if [[ "$as_number" =~ ^[0-9]+$ ]] && [[ "$as_number" -ge 1 ]] && [[ "$as_number" -le 4294967295 ]]; then
+            BGP_AS_NUMBER="$as_number"
+            echo -e "${GREEN}✓${NC} AS号设置为: $as_number"
+            break
+        else
+            echo -e "${RED}错误: 请输入有效的AS号 (1-4294967295)${NC}"
+        fi
+    done
+    
+    # 上游ASN配置
+    echo
+    echo -e "${YELLOW}3. 上游ASN配置${NC}"
+    local default_upstream_as="65000"
+    
+    while true; do
+        read -p "请输入上游ASN (默认: $default_upstream_as): " upstream_as
+        upstream_as="${upstream_as:-$default_upstream_as}"
+        
+        # 清理输入，只保留数字
+        upstream_as=$(echo "$upstream_as" | tr -d '[:alpha:][:punct:][:space:]')
+        
+        if [[ "$upstream_as" =~ ^[0-9]+$ ]] && [[ "$upstream_as" -ge 1 ]] && [[ "$upstream_as" -le 4294967295 ]]; then
+            BGP_UPSTREAM_ASN="$upstream_as"
+            echo -e "${GREEN}✓${NC} 上游ASN设置为: $upstream_as"
+            break
+        else
+            echo -e "${RED}错误: 请输入有效的上游ASN (1-4294967295)${NC}"
+        fi
+    done
+    
+    # BGP邻居配置
+    echo
+    echo -e "${YELLOW}4. BGP邻居配置${NC}"
+    echo "请输入BGP邻居信息 (格式: 名称,IP地址,AS号,密码,描述)"
+    echo "示例: upstream1,2001:db8::1,65000,password123,主要上游"
+    echo "留空结束输入"
+    
+    local neighbors=()
+    local neighbor_count=0
+    
+    while true; do
+        read -p "邻居 $((neighbor_count + 1)): " neighbor_input
+        
+        if [[ -z "$neighbor_input" ]]; then
+            break
+        fi
+        
+        # 解析邻居信息
+        IFS=',' read -ra neighbor_parts <<< "$neighbor_input"
+        if [[ ${#neighbor_parts[@]} -ge 3 ]]; then
+            local name="${neighbor_parts[0]}"
+            local ip="${neighbor_parts[1]}"
+            local as="${neighbor_parts[2]}"
+            local password="${neighbor_parts[3]:-}"
+            local description="${neighbor_parts[4]:-}"
+            
+            # 验证IP地址
+            if [[ "$ip" =~ ^[0-9a-fA-F:]+$ ]] || [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                # 验证AS号
+                local clean_as=$(echo "$as" | tr -d '[:alpha:][:punct:][:space:]')
+                if [[ "$clean_as" =~ ^[0-9]+$ ]] && [[ "$clean_as" -ge 1 ]] && [[ "$clean_as" -le 4294967295 ]]; then
+                    neighbors+=("$name,$ip,$clean_as,$password,$description")
+                    neighbor_count=$((neighbor_count + 1))
+                    echo -e "${GREEN}✓${NC} 邻居 $name 添加成功"
+                else
+                    echo -e "${RED}错误: 无效的AS号: $as${NC}"
+                fi
+            else
+                echo -e "${RED}错误: 无效的IP地址: $ip${NC}"
+            fi
+        else
+            echo -e "${RED}错误: 格式不正确，需要至少包含: 名称,IP地址,AS号${NC}"
+        fi
+    done
+    
+    BGP_NEIGHBORS=$(IFS='|'; echo "${neighbors[*]}")
+    echo -e "${GREEN}✓${NC} 共添加 $neighbor_count 个BGP邻居"
+    
+    # Multihop配置
+    echo
+    echo -e "${YELLOW}5. Multihop配置${NC}"
+    echo "是否启用BGP multihop? (用于非直连的BGP邻居)"
+    read -p "启用multihop? (y/N): " enable_multihop
+    
+    if [[ "${enable_multihop,,}" == "y" ]]; then
+        BGP_MULTIHOP="yes"
+        echo -e "${GREEN}✓${NC} 已启用BGP multihop"
+    else
+        BGP_MULTIHOP="no"
+        echo -e "${GREEN}✓${NC} 未启用BGP multihop"
+    fi
+    
+    # IPv6前缀配置
+    echo
+    echo -e "${YELLOW}6. IPv6前缀配置${NC}"
+    local default_prefix="2001:db8::/48"
+    
+    while true; do
+        read -p "请输入要宣告的IPv6前缀 (默认: $default_prefix): " ipv6_prefix
+        ipv6_prefix="${ipv6_prefix:-$default_prefix}"
+        
+        if [[ "$ipv6_prefix" =~ ^[0-9a-fA-F:]+/[0-9]{1,3}$ ]]; then
+            BGP_IPV6_PREFIXES="$ipv6_prefix"
+            echo -e "${GREEN}✓${NC} IPv6前缀设置为: $ipv6_prefix"
+            break
+        else
+            echo -e "${RED}错误: 请输入有效的IPv6前缀 (格式: 2001:db8::/48)${NC}"
+        fi
+    done
+    
+    echo
+    echo -e "${GREEN}=== BGP配置完成 ===${NC}"
+    echo "路由器ID: $BGP_ROUTER_ID"
+    echo "AS号: $BGP_AS_NUMBER"
+    echo "上游ASN: $BGP_UPSTREAM_ASN"
+    echo "邻居数量: $neighbor_count"
+    echo "Multihop: $BGP_MULTIHOP"
+    echo "IPv6前缀: $BGP_IPV6_PREFIXES"
+}
+
 # 获取BIRD可执行文件路径
 get_bird_executable() {
     if [[ "$BIRD_MAJOR_VERSION" == "2" ]] && command -v bird2 >/dev/null 2>&1; then
@@ -170,9 +336,9 @@ create_bird_config() {
 # 创建BIRD 2.x配置
 create_bird_v2_config() {
     local config_file="$1"
-    local router_id="$2"
-    local as_number="$3"
-    local ipv6_prefixes="$4"
+    local router_id="${2:-$BGP_ROUTER_ID}"
+    local as_number="${3:-$BGP_AS_NUMBER}"
+    local ipv6_prefixes="${4:-$BGP_IPV6_PREFIXES}"
     
     cat > "$config_file" << EOF
 # BIRD 2.x BGP Configuration for IPv6 WireGuard
@@ -209,17 +375,57 @@ protocol direct {
 protocol bgp {
     local as $as_number;
     
-    # 这里需要根据实际的上游BGP邻居配置
+    # BGP邻居配置
+EOF
+
+    # 添加BGP邻居配置
+    if [[ -n "$BGP_NEIGHBORS" ]]; then
+        IFS='|' read -ra neighbors <<< "$BGP_NEIGHBORS"
+        for neighbor in "${neighbors[@]}"; do
+            if [[ -n "$neighbor" ]]; then
+                IFS=',' read -ra parts <<< "$neighbor"
+                local name="${parts[0]}"
+                local ip="${parts[1]}"
+                local as="${parts[2]}"
+                local password="${parts[3]}"
+                local description="${parts[4]}"
+                
+                cat >> "$config_file" << EOF
+    # $description
+    neighbor $ip as $as;
+EOF
+                
+                # 添加密码配置（如果提供）
+                if [[ -n "$password" ]]; then
+                    cat >> "$config_file" << EOF
+    password "$password";
+EOF
+                fi
+                
+                # 添加multihop配置（如果启用）
+                if [[ "$BGP_MULTIHOP" == "yes" ]]; then
+                    cat >> "$config_file" << EOF
+    multihop;
+EOF
+                fi
+            fi
+        done
+    else
+        cat >> "$config_file" << EOF
+    # 请根据实际情况配置BGP邻居
     # neighbor 2001:db8::1 as 65000;
+EOF
+    fi
+    
+    cat >> "$config_file" << EOF
     
     ipv6 {
-        import all;
-        export all;
+        import filter bgp_import;
+        export filter bgp_export;
     };
     
     # 连接参数
     connect retry time 30;
-    connect retry time 60;
     hold time 180;
     keepalive time 60;
 }
@@ -231,21 +437,26 @@ protocol static {
     # 宣告IPv6前缀
 EOF
 
-    # 添加IPv6前缀
-    IFS=',' read -ra PREFIXES <<< "$ipv6_prefixes"
-    for prefix in "${PREFIXES[@]}"; do
-        # 提取网络地址和前缀长度
-        local network=$(echo "$prefix" | cut -d'/' -f1)
-        local prefix_len=$(echo "$prefix" | cut -d'/' -f2)
-        
-        # 计算下一跳地址（通常是WireGuard接口的第一个地址）
-        local next_hop="${network%::*}::1"
-        
-        cat >> "$config_file" << EOF
+    # 添加IPv6前缀配置
+    if [[ -n "$ipv6_prefixes" ]]; then
+        IFS=',' read -ra prefixes <<< "$ipv6_prefixes"
+        for prefix in "${prefixes[@]}"; do
+            if [[ -n "$prefix" ]]; then
+                # 计算下一跳地址
+                local network=$(echo "$prefix" | cut -d'/' -f1)
+                local next_hop="${network%::*}::1"
+                cat >> "$config_file" << EOF
     route $prefix via $next_hop;
 EOF
-    done
-
+            fi
+        done
+    else
+        cat >> "$config_file" << EOF
+    # 请根据实际情况配置IPv6前缀
+    # route 2001:db8::/48 via 2001:db8::1;
+EOF
+    fi
+    
     cat >> "$config_file" << EOF
 }
 
@@ -260,7 +471,7 @@ filter bgp_export {
     accept;
 }
 
-# 日志配置
+# 日志配置 (BIRD 2.x 语法)
 log syslog { debug, trace, info, remote, warning, error, auth, fatal, bug };
 log "/var/log/bird/bird.log" { info, remote, warning, error, auth, fatal, bug };
 EOF

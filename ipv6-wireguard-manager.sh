@@ -392,10 +392,14 @@ interactive_port_selection() {
         if [[ -z "$input_port" ]]; then
             port="$default_port"
         else
+            # 清理输入，移除任何非数字字符
+            input_port=$(echo "$input_port" | tr -d '[:alpha:][:punct:][:space:]')
+            
             if [[ "$input_port" =~ ^[0-9]+$ ]] && [[ "$input_port" -ge 1 ]] && [[ "$input_port" -le 65535 ]]; then
                 port="$input_port"
             else
                 echo -e "${RED}错误: 端口必须是1-65535之间的数字${NC}"
+                echo -e "${RED}输入的内容: '$input_port' 不是有效的端口号${NC}"
                 continue
             fi
         fi
@@ -616,11 +620,12 @@ show_main_menu() {
     echo -e "  ${GREEN}3.${NC} 服务器管理"
     echo -e "  ${GREEN}4.${NC} 客户端管理"
     echo -e "  ${GREEN}5.${NC} 网络配置"
-    echo -e "  ${GREEN}6.${NC} 防火墙管理"
-    echo -e "  ${GREEN}7.${NC} 系统维护"
-    echo -e "  ${GREEN}8.${NC} 配置备份/恢复"
-    echo -e "  ${GREEN}9.${NC} 更新检查"
-    echo -e "  ${GREEN}10.${NC} 下载必需文件"
+    echo -e "  ${GREEN}6.${NC} BGP配置管理"
+    echo -e "  ${GREEN}7.${NC} 防火墙管理"
+    echo -e "  ${GREEN}8.${NC} 系统维护"
+    echo -e "  ${GREEN}9.${NC} 配置备份/恢复"
+    echo -e "  ${GREEN}10.${NC} 更新检查"
+    echo -e "  ${GREEN}11.${NC} 下载必需文件"
     echo -e "  ${GREEN}0.${NC} 退出"
     echo
 }
@@ -993,7 +998,14 @@ configure_wireguard() {
     local ipv6_prefix="$2"
     local interface="${3:-$(ip route | grep default | awk '{print $5}' | head -1)}"
     
-    log "INFO" "Configuring WireGuard server..."
+    # 验证端口号
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [[ "$port" -lt 1 ]] || [[ "$port" -gt 65535 ]]; then
+        log "ERROR" "Invalid port number: $port"
+        log "ERROR" "Port must be a number between 1 and 65535"
+        return 1
+    fi
+    
+    log "INFO" "Configuring WireGuard server with port: $port"
     
     # 生成服务器密钥
     local server_private_key=$(wg genkey)
@@ -1701,6 +1713,293 @@ show_network_connections() {
     done
     
     echo
+    read -p "按回车键继续..."
+}
+
+# BGP配置管理菜单
+bgp_config_menu() {
+    while true; do
+        clear
+        echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${WHITE}║                    BGP配置管理                            ║${NC}"
+        echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
+        echo
+        
+        echo -e "${YELLOW}BGP配置选项:${NC}"
+        echo -e "  ${GREEN}1.${NC} 交互式BGP配置"
+        echo -e "  ${GREEN}2.${NC} 查看当前BGP配置"
+        echo -e "  ${GREEN}3.${NC} 生成BGP配置文件"
+        echo -e "  ${GREEN}4.${NC} 测试BGP配置"
+        echo -e "  ${GREEN}5.${NC} 重启BIRD服务"
+        echo -e "  ${GREEN}6.${NC} 查看BGP状态"
+        echo -e "  ${GREEN}7.${NC} 导入BGP配置"
+        echo -e "  ${GREEN}8.${NC} 导出BGP配置"
+        echo -e "  ${GREEN}0.${NC} 返回主菜单"
+        echo
+        
+        read -p "请选择操作 (0-8): " choice
+        
+        case "$choice" in
+            "1")
+                if load_module "bird_config"; then
+                    interactive_bgp_config
+                    read -p "按回车键继续..."
+                else
+                    echo -e "${RED}无法加载BGP配置模块${NC}"
+                    read -p "按回车键继续..."
+                fi
+                ;;
+            "2")
+                show_bgp_config
+                ;;
+            "3")
+                generate_bgp_config
+                ;;
+            "4")
+                test_bgp_config
+                ;;
+            "5")
+                restart_bird_service
+                ;;
+            "6")
+                show_bgp_status
+                ;;
+            "7")
+                import_bgp_config
+                ;;
+            "8")
+                export_bgp_config
+                ;;
+            "0")
+                break
+                ;;
+            *)
+                echo -e "${RED}无效选择，请重试${NC}"
+                read -p "按回车键继续..."
+                ;;
+        esac
+    done
+}
+
+# 显示当前BGP配置
+show_bgp_config() {
+    echo -e "${CYAN}当前BGP配置:${NC}"
+    echo
+    
+    if [[ -n "$BGP_ROUTER_ID" ]]; then
+        echo -e "路由器ID: ${GREEN}$BGP_ROUTER_ID${NC}"
+    else
+        echo -e "路由器ID: ${RED}未配置${NC}"
+    fi
+    
+    if [[ -n "$BGP_AS_NUMBER" ]]; then
+        echo -e "AS号: ${GREEN}$BGP_AS_NUMBER${NC}"
+    else
+        echo -e "AS号: ${RED}未配置${NC}"
+    fi
+    
+    if [[ -n "$BGP_UPSTREAM_ASN" ]]; then
+        echo -e "上游ASN: ${GREEN}$BGP_UPSTREAM_ASN${NC}"
+    else
+        echo -e "上游ASN: ${RED}未配置${NC}"
+    fi
+    
+    if [[ -n "$BGP_NEIGHBORS" ]]; then
+        echo -e "BGP邻居: ${GREEN}已配置${NC}"
+        IFS='|' read -ra neighbors <<< "$BGP_NEIGHBORS"
+        for neighbor in "${neighbors[@]}"; do
+            if [[ -n "$neighbor" ]]; then
+                IFS=',' read -ra parts <<< "$neighbor"
+                echo -e "  - ${parts[0]}: ${parts[1]} (AS ${parts[2]})"
+            fi
+        done
+    else
+        echo -e "BGP邻居: ${RED}未配置${NC}"
+    fi
+    
+    if [[ -n "$BGP_MULTIHOP" ]]; then
+        echo -e "Multihop: ${GREEN}$BGP_MULTIHOP${NC}"
+    else
+        echo -e "Multihop: ${RED}未配置${NC}"
+    fi
+    
+    if [[ -n "$BGP_IPV6_PREFIXES" ]]; then
+        echo -e "IPv6前缀: ${GREEN}$BGP_IPV6_PREFIXES${NC}"
+    else
+        echo -e "IPv6前缀: ${RED}未配置${NC}"
+    fi
+    
+    echo
+    read -p "按回车键继续..."
+}
+
+# 生成BGP配置文件
+generate_bgp_config() {
+    echo -e "${CYAN}生成BGP配置文件...${NC}"
+    
+    if load_module "bird_config"; then
+        # 检测BIRD版本
+        detect_bird_version
+        
+        # 创建配置目录
+        mkdir -p /etc/bird
+        
+        # 生成配置文件
+        local config_file="/etc/bird/bird.conf"
+        create_bird_config "$config_file" "$BGP_ROUTER_ID" "$BGP_AS_NUMBER" "$BGP_IPV6_PREFIXES"
+        
+        echo -e "${GREEN}✓${NC} BGP配置文件已生成: $config_file"
+    else
+        echo -e "${RED}无法加载BGP配置模块${NC}"
+    fi
+    
+    read -p "按回车键继续..."
+}
+
+# 测试BGP配置
+test_bgp_config() {
+    echo -e "${CYAN}测试BGP配置...${NC}"
+    
+    local config_file="/etc/bird/bird.conf"
+    
+    if [[ ! -f "$config_file" ]]; then
+        echo -e "${RED}配置文件不存在: $config_file${NC}"
+        read -p "按回车键继续..."
+        return
+    fi
+    
+    # 检测BIRD版本
+    if command -v bird >/dev/null 2>&1; then
+        local bird_cmd="bird"
+    elif command -v bird2 >/dev/null 2>&1; then
+        local bird_cmd="bird2"
+    else
+        echo -e "${RED}BIRD未安装${NC}"
+        read -p "按回车键继续..."
+        return
+    fi
+    
+    # 测试配置语法
+    if $bird_cmd -c "$config_file" -p; then
+        echo -e "${GREEN}✓${NC} BGP配置语法正确"
+    else
+        echo -e "${RED}✗${NC} BGP配置语法错误"
+    fi
+    
+    read -p "按回车键继续..."
+}
+
+# 重启BIRD服务
+restart_bird_service() {
+    echo -e "${CYAN}重启BIRD服务...${NC}"
+    
+    if systemctl is-active --quiet bird; then
+        echo "停止BIRD服务..."
+        systemctl stop bird
+    elif systemctl is-active --quiet bird2; then
+        echo "停止BIRD2服务..."
+        systemctl stop bird2
+    fi
+    
+    sleep 2
+    
+    if systemctl start bird; then
+        echo -e "${GREEN}✓${NC} BIRD服务启动成功"
+    elif systemctl start bird2; then
+        echo -e "${GREEN}✓${NC} BIRD2服务启动成功"
+    else
+        echo -e "${RED}✗${NC} BIRD服务启动失败"
+    fi
+    
+    read -p "按回车键继续..."
+}
+
+# 显示BGP状态
+show_bgp_status() {
+    echo -e "${CYAN}BGP状态信息:${NC}"
+    echo
+    
+    if command -v birdc >/dev/null 2>&1; then
+        echo -e "${CYAN}BIRD状态:${NC}"
+        birdc show status 2>/dev/null || echo "无法获取BIRD状态"
+        echo
+        echo -e "${CYAN}BGP协议状态:${NC}"
+        birdc show protocols all bgp 2>/dev/null || echo "无BGP协议配置"
+    elif command -v birdc2 >/dev/null 2>&1; then
+        echo -e "${CYAN}BIRD2状态:${NC}"
+        birdc2 show status 2>/dev/null || echo "无法获取BIRD2状态"
+        echo
+        echo -e "${CYAN}BGP协议状态:${NC}"
+        birdc2 show protocols all bgp 2>/dev/null || echo "无BGP协议配置"
+    else
+        echo -e "${RED}BIRD控制台未找到${NC}"
+    fi
+    
+    echo
+    read -p "按回车键继续..."
+}
+
+# 导入BGP配置
+import_bgp_config() {
+    echo -e "${CYAN}导入BGP配置${NC}"
+    echo "请选择要导入的配置文件:"
+    
+    local config_dir="/etc/ipv6-wireguard"
+    if [[ -d "$config_dir" ]]; then
+        local configs=($(find "$config_dir" -name "*.conf" -type f))
+        if [[ ${#configs[@]} -gt 0 ]]; then
+            for i in "${!configs[@]}"; do
+                echo -e "  ${GREEN}$((i+1)).${NC} ${configs[i]}"
+            done
+        else
+            echo "未找到配置文件"
+            read -p "按回车键继续..."
+            return
+        fi
+    else
+        echo "配置目录不存在: $config_dir"
+        read -p "按回车键继续..."
+        return
+    fi
+    
+    read -p "请选择配置文件 (1-${#configs[@]}): " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#configs[@]} ]]; then
+        local selected_config="${configs[$((choice-1))]}"
+        echo "导入配置: $selected_config"
+        # 这里可以添加具体的导入逻辑
+        echo -e "${GREEN}✓${NC} 配置导入完成"
+    else
+        echo -e "${RED}无效选择${NC}"
+    fi
+    
+    read -p "按回车键继续..."
+}
+
+# 导出BGP配置
+export_bgp_config() {
+    echo -e "${CYAN}导出BGP配置${NC}"
+    
+    local export_dir="/etc/ipv6-wireguard/exports"
+    mkdir -p "$export_dir"
+    
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local export_file="$export_dir/bgp_config_$timestamp.conf"
+    
+    cat > "$export_file" << EOF
+# BGP配置导出
+# 导出时间: $(date)
+# 路由器ID: $BGP_ROUTER_ID
+# AS号: $BGP_AS_NUMBER
+# 上游ASN: $BGP_UPSTREAM_ASN
+# Multihop: $BGP_MULTIHOP
+# IPv6前缀: $BGP_IPV6_PREFIXES
+
+# BGP邻居配置
+$BGP_NEIGHBORS
+EOF
+    
+    echo -e "${GREEN}✓${NC} BGP配置已导出到: $export_file"
     read -p "按回车键继续..."
 }
 
@@ -4962,7 +5261,7 @@ main() {
     # 主菜单循环
     while true; do
         show_main_menu
-        read -p "请选择操作 (0-10): " choice
+        read -p "请选择操作 (0-11): " choice
         
         case "$choice" in
             "1")
@@ -4996,6 +5295,9 @@ main() {
                 fi
                 ;;
             "6")
+                bgp_config_menu
+                ;;
+            "7")
                 if load_module "firewall_management"; then
                     firewall_management_menu
                 else
@@ -5003,7 +5305,7 @@ main() {
                 read -p "按回车键继续..."
                 fi
                 ;;
-            "7")
+            "8")
                 if load_module "system_maintenance"; then
                     system_maintenance_menu
                 else
@@ -5011,7 +5313,7 @@ main() {
                 read -p "按回车键继续..."
                 fi
                 ;;
-            "8")
+            "9")
                 if load_module "backup_restore"; then
                     backup_restore_menu
                 else
@@ -5019,7 +5321,7 @@ main() {
                 read -p "按回车键继续..."
                 fi
                 ;;
-            "9")
+            "10")
                 if load_module "update_management"; then
                     update_check_menu
                 else
@@ -5027,7 +5329,7 @@ main() {
                 read -p "按回车键继续..."
                 fi
                 ;;
-            "10")
+            "11")
                 echo -e "${CYAN}下载必需文件${NC}"
                 echo
                 

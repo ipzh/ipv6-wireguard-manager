@@ -361,6 +361,10 @@ interactive_port_selection() {
         read -p "请输入WireGuard端口 [$default_port]: " port
         port="${port:-$default_port}"
         
+        # 清理输入，移除任何非数字字符
+        port=$(echo "$port" | tr -d '[:alpha:][:punct:][:space:]')
+        
+        # 验证端口号
         if [[ "$port" =~ ^[0-9]+$ ]] && [[ "$port" -ge 1 ]] && [[ "$port" -le 65535 ]]; then
             if is_port_in_use "$port"; then
                 echo -e "${YELLOW}端口 $port 已被占用，请选择其他端口${NC}"
@@ -369,6 +373,7 @@ interactive_port_selection() {
             fi
         else
             echo -e "${RED}请输入有效的端口号 (1-65535)${NC}"
+            echo -e "${RED}输入的内容: '$port' 不是有效的端口号${NC}"
         fi
     done
     
@@ -1046,7 +1051,14 @@ configure_wireguard() {
     local ipv6_prefix="${2:-$DEFAULT_IPV6_PREFIX}"
     local interface="${3:-wg0}"
     
-    log "INFO" "Configuring WireGuard..."
+    # 验证端口号
+    if ! [[ "$wg_port" =~ ^[0-9]+$ ]] || [[ "$wg_port" -lt 1 ]] || [[ "$wg_port" -gt 65535 ]]; then
+        log "ERROR" "Invalid port number: $wg_port"
+        log "ERROR" "Port must be a number between 1 and 65535"
+        return 1
+    fi
+    
+    log "INFO" "Configuring WireGuard with port: $wg_port"
     
     # 生成服务器密钥
     local server_private_key=$(wg genkey)
