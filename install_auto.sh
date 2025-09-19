@@ -935,7 +935,7 @@ main() {
     show_welcome
     
     # 确认安装
-    read -p "是否继续安装? (y/N): " confirm
+    confirm="y"
     if [[ "${confirm,,}" != "y" ]]; then
         echo "安装已取消"
         exit 0
