@@ -3,12 +3,19 @@
 # 配置管理模块
 # 负责YAML格式配置管理、配置验证、配置版本控制等功能
 
+# 导入公共函数
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # 配置管理变量
+CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
 CONFIG_MANAGEMENT_DIR="${CONFIG_DIR}/management"
 YAML_CONFIG_DIR="${CONFIG_MANAGEMENT_DIR}/yaml"
 CONFIG_BACKUP_DIR="${CONFIG_MANAGEMENT_DIR}/backups"
 CONFIG_VALIDATION_DIR="${CONFIG_MANAGEMENT_DIR}/validation"
 CONFIG_VERSION_DB="${CONFIG_MANAGEMENT_DIR}/versions.db"
+CONFIG_FILE="${CONFIG_FILE:-${CONFIG_DIR}/manager.conf}"
 
 # 配置模板目录
 CONFIG_TEMPLATES_DIR="${CONFIG_DIR}/templates"
