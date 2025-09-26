@@ -3,6 +3,11 @@
 # 防火墙管理模块
 # 负责防火墙规则管理、端口管理、服务管理等防火墙相关功能
 
+# 设置默认变量（如果未定义）
+CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
+
 # 防火墙配置变量
 FIREWALL_CONFIG_DIR="${CONFIG_DIR}/firewall"
 FIREWALL_RULES_FILE="${FIREWALL_CONFIG_DIR}/rules.conf"

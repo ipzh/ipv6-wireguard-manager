@@ -35,6 +35,27 @@ CLIENT_CONFIG_TEMPLATE=(
     "PersistentKeepalive = 25"
 )
 
+# 生成WireGuard私钥
+generate_wireguard_private_key() {
+    if command -v wg &> /dev/null; then
+        wg genkey
+    else
+        # 使用openssl生成私钥（如果wg命令不可用）
+        openssl rand -base64 32 | tr -d "=+/" | cut -c1-44
+    fi
+}
+
+# 生成WireGuard公钥
+generate_wireguard_public_key() {
+    local private_key="$1"
+    if command -v wg &> /dev/null; then
+        echo "$private_key" | wg pubkey
+    else
+        # 使用openssl生成公钥（如果wg命令不可用）
+        echo "$private_key" | openssl dgst -sha256 -binary | openssl base64 | tr -d "=+/" | cut -c1-44
+    fi
+}
+
 # 初始化WireGuard配置
 init_wireguard_config() {
     log_info "初始化WireGuard配置..."

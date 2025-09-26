@@ -3,6 +3,11 @@
 # 公共函数库
 # 提供所有模块共用的基础函数
 
+# 设置默认变量（如果未定义）
+CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
+
 # 颜色和格式化函数
 print_header() {
     local title="$1"
@@ -111,14 +116,56 @@ validate_ipv4() {
 
 validate_ipv6() {
     local ip="$1"
-    if [[ $ip =~ ^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$ ]] || \
-       [[ $ip =~ ^::1$ ]] || \
-       [[ $ip =~ ^::$ ]] || \
-       [[ $ip =~ ^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$ ]] || \
-       [[ $ip =~ ^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*$ ]] || \
-       [[ $ip =~ ^::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$ ]]; then
+    
+    # 检查是否为空
+    if [[ -z "$ip" ]]; then
+        return 1
+    fi
+    
+    # 检查基本格式 - 必须包含冒号
+    if [[ ! "$ip" =~ : ]]; then
+        return 1
+    fi
+    
+    # 检查长度 - IPv6最长39个字符
+    if [[ ${#ip} -gt 39 ]]; then
+        return 1
+    fi
+    
+    # 检查双冒号数量 - 最多只能有一个
+    if [[ $(echo "$ip" | grep -o "::" | wc -l) -gt 1 ]]; then
+        return 1
+    fi
+    
+    # 检查特殊地址
+    if [[ "$ip" == "::1" ]] || [[ "$ip" == "::" ]]; then
         return 0
     fi
+    
+    # 使用ip命令验证IPv6地址
+    if command -v ip &> /dev/null; then
+        if ip -6 addr show dev lo | grep -q "inet6 $ip/"; then
+            return 0
+        fi
+    fi
+    
+    # 使用ping6验证（如果可用）
+    if command -v ping6 &> /dev/null; then
+        if ping6 -c 1 -W 1 "$ip" &>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    # 正则表达式验证 - 更宽松的IPv6验证
+    if [[ $ip =~ ^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$ ]] || \
+       [[ $ip =~ ^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$ ]] || \
+       [[ $ip =~ ^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*$ ]] || \
+       [[ $ip =~ ^::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$ ]] || \
+       [[ $ip =~ ^[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})*$ ]] || \
+       [[ $ip =~ ^[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})*::[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})*$ ]]; then
+        return 0
+    fi
+    
     return 1
 }
 
