@@ -145,6 +145,9 @@ init_config() {
     
     # 加载配置
     if [[ -f "$CONFIG_FILE" ]]; then
+        # 确保配置文件使用Unix行尾符
+        fix_line_endings "$CONFIG_FILE"
+        
         source "$CONFIG_FILE"
         log_info "已加载配置文件: $CONFIG_FILE"
     fi

@@ -813,6 +813,34 @@ handle_error() {
     esac
 }
 
+# 修复文件行尾符
+fix_line_endings() {
+    local file="$1"
+    
+    if [[ ! -f "$file" ]]; then
+        return 1
+    fi
+    
+    # 转换Windows行尾符为Unix行尾符
+    if command -v sed &> /dev/null; then
+        sed -i 's/\r$//' "$file" 2>/dev/null || true
+    elif command -v tr &> /dev/null; then
+        tr -d '\r' < "$file" > "${file}.tmp" && mv "${file}.tmp" "$file" 2>/dev/null || true
+    elif command -v dos2unix &> /dev/null; then
+        dos2unix "$file" 2>/dev/null || true
+    else
+        # 使用Python作为最后的回退方案
+        python3 -c "
+import sys
+with open('$file', 'rb') as f:
+    content = f.read()
+content = content.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+with open('$file', 'wb') as f:
+    f.write(content)
+" 2>/dev/null || true
+    fi
+}
+
 # 配置管理优化
 load_config() {
     local config_file="${1:-$CONFIG_FILE}"
@@ -821,6 +849,9 @@ load_config() {
         handle_error "FILE_NOT_FOUND" "配置文件不存在: $config_file" "load_config"
         return 1
     fi
+    
+    # 确保配置文件使用Unix行尾符
+    fix_line_endings "$config_file"
     
     log_info "加载配置文件: $config_file"
     
@@ -907,4 +938,4 @@ export -f get_config_value set_config_value
 export -f log_info log_success log_warn log_error log_debug log_with_timestamp log_debug_enhanced log_info_enhanced log_warn_enhanced log_error_enhanced
 export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
-export -f load_config cached_command clear_cache get_cache_stats
+export -f fix_line_endings load_config cached_command clear_cache get_cache_stats

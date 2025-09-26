@@ -672,8 +672,7 @@ EOF
     # 确保配置文件使用Unix行尾符
     for conf_file in "$CONFIG_DIR"/*.conf; do
         if [[ -f "$conf_file" ]]; then
-            # 转换Windows行尾符为Unix行尾符
-            sed -i 's/\r$//' "$conf_file" 2>/dev/null || true
+            fix_line_endings "$conf_file"
         fi
     done
     
