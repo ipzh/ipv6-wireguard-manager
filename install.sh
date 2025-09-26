@@ -497,56 +497,63 @@ create_directories() {
 install_files() {
     log_info "安装程序文件..."
     
+    # 获取脚本所在目录
+    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
+    local main_script="$script_dir/ipv6-wireguard-manager.sh"
+    
     # 复制主脚本
-    if [[ -f "ipv6-wireguard-manager.sh" ]]; then
-        cp "ipv6-wireguard-manager.sh" "$INSTALL_DIR/"
+    if [[ -f "$main_script" ]]; then
+        cp "$main_script" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR/ipv6-wireguard-manager.sh"
-        log_debug "安装主脚本"
+        log_debug "安装主脚本: $main_script"
     else
-        log_error "主脚本文件不存在"
+        log_error "主脚本文件不存在: $main_script"
+        log_error "当前目录: $(pwd)"
+        log_error "脚本目录: $script_dir"
+        log_error "请确保在正确的目录中运行安装脚本"
         exit 1
     fi
     
     # 复制模块文件
-    if [[ -d "modules" ]]; then
-        cp -r modules/* "$INSTALL_DIR/modules/"
+    if [[ -d "$script_dir/modules" ]]; then
+        cp -r "$script_dir/modules"/* "$INSTALL_DIR/modules/"
         chmod +x "$INSTALL_DIR/modules"/*.sh
         log_debug "安装模块文件"
     else
-        log_warn "模块目录不存在"
+        log_warn "模块目录不存在: $script_dir/modules"
     fi
     
     # 复制配置文件
-    if [[ -d "config" ]]; then
-        cp -r config/* "$INSTALL_DIR/config/"
+    if [[ -d "$script_dir/config" ]]; then
+        cp -r "$script_dir/config"/* "$INSTALL_DIR/config/"
         log_debug "安装配置文件"
     else
-        log_warn "配置目录不存在"
+        log_warn "配置目录不存在: $script_dir/config"
     fi
     
     # 复制脚本文件
-    if [[ -d "scripts" ]]; then
-        cp -r scripts/* "$INSTALL_DIR/scripts/"
+    if [[ -d "$script_dir/scripts" ]]; then
+        cp -r "$script_dir/scripts"/* "$INSTALL_DIR/scripts/"
         chmod +x "$INSTALL_DIR/scripts"/*.sh
         log_debug "安装脚本文件"
     else
-        log_warn "脚本目录不存在"
+        log_warn "脚本目录不存在: $script_dir/scripts"
     fi
     
     # 复制示例文件
-    if [[ -d "examples" ]]; then
-        cp -r examples/* "$INSTALL_DIR/examples/"
+    if [[ -d "$script_dir/examples" ]]; then
+        cp -r "$script_dir/examples"/* "$INSTALL_DIR/examples/"
         log_debug "安装示例文件"
     else
-        log_warn "示例目录不存在"
+        log_warn "示例目录不存在: $script_dir/examples"
     fi
     
     # 复制文档文件
-    if [[ -d "docs" ]]; then
-        cp -r docs/* "$INSTALL_DIR/docs/"
+    if [[ -d "$script_dir/docs" ]]; then
+        cp -r "$script_dir/docs"/* "$INSTALL_DIR/docs/"
         log_debug "安装文档文件"
     else
-        log_warn "文档目录不存在"
+        log_warn "文档目录不存在: $script_dir/docs"
     fi
     
     # 创建符号链接
