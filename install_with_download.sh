@@ -193,7 +193,22 @@ main() {
         exit 1
     fi
     
-    log_success "安装完成！"
+    echo
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                    🎉 安装完成！IPv6 WireGuard Manager 已就绪 🎉            ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo
+    
+    echo -e "${YELLOW}🚀 快速启动:${NC}"
+    echo "  ${CYAN}/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh${NC}"
+    echo
+    echo -e "${YELLOW}📋 管理命令:${NC}"
+    echo "  ├─ 启动服务: ${CYAN}systemctl start ipv6-wireguard-manager${NC}"
+    echo "  ├─ 查看状态: ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
+    echo "  └─ 查看日志: ${CYAN}journalctl -u ipv6-wireguard-manager -f${NC}"
+    echo
+    echo -e "${GREEN}感谢使用IPv6 WireGuard Manager！${NC}"
+    echo
 }
 
 # 执行主函数

@@ -859,30 +859,120 @@ post_install_configuration() {
 show_installation_complete() {
     echo
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                       安装完成！                                           ║${NC}"
+    echo -e "${GREEN}║                    🎉 安装完成！IPv6 WireGuard Manager 已就绪 🎉            ║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
-    echo -e "${CYAN}安装信息:${NC}"
-    echo "  安装目录: $INSTALL_DIR"
-    echo "  配置目录: $CONFIG_DIR"
-    echo "  日志目录: $LOG_DIR"
-    echo "  可执行文件: $BIN_DIR/ipv6-wireguard-manager"
+    
+    # 安装信息
+    echo -e "${CYAN}📁 安装信息:${NC}"
+    echo "  ├─ 安装目录: $INSTALL_DIR"
+    echo "  ├─ 配置目录: $CONFIG_DIR"
+    echo "  ├─ 日志目录: $LOG_DIR"
+    echo "  └─ 可执行文件: $BIN_DIR/ipv6-wireguard-manager"
     echo
-    echo -e "${CYAN}使用方法:${NC}"
-    echo "  启动管理界面: $BIN_DIR/ipv6-wireguard-manager"
-    echo "  查看帮助: $BIN_DIR/ipv6-wireguard-manager --help"
-    echo "  启动服务: systemctl start ipv6-wireguard-manager"
-    echo "  查看状态: systemctl status ipv6-wireguard-manager"
+    
+    # 快速启动指南
+    echo -e "${YELLOW}🚀 快速启动指南:${NC}"
+    echo "  ${GREEN}1.${NC} 启动管理界面:"
+    echo "     ${CYAN}$BIN_DIR/ipv6-wireguard-manager${NC}"
     echo
-    echo -e "${CYAN}配置文件:${NC}"
-    echo "  主配置: $CONFIG_DIR/manager.conf"
-    echo "  错误处理: $CONFIG_DIR/error_handling.conf"
-    echo "  用户界面: $CONFIG_DIR/ui.conf"
+    echo "  ${GREEN}2.${NC} 启动系统服务:"
+    echo "     ${CYAN}systemctl start ipv6-wireguard-manager${NC}"
+    echo "     ${CYAN}systemctl enable ipv6-wireguard-manager${NC}"
     echo
-    echo -e "${CYAN}卸载方法:${NC}"
-    echo "  运行卸载脚本: $INSTALL_DIR/uninstall.sh"
+    echo "  ${GREEN}3.${NC} 检查服务状态:"
+    echo "     ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
     echo
-    echo -e "${YELLOW}注意: 请根据需要修改配置文件中的默认设置${NC}"
+    
+    # 管理命令
+    echo -e "${BLUE}⚙️  管理命令:${NC}"
+    echo "  ├─ 查看帮助: ${CYAN}$BIN_DIR/ipv6-wireguard-manager --help${NC}"
+    echo "  ├─ 查看状态: ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
+    echo "  ├─ 重启服务: ${CYAN}systemctl restart ipv6-wireguard-manager${NC}"
+    echo "  ├─ 停止服务: ${CYAN}systemctl stop ipv6-wireguard-manager${NC}"
+    echo "  └─ 查看日志: ${CYAN}journalctl -u ipv6-wireguard-manager -f${NC}"
+    echo
+    
+    # Web界面访问
+    if [[ "$INSTALL_WEB_INTERFACE" == "true" ]]; then
+        echo -e "${GREEN}🌐 Web管理界面:${NC}"
+        echo "  ├─ HTTP访问: ${CYAN}http://$(hostname -I | awk '{print $1}'):8080${NC}"
+        echo "  ├─ HTTPS访问: ${CYAN}https://$(hostname -I | awk '{print $1}'):8443${NC}"
+        echo "  └─ 本地访问: ${CYAN}http://localhost:8080${NC}"
+        echo
+    fi
+    
+    # 配置文件位置
+    echo -e "${CYAN}📋 配置文件:${NC}"
+    echo "  ├─ 主配置: ${CYAN}$CONFIG_DIR/manager.conf${NC}"
+    echo "  ├─ WireGuard配置: ${CYAN}$CONFIG_DIR/wireguard/${NC}"
+    echo "  ├─ BIRD配置: ${CYAN}$CONFIG_DIR/bird/${NC}"
+    echo "  └─ 日志文件: ${CYAN}$LOG_DIR/manager.log${NC}"
+    echo
+    
+    # 下一步操作
+    echo -e "${YELLOW}📝 下一步操作:${NC}"
+    echo "  ${GREEN}1.${NC} 配置WireGuard服务器:"
+    echo "     ${CYAN}$BIN_DIR/ipv6-wireguard-manager --configure-wireguard${NC}"
+    echo
+    echo "  ${GREEN}2.${NC} 配置BGP路由:"
+    echo "     ${CYAN}$BIN_DIR/ipv6-wireguard-manager --configure-bird${NC}"
+    echo
+    echo "  ${GREEN}3.${NC} 添加客户端:"
+    echo "     ${CYAN}$BIN_DIR/ipv6-wireguard-manager --add-client${NC}"
+    echo
+    echo "  ${GREEN}4.${NC} 查看系统状态:"
+    echo "     ${CYAN}$BIN_DIR/ipv6-wireguard-manager --status${NC}"
+    echo
+    
+    # 故障排除
+    echo -e "${RED}🔧 故障排除:${NC}"
+    echo "  ├─ 查看详细日志: ${CYAN}tail -f $LOG_DIR/manager.log${NC}"
+    echo "  ├─ 检查服务状态: ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
+    echo "  ├─ 重启服务: ${CYAN}systemctl restart ipv6-wireguard-manager${NC}"
+    echo "  └─ 重新配置: ${CYAN}$BIN_DIR/ipv6-wireguard-manager --reconfigure${NC}"
+    echo
+    
+    # 卸载方法
+    echo -e "${YELLOW}🗑️  卸载方法:${NC}"
+    echo "  ${CYAN}$INSTALL_DIR/uninstall.sh${NC}"
+    echo
+    
+    # 重要提示
+    echo -e "${RED}⚠️  重要提示:${NC}"
+    echo "  • 请根据需要修改配置文件中的默认设置"
+    echo "  • 确保防火墙已正确配置相关端口"
+    echo "  • 建议定期备份配置文件"
+    echo "  • 首次使用前请阅读文档: ${CYAN}$INSTALL_DIR/docs/${NC}"
+    echo
+    
+    # 获取帮助
+    echo -e "${BLUE}📞 获取帮助:${NC}"
+    echo "  • 项目地址: ${CYAN}https://github.com/ipzh/ipv6-wireguard-manager${NC}"
+    echo "  • 文档目录: ${CYAN}$INSTALL_DIR/docs/${NC}"
+    echo "  • 问题反馈: ${CYAN}https://github.com/ipzh/ipv6-wireguard-manager/issues${NC}"
+    echo
+    
+    # 立即启动选项
+    echo -e "${GREEN}🎯 立即启动?${NC}"
+    read -p "是否立即启动IPv6 WireGuard Manager? [Y/n]: " start_now
+    
+    if [[ "$start_now" =~ ^[Nn]$ ]]; then
+        echo -e "${YELLOW}稍后可以运行以下命令启动:${NC}"
+        echo "  ${CYAN}$BIN_DIR/ipv6-wireguard-manager${NC}"
+    else
+        echo -e "${GREEN}正在启动IPv6 WireGuard Manager...${NC}"
+        echo
+        if [[ -f "$BIN_DIR/ipv6-wireguard-manager" ]]; then
+            "$BIN_DIR/ipv6-wireguard-manager"
+        else
+            echo -e "${RED}错误: 找不到可执行文件${NC}"
+            echo "请手动运行: $BIN_DIR/ipv6-wireguard-manager"
+        fi
+    fi
+    
+    echo
+    echo -e "${GREEN}感谢使用IPv6 WireGuard Manager！${NC}"
     echo
 }
 
