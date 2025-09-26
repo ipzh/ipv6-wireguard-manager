@@ -8,6 +8,16 @@ CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
 LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
+SECONDARY_COLOR='\033[0;36m'  # 次要颜色（青色）
+NC='\033[0m' # No Color
+
 # 颜色和格式化函数
 print_header() {
     local title="$1"
@@ -35,6 +45,26 @@ print_warning() {
 
 print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
+}
+
+# 用户交互函数
+show_input() {
+    local prompt="$1"
+    local default="$2"
+    local value
+    
+    if [[ -n "$default" ]]; then
+        read -p "$prompt [$default]: " value
+        value="${value:-$default}"
+    else
+        read -p "$prompt: " value
+    fi
+    
+    echo "$value"
+}
+
+show_success() {
+    echo -e "${GREEN}✓${NC} $1"
 }
 
 # 进度条函数
@@ -577,6 +607,29 @@ set_config_value() {
     fi
 }
 
+# 基本日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+log_debug() {
+    if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
+        echo -e "${CYAN}[DEBUG]${NC} $1" | tee -a "$LOG_FILE"
+    fi
+}
+
 # 日志函数增强
 log_with_timestamp() {
     local level="$1"
@@ -838,7 +891,7 @@ get_cache_stats() {
 }
 
 # 导出函数供其他模块使用
-export -f print_header print_section print_success print_error print_warning print_info
+export -f print_header print_section print_success print_error print_warning print_info show_input show_success
 export -f show_progress confirm validate_ipv4 validate_ipv6 validate_cidr validate_port validate_interface
 export -f get_public_ipv4 get_public_ipv6 get_local_ipv4 get_local_ipv6
 export -f backup_file create_temp_file trim to_lower to_upper
@@ -848,7 +901,7 @@ export -f is_service_running start_service stop_service restart_service enable_s
 export -f install_package remove_package test_connectivity
 export -f generate_random_string generate_wireguard_key generate_wireguard_public_key
 export -f get_config_value set_config_value
-export -f log_with_timestamp log_debug_enhanced log_info_enhanced log_warn_enhanced log_error_enhanced
+export -f log_info log_success log_warn log_error log_debug log_with_timestamp log_debug_enhanced log_info_enhanced log_warn_enhanced log_error_enhanced
 export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
 export -f load_config cached_command clear_cache get_cache_stats
