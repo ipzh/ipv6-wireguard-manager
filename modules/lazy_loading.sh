@@ -1,4 +1,12 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+
+# 确保日志相关变量已定义
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
+fi
 
 # 配置懒加载模块
 # 实现配置的懒加载机制，优化系统启动和内存使用

@@ -1,4 +1,8 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # WebSocket实时通信模块
 # 实现WebSocket实时通信功能

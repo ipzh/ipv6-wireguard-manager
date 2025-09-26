@@ -25,6 +25,7 @@ NC="${NC:-'\033[0m'}"
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
 CONFIG_DIR="/etc/ipv6-wireguard-manager"
 LOG_DIR="/var/log/ipv6-wireguard-manager"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 BIN_DIR="/usr/local/bin"
 SERVICE_DIR="/etc/systemd/system"
 

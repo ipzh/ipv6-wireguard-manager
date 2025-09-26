@@ -1,4 +1,8 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # 错误处理模块
 # 提供统一的错误处理、日志记录和异常恢复机制

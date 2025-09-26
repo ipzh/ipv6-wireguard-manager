@@ -1,4 +1,8 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # 更新管理模块
 # 负责版本检查、自动更新、更新日志、版本回滚等功能

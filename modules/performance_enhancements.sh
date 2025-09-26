@@ -1,4 +1,8 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # IPv6 WireGuard Manager 性能优化模块
 # 版本: 1.0.0

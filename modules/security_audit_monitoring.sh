@@ -1,4 +1,8 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # 安全审计和监控模块
 # 实现安全事件监控、告警系统、安全扫描等功能

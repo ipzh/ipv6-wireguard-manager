@@ -28,8 +28,11 @@ CONFIG_DIR="${SCRIPT_DIR}/config"
 MODULES_DIR="${SCRIPT_DIR}/modules"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
 EXAMPLES_DIR="${SCRIPT_DIR}/examples"
+
+# 确保日志相关变量已定义
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 DOCS_DIR="${SCRIPT_DIR}/docs"
-LOG_FILE="/var/log/ipv6-wireguard-manager.log"
 CONFIG_FILE="${CONFIG_DIR}/manager.conf"
 
 # 默认配置

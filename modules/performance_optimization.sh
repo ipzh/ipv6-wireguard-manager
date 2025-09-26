@@ -1,4 +1,12 @@
 #!/bin/bash
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+
+# 确保日志相关变量已定义
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
+fi
 
 # 性能优化模块
 # 实现内存和CPU使用优化
