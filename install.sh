@@ -14,6 +14,36 @@ else
     echo "警告: 无法加载公共函数库，使用内置函数"
 fi
 
+# 修复文件行尾符函数（备用定义）
+if ! declare -f fix_line_endings >/dev/null 2>&1; then
+    fix_line_endings() {
+        local file="$1"
+        
+        if [[ ! -f "$file" ]]; then
+            return 1
+        fi
+        
+        # 转换Windows行尾符为Unix行尾符
+        if command -v sed &> /dev/null; then
+            sed -i 's/\r$//' "$file" 2>/dev/null || true
+        elif command -v tr &> /dev/null; then
+            tr -d '\r' < "$file" > "${file}.tmp" && mv "${file}.tmp" "$file" 2>/dev/null || true
+        elif command -v dos2unix &> /dev/null; then
+            dos2unix "$file" 2>/dev/null || true
+        else
+            # 使用Python作为最后的回退方案
+            python3 -c "
+import sys
+with open('$file', 'rb') as f:
+    content = f.read()
+content = content.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+with open('$file', 'wb') as f:
+    f.write(content)
+" 2>/dev/null || true
+        fi
+    }
+fi
+
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
