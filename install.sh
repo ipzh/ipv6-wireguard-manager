@@ -575,8 +575,13 @@ install_files() {
         log_warn "文档目录不存在: $script_dir/docs"
     fi
     
-    # 创建符号链接
-    ln -sf "$INSTALL_DIR/ipv6-wireguard-manager.sh" "$BIN_DIR/ipv6-wireguard-manager"
+    # 创建符号链接到BIN_DIR
+    if [[ -f "$INSTALL_DIR/ipv6-wireguard-manager.sh" ]]; then
+        ln -sf "$INSTALL_DIR/ipv6-wireguard-manager.sh" "$BIN_DIR/ipv6-wireguard-manager"
+        log_debug "创建符号链接: $BIN_DIR/ipv6-wireguard-manager -> $INSTALL_DIR/ipv6-wireguard-manager.sh"
+    else
+        log_error "主脚本文件不存在，无法创建符号链接"
+    fi
     
     log_info "程序文件安装完成"
 }
@@ -859,10 +864,25 @@ post_install_configuration() {
 create_global_alias() {
     log_info "创建全局命令别名..."
     
+    # 确保 /usr/local/bin 目录存在
+    mkdir -p /usr/local/bin
+    
     # 创建符号链接到 /usr/local/bin
     if [[ -f "$BIN_DIR/ipv6-wireguard-manager" ]]; then
-        ln -sf "$BIN_DIR/ipv6-wireguard-manager" /usr/local/bin/ipv6-wireguard-manager 2>/dev/null || true
-        log_info "全局命令 'ipv6-wireguard-manager' 已创建"
+        # 删除可能存在的旧链接
+        rm -f /usr/local/bin/ipv6-wireguard-manager 2>/dev/null || true
+        
+        # 创建新的符号链接
+        if ln -sf "$BIN_DIR/ipv6-wireguard-manager" /usr/local/bin/ipv6-wireguard-manager; then
+            log_info "全局命令 'ipv6-wireguard-manager' 已创建"
+            log_info "链接目标: $BIN_DIR/ipv6-wireguard-manager"
+        else
+            log_warn "无法创建全局命令别名，请手动创建:"
+            log_warn "sudo ln -sf $BIN_DIR/ipv6-wireguard-manager /usr/local/bin/ipv6-wireguard-manager"
+        fi
+    else
+        log_error "找不到可执行文件: $BIN_DIR/ipv6-wireguard-manager"
+        log_error "请检查安装是否成功"
     fi
 }
 
@@ -901,12 +921,29 @@ show_installation_complete() {
     else
         echo -e "${GREEN}正在启动...${NC}"
         echo
+        
+        # 检查全局命令是否可用
         if command -v ipv6-wireguard-manager &> /dev/null; then
+            echo -e "${GREEN}使用全局命令启动...${NC}"
             ipv6-wireguard-manager
+        # 检查安装目录中的可执行文件
         elif [[ -f "$BIN_DIR/ipv6-wireguard-manager" ]]; then
+            echo -e "${YELLOW}使用安装目录中的文件启动...${NC}"
             "$BIN_DIR/ipv6-wireguard-manager"
+        # 检查主脚本文件
+        elif [[ -f "$INSTALL_DIR/ipv6-wireguard-manager.sh" ]]; then
+            echo -e "${YELLOW}使用主脚本文件启动...${NC}"
+            "$INSTALL_DIR/ipv6-wireguard-manager.sh"
         else
             echo -e "${RED}错误: 找不到可执行文件${NC}"
+            echo -e "${RED}请检查以下位置:${NC}"
+            echo "  - /usr/local/bin/ipv6-wireguard-manager"
+            echo "  - $BIN_DIR/ipv6-wireguard-manager"
+            echo "  - $INSTALL_DIR/ipv6-wireguard-manager.sh"
+            echo
+            echo -e "${YELLOW}请手动运行以下命令之一:${NC}"
+            echo "  ${CYAN}sudo ln -sf $BIN_DIR/ipv6-wireguard-manager /usr/local/bin/ipv6-wireguard-manager${NC}"
+            echo "  ${CYAN}$BIN_DIR/ipv6-wireguard-manager${NC}"
         fi
     fi
     
