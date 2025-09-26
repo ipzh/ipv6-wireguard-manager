@@ -670,6 +670,126 @@ secure_input() {
     echo "$value"
 }
 
+# 统一错误处理函数
+handle_error() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="${3:-未知}"
+    
+    log_error "错误 [$error_code]: $error_message (上下文: $context)"
+    
+    case $error_code in
+        PERMISSION_DENIED) 
+            log_error "权限不足，请检查文件权限或使用sudo"
+            return 101
+            ;;
+        FILE_NOT_FOUND) 
+            log_error "文件不存在，请检查路径是否正确"
+            return 102
+            ;;
+        NETWORK_ERROR) 
+            log_error "网络连接失败，请检查网络设置"
+            return 103
+            ;;
+        CONFIG_ERROR)
+            log_error "配置错误，请检查配置文件"
+            return 104
+            ;;
+        DEPENDENCY_MISSING)
+            log_error "缺少必要依赖，请安装相关软件包"
+            return 105
+            ;;
+        SERVICE_ERROR)
+            log_error "服务操作失败，请检查服务状态"
+            return 106
+            ;;
+        *) 
+            log_error "未知错误"
+            return 1
+            ;;
+    esac
+}
+
+# 配置管理优化
+load_config() {
+    local config_file="${1:-$CONFIG_FILE}"
+    
+    if [[ ! -f "$config_file" ]]; then
+        handle_error "FILE_NOT_FOUND" "配置文件不存在: $config_file" "load_config"
+        return 1
+    fi
+    
+    log_info "加载配置文件: $config_file"
+    
+    # 安全地加载配置
+    while IFS='=' read -r key value; do
+        # 跳过注释和空行
+        [[ $key =~ ^# ]] || [[ -z $key ]] && continue
+        
+        # 清理键名和值
+        key=$(echo "$key" | trim)
+        value=$(echo "$value" | trim)
+        
+        # 验证配置键名
+        if [[ ! $key =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+            log_warn "无效的配置键名: $key"
+            continue
+        fi
+        
+        # 设置配置变量
+        declare -g "$key"="$value"
+        log_debug "设置配置: $key=$value"
+    done < "$config_file"
+    
+    log_success "配置文件加载完成"
+}
+
+# 性能优化 - 缓存机制
+declare -A CACHE
+
+cached_command() {
+    local cache_key="$1"
+    local command="$2"
+    local ttl="${3:-300}"  # 默认5分钟缓存
+    
+    # 检查缓存
+    if [[ -n "${CACHE[$cache_key]}" ]]; then
+        local cached_time="${CACHE[${cache_key}_time]}"
+        local current_time=$(date +%s)
+        
+        if (( current_time - cached_time < ttl )); then
+            log_debug "使用缓存结果: $cache_key"
+            echo "${CACHE[$cache_key]}"
+            return 0
+        fi
+    fi
+    
+    # 执行命令并缓存结果
+    log_debug "执行命令并缓存: $cache_key"
+    local result
+    if result=$(eval "$command" 2>/dev/null); then
+        CACHE["$cache_key"]="$result"
+        CACHE["${cache_key}_time"]=$(date +%s)
+        echo "$result"
+        return 0
+    else
+        log_error "命令执行失败: $command"
+        return 1
+    fi
+}
+
+# 清理缓存
+clear_cache() {
+    CACHE=()
+    log_info "缓存已清理"
+}
+
+# 获取缓存统计
+get_cache_stats() {
+    local cache_count=${#CACHE[@]}
+    echo "缓存条目数: $((cache_count / 2))"
+}
+
 # 导出函数供其他模块使用
 export -f print_header print_section print_success print_error print_warning print_info
 export -f show_progress confirm validate_ipv4 validate_ipv6 validate_cidr validate_port validate_interface
@@ -684,3 +804,4 @@ export -f get_config_value set_config_value
 export -f log_with_timestamp log_debug_enhanced log_info_enhanced log_warn_enhanced log_error_enhanced
 export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
+export -f load_config cached_command clear_cache get_cache_stats

@@ -38,6 +38,7 @@ MODULE_LOAD_ORDER=(
     "resource_quota"
     "lazy_loading"
     "performance_optimization"
+    "performance_enhancements"
 )
 
 # 模块依赖关系定义
@@ -81,6 +82,7 @@ MODULE_DEPENDENCIES=(
     
     # 第五层依赖 - 依赖第四层模块
     ["resource_quota"]="common_functions multi_tenant"
+    ["performance_enhancements"]="common_functions performance_optimization"
 )
 
 # 加载单个模块

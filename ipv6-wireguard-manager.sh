@@ -389,17 +389,24 @@ show_main_menu() {
             echo -e "${GRAY}27.${NC} 配置懒加载 - 功能未安装"
         fi
         
-        # 性能优化功能
-        if [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]]; then
-            echo -e "${GREEN}28.${NC} 性能优化 - 内存和CPU使用优化"
-        else
-            echo -e "${GRAY}28.${NC} 性能优化 - 功能未安装"
-        fi
+# 性能优化功能
+if [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]]; then
+    echo -e "${GREEN}28.${NC} 性能优化 - 内存和CPU使用优化"
+else
+    echo -e "${GRAY}28.${NC} 性能优化 - 功能未安装"
+fi
+
+# 性能增强功能
+if [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]]; then
+    echo -e "${GREEN}29.${NC} 性能增强 - 缓存和监控优化"
+else
+    echo -e "${GRAY}29.${NC} 性能增强 - 功能未安装"
+fi
         
         echo -e "${GREEN}0.${NC}  退出"
         echo
         
-        read -p "请选择操作 [0-28]: " choice
+        read -p "请选择操作 [0-29]: " choice
         
         case $choice in
             1) quick_install ;;
@@ -536,6 +543,13 @@ show_main_menu() {
                     performance_optimization_menu
                 else
                     show_error "性能优化功能未安装"
+                fi
+                ;;
+            29) 
+                if [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]]; then
+                    performance_enhancements_menu
+                else
+                    show_error "性能增强功能未安装"
                 fi
                 ;;
             0)
