@@ -660,6 +660,26 @@ EOF
 
 # 主函数
 main() {
+    # 处理命令行参数
+    case "${1:-}" in
+        --version|-v)
+            echo "IPv6 WireGuard Manager v1.0.0"
+            exit 0
+            ;;
+        --help|-h)
+            echo "IPv6 WireGuard Manager - 完整的IPv6 WireGuard VPN服务器管理系统"
+            echo
+            echo "用法: $0 [选项]"
+            echo
+            echo "选项:"
+            echo "  --version, -v     显示版本信息"
+            echo "  --help, -h        显示帮助信息"
+            echo
+            echo "无参数时启动交互式管理界面"
+            exit 0
+            ;;
+    esac
+    
     # 检查权限
     check_root
     

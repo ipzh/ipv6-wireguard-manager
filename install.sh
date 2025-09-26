@@ -525,6 +525,11 @@ install_files() {
         cp "$main_script" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR/ipv6-wireguard-manager.sh"
         log_debug "安装主脚本: $main_script"
+        
+        # 创建全局可执行文件
+        cp "$main_script" "$BIN_DIR/ipv6-wireguard-manager"
+        chmod +x "$BIN_DIR/ipv6-wireguard-manager"
+        log_debug "创建全局命令: $BIN_DIR/ipv6-wireguard-manager"
     else
         log_error "主脚本文件不存在: $main_script"
         log_error "当前目录: $(pwd)"
@@ -869,27 +874,26 @@ post_install_configuration() {
 
 # 创建全局命令别名
 create_global_alias() {
-    log_info "创建全局命令别名..."
+    log_info "验证全局命令..."
     
     # 确保 /usr/local/bin 目录存在
     mkdir -p /usr/local/bin
     
-    # 创建符号链接到 /usr/local/bin
+    # 验证全局命令是否已创建
     if [[ -f "$BIN_DIR/ipv6-wireguard-manager" ]]; then
-        # 删除可能存在的旧链接
-        rm -f /usr/local/bin/ipv6-wireguard-manager 2>/dev/null || true
+        log_info "全局命令 'ipv6-wireguard-manager' 已就绪"
+        log_info "位置: $BIN_DIR/ipv6-wireguard-manager"
         
-        # 创建新的符号链接
-        if ln -sf "$BIN_DIR/ipv6-wireguard-manager" /usr/local/bin/ipv6-wireguard-manager; then
-            log_info "全局命令 'ipv6-wireguard-manager' 已创建"
-            log_info "链接目标: $BIN_DIR/ipv6-wireguard-manager"
+        # 测试命令是否可执行
+        if "$BIN_DIR/ipv6-wireguard-manager" --version >/dev/null 2>&1; then
+            log_success "全局命令测试成功"
         else
-            log_warn "无法创建全局命令别名，请手动创建:"
-            log_warn "sudo ln -sf $BIN_DIR/ipv6-wireguard-manager /usr/local/bin/ipv6-wireguard-manager"
+            log_warn "全局命令可能存在问题，但文件已创建"
         fi
     else
-        log_error "找不到可执行文件: $BIN_DIR/ipv6-wireguard-manager"
-        log_error "请检查安装是否成功"
+        log_error "全局命令文件不存在: $BIN_DIR/ipv6-wireguard-manager"
+        log_error "请检查安装过程是否完成"
+        return 1
     fi
 }
 
