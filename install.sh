@@ -823,7 +823,7 @@ main() {
     # 如果没有参数，显示安装方法选择
     if [[ $# -eq 0 ]]; then
         show_install_methods
-        return 0
+        # 不要return，让脚本继续执行
     fi
     
     # 检查系统兼容性
