@@ -27,9 +27,9 @@ SERVICE_DIR="/etc/systemd/system"
 # 仓库配置（可通过环境变量覆盖）
 REPO_OWNER="${REPO_OWNER:-ipzh}"
 REPO_NAME="${REPO_NAME:-ipv6-wireguard-manager}"
-REPO_BRANCH="${REPO_BRANCH:-main}"
+REPO_BRANCH="${REPO_BRANCH:-master}"
 REPO_URL="${REPO_URL:-https://github.com/ipzh/ipv6-wireguard-manager}"
-RAW_URL="${RAW_URL:-https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main}"
+RAW_URL="${RAW_URL:-https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master}"
 API_URL="${API_URL:-https://api.github.com/repos/ipzh/ipv6-wireguard-manager}"
 
 # 安装选项
@@ -1253,18 +1253,40 @@ download_project_files() {
     
     # 下载项目文件
     echo "正在下载项目文件..."
+    echo "下载URL: $download_url"
     if command -v curl &> /dev/null; then
-        curl -L -o "${REPO_NAME}.tar.gz" "$download_url"
+        if ! curl -L -o "${REPO_NAME}.tar.gz" "$download_url"; then
+            echo -e "${RED}下载失败，请检查网络连接和URL${NC}"
+            return 1
+        fi
     elif command -v wget &> /dev/null; then
-        wget -O "${REPO_NAME}.tar.gz" "$download_url"
+        if ! wget -O "${REPO_NAME}.tar.gz" "$download_url"; then
+            echo -e "${RED}下载失败，请检查网络连接和URL${NC}"
+            return 1
+        fi
     else
         echo -e "${RED}需要curl或wget来下载文件${NC}"
         return 1
     fi
     
     if [[ -f "${REPO_NAME}.tar.gz" ]]; then
+        # 检查文件大小
+        local file_size=$(stat -c%s "${REPO_NAME}.tar.gz" 2>/dev/null || echo "0")
+        echo "下载文件大小: $file_size 字节"
+        
+        if [[ $file_size -lt 1000 ]]; then
+            echo -e "${RED}下载的文件太小，可能是错误页面${NC}"
+            echo "文件内容:"
+            head -5 "${REPO_NAME}.tar.gz"
+            return 1
+        fi
+        
         # 解压文件
-        tar -xzf "${REPO_NAME}.tar.gz"
+        echo "正在解压文件..."
+        if ! tar -xzf "${REPO_NAME}.tar.gz"; then
+            echo -e "${RED}解压失败，文件可能损坏${NC}"
+            return 1
+        fi
         
         # 移动到当前目录
         if [[ -d "${REPO_NAME}-${REPO_BRANCH}" ]]; then
