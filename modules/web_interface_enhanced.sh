@@ -124,6 +124,152 @@ create_web_interface_files() {
     create_config_management_page
 }
 
+# 创建客户端管理页面
+create_client_management_page() {
+    cat > "${WEB_TEMPLATES_DIR}/clients.html" << 'EOF'
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客户端管理 - IPv6 WireGuard Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>客户端管理</h1>
+            <nav>
+                <a href="/">首页</a>
+                <a href="/dashboard">仪表板</a>
+                <a href="/clients" class="active">客户端</a>
+                <a href="/config">配置</a>
+                <a href="/logout">退出</a>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="card">
+                <h2>客户端列表</h2>
+                <div class="actions">
+                    <button onclick="addClient()" class="btn btn-primary">添加客户端</button>
+                    <button onclick="refreshClients()" class="btn btn-secondary">刷新</button>
+                </div>
+                
+                <div id="clients-list">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/clients.js"></script>
+</body>
+</html>
+EOF
+    log_info "客户端管理页面已创建"
+}
+
+# 创建系统监控页面
+create_system_monitoring_page() {
+    cat > "${WEB_TEMPLATES_DIR}/monitor.html" << 'EOF'
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统监控 - IPv6 WireGuard Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>系统监控</h1>
+            <nav>
+                <a href="/">首页</a>
+                <a href="/dashboard">仪表板</a>
+                <a href="/clients">客户端</a>
+                <a href="/monitor" class="active">监控</a>
+                <a href="/logout">退出</a>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="card">
+                <h2>系统状态</h2>
+                <div id="system-status">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>网络流量</h2>
+                <canvas id="traffic-chart" width="800" height="400"></canvas>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/monitor.js"></script>
+</body>
+</html>
+EOF
+    log_info "系统监控页面已创建"
+}
+
+# 创建配置管理页面
+create_config_management_page() {
+    cat > "${WEB_TEMPLATES_DIR}/config.html" << 'EOF'
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置管理 - IPv6 WireGuard Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>配置管理</h1>
+            <nav>
+                <a href="/">首页</a>
+                <a href="/dashboard">仪表板</a>
+                <a href="/clients">客户端</a>
+                <a href="/monitor">监控</a>
+                <a href="/config" class="active">配置</a>
+                <a href="/logout">退出</a>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="card">
+                <h2>系统配置</h2>
+                <form id="config-form">
+                    <div class="form-group">
+                        <label for="wireguard-port">WireGuard端口:</label>
+                        <input type="number" id="wireguard-port" name="wireguard_port" value="51820">
+                    </div>
+                    <div class="form-group">
+                        <label for="ipv6-prefix">IPv6前缀:</label>
+                        <input type="text" id="ipv6-prefix" name="ipv6_prefix" value="2001:db8::/56">
+                    </div>
+                    <div class="form-group">
+                        <label for="web-port">Web端口:</label>
+                        <input type="number" id="web-port" name="web_port" value="8080">
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存配置</button>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/config.js"></script>
+</body>
+</html>
+EOF
+    log_info "配置管理页面已创建"
+}
+
 # 创建主页面
 create_main_page() {
     cat > "${WEB_TEMPLATES_DIR}/index.html" << 'EOF'
