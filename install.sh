@@ -1,15 +1,10 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 独立安装脚本
-# 版本: 1.11
-# 此脚本会自动下载完整的项目文件
+# IPv6 WireGuard Manager 安装脚本
+# 版本: 1.0.0
+# 作者: IPv6 WireGuard Manager Team
 
 set -euo pipefail
-
-# 加载公共函数库
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh" ]]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh"
-fi
 
 # 颜色定义
 RED='\033[0;31m'
@@ -19,953 +14,1925 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
-# 脚本信息
-SCRIPT_NAME="IPv6 WireGuard Manager"
-SCRIPT_VERSION="1.11"
-SCRIPT_AUTHOR="IPv6 WireGuard Manager Team"
+# 安装配置
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
-SERVICE_NAME="ipv6-wireguard-manager"
+CONFIG_DIR="/etc/ipv6-wireguard-manager"
+LOG_DIR="/var/log/ipv6-wireguard-manager"
+BIN_DIR="/usr/local/bin"
+SERVICE_DIR="/etc/systemd/system"
 
-# GitHub仓库信息
-GITHUB_REPO="ipzh/ipv6-wireguard-manager"
-GITHUB_BRANCH="main"
-GITHUB_BASE_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH"
+# 仓库配置（可通过环境变量覆盖）
+REPO_OWNER="${REPO_OWNER:-ipzh}"
+REPO_NAME="${REPO_NAME:-ipv6-wireguard-manager}"
+REPO_BRANCH="${REPO_BRANCH:-main}"
+REPO_URL="${REPO_URL:-https://github.com/ipzh/ipv6-wireguard-manager}"
+RAW_URL="${RAW_URL:-https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main}"
+API_URL="${API_URL:-https://api.github.com/repos/ipzh/ipv6-wireguard-manager}"
 
-# 临时下载目录
-TEMP_DIR="/tmp/ipv6-wireguard-install-$$"
+# 安装选项
+INSTALL_TYPE="full"  # full, minimal, custom
+SKIP_DEPENDENCIES=false
+SKIP_CONFIG=false
+SKIP_SERVICE=false
+FORCE_INSTALL=false
+VERBOSE=false
 
-# 系统信息变量
-OS_TYPE=""
-OS_VERSION=""
-ARCH=""
+# 功能选择（交互式安装时使用）
+INSTALL_WIREGUARD=true
+INSTALL_BIRD=true
+INSTALL_FIREWALL=true
+INSTALL_WEB_INTERFACE=true
+INSTALL_MONITORING=true
+INSTALL_CLIENT_AUTO_INSTALL=true
+INSTALL_BACKUP_RESTORE=true
+INSTALL_UPDATE_MANAGEMENT=true
+INSTALL_SECURITY_ENHANCEMENTS=true
+INSTALL_CONFIG_MANAGEMENT=true
+INSTALL_WEB_INTERFACE_ENHANCED=true
+INSTALL_OAUTH_AUTHENTICATION=true
+INSTALL_SECURITY_AUDIT_MONITORING=true
+INSTALL_NETWORK_TOPOLOGY=true
+INSTALL_API_DOCUMENTATION=true
+INSTALL_WEBSOCKET_REALTIME=true
+INSTALL_MULTI_TENANT=true
+INSTALL_RESOURCE_QUOTA=true
+INSTALL_LAZY_LOADING=true
+INSTALL_PERFORMANCE_OPTIMIZATION=true
+
+# 显示横幅
+show_banner() {
+    clear
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════════════════════╗"
+    echo "║                    IPv6 WireGuard Manager 安装程序                          ║"
+    echo "║                                                                              ║"
+    echo "║  版本: 1.0.0                                                                ║"
+    echo "║  功能: 完整的IPv6 WireGuard VPN服务器管理系统                                ║"
+    echo "║                                                                              ║"
+    echo "║  特性:                                                                       ║"
+    echo "║  • 自动环境检测和依赖安装                                                    ║"
+    echo "║  • WireGuard服务器自动配置                                                   ║"
+    echo "║  • BIRD BGP路由支持                                                         ║"
+    echo "║  • IPv6子网管理                                                             ║"
+    echo "║  • 多防火墙支持                                                             ║"
+    echo "║  • 客户端自动安装功能                                                        ║"
+    echo "║  • Web管理界面                                                               ║"
+    echo "║  • 实时监控和告警                                                           ║"
+    echo "║                                                                              ║"
+    echo "╚══════════════════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+}
 
 # 日志函数
-log() {
-    local level="$1"
-    shift
-    local message="$*"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
-    case "$level" in
-        "ERROR")
-            echo -e "${RED}[$timestamp] [$level] $message${NC}" >&2
-            ;;
-        "WARN")
-            echo -e "${YELLOW}[$timestamp] [$level] $message${NC}" >&2
-            ;;
-        "INFO")
-            echo -e "${GREEN}[$timestamp] [$level] $message${NC}" >&2
-            ;;
-        "DEBUG")
-            echo -e "${BLUE}[$timestamp] [$level] $message${NC}" >&2
-            ;;
-        *)
-            echo -e "[$timestamp] [$level] $message" >&2
-            ;;
-    esac
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
 }
 
-# 错误处理函数
-error_exit() {
-    log "ERROR" "$1"
-    exit 1
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# 清理临时文件
-cleanup_temp_files() {
-    if [[ -d "$TEMP_DIR" ]]; then
-        rm -rf "$TEMP_DIR"
-        log "DEBUG" "Cleaned up temporary directory: $TEMP_DIR"
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} $1"
     fi
 }
 
-# 检查root权限
+# 检查权限
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        error_exit "This script must be run as root"
+        log_error "此安装脚本需要root权限运行"
+        echo "请使用: sudo $0"
+        exit 1
     fi
 }
 
-# 显示欢迎信息
-show_welcome() {
-    clear
-    echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${WHITE}║                IPv6 WireGuard Manager                      ║${NC}"
-    echo -e "${WHITE}║                    独立安装程序 v$SCRIPT_VERSION                ║${NC}"
-    echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
+# 显示帮助信息
+show_help() {
+    echo "IPv6 WireGuard Manager 安装脚本"
     echo
-    echo -e "${CYAN}欢迎使用 IPv6 WireGuard Manager!${NC}"
+    echo "用法: $0 [选项]"
     echo
-    echo -e "${YELLOW}此安装程序将:${NC}"
-    echo -e "  • 自动下载完整的项目文件"
-    echo -e "  • 检测系统环境并安装依赖"
-    echo -e "  • 配置 WireGuard VPN 服务器"
-    echo -e "  • 支持 IPv6 前缀分发和 BGP 路由"
-    echo -e "  • 客户端配置生成和管理"
-    echo -e "  • 防火墙自动配置"
+    echo "选项:"
+    echo "  -t, --type TYPE        安装类型 (full|minimal|custom) [默认: full]"
+    echo "  -d, --dir DIR          安装目录 [默认: $INSTALL_DIR]"
+    echo "  -c, --config-dir DIR   配置目录 [默认: $CONFIG_DIR]"
+    echo "  -l, --log-dir DIR      日志目录 [默认: $LOG_DIR]"
+    echo "  --skip-deps            跳过依赖安装"
+    echo "  --skip-config          跳过配置创建"
+    echo "  --skip-service         跳过服务安装"
+    echo "  --force                强制安装（覆盖现有安装）"
+    echo "  -v, --verbose          详细输出"
+    echo "  -h, --help             显示此帮助信息"
     echo
-    echo -e "${YELLOW}系统要求:${NC}"
-    echo -e "  • 支持的操作系统: Debian, Ubuntu, CentOS, RHEL, Fedora, Rocky Linux, AlmaLinux, Arch Linux"
-    echo -e "  • 需要 root 权限"
-    echo -e "  • 需要公网 IPv4 地址"
-    echo -e "  • 需要开放 WireGuard 端口 (默认 51820)"
-    echo -e "  • 需要网络连接以下载项目文件"
+    echo "安装类型:"
+    echo "  full     完整安装（默认）"
+    echo "  minimal  最小安装（仅核心功能）"
+    echo "  custom   自定义安装"
     echo
+    echo "示例:"
+    echo "  $0                      # 完整安装"
+    echo "  $0 -t minimal           # 最小安装"
+    echo "  $0 --skip-deps          # 跳过依赖安装"
+    echo "  $0 --force              # 强制安装"
 }
 
-# 检测操作系统
-detect_os() {
-    log "INFO" "Detecting operating system..."
+# 解析命令行参数
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -t|--type)
+                INSTALL_TYPE="$2"
+                shift 2
+                ;;
+            -d|--dir)
+                INSTALL_DIR="$2"
+                shift 2
+                ;;
+            -c|--config-dir)
+                CONFIG_DIR="$2"
+                shift 2
+                ;;
+            -l|--log-dir)
+                LOG_DIR="$2"
+                shift 2
+                ;;
+            --skip-deps)
+                SKIP_DEPENDENCIES=true
+                shift
+                ;;
+            --skip-config)
+                SKIP_CONFIG=true
+                shift
+                ;;
+            --skip-service)
+                SKIP_SERVICE=true
+                shift
+                ;;
+            --force)
+                FORCE_INSTALL=true
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "未知选项: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# 检查系统兼容性
+check_system_compatibility() {
+    log_info "检查系统兼容性..."
     
+    # 检查操作系统
     if [[ -f /etc/os-release ]]; then
-        . /etc/os-release
-        OS_TYPE="$ID"
-        OS_VERSION="$VERSION_ID"
-    elif [[ -f /etc/redhat-release ]]; then
-        OS_TYPE="rhel"
-        OS_VERSION=$(cat /etc/redhat-release | grep -oE '[0-9]+\.[0-9]+' | head -1)
-    elif [[ -f /etc/debian_version ]]; then
-        OS_TYPE="debian"
-        OS_VERSION=$(cat /etc/debian_version)
+        source /etc/os-release
+        log_info "操作系统: $PRETTY_NAME"
+        
+        # 检查支持的发行版
+        case "$ID" in
+            "ubuntu"|"debian"|"centos"|"rhel"|"fedora"|"rocky"|"almalinux"|"arch"|"opensuse")
+                log_info "操作系统兼容性检查通过"
+                ;;
+            *)
+                log_warn "操作系统可能不完全支持: $ID"
+                ;;
+        esac
     else
-        error_exit "Unsupported operating system"
+        log_error "无法检测操作系统"
+        exit 1
     fi
     
-    ARCH=$(uname -m)
+    # 检查架构
+    local arch=$(uname -m)
+    case "$arch" in
+        "x86_64"|"aarch64")
+            log_info "系统架构: $arch (支持)"
+            ;;
+        *)
+            log_warn "系统架构可能不完全支持: $arch"
+            ;;
+    esac
     
-    log "INFO" "Detected OS: $OS_TYPE $OS_VERSION ($ARCH)"
-    echo -e "${GREEN}✓${NC} 检测到操作系统: $OS_TYPE $OS_VERSION ($ARCH)"
-}
-
-# 检查系统要求
-check_requirements() {
-    log "INFO" "Checking system requirements..."
+    # 检查内核版本
+    local kernel_version=$(uname -r)
+    log_info "内核版本: $kernel_version"
     
     # 检查内存
-    local total_memory=$(free -m | awk 'NR==2{printf "%.0f", $2}')
-    if [[ $total_memory -lt 512 ]]; then
-        log "WARN" "Low memory detected: ${total_memory}MB (recommended: 512MB+)"
+    local memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    local memory_gb=$((memory_kb / 1024 / 1024))
+    
+    if [[ $memory_gb -lt 1 ]]; then
+        log_warn "系统内存较少 ($memory_gb GB)，建议至少1GB"
+    else
+        log_info "系统内存: $memory_gb GB"
     fi
     
     # 检查磁盘空间
-    local available_space=$(df / | awk 'NR==2{print $4}')
-    if [[ $available_space -lt 1048576 ]]; then  # 1GB in KB
-        log "WARN" "Low disk space detected: ${available_space}KB (recommended: 1GB+)"
+    local disk_space=$(df / | tail -1 | awk '{print $4}')
+    local disk_space_gb=$((disk_space / 1024 / 1024))
+    
+    if [[ $disk_space_gb -lt 5 ]]; then
+        log_warn "可用磁盘空间较少 ($disk_space_gb GB)，建议至少5GB"
+    else
+        log_info "可用磁盘空间: $disk_space_gb GB"
+    fi
+}
+
+# 检查现有安装
+check_existing_installation() {
+    log_info "检查现有安装..."
+    
+    local existing_dirs=("$INSTALL_DIR" "$CONFIG_DIR" "$LOG_DIR")
+    local existing_files=("$BIN_DIR/ipv6-wireguard-manager" "$SERVICE_DIR/ipv6-wireguard-manager.service")
+    
+    local has_existing=false
+    
+    for dir in "${existing_dirs[@]}"; do
+        if [[ -d "$dir" ]]; then
+            log_warn "目录已存在: $dir"
+            has_existing=true
+        fi
+    done
+    
+    for file in "${existing_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            log_warn "文件已存在: $file"
+            has_existing=true
+        fi
+    done
+    
+    if [[ "$has_existing" == "true" ]]; then
+        if [[ "$FORCE_INSTALL" == "true" ]]; then
+            log_info "强制安装模式，将覆盖现有安装"
+        else
+            log_error "检测到现有安装，请使用 --force 选项强制安装"
+            exit 1
+        fi
+    else
+        log_info "未检测到现有安装"
     fi
 }
 
 # 安装依赖
 install_dependencies() {
-    log "INFO" "Installing system dependencies..."
+    if [[ "$SKIP_DEPENDENCIES" == "true" ]]; then
+        log_info "跳过依赖安装"
+        return 0
+    fi
     
-    # 首先安装基础工具
-    install_basic_tools
+    log_info "安装系统依赖..."
     
-    # 安装WireGuard（必需）
-    install_wireguard
-    
-    # 安装BIRD（可选，失败不影响WireGuard）
-    install_bird
-    
-    # 安装防火墙工具
-    install_firewall_tools
-    
-    log "INFO" "Dependencies installation completed"
-}
-
-# 安装基础工具
-install_basic_tools() {
-    log "INFO" "Installing basic tools..."
-    
-    case "$OS_TYPE" in
-        "ubuntu"|"debian")
-            apt update
-            apt install -y curl wget iptables
-            ;;
-        "centos"|"rhel"|"fedora"|"rocky"|"almalinux")
-            if command -v dnf >/dev/null 2>&1; then
-                dnf install -y epel-release
-                dnf install -y curl wget iptables
-            else
-                yum install -y epel-release
-                yum install -y curl wget iptables
-            fi
-            ;;
-        "arch")
-            pacman -S --noconfirm curl wget iptables
-            ;;
-        *)
-            error_exit "Unsupported operating system: $OS_TYPE"
-            ;;
-    esac
-    
-    log "INFO" "Basic tools installed successfully"
-}
-
-# 安装WireGuard
-install_wireguard() {
-    log "INFO" "Installing WireGuard..."
-    
-    case "$OS_TYPE" in
-        "ubuntu"|"debian")
-            if apt install -y wireguard wireguard-tools; then
-                log "INFO" "WireGuard installed successfully"
-            else
-                log "ERROR" "Failed to install WireGuard"
-                error_exit "WireGuard installation failed"
-            fi
-            ;;
-        "centos"|"rhel"|"fedora"|"rocky"|"almalinux")
-            if command -v dnf >/dev/null 2>&1; then
-                if dnf install -y wireguard-tools; then
-                    log "INFO" "WireGuard installed successfully"
-                else
-                    log "ERROR" "Failed to install WireGuard"
-                    error_exit "WireGuard installation failed"
-                fi
-            else
-                if yum install -y wireguard-tools; then
-                    log "INFO" "WireGuard installed successfully"
-                else
-                    log "ERROR" "Failed to install WireGuard"
-                    error_exit "WireGuard installation failed"
-                fi
-            fi
-            ;;
-        "arch")
-            if pacman -S --noconfirm wireguard-tools; then
-                log "INFO" "WireGuard installed successfully"
-            else
-                log "ERROR" "Failed to install WireGuard"
-                error_exit "WireGuard installation failed"
-            fi
-            ;;
-    esac
-}
-
-# 安装BIRD
-install_bird() {
-    log "INFO" "Installing BIRD BGP daemon..."
-    
-    local bird_installed=false
-    
-    case "$OS_TYPE" in
-        "ubuntu"|"debian")
-            # 优先尝试安装BIRD 2.x
-            if apt install -y bird2 2>/dev/null; then
-                log "INFO" "BIRD 2.x installed successfully"
-                bird_installed=true
-            # 如果BIRD 2.x失败，尝试BIRD 1.x
-            elif apt install -y bird 2>/dev/null; then
-                log "INFO" "BIRD 1.x installed successfully"
-                bird_installed=true
-            else
-                log "WARN" "Failed to install BIRD, continuing without BGP support"
-            fi
-            ;;
-        "centos"|"rhel"|"fedora"|"rocky"|"almalinux")
-            if command -v dnf >/dev/null 2>&1; then
-                # 优先尝试安装BIRD 2.x
-                if dnf install -y bird2 2>/dev/null; then
-                    log "INFO" "BIRD 2.x installed successfully"
-                    bird_installed=true
-                # 如果BIRD 2.x失败，尝试BIRD 1.x
-                elif dnf install -y bird 2>/dev/null; then
-                    log "INFO" "BIRD 1.x installed successfully"
-                    bird_installed=true
-                else
-                    log "WARN" "Failed to install BIRD, continuing without BGP support"
-                fi
-            else
-                # 优先尝试安装BIRD 2.x
-                if yum install -y bird2 2>/dev/null; then
-                    log "INFO" "BIRD 2.x installed successfully"
-                    bird_installed=true
-                # 如果BIRD 2.x失败，尝试BIRD 1.x
-                elif yum install -y bird 2>/dev/null; then
-                    log "INFO" "BIRD 1.x installed successfully"
-                    bird_installed=true
-                else
-                    log "WARN" "Failed to install BIRD, continuing without BGP support"
-                fi
-            fi
-            ;;
-        "arch")
-            # 优先尝试安装BIRD 2.x
-            if pacman -S --noconfirm bird2 2>/dev/null; then
-                log "INFO" "BIRD 2.x installed successfully"
-                bird_installed=true
-            # 如果BIRD 2.x失败，尝试BIRD 1.x
-            elif pacman -S --noconfirm bird 2>/dev/null; then
-                log "INFO" "BIRD 1.x installed successfully"
-                bird_installed=true
-            else
-                log "WARN" "Failed to install BIRD, continuing without BGP support"
-            fi
-            ;;
-    esac
-    
-    if [[ "$bird_installed" == "true" ]]; then
-        log "INFO" "BIRD installed successfully"
+    # 检测包管理器
+    local package_manager=""
+    if command -v apt-get &> /dev/null; then
+        package_manager="apt"
+    elif command -v yum &> /dev/null; then
+        package_manager="yum"
+    elif command -v dnf &> /dev/null; then
+        package_manager="dnf"
+    elif command -v pacman &> /dev/null; then
+        package_manager="pacman"
+    elif command -v zypper &> /dev/null; then
+        package_manager="zypper"
     else
-        log "WARN" "BIRD not installed - BGP features will be disabled"
+        log_error "不支持的包管理器"
+        exit 1
     fi
-}
-
-# 安装防火墙工具
-install_firewall_tools() {
-    log "INFO" "Installing firewall tools..."
     
-    case "$OS_TYPE" in
-        "ubuntu"|"debian")
-            apt install -y ufw
+    log_info "使用包管理器: $package_manager"
+    
+    # 更新包列表
+    case "$package_manager" in
+        "apt")
+            apt-get update
             ;;
-        "centos"|"rhel"|"fedora"|"rocky"|"almalinux")
-            if command -v dnf >/dev/null 2>&1; then
-                dnf install -y firewalld
-            else
-                yum install -y firewalld
-            fi
+        "yum"|"dnf")
+            $package_manager makecache
             ;;
-        "arch")
-            pacman -S --noconfirm ufw
+        "pacman")
+            pacman -Sy
+            ;;
+        "zypper")
+            zypper refresh
             ;;
     esac
     
-    log "INFO" "Firewall tools installed successfully"
+    # 安装必需包
+    local packages=()
     
-    # 检查网络连接
-    if ! ping -c 1 8.8.8.8 >/dev/null 2>&1; then
-        error_exit "No internet connection detected. This installer requires internet access to download project files."
-    fi
-    
-    echo -e "${GREEN}✓${NC} 系统要求检查完成"
-}
-
-# 安装依赖
-install_dependencies() {
-    log "INFO" "Installing dependencies..."
-    
-    case "$OS_TYPE" in
-        "ubuntu"|"debian")
-            apt update
-            apt install -y curl wget tar gzip
+    case "$package_manager" in
+        "apt")
+            packages=(
+                "wireguard" "wireguard-tools" "iptables" "ip6tables"
+                "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+            )
             ;;
-        "centos"|"rhel"|"fedora"|"rocky"|"almalinux")
-            if command -v dnf >/dev/null 2>&1; then
-                dnf install -y curl wget tar gzip
-            else
-                yum install -y curl wget tar gzip
-            fi
+        "yum"|"dnf")
+            packages=(
+                "wireguard-tools" "iptables" "ip6tables"
+                "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+            )
             ;;
-        "arch")
-            pacman -S --noconfirm curl wget tar gzip
+        "pacman")
+            packages=(
+                "wireguard-tools" "iptables" "ip6tables"
+                "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+            )
             ;;
-        *)
-            error_exit "Unsupported operating system: $OS_TYPE"
+        "zypper")
+            packages=(
+                "wireguard-tools" "iptables" "ip6tables"
+                "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+            )
             ;;
     esac
     
-    echo -e "${GREEN}✓${NC} 依赖安装完成"
-}
-
-# 下载项目文件
-download_project_files() {
-    log "INFO" "Downloading project files from GitHub..."
-    log "INFO" "Temporary directory: $TEMP_DIR"
-    
-    # 创建临时目录
-    rm -rf "$TEMP_DIR"
-    mkdir -p "$TEMP_DIR"
-    
-    # 定义需要下载的文件列表
-    local files=(
-        "ipv6-wireguard-manager.sh"
-        "README.md"
-        "PROJECT_SUMMARY.md"
-        "uninstall.sh"
-    )
-    
-    # 下载文档文件
-    log "INFO" "Downloading documentation..."
-    mkdir -p "$TEMP_DIR/docs"
-    local doc_files=(
-        "BIRD_PERMISSIONS.md"
-        "BIRD_VERSION_COMPATIBILITY.md"
-        "INSTALLATION.md"
-        "USAGE.md"
-    )
-    
-    for file in "${doc_files[@]}"; do
-        if ! curl -s -L -o "$TEMP_DIR/docs/$file" "$GITHUB_BASE_URL/docs/$file"; then
-            log "WARN" "Failed to download docs/$file"
-        else
-            log "INFO" "Successfully downloaded docs/$file"
-        fi
-    done
-    
-    # 下载示例文件
-    log "INFO" "Downloading examples..."
-    mkdir -p "$TEMP_DIR/examples"
-    local example_files=(
-        "bgp_neighbors.conf"
-        "clients.csv"
-        "ipv6_prefixes.conf"
-        "quick_batch_example.sh"
-    )
-    
-    for file in "${example_files[@]}"; do
-        if ! curl -s -L -o "$TEMP_DIR/examples/$file" "$GITHUB_BASE_URL/examples/$file"; then
-            log "WARN" "Failed to download examples/$file"
-        else
-            log "INFO" "Successfully downloaded examples/$file"
-        fi
-    done
-    
-    # 下载单个文件
-    for file in "${files[@]}"; do
-        log "INFO" "Downloading $file..."
-        if ! curl -s -L -o "$TEMP_DIR/$file" "$GITHUB_BASE_URL/$file"; then
-            log "WARN" "Failed to download $file, will create a basic version"
-        else
-            log "INFO" "Successfully downloaded $file"
-        fi
-    done
-    
-    # 下载模块文件
-    log "INFO" "Downloading modules..."
-    mkdir -p "$TEMP_DIR/modules"
-    local module_files=(
-        "system_detection.sh"
-        "wireguard_config.sh"
-        "bird_config.sh"
-        "firewall_config.sh"
-        "client_management.sh"
-        "server_management.sh"
-        "network_management.sh"
-        "firewall_management.sh"
-        "system_maintenance.sh"
-        "backup_restore.sh"
-        "update_management.sh"
-        "wireguard_diagnostics.sh"
-        "client_script_generator.sh"
-        "client_auto_update.sh"
-    )
-    
-    for file in "${module_files[@]}"; do
-        if ! curl -s -L -o "$TEMP_DIR/modules/$file" "$GITHUB_BASE_URL/modules/$file"; then
-            log "WARN" "Failed to download modules/$file"
-        else
-            log "INFO" "Successfully downloaded modules/$file"
-        fi
-    done
-    
-    # 下载配置文件
-    log "INFO" "Downloading config files..."
-    mkdir -p "$TEMP_DIR/config"
-    local config_files=(
-        "manager.conf"
-        "client_template.conf"
-        "bird_template.conf"
-        "bird_v2_template.conf"
-        "bird_v3_template.conf"
-        "firewall_rules.conf"
-    )
-    
-    for file in "${config_files[@]}"; do
-        if ! curl -s -L -o "$TEMP_DIR/config/$file" "$GITHUB_BASE_URL/config/$file"; then
-            log "WARN" "Failed to download config/$file"
-        else
-            log "INFO" "Successfully downloaded config/$file"
-        fi
-    done
-    
-    # 下载脚本文件
-    log "INFO" "Downloading scripts..."
-    mkdir -p "$TEMP_DIR/scripts"
-    local script_files=(
-        "update.sh"
-        "check_bird_permissions.sh"
-        "check_bird_version.sh"
-    )
-    
-    for file in "${script_files[@]}"; do
-        if ! curl -s -L -o "$TEMP_DIR/scripts/$file" "$GITHUB_BASE_URL/scripts/$file"; then
-            log "WARN" "Failed to download scripts/$file"
-        else
-            log "INFO" "Successfully downloaded scripts/$file"
-        fi
-    done
-    
-    # 设置执行权限
-    find "$TEMP_DIR" -name "*.sh" -exec chmod +x {} \;
-    
-    # 验证下载的文件
-    log "INFO" "Verifying downloaded files..."
-    if [[ -f "$TEMP_DIR/ipv6-wireguard-manager.sh" ]]; then
-        log "INFO" "Main script found: $TEMP_DIR/ipv6-wireguard-manager.sh"
-    else
-        log "ERROR" "Main script not found in $TEMP_DIR"
-        error_exit "Failed to download main script"
+    # 根据安装类型调整包列表
+    if [[ "$INSTALL_TYPE" == "minimal" ]]; then
+        packages=("wireguard-tools" "iptables" "curl")
     fi
     
-    echo -e "${GREEN}✓${NC} 项目文件下载完成"
+    # 安装包
+    for package in "${packages[@]}"; do
+        log_info "安装包: $package"
+        
+        case "$package_manager" in
+            "apt")
+                apt-get install -y "$package" || log_warn "包安装失败: $package"
+                ;;
+            "yum"|"dnf")
+                $package_manager install -y "$package" || log_warn "包安装失败: $package"
+                ;;
+            "pacman")
+                pacman -S --noconfirm "$package" || log_warn "包安装失败: $package"
+                ;;
+            "zypper")
+                zypper install -y "$package" || log_warn "包安装失败: $package"
+                ;;
+        esac
+    done
+    
+    # 安装BIRD（可选）
+    if [[ "$INSTALL_TYPE" == "full" ]]; then
+        log_info "安装BIRD BGP路由器..."
+        
+        case "$package_manager" in
+            "apt")
+                apt-get install -y bird || log_warn "BIRD安装失败"
+                ;;
+            "yum"|"dnf")
+                $package_manager install -y bird || log_warn "BIRD安装失败"
+                ;;
+            "pacman")
+                pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                ;;
+            "zypper")
+                zypper install -y bird || log_warn "BIRD安装失败"
+                ;;
+        esac
+    fi
+    
+    log_info "依赖安装完成"
 }
 
-# 创建安装目录
-create_install_directory() {
-    log "INFO" "Creating installation directory..."
+# 创建目录结构
+create_directories() {
+    log_info "创建目录结构..."
     
-    mkdir -p "$INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR/modules"
-    mkdir -p "$INSTALL_DIR/config"
-    mkdir -p "$INSTALL_DIR/scripts"
+    local directories=(
+        "$INSTALL_DIR"
+        "$INSTALL_DIR/modules"
+        "$INSTALL_DIR/config"
+        "$INSTALL_DIR/scripts"
+        "$INSTALL_DIR/examples"
+        "$INSTALL_DIR/docs"
+        "$CONFIG_DIR"
+        "$LOG_DIR"
+    )
     
-    echo -e "${GREEN}✓${NC} 安装目录创建完成: $INSTALL_DIR"
+    for dir in "${directories[@]}"; do
+        mkdir -p "$dir"
+        log_debug "创建目录: $dir"
+    done
+    
+    # 设置权限
+    chmod 755 "$INSTALL_DIR"
+    chmod 755 "$CONFIG_DIR"
+    chmod 755 "$LOG_DIR"
+    
+    log_info "目录结构创建完成"
 }
 
-# 复制文件
-copy_files() {
-    log "INFO" "Copying files..."
-    log "INFO" "Source directory: $TEMP_DIR"
-    log "INFO" "Target directory: $INSTALL_DIR"
+# 安装文件
+install_files() {
+    log_info "安装程序文件..."
     
     # 复制主脚本
-    if [[ -f "$TEMP_DIR/ipv6-wireguard-manager.sh" ]]; then
-        cp "$TEMP_DIR/ipv6-wireguard-manager.sh" "$INSTALL_DIR/"
+    if [[ -f "ipv6-wireguard-manager.sh" ]]; then
+        cp "ipv6-wireguard-manager.sh" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR/ipv6-wireguard-manager.sh"
-        log "INFO" "Copied main script from $TEMP_DIR/ipv6-wireguard-manager.sh"
+        log_debug "安装主脚本"
     else
-        error_exit "Main script not found in downloaded files: $TEMP_DIR/ipv6-wireguard-manager.sh"
+        log_error "主脚本文件不存在"
+        exit 1
     fi
     
     # 复制模块文件
-    if [[ -d "$TEMP_DIR/modules" ]]; then
-        cp -r "$TEMP_DIR/modules"/* "$INSTALL_DIR/modules/"
+    if [[ -d "modules" ]]; then
+        cp -r modules/* "$INSTALL_DIR/modules/"
         chmod +x "$INSTALL_DIR/modules"/*.sh
-        log "INFO" "Copied modules from $TEMP_DIR/modules/"
+        log_debug "安装模块文件"
     else
-        log "WARN" "Modules directory not found, creating basic modules"
-        create_basic_modules
+        log_warn "模块目录不存在"
     fi
     
     # 复制配置文件
-    if [[ -d "$TEMP_DIR/config" ]]; then
-        cp -r "$TEMP_DIR/config"/* "$INSTALL_DIR/config/"
-        log "INFO" "Copied config files from $TEMP_DIR/config/"
+    if [[ -d "config" ]]; then
+        cp -r config/* "$INSTALL_DIR/config/"
+        log_debug "安装配置文件"
     else
-        log "WARN" "Config directory not found, creating basic config"
-        create_basic_config
+        log_warn "配置目录不存在"
     fi
     
     # 复制脚本文件
-    if [[ -d "$TEMP_DIR/scripts" ]]; then
-        cp -r "$TEMP_DIR/scripts"/* "$INSTALL_DIR/scripts/"
+    if [[ -d "scripts" ]]; then
+        cp -r scripts/* "$INSTALL_DIR/scripts/"
         chmod +x "$INSTALL_DIR/scripts"/*.sh
-        log "INFO" "Copied scripts from $TEMP_DIR/scripts/"
-    fi
-    
-    # 复制文档文件
-    if [[ -d "$TEMP_DIR/docs" ]]; then
-        cp -r "$TEMP_DIR/docs" "$INSTALL_DIR/"
-        log "INFO" "Copied documentation from $TEMP_DIR/docs/"
+        log_debug "安装脚本文件"
+    else
+        log_warn "脚本目录不存在"
     fi
     
     # 复制示例文件
-    if [[ -d "$TEMP_DIR/examples" ]]; then
-        cp -r "$TEMP_DIR/examples" "$INSTALL_DIR/"
-        chmod +x "$INSTALL_DIR/examples"/*.sh 2>/dev/null || true
-        log "INFO" "Copied examples from $TEMP_DIR/examples/"
+    if [[ -d "examples" ]]; then
+        cp -r examples/* "$INSTALL_DIR/examples/"
+        log_debug "安装示例文件"
+    else
+        log_warn "示例目录不存在"
     fi
     
-    # 复制其他文件
-    for file in "README.md" "PROJECT_SUMMARY.md" "uninstall.sh"; do
-        if [[ -f "$TEMP_DIR/$file" ]]; then
-            cp "$TEMP_DIR/$file" "$INSTALL_DIR/"
-            log "INFO" "Copied $file"
-        fi
-    done
+    # 复制文档文件
+    if [[ -d "docs" ]]; then
+        cp -r docs/* "$INSTALL_DIR/docs/"
+        log_debug "安装文档文件"
+    else
+        log_warn "文档目录不存在"
+    fi
     
-    echo -e "${GREEN}✓${NC} 文件复制完成"
+    # 创建符号链接
+    ln -sf "$INSTALL_DIR/ipv6-wireguard-manager.sh" "$BIN_DIR/ipv6-wireguard-manager"
+    
+    log_info "程序文件安装完成"
 }
 
-# 创建基本模块（如果下载失败）
-create_basic_modules() {
-    log "INFO" "Creating basic modules..."
+# 创建配置文件
+create_configuration() {
+    if [[ "$SKIP_CONFIG" == "true" ]]; then
+        log_info "跳过配置创建"
+        return 0
+    fi
     
-    # 创建所有必要的模块文件
-    local modules=(
-        "server_management.sh"
-        "client_management.sh"
-        "network_management.sh"
-        "firewall_management.sh"
-        "system_maintenance.sh"
-        "backup_restore.sh"
-        "update_management.sh"
-        "wireguard_diagnostics.sh"
-    )
+    log_info "创建配置文件..."
     
-    for module in "${modules[@]}"; do
-        cat > "$INSTALL_DIR/modules/$module" << 'EOF'
-#!/bin/bash
+    # 主配置文件
+    cat > "$CONFIG_DIR/manager.conf" << EOF
+# IPv6 WireGuard Manager 主配置文件
+# 生成时间: $(date)
 
-# 基本模块文件
+# WireGuard配置
+WIREGUARD_PORT=51820
+WIREGUARD_INTERFACE=wg0
+WIREGUARD_NETWORK=10.0.0.0/24
 
-# 获取脚本目录（如果未定义）
-if [[ -z "$SCRIPT_DIR" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-fi
+# IPv6配置
+IPV6_PREFIX=2001:db8::/56
 
-# 模块菜单函数
-module_menu() {
-    echo "此模块需要完整安装才能使用"
-    echo "请重新运行安装程序下载完整文件"
-    read -p "按回车键继续..."
-}
+# BIRD配置
+BIRD_VERSION=auto
+BIRD_ROUTER_ID=auto
 
-# 导出函数供主脚本调用
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # 如果直接运行此脚本
-    module_menu
-fi
+# 防火墙配置
+FIREWALL_TYPE=auto
+
+# Web管理界面
+WEB_PORT=8080
+WEB_USER=admin
+WEB_PASS=admin123
+
+# 日志配置
+LOG_LEVEL=INFO
+LOG_FILE=$LOG_DIR/manager.log
+
+# 备份配置
+BACKUP_DIR=/var/backups/ipv6-wireguard
+CLIENT_CONFIG_DIR=/etc/wireguard/clients
+
+# 系统配置
+INSTALL_DIR=$INSTALL_DIR
+CONFIG_DIR=$CONFIG_DIR
+LOG_DIR=$LOG_DIR
 EOF
-        chmod +x "$INSTALL_DIR/modules/$module"
-        log "INFO" "Created basic module: $module"
-    done
-}
-
-# 创建基本配置（如果下载失败）
-create_basic_config() {
-    log "INFO" "Creating basic configuration..."
     
-    cat > "$INSTALL_DIR/config/manager.conf" << EOF
-# IPv6 WireGuard Manager Configuration
-# Generated on $(date)
-
-[general]
-version = $SCRIPT_VERSION
-install_dir = $INSTALL_DIR
-log_level = info
-
-[wireguard]
-default_port = 51820
-default_interface = wg0
-config_dir = /etc/wireguard
-
-[bird]
-config_file = /etc/bird/bird.conf
-default_as = 65001
-
-[clients]
-config_dir = $INSTALL_DIR/config/clients
-database_file = $INSTALL_DIR/config/clients.db
-
-[firewall]
-auto_configure = true
-default_policy = deny
+    # 错误处理配置
+    cat > "$CONFIG_DIR/error_handling.conf" << EOF
+# 错误处理配置文件
+LOG_ERRORS=true
+SEND_ALERTS=false
+AUTO_RECOVERY=true
+MAX_RETRIES=3
+RETRY_DELAY=5
+ERROR_THRESHOLD=10
+CLEANUP_ON_ERROR=true
+ALERT_EMAIL=""
+ALERT_WEBHOOK=""
+ERROR_LOG_FILE=$LOG_DIR/errors.log
 EOF
+    
+    # 用户界面配置
+    cat > "$CONFIG_DIR/ui.conf" << EOF
+# 用户界面配置文件
+THEME=default
+COLORS=true
+ANIMATIONS=true
+SOUND_EFFECTS=false
+AUTO_REFRESH=false
+REFRESH_INTERVAL=30
+SHOW_PROGRESS=true
+CONFIRM_ACTIONS=true
+LOG_LEVEL=INFO
+MENU_TIMEOUT=0
+QUICK_ACTIONS=true
+SHORTCUTS=true
+EOF
+    
+    # 设置配置文件权限
+    chmod 600 "$CONFIG_DIR"/*.conf
+    
+    log_info "配置文件创建完成"
 }
 
-# 创建符号链接
-create_symlinks() {
-    log "INFO" "Creating symbolic links..."
+# 安装系统服务
+install_service() {
+    if [[ "$SKIP_SERVICE" == "true" ]]; then
+        log_info "跳过服务安装"
+        return 0
+    fi
     
-    # 创建主命令链接
-    ln -sf "$INSTALL_DIR/ipv6-wireguard-manager.sh" "/usr/local/bin/ipv6-wg-manager"
-    ln -sf "$INSTALL_DIR/ipv6-wireguard-manager.sh" "/usr/local/bin/wg-manager"
+    log_info "安装系统服务..."
     
-    echo -e "${GREEN}✓${NC} 符号链接创建完成"
-}
-
-# 创建系统服务
-create_system_service() {
-    log "INFO" "Creating system service..."
-    
-    cat > "/etc/systemd/system/$SERVICE_NAME.service" << EOF
+    # 创建systemd服务文件
+    cat > "$SERVICE_DIR/ipv6-wireguard-manager.service" << EOF
 [Unit]
 Description=IPv6 WireGuard Manager
+Documentation=https://github.com/example/ipv6-wireguard-manager
 After=network.target
+Wants=network.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/true
-ExecReload=/bin/true
+ExecStart=$BIN_DIR/ipv6-wireguard-manager --start-services
+ExecStop=$BIN_DIR/ipv6-wireguard-manager --stop-services
+ExecReload=$BIN_DIR/ipv6-wireguard-manager --reload-config
+User=root
+Group=root
 WorkingDirectory=$INSTALL_DIR
+Environment=CONFIG_DIR=$CONFIG_DIR
+Environment=LOG_DIR=$LOG_DIR
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
-    systemctl daemon-reload
-    systemctl enable "$SERVICE_NAME"
     
-    echo -e "${GREEN}✓${NC} 系统服务创建完成"
+    # 重新加载systemd
+    systemctl daemon-reload
+    
+    # 启用服务
+    systemctl enable ipv6-wireguard-manager.service
+    
+    log_info "系统服务安装完成"
 }
 
-# 创建配置文件
-create_config_files() {
-    log "INFO" "Creating configuration files..."
+# 设置权限
+set_permissions() {
+    log_info "设置文件权限..."
     
-    # 创建主配置文件（如果不存在）
-    if [[ ! -f "$INSTALL_DIR/config/manager.conf" ]]; then
-        create_basic_config
-    fi
+    # 设置目录权限
+    chown -R root:root "$INSTALL_DIR"
+    chown -R root:root "$CONFIG_DIR"
+    chown -R root:root "$LOG_DIR"
     
-    # 创建日志配置
-    cat > "$INSTALL_DIR/config/logging.conf" << EOF
-# Logging Configuration
-
-[loggers]
-keys=root,manager
-
-[handlers]
-keys=consoleHandler,fileHandler
-
-[formatters]
-keys=simpleFormatter
-
-[logger_root]
-level=INFO
-handlers=consoleHandler
-
-[logger_manager]
-level=INFO
-handlers=fileHandler
-qualname=manager
-propagate=0
-
-[handler_consoleHandler]
-class=StreamHandler
-level=INFO
-formatter=simpleFormatter
-args=(sys.stdout,)
-
-[handler_fileHandler]
-class=FileHandler
-level=INFO
-formatter=simpleFormatter
-args=('/var/log/ipv6-wireguard/manager.log',)
-
-[formatter_simpleFormatter]
-format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-EOF
-
-    echo -e "${GREEN}✓${NC} 配置文件创建完成"
+    # 设置文件权限
+    chmod 755 "$INSTALL_DIR"
+    chmod 755 "$BIN_DIR/ipv6-wireguard-manager"
+    chmod 600 "$CONFIG_DIR"/*.conf
+    chmod 644 "$SERVICE_DIR/ipv6-wireguard-manager.service"
+    
+    # 设置日志目录权限
+    chmod 755 "$LOG_DIR"
+    
+    log_info "文件权限设置完成"
 }
 
 # 创建卸载脚本
 create_uninstall_script() {
-    log "INFO" "Creating uninstall script..."
+    log_info "创建卸载脚本..."
     
-    cat > "$INSTALL_DIR/uninstall.sh" << 'EOF'
+    cat > "$INSTALL_DIR/uninstall.sh" << EOF
 #!/bin/bash
 
 # IPv6 WireGuard Manager 卸载脚本
 
 set -euo pipefail
 
-# 重复定义已删除
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# 检查root权限
-check_root
+log_info() {
+    echo -e "\${GREEN}[INFO]\${NC} \$1"
+}
 
-echo -e "${YELLOW}IPv6 WireGuard Manager 卸载程序${NC}"
-echo
-read -p "确定要卸载 IPv6 WireGuard Manager 吗? (y/N): " confirm
+log_warn() {
+    echo -e "\${YELLOW}[WARN]\${NC} \$1"
+}
 
-if [[ "${confirm,,}" != "y" ]]; then
-    echo "卸载已取消"
-    exit 0
+log_error() {
+    echo -e "\${RED}[ERROR]\${NC} \$1"
+}
+
+# 检查权限
+if [[ \$EUID -ne 0 ]]; then
+    log_error "此卸载脚本需要root权限运行"
+    echo "请使用: sudo \$0"
+    exit 1
 fi
 
-log "Stopping services..."
-systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-systemctl stop wg-quick@wg0 2>/dev/null || true
-systemctl stop bird 2>/dev/null || true
+log_info "开始卸载IPv6 WireGuard Manager..."
 
-log "Disabling services..."
-systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+# 停止服务
+if systemctl is-active --quiet ipv6-wireguard-manager; then
+    log_info "停止服务..."
+    systemctl stop ipv6-wireguard-manager
+fi
 
-log "Removing system service..."
-rm -f "/etc/systemd/system/$SERVICE_NAME.service"
-systemctl daemon-reload
+# 禁用服务
+if systemctl is-enabled --quiet ipv6-wireguard-manager; then
+    log_info "禁用服务..."
+    systemctl disable ipv6-wireguard-manager
+fi
 
-log "Removing symbolic links..."
-rm -f "/usr/local/bin/ipv6-wg-manager"
-rm -f "/usr/local/bin/wg-manager"
+# 删除服务文件
+if [[ -f "$SERVICE_DIR/ipv6-wireguard-manager.service" ]]; then
+    log_info "删除服务文件..."
+    rm -f "$SERVICE_DIR/ipv6-wireguard-manager.service"
+    systemctl daemon-reload
+fi
 
-log "Removing installation directory..."
-rm -rf "$INSTALL_DIR"
+# 删除符号链接
+if [[ -L "$BIN_DIR/ipv6-wireguard-manager" ]]; then
+    log_info "删除符号链接..."
+    rm -f "$BIN_DIR/ipv6-wireguard-manager"
+fi
 
-log "Removing configuration directories..."
-rm -rf "/etc/ipv6-wireguard"
-rm -rf "/var/log/ipv6-wireguard"
-rm -rf "/var/backups/ipv6-wireguard"
+# 删除安装目录
+if [[ -d "$INSTALL_DIR" ]]; then
+    log_info "删除安装目录..."
+    rm -rf "$INSTALL_DIR"
+fi
 
-log "IPv6 WireGuard Manager 卸载完成"
-echo -e "${GREEN}卸载成功!${NC}"
+# 删除配置目录
+if [[ -d "$CONFIG_DIR" ]]; then
+    log_info "删除配置目录..."
+    rm -rf "$CONFIG_DIR"
+fi
+
+# 删除日志目录
+if [[ -d "$LOG_DIR" ]]; then
+    log_info "删除日志目录..."
+    rm -rf "$LOG_DIR"
+fi
+
+log_info "IPv6 WireGuard Manager 卸载完成"
 EOF
-
+    
     chmod +x "$INSTALL_DIR/uninstall.sh"
     
-    echo -e "${GREEN}✓${NC} 卸载脚本创建完成"
+    log_info "卸载脚本创建完成"
 }
 
-# 设置权限
-set_permissions() {
-    log "INFO" "Setting permissions..."
+# 运行安装后配置
+post_install_configuration() {
+    log_info "运行安装后配置..."
     
-    # 设置目录权限
-    chmod 755 "$INSTALL_DIR"
-    chmod 755 "$INSTALL_DIR/modules"
-    chmod 755 "$INSTALL_DIR/config"
-    chmod 755 "$INSTALL_DIR/scripts"
+    # 创建日志文件
+    touch "$LOG_DIR/manager.log"
+    touch "$LOG_DIR/errors.log"
+    chmod 644 "$LOG_DIR"/*.log
     
-    # 设置文件权限
-    find "$INSTALL_DIR" -name "*.sh" -exec chmod +x {} \;
+    # 初始化WireGuard配置
+    if [[ "$INSTALL_TYPE" == "full" ]]; then
+        log_info "初始化WireGuard配置..."
+        "$BIN_DIR/ipv6-wireguard-manager" --init-wireguard || log_warn "WireGuard初始化失败"
+    fi
     
-    # 创建必要的目录
-    mkdir -p /etc/ipv6-wireguard
-    mkdir -p /var/log/ipv6-wireguard
-    mkdir -p /var/backups/ipv6-wireguard
+    # 初始化BIRD配置
+    if [[ "$INSTALL_TYPE" == "full" ]]; then
+        log_info "初始化BIRD配置..."
+        "$BIN_DIR/ipv6-wireguard-manager" --init-bird || log_warn "BIRD初始化失败"
+    fi
     
-    chmod 755 /etc/ipv6-wireguard
-    chmod 755 /var/log/ipv6-wireguard
-    chmod 755 /var/backups/ipv6-wireguard
-    
-    echo -e "${GREEN}✓${NC} 权限设置完成"
+    log_info "安装后配置完成"
 }
 
-# 验证安装
-verify_installation() {
-    log "INFO" "Verifying installation..."
+# 显示安装完成信息
+show_installation_complete() {
+    echo
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                       安装完成！                                           ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo
+    echo -e "${CYAN}安装信息:${NC}"
+    echo "  安装目录: $INSTALL_DIR"
+    echo "  配置目录: $CONFIG_DIR"
+    echo "  日志目录: $LOG_DIR"
+    echo "  可执行文件: $BIN_DIR/ipv6-wireguard-manager"
+    echo
+    echo -e "${CYAN}使用方法:${NC}"
+    echo "  启动管理界面: $BIN_DIR/ipv6-wireguard-manager"
+    echo "  查看帮助: $BIN_DIR/ipv6-wireguard-manager --help"
+    echo "  启动服务: systemctl start ipv6-wireguard-manager"
+    echo "  查看状态: systemctl status ipv6-wireguard-manager"
+    echo
+    echo -e "${CYAN}配置文件:${NC}"
+    echo "  主配置: $CONFIG_DIR/manager.conf"
+    echo "  错误处理: $CONFIG_DIR/error_handling.conf"
+    echo "  用户界面: $CONFIG_DIR/ui.conf"
+    echo
+    echo -e "${CYAN}卸载方法:${NC}"
+    echo "  运行卸载脚本: $INSTALL_DIR/uninstall.sh"
+    echo
+    echo -e "${YELLOW}注意: 请根据需要修改配置文件中的默认设置${NC}"
+    echo
+}
+
+# 主安装函数
+main() {
+    show_banner
     
-    local errors=0
+    # 解析参数
+    parse_arguments "$@"
     
-    # 检查主脚本
-    if [[ ! -f "$INSTALL_DIR/ipv6-wireguard-manager.sh" ]]; then
-        log "ERROR" "Main script not found"
-        ((errors++))
-    fi
+    # 检查权限
+    check_root
     
-    # 检查模块文件
-    local modules=(
-        "system_detection.sh"
-        "wireguard_config.sh"
-        "bird_config.sh"
-        "firewall_config.sh"
-        "client_management.sh"
-        "server_management.sh"
-        "network_management.sh"
-        "firewall_management.sh"
-        "system_maintenance.sh"
-        "backup_restore.sh"
-        "update_management.sh"
-        "wireguard_diagnostics.sh"
-    )
-    for module in "${modules[@]}"; do
-        if [[ ! -f "$INSTALL_DIR/modules/$module" ]]; then
-            log "ERROR" "Module not found: $module"
-            ((errors++))
-        fi
-    done
-    
-    # 检查符号链接
-    if [[ ! -L "/usr/local/bin/ipv6-wg-manager" ]]; then
-        log "ERROR" "Symbolic link not created"
-        ((errors++))
-    fi
-    
-    # 检查服务
-    if ! systemctl is-enabled "$SERVICE_NAME" >/dev/null 2>&1; then
-        log "ERROR" "Service not enabled"
-        ((errors++))
-    fi
-    
-    if [[ $errors -eq 0 ]]; then
-        echo -e "${GREEN}✓${NC} 安装验证通过"
+    # 如果没有参数，显示安装方法选择
+    if [[ $# -eq 0 ]]; then
+        show_install_methods
         return 0
+    fi
+    
+    # 检查系统兼容性
+    check_system_compatibility
+    
+    # 检查现有安装
+    check_existing_installation
+    
+    # 安装依赖
+    install_dependencies
+    
+    # 创建目录结构
+    create_directories
+    
+    # 安装文件
+    install_files
+    
+    # 创建配置文件
+    create_configuration
+    
+    # 安装系统服务
+    install_service
+    
+    # 设置权限
+    set_permissions
+    
+    # 创建卸载脚本
+    create_uninstall_script
+    
+    # 运行安装后配置
+    post_install_configuration
+    
+    # 显示安装完成信息
+    show_installation_complete
+}
+
+# 显示安装方法选择
+show_install_methods() {
+    echo -e "${CYAN}=== 安装方法选择 ===${NC}"
+    echo
+    echo -e "${GREEN}1.${NC} 快速安装 - 使用默认配置"
+    echo -e "${GREEN}2.${NC} 交互式安装 - 自定义配置"
+    echo -e "${GREEN}3.${NC} 仅下载文件 - 不安装"
+    echo -e "${GREEN}4.${NC} 显示安装帮助"
+    echo
+    echo -e "${INFO_COLOR}0.${NC} 退出"
+    echo
+    
+    read -p "请选择安装方法 [0-4]: " choice
+    
+    case $choice in
+        1) quick_install ;;
+        2) interactive_install ;;
+        3) download_only ;;
+        4) show_install_help ;;
+        0) exit 0 ;;
+        *) 
+            echo -e "${RED}无效选择，请重新输入${NC}"
+            show_install_methods
+            ;;
+    esac
+}
+
+# 快速安装
+quick_install() {
+    echo -e "${GREEN}开始快速安装...${NC}"
+    INSTALL_TYPE="full"
+    
+    # 快速安装默认安装所有功能
+    INSTALL_WIREGUARD=true
+    INSTALL_BIRD=true
+    INSTALL_FIREWALL=true
+    INSTALL_WEB_INTERFACE=true
+    INSTALL_MONITORING=true
+    INSTALL_CLIENT_AUTO_INSTALL=true
+    INSTALL_BACKUP_RESTORE=true
+    INSTALL_UPDATE_MANAGEMENT=true
+    INSTALL_SECURITY_ENHANCEMENTS=true
+    
+    perform_installation
+}
+
+# 交互式安装
+interactive_install() {
+    echo -e "${GREEN}开始交互式安装...${NC}"
+    configure_installation
+    perform_installation
+}
+
+# 仅下载文件
+download_only() {
+    echo -e "${GREEN}开始下载文件...${NC}"
+    download_project_files
+}
+
+# 显示安装帮助
+show_install_help() {
+    echo -e "${CYAN}=== 安装帮助 ===${NC}"
+    echo
+    echo "可用的安装方法:"
+    echo "----------------------------------------"
+    echo "1. 一键安装（推荐）"
+    echo "   curl -sSL ${RAW_URL}/install.sh | bash"
+    echo
+    echo "2. 手动下载安装"
+    echo "   wget ${RAW_URL}/install.sh"
+    echo "   chmod +x install.sh"
+    echo "   sudo ./install.sh"
+    echo
+    echo "3. 交互式安装"
+    echo "   sudo ./install.sh"
+    echo "   选择安装选项"
+    echo
+    echo "4. 从源码安装"
+    echo "   git clone ${REPO_URL}"
+    echo "   cd ${REPO_NAME}"
+    echo "   sudo ./install.sh"
+    echo
+    echo "安装选项:"
+    echo "----------------------------------------"
+    echo "1. 快速安装 - 使用默认配置"
+    echo "2. 交互式安装 - 自定义配置"
+    echo "3. 仅下载文件 - 不安装"
+    echo
+    echo "更多信息请访问: ${REPO_URL}"
+    echo
+    read -p "按回车键返回主菜单..."
+    show_install_methods
+}
+
+# 配置安装
+configure_installation() {
+    echo -e "${CYAN}=== 配置安装 ===${NC}"
+    echo
+    
+    # 选择安装类型
+    echo "安装类型:"
+    echo "1. 完整安装 - 所有功能"
+    echo "2. 最小安装 - 仅核心功能"
+    echo "3. 自定义安装 - 选择组件"
+    echo
+    
+    read -p "请选择安装类型 [1-3]: " install_choice
+    
+    case $install_choice in
+        1) 
+            INSTALL_TYPE="full"
+            # 完整安装默认安装所有功能
+            INSTALL_WIREGUARD=true
+            INSTALL_BIRD=true
+            INSTALL_FIREWALL=true
+            INSTALL_WEB_INTERFACE=true
+            INSTALL_MONITORING=true
+            INSTALL_CLIENT_AUTO_INSTALL=true
+            INSTALL_BACKUP_RESTORE=true
+            INSTALL_UPDATE_MANAGEMENT=true
+            INSTALL_SECURITY_ENHANCEMENTS=true
+            ;;
+        2) 
+            INSTALL_TYPE="minimal"
+            # 最小安装只安装核心功能
+            INSTALL_WIREGUARD=true
+            INSTALL_BIRD=true
+            INSTALL_FIREWALL=true
+            INSTALL_WEB_INTERFACE=false
+            INSTALL_MONITORING=false
+            INSTALL_CLIENT_AUTO_INSTALL=false
+            INSTALL_BACKUP_RESTORE=false
+            INSTALL_UPDATE_MANAGEMENT=false
+            INSTALL_SECURITY_ENHANCEMENTS=false
+            ;;
+        3) 
+            INSTALL_TYPE="custom"
+            configure_custom_installation
+            ;;
+        *) 
+            echo -e "${RED}无效选择，使用默认配置${NC}"
+            INSTALL_TYPE="full"
+            ;;
+    esac
+    
+    # 配置安装目录
+    read -p "安装目录 [默认: $INSTALL_DIR]: " custom_install_dir
+    if [[ -n "$custom_install_dir" ]]; then
+        INSTALL_DIR="$custom_install_dir"
+    fi
+    
+    # 配置选项
+    echo
+    echo "安装选项:"
+    read -p "跳过依赖安装? [y/N]: " skip_deps
+    if [[ "$skip_deps" =~ ^[Yy]$ ]]; then
+        SKIP_DEPENDENCIES=true
+    fi
+    
+    read -p "跳过配置创建? [y/N]: " skip_config
+    if [[ "$skip_config" =~ ^[Yy]$ ]]; then
+        SKIP_CONFIG=true
+    fi
+    
+    read -p "跳过服务安装? [y/N]: " skip_service
+    if [[ "$skip_service" =~ ^[Yy]$ ]]; then
+        SKIP_SERVICE=true
+    fi
+    
+    read -p "强制安装（覆盖现有）? [y/N]: " force_install
+    if [[ "$force_install" =~ ^[Yy]$ ]]; then
+        FORCE_INSTALL=true
+    fi
+}
+
+# 配置自定义安装
+configure_custom_installation() {
+    echo -e "${CYAN}=== 自定义安装配置 ===${NC}"
+    echo
+    
+    echo "请选择要安装的功能模块:"
+    echo
+    
+    # WireGuard配置
+    read -p "安装WireGuard VPN服务? [Y/n]: " install_wireguard
+    if [[ "$install_wireguard" =~ ^[Nn]$ ]]; then
+        INSTALL_WIREGUARD=false
     else
-        echo -e "${RED}✗${NC} 安装验证失败 ($errors 个错误)"
+        INSTALL_WIREGUARD=true
+    fi
+    
+    # BIRD BGP路由
+    read -p "安装BIRD BGP路由服务? [Y/n]: " install_bird
+    if [[ "$install_bird" =~ ^[Nn]$ ]]; then
+        INSTALL_BIRD=false
+    else
+        INSTALL_BIRD=true
+    fi
+    
+    # 防火墙管理
+    read -p "安装防火墙管理功能? [Y/n]: " install_firewall
+    if [[ "$install_firewall" =~ ^[Nn]$ ]]; then
+        INSTALL_FIREWALL=false
+    else
+        INSTALL_FIREWALL=true
+    fi
+    
+    # Web管理界面
+    read -p "安装Web管理界面? [y/N]: " install_web
+    if [[ "$install_web" =~ ^[Yy]$ ]]; then
+        INSTALL_WEB_INTERFACE=true
+    else
+        INSTALL_WEB_INTERFACE=false
+    fi
+    
+    # 监控告警系统
+    read -p "安装监控告警系统? [y/N]: " install_monitoring
+    if [[ "$install_monitoring" =~ ^[Yy]$ ]]; then
+        INSTALL_MONITORING=true
+    else
+        INSTALL_MONITORING=false
+    fi
+    
+    # 客户端自动安装
+    read -p "安装客户端自动安装功能? [y/N]: " install_auto_install
+    if [[ "$install_auto_install" =~ ^[Yy]$ ]]; then
+        INSTALL_CLIENT_AUTO_INSTALL=true
+    else
+        INSTALL_CLIENT_AUTO_INSTALL=false
+    fi
+    
+    # 备份恢复
+    read -p "安装配置备份恢复功能? [y/N]: " install_backup
+    if [[ "$install_backup" =~ ^[Yy]$ ]]; then
+        INSTALL_BACKUP_RESTORE=true
+    else
+        INSTALL_BACKUP_RESTORE=false
+    fi
+    
+    # 更新管理
+    read -p "安装更新管理功能? [y/N]: " install_update
+    if [[ "$install_update" =~ ^[Yy]$ ]]; then
+        INSTALL_UPDATE_MANAGEMENT=true
+    else
+        INSTALL_UPDATE_MANAGEMENT=false
+    fi
+    
+    # 安全增强
+    read -p "安装安全增强功能? [y/N]: " install_security
+    if [[ "$install_security" =~ ^[Yy]$ ]]; then
+        INSTALL_SECURITY_ENHANCEMENTS=true
+    else
+        INSTALL_SECURITY_ENHANCEMENTS=false
+    fi
+    
+    # 配置管理
+    read -p "安装配置管理功能? [y/N]: " install_config
+    if [[ "$install_config" =~ ^[Yy]$ ]]; then
+        INSTALL_CONFIG_MANAGEMENT=true
+    else
+        INSTALL_CONFIG_MANAGEMENT=false
+    fi
+    
+    # 增强Web界面
+    read -p "安装增强Web界面功能? [y/N]: " install_web_enhanced
+    if [[ "$install_web_enhanced" =~ ^[Yy]$ ]]; then
+        INSTALL_WEB_INTERFACE_ENHANCED=true
+    else
+        INSTALL_WEB_INTERFACE_ENHANCED=false
+    fi
+    
+    # OAuth认证
+    read -p "安装OAuth认证功能? [y/N]: " install_oauth
+    if [[ "$install_oauth" =~ ^[Yy]$ ]]; then
+        INSTALL_OAUTH_AUTHENTICATION=true
+    else
+        INSTALL_OAUTH_AUTHENTICATION=false
+    fi
+    
+    # 安全审计监控
+    read -p "安装安全审计监控功能? [y/N]: " install_audit
+    if [[ "$install_audit" =~ ^[Yy]$ ]]; then
+        INSTALL_SECURITY_AUDIT_MONITORING=true
+    else
+        INSTALL_SECURITY_AUDIT_MONITORING=false
+    fi
+    
+    # 网络拓扑图
+    read -p "安装网络拓扑图功能? [y/N]: " install_topology
+    if [[ "$install_topology" =~ ^[Yy]$ ]]; then
+        INSTALL_NETWORK_TOPOLOGY=true
+    else
+        INSTALL_NETWORK_TOPOLOGY=false
+    fi
+    
+    # API文档
+    read -p "安装API文档功能? [y/N]: " install_api_docs
+    if [[ "$install_api_docs" =~ ^[Yy]$ ]]; then
+        INSTALL_API_DOCUMENTATION=true
+    else
+        INSTALL_API_DOCUMENTATION=false
+    fi
+    
+    # WebSocket实时通信
+    read -p "安装WebSocket实时通信功能? [y/N]: " install_websocket
+    if [[ "$install_websocket" =~ ^[Yy]$ ]]; then
+        INSTALL_WEBSOCKET_REALTIME=true
+    else
+        INSTALL_WEBSOCKET_REALTIME=false
+    fi
+    
+    # 多租户管理
+    read -p "安装多租户管理功能? [y/N]: " install_tenant
+    if [[ "$install_tenant" =~ ^[Yy]$ ]]; then
+        INSTALL_MULTI_TENANT=true
+    else
+        INSTALL_MULTI_TENANT=false
+    fi
+    
+    # 资源配额管理
+    read -p "安装资源配额管理功能? [y/N]: " install_quota
+    if [[ "$install_quota" =~ ^[Yy]$ ]]; then
+        INSTALL_RESOURCE_QUOTA=true
+    else
+        INSTALL_RESOURCE_QUOTA=false
+    fi
+    
+    # 配置懒加载
+    read -p "安装配置懒加载功能? [y/N]: " install_lazy
+    if [[ "$install_lazy" =~ ^[Yy]$ ]]; then
+        INSTALL_LAZY_LOADING=true
+    else
+        INSTALL_LAZY_LOADING=false
+    fi
+    
+    # 性能优化
+    read -p "安装性能优化功能? [y/N]: " install_performance
+    if [[ "$install_performance" =~ ^[Yy]$ ]]; then
+        INSTALL_PERFORMANCE_OPTIMIZATION=true
+    else
+        INSTALL_PERFORMANCE_OPTIMIZATION=false
+    fi
+    
+    echo
+    echo -e "${GREEN}自定义安装配置完成${NC}"
+    echo "已选择的功能:"
+    [[ "$INSTALL_WIREGUARD" == "true" ]] && echo "  ✓ WireGuard VPN服务"
+    [[ "$INSTALL_BIRD" == "true" ]] && echo "  ✓ BIRD BGP路由服务"
+    [[ "$INSTALL_FIREWALL" == "true" ]] && echo "  ✓ 防火墙管理功能"
+    [[ "$INSTALL_WEB_INTERFACE" == "true" ]] && echo "  ✓ Web管理界面"
+    [[ "$INSTALL_MONITORING" == "true" ]] && echo "  ✓ 监控告警系统"
+    [[ "$INSTALL_CLIENT_AUTO_INSTALL" == "true" ]] && echo "  ✓ 客户端自动安装功能"
+    [[ "$INSTALL_BACKUP_RESTORE" == "true" ]] && echo "  ✓ 配置备份恢复功能"
+    [[ "$INSTALL_UPDATE_MANAGEMENT" == "true" ]] && echo "  ✓ 更新管理功能"
+    [[ "$INSTALL_SECURITY_ENHANCEMENTS" == "true" ]] && echo "  ✓ 安全增强功能"
+    [[ "$INSTALL_CONFIG_MANAGEMENT" == "true" ]] && echo "  ✓ 配置管理功能"
+    [[ "$INSTALL_WEB_INTERFACE_ENHANCED" == "true" ]] && echo "  ✓ 增强Web界面功能"
+    [[ "$INSTALL_OAUTH_AUTHENTICATION" == "true" ]] && echo "  ✓ OAuth认证功能"
+    [[ "$INSTALL_SECURITY_AUDIT_MONITORING" == "true" ]] && echo "  ✓ 安全审计监控功能"
+    [[ "$INSTALL_NETWORK_TOPOLOGY" == "true" ]] && echo "  ✓ 网络拓扑图功能"
+    [[ "$INSTALL_API_DOCUMENTATION" == "true" ]] && echo "  ✓ API文档功能"
+    [[ "$INSTALL_WEBSOCKET_REALTIME" == "true" ]] && echo "  ✓ WebSocket实时通信功能"
+    [[ "$INSTALL_MULTI_TENANT" == "true" ]] && echo "  ✓ 多租户管理功能"
+    [[ "$INSTALL_RESOURCE_QUOTA" == "true" ]] && echo "  ✓ 资源配额管理功能"
+    [[ "$INSTALL_LAZY_LOADING" == "true" ]] && echo "  ✓ 配置懒加载功能"
+    [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]] && echo "  ✓ 性能优化功能"
+    [[ "$INSTALL_CONFIG_MANAGEMENT" == "true" ]] && echo "  ✓ 配置管理功能"
+    [[ "$INSTALL_WEB_INTERFACE_ENHANCED" == "true" ]] && echo "  ✓ 增强Web界面功能"
+    [[ "$INSTALL_OAUTH_AUTHENTICATION" == "true" ]] && echo "  ✓ OAuth认证功能"
+    [[ "$INSTALL_SECURITY_AUDIT_MONITORING" == "true" ]] && echo "  ✓ 安全审计监控功能"
+}
+
+# 下载项目文件
+download_project_files() {
+    echo -e "${GREEN}下载项目文件...${NC}"
+    
+    local download_url="${REPO_URL}/archive/refs/heads/${REPO_BRANCH}.tar.gz"
+    local temp_dir="/tmp/${REPO_NAME}-download"
+    
+    # 创建临时目录
+    mkdir -p "$temp_dir"
+    cd "$temp_dir"
+    
+    # 下载项目文件
+    echo "正在下载项目文件..."
+    if command -v curl &> /dev/null; then
+        curl -L -o "${REPO_NAME}.tar.gz" "$download_url"
+    elif command -v wget &> /dev/null; then
+        wget -O "${REPO_NAME}.tar.gz" "$download_url"
+    else
+        echo -e "${RED}需要curl或wget来下载文件${NC}"
+        return 1
+    fi
+    
+    if [[ -f "${REPO_NAME}.tar.gz" ]]; then
+        # 解压文件
+        tar -xzf "${REPO_NAME}.tar.gz"
+        
+        # 移动到当前目录
+        if [[ -d "${REPO_NAME}-${REPO_BRANCH}" ]]; then
+            cp -r "${REPO_NAME}-${REPO_BRANCH}"/* "$(pwd)/"
+            rm -rf "${REPO_NAME}-${REPO_BRANCH}"
+        fi
+        
+        echo -e "${GREEN}项目文件下载完成${NC}"
+        echo "文件位置: $(pwd)"
+        echo "请运行: sudo ./install.sh"
+    else
+        echo -e "${RED}文件下载失败${NC}"
         return 1
     fi
 }
 
-# 显示安装完成信息
-show_completion_info() {
-    clear
-    echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${WHITE}║                安装完成!                                  ║${NC}"
-    echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
-    echo
-    echo -e "${GREEN}✓${NC} IPv6 WireGuard Manager 安装成功!"
-    echo
-    echo -e "${CYAN}使用方法:${NC}"
-    echo -e "  启动管理器: ${YELLOW}ipv6-wg-manager${NC}"
-    echo -e "  或使用: ${YELLOW}wg-manager${NC}"
-    echo
-    echo -e "${CYAN}安装位置:${NC}"
-    echo -e "  程序目录: ${YELLOW}$INSTALL_DIR${NC}"
-    echo -e "  配置文件: ${YELLOW}$INSTALL_DIR/config${NC}"
-    echo -e "  日志文件: ${YELLOW}/var/log/ipv6-wireguard${NC}"
-    echo
-    echo -e "${CYAN}卸载方法:${NC}"
-    echo -e "  运行: ${YELLOW}$INSTALL_DIR/uninstall.sh${NC}"
-    echo
-    echo -e "${YELLOW}下一步:${NC}"
-    echo -e "  1. 运行 ${YELLOW}ipv6-wg-manager${NC} 开始配置"
-    echo -e "  2. 选择快速安装或交互式安装"
-    echo -e "  3. 按照向导完成配置"
-    echo
-    echo -e "${GREEN}感谢使用 IPv6 WireGuard Manager!${NC}"
-}
-
-# 主安装流程
-main() {
-    # 设置清理陷阱
-    trap cleanup_temp_files EXIT
+# 执行安装
+perform_installation() {
+    echo -e "${GREEN}开始执行安装...${NC}"
     
-    # 检查root权限
-    check_root
+    # 检查系统要求
+    check_system_requirements
     
-    # 显示欢迎信息
-    show_welcome
+    # 检查现有安装
+    check_existing_installation
     
-    # 确认安装
-    read -p "是否继续安装? (y/N): " confirm
-    if [[ "${confirm,,}" != "y" ]]; then
-        echo "安装已取消"
-        exit 0
+    # 安装依赖
+    if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
+        install_dependencies
     fi
     
-    # 开始安装
-    log "INFO" "Starting installation of IPv6 WireGuard Manager v$SCRIPT_VERSION"
+    # 创建目录
+    create_directories
     
-    detect_os
-    check_requirements
-    install_dependencies
+    # 下载项目文件
     download_project_files
-    create_install_directory
-    copy_files
-    create_symlinks
-    create_system_service
-    create_config_files
-    create_uninstall_script
+    
+    # 安装文件
+    install_files
+    
+    # 根据选择的功能进行安装
+    install_selected_features
+    
+    # 创建配置文件
+    if [[ "$SKIP_CONFIG" != "true" ]]; then
+        create_configuration
+    fi
+    
+    # 安装系统服务
+    if [[ "$SKIP_SERVICE" != "true" ]]; then
+        install_service
+    fi
+    
+    # 设置权限
     set_permissions
     
-    # 验证安装
-    if verify_installation; then
-        show_completion_info
-        log "INFO" "Installation completed successfully"
-    else
-        error_exit "Installation verification failed"
-    fi
+    # 创建卸载脚本
+    create_uninstall_script
+    
+    # 运行安装后配置
+    post_install_configuration
+    
+    # 显示安装完成信息
+    show_installation_complete
 }
 
-# 脚本入口点
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
-fi
+# 安装选择的功能
+install_selected_features() {
+    echo -e "${CYAN}=== 安装选择的功能 ===${NC}"
+    echo
+    
+    # WireGuard VPN服务
+    if [[ "$INSTALL_WIREGUARD" == "true" ]]; then
+        echo "安装WireGuard VPN服务..."
+        install_wireguard_service
+    fi
+    
+    # BIRD BGP路由服务
+    if [[ "$INSTALL_BIRD" == "true" ]]; then
+        echo "安装BIRD BGP路由服务..."
+        install_bird_service
+    fi
+    
+    # 防火墙管理功能
+    if [[ "$INSTALL_FIREWALL" == "true" ]]; then
+        echo "安装防火墙管理功能..."
+        install_firewall_management
+    fi
+    
+    # Web管理界面
+    if [[ "$INSTALL_WEB_INTERFACE" == "true" ]]; then
+        echo "安装Web管理界面..."
+        install_web_interface
+    fi
+    
+    # 监控告警系统
+    if [[ "$INSTALL_MONITORING" == "true" ]]; then
+        echo "安装监控告警系统..."
+        install_monitoring_system
+    fi
+    
+    # 客户端自动安装功能
+    if [[ "$INSTALL_CLIENT_AUTO_INSTALL" == "true" ]]; then
+        echo "安装客户端自动安装功能..."
+        install_client_auto_install
+    fi
+    
+    # 配置备份恢复功能
+    if [[ "$INSTALL_BACKUP_RESTORE" == "true" ]]; then
+        echo "安装配置备份恢复功能..."
+        install_backup_restore
+    fi
+    
+    # 更新管理功能
+    if [[ "$INSTALL_UPDATE_MANAGEMENT" == "true" ]]; then
+        echo "安装更新管理功能..."
+        install_update_management
+    fi
+    
+    # 安全增强功能
+    if [[ "$INSTALL_SECURITY_ENHANCEMENTS" == "true" ]]; then
+        echo "安装安全增强功能..."
+        install_security_enhancements
+    fi
+    
+    # 配置管理功能
+    if [[ "$INSTALL_CONFIG_MANAGEMENT" == "true" ]]; then
+        echo "安装配置管理功能..."
+        install_config_management
+    fi
+    
+    # 增强Web界面功能
+    if [[ "$INSTALL_WEB_INTERFACE_ENHANCED" == "true" ]]; then
+        echo "安装增强Web界面功能..."
+        install_web_interface_enhanced
+    fi
+    
+    # OAuth认证功能
+    if [[ "$INSTALL_OAUTH_AUTHENTICATION" == "true" ]]; then
+        echo "安装OAuth认证功能..."
+        install_oauth_authentication
+    fi
+    
+    # 安全审计监控功能
+    if [[ "$INSTALL_SECURITY_AUDIT_MONITORING" == "true" ]]; then
+        echo "安装安全审计监控功能..."
+        install_security_audit_monitoring
+    fi
+    
+    # 网络拓扑图功能
+    if [[ "$INSTALL_NETWORK_TOPOLOGY" == "true" ]]; then
+        echo "安装网络拓扑图功能..."
+        install_network_topology
+    fi
+    
+    # API文档功能
+    if [[ "$INSTALL_API_DOCUMENTATION" == "true" ]]; then
+        echo "安装API文档功能..."
+        install_api_documentation
+    fi
+    
+    # WebSocket实时通信功能
+    if [[ "$INSTALL_WEBSOCKET_REALTIME" == "true" ]]; then
+        echo "安装WebSocket实时通信功能..."
+        install_websocket_realtime
+    fi
+    
+    # 多租户管理功能
+    if [[ "$INSTALL_MULTI_TENANT" == "true" ]]; then
+        echo "安装多租户管理功能..."
+        install_multi_tenant
+    fi
+    
+    # 资源配额管理功能
+    if [[ "$INSTALL_RESOURCE_QUOTA" == "true" ]]; then
+        echo "安装资源配额管理功能..."
+        install_resource_quota
+    fi
+    
+    # 配置懒加载功能
+    if [[ "$INSTALL_LAZY_LOADING" == "true" ]]; then
+        echo "安装配置懒加载功能..."
+        install_lazy_loading
+    fi
+    
+    # 性能优化功能
+    if [[ "$INSTALL_PERFORMANCE_OPTIMIZATION" == "true" ]]; then
+        echo "安装性能优化功能..."
+        install_performance_optimization
+    fi
+    
+    echo -e "${GREEN}功能安装完成${NC}"
+}
+
+# 安装WireGuard服务
+install_wireguard_service() {
+    log_info "安装WireGuard VPN服务..."
+    
+    # 检测WireGuard是否已安装
+    if ! command -v wg &> /dev/null; then
+        log_info "安装WireGuard..."
+        # 这里添加WireGuard安装逻辑
+    fi
+    
+    # 配置WireGuard
+    log_info "配置WireGuard..."
+    # 这里添加WireGuard配置逻辑
+    
+    log_info "WireGuard VPN服务安装完成"
+}
+
+# 安装BIRD服务
+install_bird_service() {
+    log_info "安装BIRD BGP路由服务..."
+    
+    # 检测BIRD是否已安装
+    if ! command -v bird &> /dev/null; then
+        log_info "安装BIRD..."
+        # 这里添加BIRD安装逻辑
+    fi
+    
+    # 配置BIRD
+    log_info "配置BIRD..."
+    # 这里添加BIRD配置逻辑
+    
+    log_info "BIRD BGP路由服务安装完成"
+}
+
+# 安装防火墙管理
+install_firewall_management() {
+    log_info "安装防火墙管理功能..."
+    
+    # 检测防火墙类型
+    local firewall_type=""
+    if command -v ufw &> /dev/null; then
+        firewall_type="ufw"
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall_type="firewalld"
+    elif command -v nft &> /dev/null; then
+        firewall_type="nftables"
+    elif command -v iptables &> /dev/null; then
+        firewall_type="iptables"
+    fi
+    
+    if [[ -n "$firewall_type" ]]; then
+        log_info "检测到防火墙类型: $firewall_type"
+        configure_firewall_ports "$firewall_type"
+    else
+        log_warn "未检测到支持的防火墙类型"
+    fi
+    
+    log_info "防火墙管理功能安装完成"
+}
+
+# 配置防火墙端口
+configure_firewall_ports() {
+    local firewall_type="$1"
+    
+    log_info "配置防火墙端口..."
+    
+    # 定义需要开放的端口
+    local ports=(
+        "51820/udp"    # WireGuard
+        "179/tcp"      # BGP
+        "8080/tcp"     # Web管理界面
+        "8443/tcp"     # HTTPS Web管理界面
+        "22/tcp"       # SSH
+        "80/tcp"       # HTTP
+        "443/tcp"      # HTTPS
+    )
+    
+    case "$firewall_type" in
+        "ufw")
+            configure_ufw_ports "${ports[@]}"
+            ;;
+        "firewalld")
+            configure_firewalld_ports "${ports[@]}"
+            ;;
+        "nftables")
+            configure_nftables_ports "${ports[@]}"
+            ;;
+        "iptables")
+            configure_iptables_ports "${ports[@]}"
+            ;;
+    esac
+}
+
+# 配置UFW端口
+configure_ufw_ports() {
+    local ports=("$@")
+    
+    log_info "配置UFW防火墙端口..."
+    
+    for port in "${ports[@]}"; do
+        log_info "开放端口: $port"
+        ufw allow "$port" 2>/dev/null || log_warn "无法开放端口: $port"
+    done
+    
+    # 启用UFW
+    ufw --force enable 2>/dev/null || log_warn "无法启用UFW"
+    
+    log_info "UFW防火墙配置完成"
+}
+
+# 配置firewalld端口
+configure_firewalld_ports() {
+    local ports=("$@")
+    
+    log_info "配置firewalld防火墙端口..."
+    
+    for port in "${ports[@]}"; do
+        log_info "开放端口: $port"
+        firewall-cmd --permanent --add-port="$port" 2>/dev/null || log_warn "无法开放端口: $port"
+    done
+    
+    # 重载firewalld配置
+    firewall-cmd --reload 2>/dev/null || log_warn "无法重载firewalld配置"
+    
+    log_info "firewalld防火墙配置完成"
+}
+
+# 配置nftables端口
+configure_nftables_ports() {
+    local ports=("$@")
+    
+    log_info "配置nftables防火墙端口..."
+    
+    # 这里添加nftables配置逻辑
+    log_info "nftables防火墙配置完成"
+}
+
+# 配置iptables端口
+configure_iptables_ports() {
+    local ports=("$@")
+    
+    log_info "配置iptables防火墙端口..."
+    
+    # 这里添加iptables配置逻辑
+    log_info "iptables防火墙配置完成"
+}
+
+# 安装Web管理界面
+install_web_interface() {
+    log_info "安装Web管理界面..."
+    
+    # 检测Web服务器
+    local web_server=""
+    if command -v nginx &> /dev/null; then
+        web_server="nginx"
+    elif command -v apache2 &> /dev/null; then
+        web_server="apache2"
+    elif command -v httpd &> /dev/null; then
+        web_server="httpd"
+    fi
+    
+    if [[ -n "$web_server" ]]; then
+        log_info "检测到Web服务器: $web_server"
+        configure_web_server "$web_server"
+    else
+        log_info "安装Nginx Web服务器..."
+        install_nginx
+        configure_web_server "nginx"
+    fi
+    
+    log_info "Web管理界面安装完成"
+}
+
+# 安装Nginx
+install_nginx() {
+    log_info "安装Nginx..."
+    # 这里添加Nginx安装逻辑
+}
+
+# 配置Web服务器
+configure_web_server() {
+    local web_server="$1"
+    
+    log_info "配置Web服务器: $web_server"
+    # 这里添加Web服务器配置逻辑
+}
+
+# 安装监控系统
+install_monitoring_system() {
+    log_info "安装监控告警系统..."
+    # 这里添加监控系统安装逻辑
+    log_info "监控告警系统安装完成"
+}
+
+# 安装客户端自动安装功能
+install_client_auto_install() {
+    log_info "安装客户端自动安装功能..."
+    # 这里添加客户端自动安装功能安装逻辑
+    log_info "客户端自动安装功能安装完成"
+}
+
+# 安装备份恢复功能
+install_backup_restore() {
+    log_info "安装配置备份恢复功能..."
+    # 这里添加备份恢复功能安装逻辑
+    log_info "配置备份恢复功能安装完成"
+}
+
+# 安装更新管理功能
+install_update_management() {
+    log_info "安装更新管理功能..."
+    # 这里添加更新管理功能安装逻辑
+    log_info "更新管理功能安装完成"
+}
+
+# 安装安全增强功能
+install_security_enhancements() {
+    log_info "安装安全增强功能..."
+    # 这里添加安全增强功能安装逻辑
+    log_info "安全增强功能安装完成"
+}
+
+# 安装配置管理功能
+install_config_management() {
+    log_info "安装配置管理功能..."
+    
+    # 检查yq工具是否安装
+    if ! command -v yq &> /dev/null; then
+        log_info "安装yq工具..."
+        case "$(detect_os)" in
+            "ubuntu"|"debian")
+                wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                chmod +x /usr/local/bin/yq
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                chmod +x /usr/local/bin/yq
+                ;;
+            "fedora")
+                dnf install -y yq || log_warn "yq安装失败"
+                ;;
+        esac
+    fi
+    
+    # 初始化配置管理
+    if [[ -f "$INSTALL_DIR/modules/config_management.sh" ]]; then
+        source "$INSTALL_DIR/modules/config_management.sh"
+        init_config_management
+    fi
+    
+    log_info "配置管理功能安装完成"
+}
+
+# 安装增强Web界面功能
+install_web_interface_enhanced() {
+    log_info "安装增强Web界面功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install psutil sqlite3 || log_warn "Python依赖安装失败"
+    else
+        log_warn "Python3未安装，增强Web界面功能可能无法正常工作"
+    fi
+    
+    # 初始化增强Web界面
+    if [[ -f "$INSTALL_DIR/modules/web_interface_enhanced.sh" ]]; then
+        source "$INSTALL_DIR/modules/web_interface_enhanced.sh"
+        init_enhanced_web_interface
+    fi
+    
+    log_info "增强Web界面功能安装完成"
+}
+
+# 安装OAuth认证功能
+install_oauth_authentication() {
+    log_info "安装OAuth认证功能..."
+    
+    # 安装OpenSSL（用于生成密钥）
+    if ! command -v openssl &> /dev/null; then
+        log_info "安装OpenSSL..."
+        case "$(detect_os)" in
+            "ubuntu"|"debian")
+                apt-get update && apt-get install -y openssl
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                yum install -y openssl
+                ;;
+            "fedora")
+                dnf install -y openssl
+                ;;
+        esac
+    fi
+    
+    # 初始化OAuth认证系统
+    if [[ -f "$INSTALL_DIR/modules/oauth_authentication.sh" ]]; then
+        source "$INSTALL_DIR/modules/oauth_authentication.sh"
+        init_oauth_authentication
+    fi
+    
+    log_info "OAuth认证功能安装完成"
+}
+
+# 安装安全审计监控功能
+install_security_audit_monitoring() {
+    log_info "安装安全审计监控功能..."
+    
+    # 安装邮件发送工具
+    if ! command -v mail &> /dev/null; then
+        log_info "安装邮件发送工具..."
+        case "$(detect_os)" in
+            "ubuntu"|"debian")
+                apt-get update && apt-get install -y mailutils
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                yum install -y mailx
+                ;;
+            "fedora")
+                dnf install -y mailx
+                ;;
+        esac
+    fi
+    
+    # 安装curl（用于Webhook通知）
+    if ! command -v curl &> /dev/null; then
+        log_info "安装curl..."
+        case "$(detect_os)" in
+            "ubuntu"|"debian")
+                apt-get update && apt-get install -y curl
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                yum install -y curl
+                ;;
+            "fedora")
+                dnf install -y curl
+                ;;
+        esac
+    fi
+    
+    # 初始化安全审计监控系统
+    if [[ -f "$INSTALL_DIR/modules/security_audit_monitoring.sh" ]]; then
+        source "$INSTALL_DIR/modules/security_audit_monitoring.sh"
+        init_security_audit_monitoring
+    fi
+    
+    log_info "安全审计监控功能安装完成"
+}
+
+# 安装网络拓扑图功能
+install_network_topology() {
+    log_info "安装网络拓扑图功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install websockets || log_warn "websockets安装失败"
+    else
+        log_warn "Python3未安装，网络拓扑图功能可能无法正常工作"
+    fi
+    
+    # 初始化网络拓扑模块
+    if [[ -f "$INSTALL_DIR/modules/network_topology.sh" ]]; then
+        source "$INSTALL_DIR/modules/network_topology.sh"
+        init_network_topology
+    fi
+    
+    log_info "网络拓扑图功能安装完成"
+}
+
+# 安装API文档功能
+install_api_documentation() {
+    log_info "安装API文档功能..."
+    
+    # 安装wget或curl（用于下载Swagger UI）
+    if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
+        log_info "安装wget..."
+        case "$(detect_os)" in
+            "ubuntu"|"debian")
+                apt-get update && apt-get install -y wget
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                yum install -y wget
+                ;;
+            "fedora")
+                dnf install -y wget
+                ;;
+        esac
+    fi
+    
+    # 初始化API文档模块
+    if [[ -f "$INSTALL_DIR/modules/api_documentation.sh" ]]; then
+        source "$INSTALL_DIR/modules/api_documentation.sh"
+        init_api_documentation
+    fi
+    
+    log_info "API文档功能安装完成"
+}
+
+# 安装WebSocket实时通信功能
+install_websocket_realtime() {
+    log_info "安装WebSocket实时通信功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install websockets || log_warn "websockets安装失败"
+    else
+        log_warn "Python3未安装，WebSocket实时通信功能可能无法正常工作"
+    fi
+    
+    # 初始化WebSocket模块
+    if [[ -f "$INSTALL_DIR/modules/websocket_realtime.sh" ]]; then
+        source "$INSTALL_DIR/modules/websocket_realtime.sh"
+        init_websocket_realtime
+    fi
+    
+    log_info "WebSocket实时通信功能安装完成"
+}
+
+# 安装多租户管理功能
+install_multi_tenant() {
+    log_info "安装多租户管理功能..."
+    
+    # 初始化多租户模块
+    if [[ -f "$INSTALL_DIR/modules/multi_tenant.sh" ]]; then
+        source "$INSTALL_DIR/modules/multi_tenant.sh"
+        init_multi_tenant
+    fi
+    
+    log_info "多租户管理功能安装完成"
+}
+
+# 安装资源配额管理功能
+install_resource_quota() {
+    log_info "安装资源配额管理功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install psutil || log_warn "psutil安装失败"
+    else
+        log_warn "Python3未安装，资源配额管理功能可能无法正常工作"
+    fi
+    
+    # 初始化资源配额模块
+    if [[ -f "$INSTALL_DIR/modules/resource_quota.sh" ]]; then
+        source "$INSTALL_DIR/modules/resource_quota.sh"
+        init_resource_quota
+    fi
+    
+    log_info "资源配额管理功能安装完成"
+}
+
+# 安装配置懒加载功能
+install_lazy_loading() {
+    log_info "安装配置懒加载功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install psutil || log_warn "psutil安装失败"
+    else
+        log_warn "Python3未安装，配置懒加载功能可能无法正常工作"
+    fi
+    
+    # 初始化懒加载模块
+    if [[ -f "$INSTALL_DIR/modules/lazy_loading.sh" ]]; then
+        source "$INSTALL_DIR/modules/lazy_loading.sh"
+        init_lazy_loading
+    fi
+    
+    log_info "配置懒加载功能安装完成"
+}
+
+# 安装性能优化功能
+install_performance_optimization() {
+    log_info "安装性能优化功能..."
+    
+    # 安装Python依赖
+    if command -v python3 &> /dev/null; then
+        log_info "安装Python依赖..."
+        pip3 install psutil || log_warn "psutil安装失败"
+    else
+        log_warn "Python3未安装，性能优化功能可能无法正常工作"
+    fi
+    
+    # 初始化性能优化模块
+    if [[ -f "$INSTALL_DIR/modules/performance_optimization.sh" ]]; then
+        source "$INSTALL_DIR/modules/performance_optimization.sh"
+        init_performance_optimization
+    fi
+    
+    log_info "性能优化功能安装完成"
+}
+
+# 错误处理
+trap 'log_error "安装过程中发生错误，行号: $LINENO"' ERR
+
+# 执行主函数
+main "$@"

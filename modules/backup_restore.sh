@@ -1,700 +1,986 @@
 #!/bin/bash
 
-# 备份恢复模块
-# 提供配置备份、恢复、自动备份设置等功能
+# 配置备份恢复模块
+# 负责配置文件的备份、恢复、导入、导出等功能
 
-# 备份恢复菜单
+# 备份配置变量
+BACKUP_DIR="/var/lib/ipv6-wireguard-manager/backups"
+BACKUP_CONFIG_FILE="${CONFIG_DIR}/backup.conf"
+BACKUP_HISTORY_DB="/var/lib/ipv6-wireguard-manager/backup_history.db"
+
+# 备份设置
+BACKUP_ENABLED=true
+BACKUP_RETENTION_DAYS=30
+BACKUP_COMPRESSION=true
+BACKUP_ENCRYPTION=false
+AUTO_BACKUP_ENABLED=true
+AUTO_BACKUP_INTERVAL=24
+
+# 初始化备份恢复系统
+init_backup_restore() {
+    log_info "初始化备份恢复系统..."
+    
+    # 创建备份目录
+    mkdir -p "$BACKUP_DIR"
+    mkdir -p "$(dirname "$BACKUP_HISTORY_DB")"
+    
+    # 创建备份配置文件
+    create_backup_config
+    
+    # 初始化备份历史数据库
+    init_backup_history_db
+    
+    # 加载备份配置
+    load_backup_config
+    
+    log_info "备份恢复系统初始化完成"
+}
+
+# 创建备份配置
+create_backup_config() {
+    if [[ ! -f "$BACKUP_CONFIG_FILE" ]]; then
+        cat > "$BACKUP_CONFIG_FILE" << EOF
+# 备份配置文件
+# 生成时间: $(get_timestamp)
+
+# 备份设置
+BACKUP_ENABLED=true
+BACKUP_RETENTION_DAYS=30
+BACKUP_COMPRESSION=true
+BACKUP_ENCRYPTION=false
+BACKUP_PASSWORD=""
+
+# 自动备份设置
+AUTO_BACKUP_ENABLED=true
+AUTO_BACKUP_INTERVAL=24
+AUTO_BACKUP_TIME="02:00"
+
+# 备份内容
+BACKUP_WIREGUARD=true
+BACKUP_BIRD=true
+BACKUP_CLIENT_DB=true
+BACKUP_CONFIG_FILES=true
+BACKUP_LOGS=true
+BACKUP_KEYS=true
+
+# 备份路径
+WIREGUARD_BACKUP_PATH="/etc/wireguard"
+BIRD_BACKUP_PATH="/etc/bird"
+CLIENT_DB_BACKUP_PATH="/var/lib/ipv6-wireguard-manager"
+CONFIG_BACKUP_PATH="${CONFIG_DIR}"
+LOG_BACKUP_PATH="${LOG_DIR}"
+KEY_BACKUP_PATH="/etc/wireguard/keys"
+
+# 排除文件
+EXCLUDE_PATTERNS=(
+    "*.tmp"
+    "*.log"
+    "*.pid"
+    "*.lock"
+    "*.swp"
+    "*.bak"
+)
+
+# 备份验证
+BACKUP_VERIFICATION=true
+BACKUP_INTEGRITY_CHECK=true
+EOF
+        log_info "备份配置文件已创建: $BACKUP_CONFIG_FILE"
+    fi
+}
+
+# 初始化备份历史数据库
+init_backup_history_db() {
+    if [[ ! -f "$BACKUP_HISTORY_DB" ]]; then
+        cat > "$BACKUP_HISTORY_DB" << EOF
+# 备份历史数据库
+# 格式: backup_id|timestamp|backup_type|backup_path|backup_size|status|description|restore_count
+EOF
+        log_info "备份历史数据库已创建"
+    fi
+}
+
+# 加载备份配置
+load_backup_config() {
+    if [[ -f "$BACKUP_CONFIG_FILE" ]]; then
+        source "$BACKUP_CONFIG_FILE"
+        log_info "备份配置已加载"
+    fi
+}
+
+# 备份恢复主菜单
 backup_restore_menu() {
     while true; do
         clear
-        echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${WHITE}║                    配置备份/恢复                          ║${NC}"
-        echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== 配置备份/恢复 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 自动备份设置"
+        echo -e "${GREEN}2.${NC} 手动备份配置"
+        echo -e "${GREEN}3.${NC} 恢复配置"
+        echo -e "${GREEN}4.${NC} 导入配置"
+        echo -e "${GREEN}5.${NC} 导出配置"
+        echo -e "${GREEN}6.${NC} 查看备份历史"
+        echo -e "${GREEN}7.${NC} 备份管理"
+        echo -e "${GREEN}8.${NC} 备份验证"
+        echo -e "${GREEN}9.${NC} 备份清理"
+        echo -e "${GREEN}10.${NC} 备份计划"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        echo -e "${YELLOW}备份恢复选项:${NC}"
-        echo -e "  ${GREEN}1.${NC} 创建配置备份"
-        echo -e "  ${GREEN}2.${NC} 恢复配置备份"
-        echo -e "  ${GREEN}3.${NC} 列出备份文件"
-        echo -e "  ${GREEN}4.${NC} 删除备份文件"
-        echo -e "  ${GREEN}5.${NC} 自动备份设置"
-        echo -e "  ${GREEN}6.${NC} 导出配置"
-        echo -e "  ${GREEN}7.${NC} 导入配置"
-        echo -e "  ${GREEN}0.${NC} 返回主菜单"
-        echo
+        read -p "请选择操作 [0-10]: " choice
         
-        read -p "请选择操作 (0-7): " choice
-        
-        case "$choice" in
-            "1")
-                create_config_backup
-                ;;
-            "2")
-                restore_config_backup
-                ;;
-            "3")
-                list_backups
-                ;;
-            "4")
-                delete_backup
-                ;;
-            "5")
-                auto_backup_settings
-                ;;
-            "6")
-                export_config
-                ;;
-            "7")
-                import_config
-                ;;
-            "0")
-                return
-                ;;
-            *)
-                echo -e "${RED}无效选择，请重新输入${NC}"
-                sleep 2
-                ;;
+        case $choice in
+            1) auto_backup_settings ;;
+            2) manual_backup_config ;;
+            3) restore_config ;;
+            4) import_config ;;
+            5) export_config ;;
+            6) view_backup_history ;;
+            7) backup_management ;;
+            8) backup_verification ;;
+            9) backup_cleanup ;;
+            10) backup_schedule ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
         esac
+        
+        read -p "按回车键继续..."
     done
-}
-
-# 创建配置备份
-create_config_backup() {
-    echo -e "${CYAN}创建配置备份${NC}"
-    
-    # 创建备份目录
-    local backup_dir="$SCRIPT_DIR/backups"
-    mkdir -p "$backup_dir"
-    
-    # 生成备份文件名
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup_file="$backup_dir/ipv6_wireguard_backup_$timestamp.tar.gz"
-    
-    echo "正在创建备份文件: $backup_file"
-    
-    # 创建临时目录
-    local temp_dir=$(mktemp -d)
-    
-    # 复制配置文件
-    if [[ -d /etc/wireguard ]]; then
-        cp -r /etc/wireguard "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} WireGuard配置已复制"
-    fi
-    
-    if [[ -f /etc/bird/bird.conf ]]; then
-        cp -r /etc/bird "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} BIRD配置已复制"
-    fi
-    
-    if [[ -f "$SCRIPT_DIR/manager.conf" ]]; then
-        cp "$SCRIPT_DIR/manager.conf" "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} 管理器配置已复制"
-    fi
-    
-    # 保存防火墙状态
-    if command -v ufw >/dev/null 2>&1; then
-        ufw status > "$temp_dir/ufw_status.txt" 2>/dev/null
-        echo -e "${GREEN}✓${NC} UFW状态已保存"
-    elif command -v firewall-cmd >/dev/null 2>&1; then
-        firewall-cmd --list-all > "$temp_dir/firewalld_status.txt" 2>/dev/null
-        echo -e "${GREEN}✓${NC} Firewalld状态已保存"
-    fi
-    
-    # 保存系统信息
-    {
-        echo "备份时间: $(date)"
-        echo "系统信息: $OS_TYPE $OS_VERSION"
-        echo "内核版本: $(uname -r)"
-        echo "架构: $ARCH"
-    } > "$temp_dir/system_info.txt"
-    
-    # 创建压缩包
-    if tar -czf "$backup_file" -C "$temp_dir" . 2>/dev/null; then
-        echo -e "${GREEN}✓${NC} 备份文件创建成功: $backup_file"
-        
-        # 显示备份文件信息
-        local backup_size=$(du -h "$backup_file" | cut -f1)
-        echo "备份文件大小: $backup_size"
-    else
-        echo -e "${RED}✗${NC} 备份文件创建失败"
-    fi
-    
-    # 清理临时目录
-    rm -rf "$temp_dir"
-    
-    read -p "按回车键继续..."
-}
-
-# 恢复配置备份
-restore_config_backup() {
-    echo -e "${CYAN}恢复配置备份${NC}"
-    
-    local backup_dir="$SCRIPT_DIR/backups"
-    
-    if [[ ! -d "$backup_dir" ]]; then
-        echo -e "${RED}备份目录不存在${NC}"
-        read -p "按回车键继续..."
-        return
-    fi
-    
-    # 列出可用的备份文件
-    echo -e "${CYAN}可用的备份文件:${NC}"
-    local backups=($(ls -t "$backup_dir"/*.tar.gz 2>/dev/null))
-    
-    if [[ ${#backups[@]} -eq 0 ]]; then
-        echo -e "${RED}没有找到备份文件${NC}"
-        read -p "按回车键继续..."
-        return
-    fi
-    
-    # 显示备份文件列表
-    for i in "${!backups[@]}"; do
-        local file=$(basename "${backups[$i]}")
-        local size=$(du -h "${backups[$i]}" | cut -f1)
-        local date=$(stat -c "%y" "${backups[$i]}" | cut -d' ' -f1,2 | cut -d'.' -f1)
-        echo "  $((i+1)). $file ($size, $date)"
-    done
-    
-    echo
-    read -p "请选择要恢复的备份文件编号 (1-${#backups[@]}): " choice
-    
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#backups[@]} ]]; then
-        local selected_backup="${backups[$((choice-1))]}"
-        local backup_name=$(basename "$selected_backup")
-        
-        echo -e "${YELLOW}警告: 此操作将覆盖当前配置${NC}"
-        read -p "确认恢复备份 '$backup_name'? (y/N): " confirm
-        
-        if [[ "${confirm,,}" == "y" ]]; then
-            # 创建临时目录
-            local temp_dir=$(mktemp -d)
-            
-            # 解压备份文件
-            if tar -xzf "$selected_backup" -C "$temp_dir" 2>/dev/null; then
-                echo -e "${GREEN}✓${NC} 备份文件解压成功"
-                
-                # 恢复WireGuard配置
-                if [[ -d "$temp_dir/wireguard" ]]; then
-                    if cp -r "$temp_dir/wireguard"/* /etc/wireguard/ 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} WireGuard配置已恢复"
-                    else
-                        echo -e "${RED}✗${NC} WireGuard配置恢复失败"
-                    fi
-                fi
-                
-                # 恢复BIRD配置
-                if [[ -d "$temp_dir/bird" ]]; then
-                    if cp -r "$temp_dir/bird"/* /etc/bird/ 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} BIRD配置已恢复"
-                    else
-                        echo -e "${RED}✗${NC} BIRD配置恢复失败"
-                    fi
-                fi
-                
-                # 恢复管理器配置
-                if [[ -f "$temp_dir/manager.conf" ]]; then
-                    if cp "$temp_dir/manager.conf" "$SCRIPT_DIR/" 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} 管理器配置已恢复"
-                    else
-                        echo -e "${RED}✗${NC} 管理器配置恢复失败"
-                    fi
-                fi
-                
-                # 恢复防火墙状态
-                if [[ -f "$temp_dir/ufw_status.txt" ]]; then
-                    echo -e "${YELLOW}请手动恢复UFW状态${NC}"
-                elif [[ -f "$temp_dir/firewalld_status.txt" ]]; then
-                    echo -e "${YELLOW}请手动恢复Firewalld状态${NC}"
-                fi
-                
-                echo -e "${GREEN}配置恢复完成${NC}"
-                echo -e "${YELLOW}建议重启相关服务以应用新配置${NC}"
-            else
-                echo -e "${RED}✗${NC} 备份文件解压失败"
-            fi
-            
-            # 清理临时目录
-            rm -rf "$temp_dir"
-        else
-            echo -e "${YELLOW}配置恢复已取消${NC}"
-        fi
-    else
-        echo -e "${RED}无效选择${NC}"
-    fi
-    
-    read -p "按回车键继续..."
-}
-
-# 列出备份文件
-list_backups() {
-    echo -e "${CYAN}备份文件列表:${NC}"
-    
-    local backup_dir="$SCRIPT_DIR/backups"
-    
-    if [[ ! -d "$backup_dir" ]]; then
-        echo -e "${RED}备份目录不存在${NC}"
-        read -p "按回车键继续..."
-        return
-    fi
-    
-    local backups=($(ls -t "$backup_dir"/*.tar.gz 2>/dev/null))
-    
-    if [[ ${#backups[@]} -eq 0 ]]; then
-        echo -e "${YELLOW}没有找到备份文件${NC}"
-    else
-        echo
-        printf "%-4s %-40s %-10s %-20s\n" "序号" "文件名" "大小" "创建时间"
-        echo "----------------------------------------------------------------"
-        
-        for i in "${!backups[@]}"; do
-            local file=$(basename "${backups[$i]}")
-            local size=$(du -h "${backups[$i]}" | cut -f1)
-            local date=$(stat -c "%y" "${backups[$i]}" | cut -d' ' -f1,2 | cut -d'.' -f1)
-            printf "%-4s %-40s %-10s %-20s\n" "$((i+1))" "$file" "$size" "$date"
-        done
-    fi
-    
-    echo
-    read -p "按回车键继续..."
-}
-
-# 删除备份文件
-delete_backup() {
-    echo -e "${CYAN}删除备份文件${NC}"
-    
-    local backup_dir="$SCRIPT_DIR/backups"
-    
-    if [[ ! -d "$backup_dir" ]]; then
-        echo -e "${RED}备份目录不存在${NC}"
-        read -p "按回车键继续..."
-        return
-    fi
-    
-    # 列出可用的备份文件
-    local backups=($(ls -t "$backup_dir"/*.tar.gz 2>/dev/null))
-    
-    if [[ ${#backups[@]} -eq 0 ]]; then
-        echo -e "${RED}没有找到备份文件${NC}"
-        read -p "按回车键继续..."
-        return
-    fi
-    
-    # 显示备份文件列表
-    echo -e "${CYAN}可用的备份文件:${NC}"
-    for i in "${!backups[@]}"; do
-        local file=$(basename "${backups[$i]}")
-        local size=$(du -h "${backups[$i]}" | cut -f1)
-        local date=$(stat -c "%y" "${backups[$i]}" | cut -d' ' -f1,2 | cut -d'.' -f1)
-        echo "  $((i+1)). $file ($size, $date)"
-    done
-    
-    echo
-    read -p "请选择要删除的备份文件编号 (1-${#backups[@]}): " choice
-    
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#backups[@]} ]]; then
-        local selected_backup="${backups[$((choice-1))]}"
-        local backup_name=$(basename "$selected_backup")
-        
-        read -p "确认删除备份 '$backup_name'? (y/N): " confirm
-        
-        if [[ "${confirm,,}" == "y" ]]; then
-            if rm "$selected_backup" 2>/dev/null; then
-                echo -e "${GREEN}✓${NC} 备份文件已删除"
-            else
-                echo -e "${RED}✗${NC} 删除失败"
-            fi
-        else
-            echo -e "${YELLOW}删除已取消${NC}"
-        fi
-    else
-        echo -e "${RED}无效选择${NC}"
-    fi
-    
-    read -p "按回车键继续..."
 }
 
 # 自动备份设置
 auto_backup_settings() {
     while true; do
         clear
-        echo -e "${WHITE}╔══════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${WHITE}║                    自动备份设置                            ║${NC}"
-        echo -e "${WHITE}╚══════════════════════════════════════════════════════════════╝${NC}"
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== 自动备份设置 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 启用/禁用自动备份"
+        echo -e "${GREEN}2.${NC} 设置备份间隔"
+        echo -e "${GREEN}3.${NC} 设置备份时间"
+        echo -e "${GREEN}4.${NC} 设置保留天数"
+        echo -e "${GREEN}5.${NC} 配置备份内容"
+        echo -e "${GREEN}6.${NC} 查看当前设置"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        echo -e "${YELLOW}自动备份设置选项:${NC}"
-        echo -e "  ${GREEN}1.${NC} 查看自动备份设置"
-        echo -e "  ${GREEN}2.${NC} 启用自动备份"
-        echo -e "  ${GREEN}3.${NC} 禁用自动备份"
-        echo -e "  ${GREEN}4.${NC} 设置备份频率"
-        echo -e "  ${GREEN}5.${NC} 设置备份保留数量"
-        echo -e "  ${GREEN}0.${NC} 返回"
-        echo
+        read -p "请选择操作 [0-6]: " choice
         
-        read -p "请选择操作 (0-5): " choice
-        
-        case "$choice" in
-            "1")
-                show_auto_backup_settings
-                ;;
-            "2")
-                enable_auto_backup
-                ;;
-            "3")
-                disable_auto_backup
-                ;;
-            "4")
-                set_backup_frequency
-                ;;
-            "5")
-                set_backup_retention
-                ;;
-            "0")
-                return
-                ;;
-            *)
-                echo -e "${RED}无效选择${NC}"
-                sleep 2
-                ;;
+        case $choice in
+            1) toggle_auto_backup ;;
+            2) set_backup_interval ;;
+            3) set_backup_time ;;
+            4) set_retention_days ;;
+            5) configure_backup_content ;;
+            6) show_backup_settings ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
         esac
+        
+        read -p "按回车键继续..."
     done
 }
 
-# 查看自动备份设置
-show_auto_backup_settings() {
-    echo -e "${CYAN}自动备份设置:${NC}"
-    
-    # 检查cron任务
-    if crontab -l 2>/dev/null | grep -q "ipv6-wireguard-backup"; then
-        echo -e "  状态: ${GREEN}已启用${NC}"
-        echo -e "  频率: $(crontab -l 2>/dev/null | grep "ipv6-wireguard-backup" | awk '{print $1, $2, $3, $4, $5}')"
-    else
-        echo -e "  状态: ${RED}已禁用${NC}"
-    fi
-    
-    # 检查备份目录
-    local backup_dir="$SCRIPT_DIR/backups"
-    if [[ -d "$backup_dir" ]]; then
-        local backup_count=$(ls -1 "$backup_dir"/*.tar.gz 2>/dev/null | wc -l)
-        echo -e "  备份目录: $backup_dir"
-        echo -e "  备份数量: $backup_count"
-    else
-        echo -e "  备份目录: ${RED}不存在${NC}"
-    fi
-    
+# 切换自动备份
+toggle_auto_backup() {
+    echo -e "${SECONDARY_COLOR}=== 启用/禁用自动备份 ===${NC}"
     echo
-    read -p "按回车键继续..."
-}
-
-# 启用自动备份
-enable_auto_backup() {
-    echo -e "${CYAN}启用自动备份${NC}"
     
-    # 设置默认备份频率 (每天凌晨2点)
-    local cron_schedule="0 2 * * *"
+    local current_status=$([ "$AUTO_BACKUP_ENABLED" == "true" ] && echo "启用" || echo "禁用")
+    echo "当前状态: $current_status"
     
-    # 创建备份脚本
-    local backup_script="$SCRIPT_DIR/scripts/auto_backup.sh"
-    mkdir -p "$(dirname "$backup_script")"
+    local new_status=$(show_selection "新的状态" "启用" "禁用")
     
-    cat > "$backup_script" << 'EOF'
-#!/bin/bash
-
-# 自动备份脚本
-BACKUP_DIR="$SCRIPT_DIR/backups"
-mkdir -p "$BACKUP_DIR"
-
-# 生成备份文件名
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_FILE="$BACKUP_DIR/ipv6_wireguard_auto_backup_$TIMESTAMP.tar.gz"
-
-# 创建临时目录
-TEMP_DIR=$(mktemp -d)
-
-# 复制配置文件
-if [[ -d /etc/wireguard ]]; then
-    cp -r /etc/wireguard "$TEMP_DIR/" 2>/dev/null
-fi
-
-if [[ -f /etc/bird/bird.conf ]]; then
-    cp -r /etc/bird "$TEMP_DIR/" 2>/dev/null
-fi
-
-if [[ -f "$SCRIPT_DIR/manager.conf" ]]; then
-    cp "$SCRIPT_DIR/manager.conf" "$TEMP_DIR/" 2>/dev/null
-fi
-
-# 保存系统信息
-{
-    echo "备份时间: $(date)"
-    echo "系统信息: $(uname -a)"
-} > "$TEMP_DIR/system_info.txt"
-
-# 创建压缩包
-if tar -czf "$BACKUP_FILE" -C "$TEMP_DIR" . 2>/dev/null; then
-    echo "$(date): 自动备份创建成功: $BACKUP_FILE" >> /var/log/ipv6-wireguard-backup.log
-else
-    echo "$(date): 自动备份创建失败" >> /var/log/ipv6-wireguard-backup.log
-fi
-
-# 清理临时目录
-rm -rf "$TEMP_DIR"
-
-# 清理旧备份 (保留最近30个)
-cd "$BACKUP_DIR"
-ls -t ipv6_wireguard_auto_backup_*.tar.gz 2>/dev/null | tail -n +31 | xargs -r rm
-
-echo "$(date): 自动备份完成" >> /var/log/ipv6-wireguard-backup.log
-EOF
-    
-    chmod +x "$backup_script"
-    
-    # 添加cron任务
-    (crontab -l 2>/dev/null; echo "$cron_schedule $backup_script") | crontab -
-    
-    echo -e "${GREEN}✓${NC} 自动备份已启用"
-    echo -e "  备份频率: 每天凌晨2点"
-    echo -e "  备份脚本: $backup_script"
-    echo -e "  日志文件: /var/log/ipv6-wireguard-backup.log"
-    
-    read -p "按回车键继续..."
-}
-
-# 禁用自动备份
-disable_auto_backup() {
-    echo -e "${CYAN}禁用自动备份${NC}"
-    
-    # 移除cron任务
-    crontab -l 2>/dev/null | grep -v "ipv6-wireguard-backup" | crontab -
-    
-    # 删除备份脚本
-    local backup_script="$SCRIPT_DIR/scripts/auto_backup.sh"
-    if [[ -f "$backup_script" ]]; then
-        rm "$backup_script"
+    if [[ "$new_status" == "启用" ]]; then
+        AUTO_BACKUP_ENABLED=true
+        update_backup_config "AUTO_BACKUP_ENABLED" "true"
+        log_info "自动备份已启用"
+    else
+        AUTO_BACKUP_ENABLED=false
+        update_backup_config "AUTO_BACKUP_ENABLED" "false"
+        log_info "自动备份已禁用"
     fi
-    
-    echo -e "${GREEN}✓${NC} 自动备份已禁用"
-    
-    read -p "按回车键继续..."
 }
 
-# 设置备份频率
-set_backup_frequency() {
-    echo -e "${CYAN}设置备份频率${NC}"
-    echo "1. 每小时"
-    echo "2. 每天"
-    echo "3. 每周"
-    echo "4. 每月"
-    echo "5. 自定义"
-    read -p "请选择备份频率 (1-5): " frequency
+# 设置备份间隔
+set_backup_interval() {
+    echo -e "${SECONDARY_COLOR}=== 设置备份间隔 ===${NC}"
+    echo
     
-    local cron_schedule=""
+    local current_interval="$AUTO_BACKUP_INTERVAL"
+    echo "当前备份间隔: ${current_interval}小时"
     
-    case "$frequency" in
-        "1")
-            cron_schedule="0 * * * *"  # 每小时
+    local new_interval=$(show_input "新的备份间隔(小时)" "$current_interval" "validate_port")
+    
+    if [[ -n "$new_interval" ]] && [[ "$new_interval" -gt 0 ]]; then
+        AUTO_BACKUP_INTERVAL="$new_interval"
+        update_backup_config "AUTO_BACKUP_INTERVAL" "$new_interval"
+        log_info "备份间隔已设置为: ${new_interval}小时"
+    else
+        show_error "无效的备份间隔"
+    fi
+}
+
+# 设置备份时间
+set_backup_time() {
+    echo -e "${SECONDARY_COLOR}=== 设置备份时间 ===${NC}"
+    echo
+    
+    local current_time="$AUTO_BACKUP_TIME"
+    echo "当前备份时间: $current_time"
+    
+    local new_time=$(show_input "新的备份时间(HH:MM)" "$current_time")
+    
+    if [[ "$new_time" =~ ^[0-9]{2}:[0-9]{2}$ ]]; then
+        AUTO_BACKUP_TIME="$new_time"
+        update_backup_config "AUTO_BACKUP_TIME" "$new_time"
+        log_info "备份时间已设置为: $new_time"
+    else
+        show_error "无效的时间格式，请使用HH:MM格式"
+    fi
+}
+
+# 设置保留天数
+set_retention_days() {
+    echo -e "${SECONDARY_COLOR}=== 设置保留天数 ===${NC}"
+    echo
+    
+    local current_days="$BACKUP_RETENTION_DAYS"
+    echo "当前保留天数: $current_days"
+    
+    local new_days=$(show_input "新的保留天数" "$current_days" "validate_port")
+    
+    if [[ -n "$new_days" ]] && [[ "$new_days" -gt 0 ]]; then
+        BACKUP_RETENTION_DAYS="$new_days"
+        update_backup_config "BACKUP_RETENTION_DAYS" "$new_days"
+        log_info "保留天数已设置为: $new_days"
+    else
+        show_error "无效的保留天数"
+    fi
+}
+
+# 配置备份内容
+configure_backup_content() {
+    echo -e "${SECONDARY_COLOR}=== 配置备份内容 ===${NC}"
+    echo
+    
+    echo "当前备份内容:"
+    echo "  WireGuard配置: $([ "$BACKUP_WIREGUARD" == "true" ] && echo "是" || echo "否")"
+    echo "  BIRD配置: $([ "$BACKUP_BIRD" == "true" ] && echo "是" || echo "否")"
+    echo "  客户端数据库: $([ "$BACKUP_CLIENT_DB" == "true" ] && echo "是" || echo "否")"
+    echo "  配置文件: $([ "$BACKUP_CONFIG_FILES" == "true" ] && echo "是" || echo "否")"
+    echo "  日志文件: $([ "$BACKUP_LOGS" == "true" ] && echo "是" || echo "否")"
+    echo "  密钥文件: $([ "$BACKUP_KEYS" == "true" ] && echo "是" || echo "否")"
+    echo
+    
+    local choice=$(show_selection "要修改的备份内容" "WireGuard配置" "BIRD配置" "客户端数据库" "配置文件" "日志文件" "密钥文件")
+    
+    case $choice in
+        "WireGuard配置")
+            toggle_backup_option "BACKUP_WIREGUARD"
             ;;
-        "2")
-            cron_schedule="0 2 * * *"  # 每天凌晨2点
+        "BIRD配置")
+            toggle_backup_option "BACKUP_BIRD"
             ;;
-        "3")
-            cron_schedule="0 2 * * 0"  # 每周日凌晨2点
+        "客户端数据库")
+            toggle_backup_option "BACKUP_CLIENT_DB"
             ;;
-        "4")
-            cron_schedule="0 2 1 * *"  # 每月1日凌晨2点
+        "配置文件")
+            toggle_backup_option "BACKUP_CONFIG_FILES"
             ;;
-        "5")
-            read -p "请输入cron表达式 (如: 0 2 * * *): " cron_schedule
+        "日志文件")
+            toggle_backup_option "BACKUP_LOGS"
             ;;
-        *)
-            echo -e "${RED}无效选择${NC}"
-            read -p "按回车键继续..."
-            return
+        "密钥文件")
+            toggle_backup_option "BACKUP_KEYS"
             ;;
     esac
-    
-    if [[ -n "$cron_schedule" ]]; then
-        # 更新cron任务
-        crontab -l 2>/dev/null | grep -v "ipv6-wireguard-backup" | crontab -
-        (crontab -l 2>/dev/null; echo "$cron_schedule $SCRIPT_DIR/scripts/auto_backup.sh") | crontab -
-        
-        echo -e "${GREEN}✓${NC} 备份频率已设置为: $cron_schedule"
-    fi
-    
-    read -p "按回车键继续..."
 }
 
-# 设置备份保留数量
-set_backup_retention() {
-    echo -e "${CYAN}设置备份保留数量${NC}"
-    read -p "请输入要保留的备份文件数量 (默认30): " retention_count
+# 切换备份选项
+toggle_backup_option() {
+    local option="$1"
+    local current_value=$(get_backup_config_value "$option")
+    local new_value=$([ "$current_value" == "true" ] && echo "false" || echo "true")
     
-    retention_count="${retention_count:-30}"
+    update_backup_config "$option" "$new_value"
+    log_info "$option 备份已$([ "$new_value" == "true" ] && echo "启用" || echo "禁用")"
+}
+
+# 显示备份设置
+show_backup_settings() {
+    log_info "当前备份设置:"
+    echo "----------------------------------------"
+    echo "自动备份: $([ "$AUTO_BACKUP_ENABLED" == "true" ] && echo "启用" || echo "禁用")"
+    echo "备份间隔: ${AUTO_BACKUP_INTERVAL}小时"
+    echo "备份时间: $AUTO_BACKUP_TIME"
+    echo "保留天数: $BACKUP_RETENTION_DAYS"
+    echo "压缩备份: $([ "$BACKUP_COMPRESSION" == "true" ] && echo "是" || echo "否")"
+    echo "加密备份: $([ "$BACKUP_ENCRYPTION" == "true" ] && echo "是" || echo "否")"
+    echo
+    echo "备份内容:"
+    echo "  WireGuard配置: $([ "$BACKUP_WIREGUARD" == "true" ] && echo "是" || echo "否")"
+    echo "  BIRD配置: $([ "$BACKUP_BIRD" == "true" ] && echo "是" || echo "否")"
+    echo "  客户端数据库: $([ "$BACKUP_CLIENT_DB" == "true" ] && echo "是" || echo "否")"
+    echo "  配置文件: $([ "$BACKUP_CONFIG_FILES" == "true" ] && echo "是" || echo "否")"
+    echo "  日志文件: $([ "$BACKUP_LOGS" == "true" ] && echo "是" || echo "否")"
+    echo "  密钥文件: $([ "$BACKUP_KEYS" == "true" ] && echo "是" || echo "否")"
+}
+
+# 手动备份配置
+manual_backup_config() {
+    echo -e "${SECONDARY_COLOR}=== 手动备份配置 ===${NC}"
+    echo
     
-    if [[ "$retention_count" =~ ^[0-9]+$ ]] && [[ "$retention_count" -gt 0 ]]; then
-        # 更新备份脚本中的保留数量
-        local backup_script="$SCRIPT_DIR/scripts/auto_backup.sh"
-        if [[ -f "$backup_script" ]]; then
-            sed -i "s/tail -n +31/tail -n +$((retention_count + 1))/" "$backup_script"
-            echo -e "${GREEN}✓${NC} 备份保留数量已设置为: $retention_count"
-        else
-            echo -e "${YELLOW}自动备份未启用，请先启用自动备份${NC}"
-        fi
+    local backup_type=$(show_selection "备份类型" "完整备份" "增量备份" "差异备份")
+    local backup_name=$(show_input "备份名称" "manual_backup_$(date +%Y%m%d_%H%M%S)")
+    local description=$(show_input "备份描述" "")
+    
+    log_info "开始手动备份: $backup_name"
+    
+    if create_backup "$backup_name" "$backup_type" "$description"; then
+        log_info "手动备份完成: $backup_name"
     else
-        echo -e "${RED}请输入有效的数字${NC}"
+        log_error "手动备份失败"
+    fi
+}
+
+# 恢复配置
+restore_config() {
+    echo -e "${SECONDARY_COLOR}=== 恢复配置 ===${NC}"
+    echo
+    
+    # 显示可用备份
+    list_available_backups
+    echo
+    
+    local backup_id=$(show_input "要恢复的备份ID" "")
+    
+    if [[ -z "$backup_id" ]]; then
+        show_error "备份ID不能为空"
+        return 1
     fi
     
-    read -p "按回车键继续..."
+    # 验证备份存在
+    if ! backup_exists "$backup_id"; then
+        show_error "备份不存在: $backup_id"
+        return 1
+    fi
+    
+    if show_confirm "确认恢复备份: $backup_id"; then
+        if restore_backup "$backup_id"; then
+            log_info "配置恢复成功: $backup_id"
+        else
+            log_error "配置恢复失败"
+        fi
+    fi
+}
+
+# 导入配置
+import_config() {
+    echo -e "${SECONDARY_COLOR}=== 导入配置 ===${NC}"
+    echo
+    
+    local import_file=$(show_input "配置文件路径" "")
+    
+    if [[ -z "$import_file" ]] || [[ ! -f "$import_file" ]]; then
+        show_error "配置文件不存在"
+        return 1
+    fi
+    
+    local import_type=$(show_selection "导入类型" "完整导入" "部分导入" "合并导入")
+    
+    if show_confirm "确认导入配置: $import_file"; then
+        if import_backup "$import_file" "$import_type"; then
+            log_info "配置导入成功"
+        else
+            log_error "配置导入失败"
+        fi
+    fi
 }
 
 # 导出配置
 export_config() {
-    echo -e "${CYAN}导出配置${NC}"
+    echo -e "${SECONDARY_COLOR}=== 导出配置 ===${NC}"
+    echo
     
-    # 创建导出目录
-    local export_dir="$SCRIPT_DIR/exports"
-    mkdir -p "$export_dir"
+    local export_type=$(show_selection "导出类型" "完整导出" "部分导出" "自定义导出")
+    local export_format=$(show_selection "导出格式" "tar.gz" "zip" "tar")
+    local output_path=$(show_input "输出路径" "/tmp/ipv6-wg-config-$(date +%Y%m%d_%H%M%S).$export_format")
     
-    # 生成导出文件名
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local export_file="$export_dir/ipv6_wireguard_export_$timestamp.tar.gz"
+    if export_backup "$export_type" "$export_format" "$output_path"; then
+        log_info "配置导出成功: $output_path"
+    else
+        log_error "配置导出失败"
+    fi
+}
+
+# 查看备份历史
+view_backup_history() {
+    log_info "备份历史:"
+    echo "----------------------------------------"
     
-    echo "正在导出配置到: $export_file"
+    if [[ -f "$BACKUP_HISTORY_DB" ]]; then
+        printf "%-20s %-15s %-20s %-15s %-10s %-30s\n" "备份ID" "时间" "类型" "大小" "状态" "描述"
+        printf "%-20s %-15s %-20s %-15s %-10s %-30s\n" "--------------------" "---------------" "--------------------" "---------------" "----------" "------------------------------"
+        
+        while IFS='|' read -ra fields; do
+            if [[ ${#fields[@]} -ge 8 ]]; then
+                printf "%-20s %-15s %-20s %-15s %-10s %-30s\n" \
+                    "${fields[0]}" "${fields[1]}" "${fields[2]}" "${fields[4]}" "${fields[5]}" "${fields[6]}"
+            fi
+        done < "$BACKUP_HISTORY_DB" | tail -20
+    else
+        log_info "没有备份历史记录"
+    fi
+}
+
+# 备份管理
+backup_management() {
+    while true; do
+        clear
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== 备份管理 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 查看备份列表"
+        echo -e "${GREEN}2.${NC} 删除备份"
+        echo -e "${GREEN}3.${NC} 备份详情"
+        echo -e "${GREEN}4.${NC} 备份统计"
+        echo -e "${GREEN}5.${NC} 备份压缩"
+        echo -e "${GREEN}6.${NC} 备份加密"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
+        echo
+        
+        read -p "请选择操作 [0-6]: " choice
+        
+        case $choice in
+            1) list_available_backups ;;
+            2) delete_backup ;;
+            3) backup_details ;;
+            4) backup_statistics ;;
+            5) compress_backup ;;
+            6) encrypt_backup ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
+        esac
+        
+        read -p "按回车键继续..."
+    done
+}
+
+# 列出可用备份
+list_available_backups() {
+    log_info "可用备份列表:"
+    echo "----------------------------------------"
+    
+    if [[ -d "$BACKUP_DIR" ]]; then
+        ls -la "$BACKUP_DIR" | grep -E "\.(tar\.gz|zip|tar)$" | while read -r line; do
+            echo "$line"
+        done
+    else
+        log_info "备份目录不存在"
+    fi
+}
+
+# 删除备份
+delete_backup() {
+    echo -e "${SECONDARY_COLOR}=== 删除备份 ===${NC}"
+    echo
+    
+    list_available_backups
+    echo
+    
+    local backup_name=$(show_input "要删除的备份名称" "")
+    
+    if [[ -z "$backup_name" ]]; then
+        show_error "备份名称不能为空"
+        return 1
+    fi
+    
+    local backup_path="$BACKUP_DIR/$backup_name"
+    
+    if [[ ! -f "$backup_path" ]]; then
+        show_error "备份文件不存在: $backup_name"
+        return 1
+    fi
+    
+    if show_confirm "确认删除备份: $backup_name"; then
+        rm -f "$backup_path"
+        # 从历史数据库删除记录
+        remove_backup_from_history "$backup_name"
+        log_info "备份删除成功: $backup_name"
+    fi
+}
+
+# 备份验证
+backup_verification() {
+    echo -e "${SECONDARY_COLOR}=== 备份验证 ===${NC}"
+    echo
+    
+    local backup_name=$(show_input "要验证的备份名称" "")
+    
+    if [[ -z "$backup_name" ]]; then
+        show_error "备份名称不能为空"
+        return 1
+    fi
+    
+    local backup_path="$BACKUP_DIR/$backup_name"
+    
+    if [[ ! -f "$backup_path" ]]; then
+        show_error "备份文件不存在: $backup_name"
+        return 1
+    fi
+    
+    log_info "验证备份: $backup_name"
+    
+    # 检查文件完整性
+    if verify_backup_integrity "$backup_path"; then
+        show_success "备份完整性验证通过"
+    else
+        show_error "备份完整性验证失败"
+    fi
+    
+    # 检查文件内容
+    if verify_backup_content "$backup_path"; then
+        show_success "备份内容验证通过"
+    else
+        show_error "备份内容验证失败"
+    fi
+}
+
+# 备份清理
+backup_cleanup() {
+    echo -e "${SECONDARY_COLOR}=== 备份清理 ===${NC}"
+    echo
+    
+    local cleanup_type=$(show_selection "清理类型" "按时间清理" "按大小清理" "按数量清理" "全部清理")
+    
+    case $cleanup_type in
+        "按时间清理")
+            cleanup_backups_by_time
+            ;;
+        "按大小清理")
+            cleanup_backups_by_size
+            ;;
+        "按数量清理")
+            cleanup_backups_by_count
+            ;;
+        "全部清理")
+            cleanup_all_backups
+            ;;
+    esac
+}
+
+# 备份计划
+backup_schedule() {
+    echo -e "${SECONDARY_COLOR}=== 备份计划 ===${NC}"
+    echo
+    
+    echo "当前备份计划:"
+    echo "  自动备份: $([ "$AUTO_BACKUP_ENABLED" == "true" ] && echo "启用" || echo "禁用")"
+    echo "  备份间隔: ${AUTO_BACKUP_INTERVAL}小时"
+    echo "  备份时间: $AUTO_BACKUP_TIME"
+    echo "  下次备份: $(get_next_backup_time)"
+    echo
+    
+    local choice=$(show_selection "操作" "立即执行备份" "修改计划" "查看计划详情")
+    
+    case $choice in
+        "立即执行备份")
+            execute_scheduled_backup
+            ;;
+        "修改计划")
+            modify_backup_schedule
+            ;;
+        "查看计划详情")
+            show_backup_schedule_details
+            ;;
+    esac
+}
+
+# 核心备份函数
+
+# 创建备份
+create_backup() {
+    local backup_name="$1"
+    local backup_type="$2"
+    local description="$3"
+    
+    local backup_id="backup_$(date +%s)_$(generate_random_string 8)"
+    local backup_path="$BACKUP_DIR/${backup_name}.tar.gz"
+    local timestamp=$(get_timestamp)
+    
+    log_info "创建备份: $backup_name (类型: $backup_type)"
     
     # 创建临时目录
-    local temp_dir=$(mktemp -d)
+    local temp_dir=$(create_temp_dir "backup_$backup_id")
     
-    # 复制配置文件
-    if [[ -d /etc/wireguard ]]; then
-        cp -r /etc/wireguard "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} WireGuard配置已导出"
+    # 备份WireGuard配置
+    if [[ "$BACKUP_WIREGUARD" == "true" ]]; then
+        backup_wireguard_config "$temp_dir"
     fi
     
-    if [[ -f /etc/bird/bird.conf ]]; then
-        cp -r /etc/bird "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} BIRD配置已导出"
+    # 备份BIRD配置
+    if [[ "$BACKUP_BIRD" == "true" ]]; then
+        backup_bird_config "$temp_dir"
     fi
     
-    if [[ -f "$SCRIPT_DIR/manager.conf" ]]; then
-        cp "$SCRIPT_DIR/manager.conf" "$temp_dir/" 2>/dev/null
-        echo -e "${GREEN}✓${NC} 管理器配置已导出"
+    # 备份客户端数据库
+    if [[ "$BACKUP_CLIENT_DB" == "true" ]]; then
+        backup_client_database "$temp_dir"
     fi
     
-    # 保存系统信息
-    {
-        echo "导出时间: $(date)"
-        echo "系统信息: $OS_TYPE $OS_VERSION"
-        echo "内核版本: $(uname -r)"
-        echo "架构: $ARCH"
-    } > "$temp_dir/system_info.txt"
+    # 备份配置文件
+    if [[ "$BACKUP_CONFIG_FILES" == "true" ]]; then
+        backup_config_files "$temp_dir"
+    fi
     
-    # 创建压缩包
-    if tar -czf "$export_file" -C "$temp_dir" . 2>/dev/null; then
-        echo -e "${GREEN}✓${NC} 配置导出成功: $export_file"
-        
-        # 显示导出文件信息
-        local export_size=$(du -h "$export_file" | cut -f1)
-        echo "导出文件大小: $export_size"
+    # 备份日志文件
+    if [[ "$BACKUP_LOGS" == "true" ]]; then
+        backup_log_files "$temp_dir"
+    fi
+    
+    # 备份密钥文件
+    if [[ "$BACKUP_KEYS" == "true" ]]; then
+        backup_key_files "$temp_dir"
+    fi
+    
+    # 创建备份包
+    if [[ "$BACKUP_COMPRESSION" == "true" ]]; then
+        tar -czf "$backup_path" -C "$temp_dir" . 2>/dev/null
     else
-        echo -e "${RED}✗${NC} 配置导出失败"
+        tar -cf "${backup_path%.gz}" -C "$temp_dir" . 2>/dev/null
+    fi
+    
+    # 加密备份
+    if [[ "$BACKUP_ENCRYPTION" == "true" ]] && [[ -n "$BACKUP_PASSWORD" ]]; then
+        encrypt_backup_file "$backup_path"
     fi
     
     # 清理临时目录
     rm -rf "$temp_dir"
     
-    read -p "按回车键继续..."
+    # 记录备份历史
+    local backup_size=$(stat -c%s "$backup_path" 2>/dev/null || echo "0")
+    echo "$backup_id|$timestamp|$backup_type|$backup_path|$backup_size|success|$description|0" >> "$BACKUP_HISTORY_DB"
+    
+    log_info "备份创建成功: $backup_path (大小: $backup_size 字节)"
+    return 0
 }
 
-# 导入配置
-import_config() {
-    echo -e "${CYAN}导入配置${NC}"
+# 恢复备份
+restore_backup() {
+    local backup_id="$1"
     
-    local export_dir="$SCRIPT_DIR/exports"
-    
-    if [[ ! -d "$export_dir" ]]; then
-        echo -e "${RED}导出目录不存在${NC}"
-        read -p "按回车键继续..."
-        return
+    # 获取备份信息
+    local backup_info=$(grep "^$backup_id|" "$BACKUP_HISTORY_DB")
+    if [[ -z "$backup_info" ]]; then
+        log_error "备份记录不存在: $backup_id"
+        return 1
     fi
     
-    # 列出可用的导出文件
-    echo -e "${CYAN}可用的导出文件:${NC}"
-    local exports=($(ls -t "$export_dir"/*.tar.gz 2>/dev/null))
+    IFS='|' read -ra fields <<< "$backup_info"
+    local backup_path="${fields[3]}"
     
-    if [[ ${#exports[@]} -eq 0 ]]; then
-        echo -e "${RED}没有找到导出文件${NC}"
-        read -p "按回车键继续..."
-        return
+    if [[ ! -f "$backup_path" ]]; then
+        log_error "备份文件不存在: $backup_path"
+        return 1
     fi
     
-    # 显示导出文件列表
-    for i in "${!exports[@]}"; do
-        local file=$(basename "${exports[$i]}")
-        local size=$(du -h "${exports[$i]}" | cut -f1)
-        local date=$(stat -c "%y" "${exports[$i]}" | cut -d' ' -f1,2 | cut -d'.' -f1)
-        echo "  $((i+1)). $file ($size, $date)"
-    done
+    log_info "恢复备份: $backup_id"
     
-    echo
-    read -p "请选择要导入的导出文件编号 (1-${#exports[@]}): " choice
+    # 创建临时目录
+    local temp_dir=$(create_temp_dir "restore_$backup_id")
     
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#exports[@]} ]]; then
-        local selected_export="${exports[$((choice-1))]}"
-        local export_name=$(basename "$selected_export")
-        
-        echo -e "${YELLOW}警告: 此操作将覆盖当前配置${NC}"
-        read -p "确认导入配置 '$export_name'? (y/N): " confirm
-        
-        if [[ "${confirm,,}" == "y" ]]; then
-            # 创建临时目录
-            local temp_dir=$(mktemp -d)
-            
-            # 解压导出文件
-            if tar -xzf "$selected_export" -C "$temp_dir" 2>/dev/null; then
-                echo -e "${GREEN}✓${NC} 导出文件解压成功"
-                
-                # 导入WireGuard配置
-                if [[ -d "$temp_dir/wireguard" ]]; then
-                    if cp -r "$temp_dir/wireguard"/* /etc/wireguard/ 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} WireGuard配置已导入"
-                    else
-                        echo -e "${RED}✗${NC} WireGuard配置导入失败"
-                    fi
-                fi
-                
-                # 导入BIRD配置
-                if [[ -d "$temp_dir/bird" ]]; then
-                    if cp -r "$temp_dir/bird"/* /etc/bird/ 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} BIRD配置已导入"
-                    else
-                        echo -e "${RED}✗${NC} BIRD配置导入失败"
-                    fi
-                fi
-                
-                # 导入管理器配置
-                if [[ -f "$temp_dir/manager.conf" ]]; then
-                    if cp "$temp_dir/manager.conf" "$SCRIPT_DIR/" 2>/dev/null; then
-                        echo -e "${GREEN}✓${NC} 管理器配置已导入"
-                    else
-                        echo -e "${RED}✗${NC} 管理器配置导入失败"
-                    fi
-                fi
-                
-                echo -e "${GREEN}配置导入完成${NC}"
-                echo -e "${YELLOW}建议重启相关服务以应用新配置${NC}"
-            else
-                echo -e "${RED}✗${NC} 导出文件解压失败"
-            fi
-            
-            # 清理临时目录
-            rm -rf "$temp_dir"
-        else
-            echo -e "${YELLOW}配置导入已取消${NC}"
-        fi
+    # 解密备份
+    if [[ "$BACKUP_ENCRYPTION" == "true" ]]; then
+        decrypt_backup_file "$backup_path" "$temp_dir"
     else
-        echo -e "${RED}无效选择${NC}"
+        tar -xzf "$backup_path" -C "$temp_dir" 2>/dev/null
     fi
     
-    read -p "按回车键继续..."
+    # 恢复配置
+    restore_wireguard_config "$temp_dir"
+    restore_bird_config "$temp_dir"
+    restore_client_database "$temp_dir"
+    restore_config_files "$temp_dir"
+    restore_key_files "$temp_dir"
+    
+    # 清理临时目录
+    rm -rf "$temp_dir"
+    
+    # 更新恢复计数
+    local restore_count=$((${fields[7]} + 1))
+    sed -i "s/^$backup_id|.*|$restore_count$/$backup_id|${fields[1]}|${fields[2]}|${fields[3]}|${fields[4]}|${fields[5]}|${fields[6]}|$restore_count/" "$BACKUP_HISTORY_DB"
+    
+    log_info "备份恢复成功: $backup_id"
+    return 0
 }
 
+# 备份WireGuard配置
+backup_wireguard_config() {
+    local temp_dir="$1"
+    local wg_backup_dir="$temp_dir/wireguard"
+    
+    mkdir -p "$wg_backup_dir"
+    
+    if [[ -d "$WIREGUARD_BACKUP_PATH" ]]; then
+        cp -r "$WIREGUARD_BACKUP_PATH"/* "$wg_backup_dir/" 2>/dev/null
+        log_info "WireGuard配置已备份"
+    fi
+}
+
+# 备份BIRD配置
+backup_bird_config() {
+    local temp_dir="$1"
+    local bird_backup_dir="$temp_dir/bird"
+    
+    mkdir -p "$bird_backup_dir"
+    
+    if [[ -d "$BIRD_BACKUP_PATH" ]]; then
+        cp -r "$BIRD_BACKUP_PATH"/* "$bird_backup_dir/" 2>/dev/null
+        log_info "BIRD配置已备份"
+    fi
+}
+
+# 备份客户端数据库
+backup_client_database() {
+    local temp_dir="$1"
+    local db_backup_dir="$temp_dir/database"
+    
+    mkdir -p "$db_backup_dir"
+    
+    if [[ -d "$CLIENT_DB_BACKUP_PATH" ]]; then
+        cp -r "$CLIENT_DB_BACKUP_PATH"/* "$db_backup_dir/" 2>/dev/null
+        log_info "客户端数据库已备份"
+    fi
+}
+
+# 备份配置文件
+backup_config_files() {
+    local temp_dir="$1"
+    local config_backup_dir="$temp_dir/config"
+    
+    mkdir -p "$config_backup_dir"
+    
+    if [[ -d "$CONFIG_BACKUP_PATH" ]]; then
+        cp -r "$CONFIG_BACKUP_PATH"/* "$config_backup_dir/" 2>/dev/null
+        log_info "配置文件已备份"
+    fi
+}
+
+# 备份日志文件
+backup_log_files() {
+    local temp_dir="$1"
+    local log_backup_dir="$temp_dir/logs"
+    
+    mkdir -p "$log_backup_dir"
+    
+    if [[ -d "$LOG_BACKUP_PATH" ]]; then
+        cp -r "$LOG_BACKUP_PATH"/* "$log_backup_dir/" 2>/dev/null
+        log_info "日志文件已备份"
+    fi
+}
+
+# 备份密钥文件
+backup_key_files() {
+    local temp_dir="$1"
+    local key_backup_dir="$temp_dir/keys"
+    
+    mkdir -p "$key_backup_dir"
+    
+    if [[ -d "$KEY_BACKUP_PATH" ]]; then
+        cp -r "$KEY_BACKUP_PATH"/* "$key_backup_dir/" 2>/dev/null
+        log_info "密钥文件已备份"
+    fi
+}
+
+# 恢复配置函数
+restore_wireguard_config() {
+    local temp_dir="$1"
+    local wg_backup_dir="$temp_dir/wireguard"
+    
+    if [[ -d "$wg_backup_dir" ]]; then
+        cp -r "$wg_backup_dir"/* "$WIREGUARD_BACKUP_PATH/" 2>/dev/null
+        log_info "WireGuard配置已恢复"
+    fi
+}
+
+restore_bird_config() {
+    local temp_dir="$1"
+    local bird_backup_dir="$temp_dir/bird"
+    
+    if [[ -d "$bird_backup_dir" ]]; then
+        cp -r "$bird_backup_dir"/* "$BIRD_BACKUP_PATH/" 2>/dev/null
+        log_info "BIRD配置已恢复"
+    fi
+}
+
+restore_client_database() {
+    local temp_dir="$1"
+    local db_backup_dir="$temp_dir/database"
+    
+    if [[ -d "$db_backup_dir" ]]; then
+        cp -r "$db_backup_dir"/* "$CLIENT_DB_BACKUP_PATH/" 2>/dev/null
+        log_info "客户端数据库已恢复"
+    fi
+}
+
+restore_config_files() {
+    local temp_dir="$1"
+    local config_backup_dir="$temp_dir/config"
+    
+    if [[ -d "$config_backup_dir" ]]; then
+        cp -r "$config_backup_dir"/* "$CONFIG_BACKUP_PATH/" 2>/dev/null
+        log_info "配置文件已恢复"
+    fi
+}
+
+restore_key_files() {
+    local temp_dir="$1"
+    local key_backup_dir="$temp_dir/keys"
+    
+    if [[ -d "$key_backup_dir" ]]; then
+        cp -r "$key_backup_dir"/* "$KEY_BACKUP_PATH/" 2>/dev/null
+        log_info "密钥文件已恢复"
+    fi
+}
+
+# 辅助函数
+
+# 更新备份配置
+update_backup_config() {
+    local key="$1"
+    local value="$2"
+    
+    if grep -q "^${key}=" "$BACKUP_CONFIG_FILE"; then
+        sed -i "s/^${key}=.*/${key}=${value}/" "$BACKUP_CONFIG_FILE"
+    else
+        echo "${key}=${value}" >> "$BACKUP_CONFIG_FILE"
+    fi
+}
+
+# 获取备份配置值
+get_backup_config_value() {
+    local key="$1"
+    grep "^${key}=" "$BACKUP_CONFIG_FILE" | cut -d'=' -f2
+}
+
+# 检查备份是否存在
+backup_exists() {
+    local backup_id="$1"
+    grep -q "^$backup_id|" "$BACKUP_HISTORY_DB"
+}
+
+# 验证备份完整性
+verify_backup_integrity() {
+    local backup_path="$1"
+    
+    if [[ "$backup_path" =~ \.tar\.gz$ ]]; then
+        tar -tzf "$backup_path" >/dev/null 2>&1
+    elif [[ "$backup_path" =~ \.tar$ ]]; then
+        tar -tf "$backup_path" >/dev/null 2>&1
+    elif [[ "$backup_path" =~ \.zip$ ]]; then
+        unzip -t "$backup_path" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
+
+# 验证备份内容
+verify_backup_content() {
+    local backup_path="$1"
+    
+    # 这里可以添加更详细的内容验证逻辑
+    return 0
+}
+
+# 加密备份文件
+encrypt_backup_file() {
+    local backup_path="$1"
+    
+    if command -v gpg &> /dev/null; then
+        gpg --symmetric --cipher-algo AES256 --passphrase "$BACKUP_PASSWORD" "$backup_path"
+        rm -f "$backup_path"
+        mv "${backup_path}.gpg" "$backup_path"
+    else
+        log_warn "GPG未安装，无法加密备份"
+    fi
+}
+
+# 解密备份文件
+decrypt_backup_file() {
+    local backup_path="$1"
+    local output_dir="$2"
+    
+    if command -v gpg &> /dev/null; then
+        gpg --decrypt --passphrase "$BACKUP_PASSWORD" "$backup_path" | tar -xz -C "$output_dir"
+    else
+        log_warn "GPG未安装，无法解密备份"
+        return 1
+    fi
+}
+
+# 清理函数
+cleanup_backups_by_time() {
+    local days="$BACKUP_RETENTION_DAYS"
+    find "$BACKUP_DIR" -name "*.tar.gz" -mtime +$days -delete
+    log_info "已清理 $days 天前的备份"
+}
+
+cleanup_backups_by_size() {
+    local max_size=$(show_input "最大备份大小(MB)" "1000")
+    find "$BACKUP_DIR" -name "*.tar.gz" -size +${max_size}M -delete
+    log_info "已清理超过 ${max_size}MB 的备份"
+}
+
+cleanup_backups_by_count() {
+    local max_count=$(show_input "最大备份数量" "10")
+    ls -t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +$((max_count + 1)) | xargs rm -f
+    log_info "已清理多余的备份，保留最新 $max_count 个"
+}
+
+cleanup_all_backups() {
+    if show_confirm "确认删除所有备份"; then
+        rm -f "$BACKUP_DIR"/*.tar.gz
+        rm -f "$BACKUP_DIR"/*.tar
+        rm -f "$BACKUP_DIR"/*.zip
+        log_info "所有备份已删除"
+    fi
+}
+
+# 占位函数
+backup_details() { log_info "备份详情功能待实现"; }
+backup_statistics() { log_info "备份统计功能待实现"; }
+compress_backup() { log_info "备份压缩功能待实现"; }
+encrypt_backup() { log_info "备份加密功能待实现"; }
+get_next_backup_time() { echo "待计算"; }
+execute_scheduled_backup() { log_info "执行计划备份功能待实现"; }
+modify_backup_schedule() { log_info "修改备份计划功能待实现"; }
+show_backup_schedule_details() { log_info "显示备份计划详情功能待实现"; }
+import_backup() { log_info "导入备份功能待实现"; }
+export_backup() { log_info "导出备份功能待实现"; }
+remove_backup_from_history() { log_info "从历史删除备份功能待实现"; }
+
+# 导出函数
+export -f init_backup_restore create_backup_config init_backup_history_db
+export -f load_backup_config backup_restore_menu auto_backup_settings
+export -f toggle_auto_backup set_backup_interval set_backup_time set_retention_days
+export -f configure_backup_content show_backup_settings manual_backup_config
+export -f restore_config import_config export_config view_backup_history
+export -f backup_management list_available_backups delete_backup backup_verification
+export -f backup_cleanup backup_schedule create_backup restore_backup
+export -f backup_wireguard_config backup_bird_config backup_client_database
+export -f backup_config_files backup_log_files backup_key_files
+export -f restore_wireguard_config restore_bird_config restore_client_database
+export -f restore_config_files restore_key_files update_backup_config
+export -f get_backup_config_value backup_exists verify_backup_integrity
+export -f verify_backup_content encrypt_backup_file decrypt_backup_file
+export -f cleanup_backups_by_time cleanup_backups_by_size cleanup_backups_by_count cleanup_all_backups

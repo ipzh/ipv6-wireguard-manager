@@ -1,472 +1,407 @@
-# IPv6 WireGuard Manager - 安装指南
+# IPv6 WireGuard Manager 安装指南
 
-## 概述
-
-本指南将帮助您在Linux系统上安装和配置IPv6 WireGuard Manager。该工具支持IPv6前缀分发和BGP路由，提供完整的VPN服务器管理功能。
-
-## 系统要求
+## 📋 系统要求
 
 ### 支持的操作系统
-
-- **Ubuntu** 18.04+
-- **Debian** 9+
-- **CentOS** 7+
-- **RHEL** 7+
-- **Fedora** 30+
-- **Rocky Linux** 8+
-- **AlmaLinux** 8+
-- **Arch Linux** 最新
+- **Ubuntu**: 18.04+ (推荐 20.04+)
+- **Debian**: 9+ (推荐 11+)
+- **CentOS**: 7+ (推荐 8+)
+- **RHEL**: 7+ (推荐 8+)
+- **Fedora**: 30+ (推荐 35+)
+- **Rocky Linux**: 8+
+- **AlmaLinux**: 8+
+- **Arch Linux**: 最新版本
+- **openSUSE**: 15+
+- **Windows子系统**: WSL、MSYS2、Cygwin
 
 ### 硬件要求
+- **CPU**: 1核心以上 (推荐 2核心+)
+- **内存**: 512MB以上 (推荐 1GB+)
+- **磁盘**: 1GB可用空间
+- **网络**: 支持IPv6的网络连接
 
-#### 最低要求
-- CPU: 1核心
-- 内存: 512MB
-- 磁盘: 1GB可用空间
-- 网络: 公网IPv4地址
-- BIRD: 1.x或2.x版本（自动安装）
+### 软件依赖
+- **WireGuard**: 最新版本
+- **BIRD**: 1.x/2.x/3.x版本
+- **防火墙工具**: UFW/firewalld/nftables/iptables
+- **网络工具**: iproute2, net-tools
+- **系统工具**: curl/wget, git, systemd
 
-#### 推荐配置
-- CPU: 2核心或更多
-- 内存: 1GB或更多
-- 磁盘: 5GB可用空间
-- 网络: 公网IPv4地址 + IPv6地址
-- BIRD: 2.x版本（默认安装，性能更佳）
+## 🚀 安装方法
 
-### 网络要求
+### 方法1: 一键安装（推荐）
 
-- **公网IPv4地址**: 必需，用于客户端连接
-- **IPv6地址**: 可选，用于IPv6前缀分发
-- **开放端口**: WireGuard端口（默认51820/UDP）
-- **防火墙**: 支持UFW、firewalld、nftables或iptables
+这是最简单快捷的安装方式，自动安装所有功能模块。
 
-## 安装前准备
-
-### 1. 系统更新
-
-在安装前，建议先更新系统：
-
+#### 自动安装
 ```bash
-# Ubuntu/Debian
-sudo apt update && sudo apt upgrade -y
-
-# CentOS/RHEL/Fedora/Rocky/AlmaLinux
-sudo yum update -y
-# 或
-sudo dnf update -y
-
-# Arch Linux
-sudo pacman -Syu
+# 一键安装所有功能
+curl -sSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
 
-### 2. 检查网络连接
-
-确保服务器可以访问互联网：
-
+#### 手动下载安装
 ```bash
-ping -c 4 8.8.8.8
-```
-
-### 3. 检查IPv6支持
-
-检查系统是否支持IPv6：
-
-```bash
-ip -6 addr show
-```
-
-### 4. 检查防火墙状态
-
-检查当前防火墙状态：
-
-```bash
-# Ubuntu/Debian (UFW)
-sudo ufw status
-
-# CentOS/RHEL/Fedora/Rocky/AlmaLinux (firewalld)
-sudo firewall-cmd --state
-
-# 其他系统 (iptables)
-sudo iptables -L
-```
-
-### 5. 检查端口占用
-
-检查WireGuard默认端口是否被占用：
-
-```bash
-sudo netstat -tulpn | grep 51820
-```
-
-## BIRD版本说明
-
-### 支持的BIRD版本
-
-- **BIRD 2.x** (推荐) - 默认安装版本，提供更好的性能和功能
-- **BIRD 1.x** (兼容) - 自动回退版本，确保在BIRD 2.x不可用时仍能正常工作
-
-### 版本选择策略
-
-1. 优先尝试安装BIRD 2.x (`bird2`包)
-2. 如果BIRD 2.x不可用，自动安装BIRD 1.x (`bird`包)
-3. 支持所有主要Linux发行版
-
-### 手动检查BIRD版本
-
-```bash
-# 检查BIRD 2.x
-which birdc2
-birdc2 --version
-
-# 检查BIRD 1.x
-which birdc
-birdc --version
-```
-
-## 安装方法
-
-### 方法1: 自动安装（推荐）
-
-1. **下载安装脚本**：
-
-```bash
+# 下载安装脚本
 wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
+
+# 设置执行权限
 chmod +x install.sh
-```
 
-2. **运行安装脚本**：
-
-```bash
+# 运行安装脚本
 sudo ./install.sh
 ```
 
-安装脚本将自动：
-- 检测系统环境
-- 安装必要的依赖包
-- 优先安装BIRD 2.x（如果可用）
-- 创建必要的目录结构
-- 设置符号链接
-- 配置基本环境
+### 方法2: 交互式安装
 
-### 方法2: 手动安装
-
-如果自动安装失败，可以手动安装：
-
-1. **安装依赖包**：
+适合需要自定义配置的用户，支持多种安装类型。
 
 ```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install -y wireguard wireguard-tools bird2 iptables ufw curl wget
+# 运行安装脚本
+sudo ./install.sh
 
-# CentOS/RHEL/Fedora/Rocky/AlmaLinux
-sudo yum install -y epel-release
-sudo yum install -y wireguard-tools bird2 iptables firewalld curl wget
+# 选择安装选项
+# 1. 快速安装 - 安装所有功能
+# 2. 交互式安装 - 自定义配置
+# 3. 仅下载文件 - 不安装
 
-# Arch Linux
-sudo pacman -S wireguard-tools bird2 iptables ufw curl wget
+# 交互式安装类型选择
+# 1. 完整安装 - 所有功能
+# 2. 最小安装 - 仅核心功能
+# 3. 自定义安装 - 选择组件
 ```
 
-2. **下载管理器脚本**：
+#### 安装类型说明
+- **完整安装**: 安装所有功能模块，适合生产环境
+- **最小安装**: 仅安装核心功能（WireGuard、BIRD、防火墙），适合资源受限环境
+- **自定义安装**: 用户逐个选择要安装的功能，适合特殊需求
+
+### 方法3: 从源码安装
+
+适合开发者或需要自定义修改的用户。
 
 ```bash
-wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/ipv6-wireguard-manager-core.sh
-chmod +x ipv6-wireguard-manager-core.sh
+# 克隆仓库
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+
+# 运行安装脚本
+sudo ./install.sh
 ```
 
-3. **创建符号链接**：
+### 方法4: 自定义仓库安装
+
+如果需要使用自定义的仓库地址，可以通过环境变量配置：
 
 ```bash
-sudo ln -s $(pwd)/ipv6-wireguard-manager-core.sh /usr/local/bin/ipv6-wg-manager
-sudo ln -s $(pwd)/ipv6-wireguard-manager-core.sh /usr/local/bin/wg-manager
+# 设置环境变量
+export REPO_OWNER="your-username"
+export REPO_NAME="your-repo-name"
+export REPO_BRANCH="main"
+export REPO_URL="https://github.com/your-username/your-repo-name"
+export RAW_URL="https://raw.githubusercontent.com/your-username/your-repo-name/main"
+
+# 运行安装
+curl -sSL $RAW_URL/install.sh | bash
 ```
 
-## 运行方式
+## ⚙️ 安装配置
 
-IPv6 WireGuard Manager 提供两种运行方式：
+### 安装类型
 
-### 方式1: 模块化版本（推荐）
-```bash
-./ipv6-wireguard-manager-core.sh
-```
-- **特点**: 轻量级核心脚本，按需加载功能模块
-- **优势**: 启动更快，内存占用更少，便于维护
-- **适用**: 日常使用和开发环境
+#### 1. 完整安装（推荐）
+- **功能**: 安装所有功能模块
+- **包含**: WireGuard、BIRD、防火墙、Web界面、监控、自动安装、备份、更新、安全增强、配置管理、增强Web界面、OAuth认证、安全审计监控
+- **适用**: 生产环境、完整功能需求
+- **端口**: 自动开放所有必需端口
 
-### 方式2: 完整版本
-```bash
-./ipv6-wireguard-manager.sh
-```
-- **特点**: 包含所有功能的完整脚本
-- **优势**: 无需模块文件，单文件部署
-- **适用**: 离线环境或简化部署
+#### 2. 最小安装
+- **功能**: 仅安装核心功能
+- **包含**: WireGuard、BIRD、防火墙管理
+- **不包含**: Web界面、监控系统、自动安装、备份、更新、安全增强、配置管理、增强Web界面、OAuth认证、安全审计监控
+- **适用**: 资源受限环境、基础VPN需求
+- **端口**: 仅开放核心端口
 
-### 使用符号链接
-```bash
-# 使用完整命令
-ipv6-wg-manager
+#### 3. 自定义安装
+- **功能**: 用户逐个选择要安装的功能
+- **选择**: WireGuard、BIRD、防火墙、Web界面、监控、自动安装、备份、更新、安全增强、配置管理、增强Web界面、OAuth认证、安全审计监控
+- **适用**: 特殊需求、安全环境
+- **端口**: 根据选择的功能开放相应端口
 
-# 或使用简写命令
-wg-manager
-```
+### 安装选项
 
-**建议**: 推荐使用模块化版本，它提供了更好的性能和可维护性。
+#### 基本选项
+- **安装目录**: `/opt/ipv6-wireguard-manager` (默认)
+- **配置目录**: `/etc/ipv6-wireguard-manager`
+- **日志目录**: `/var/log/ipv6-wireguard-manager`
+- **二进制目录**: `/usr/local/bin`
 
-## 验证安装
+#### 高级选项
+- **跳过依赖安装**: 如果已安装所需依赖
+- **跳过配置创建**: 如果已有配置文件
+- **跳过服务安装**: 如果不需要系统服务
+- **强制安装**: 覆盖现有安装
 
-### 1. 检查脚本权限
+## 🔧 安装后配置
 
-```bash
-ls -la ipv6-wireguard-manager-core.sh
-```
-
-### 2. 检查模块文件
-
-```bash
-ls -la modules/
-```
-
-### 3. 检查符号链接
-
-```bash
-which ipv6-wg-manager
-which wg-manager
-```
-
-### 4. 运行管理器
+### 1. 启动服务
 
 ```bash
-sudo ./ipv6-wireguard-manager-core.sh
+# 启动主管理服务
+sudo systemctl start ipv6-wireguard-manager
+
+# 设置开机自启
+sudo systemctl enable ipv6-wireguard-manager
+
+# 检查服务状态
+sudo systemctl status ipv6-wireguard-manager
 ```
 
-如果看到主菜单，说明安装成功。
+### 2. 配置WireGuard
 
-## 配置选项
+```bash
+# 启动管理界面
+sudo ipv6-wireguard-manager
 
-### 1. 快速安装模式
+# 选择 "1. 快速安装" 或 "2. 交互式安装"
+# 按照提示配置WireGuard服务器
+```
 
-- 使用默认配置
-- 适合快速部署
-- 最小用户交互
+### 3. 配置BIRD BGP
 
-### 2. 交互式安装模式
+```bash
+# 在主菜单中选择 "8. BGP配置管理"
+# 选择 "1. BGP配置向导"
+# 按照提示配置BGP路由
+```
 
-- 完整配置向导
-- 自定义所有参数
-- 适合生产环境
+### 4. 配置防火墙
 
-## 故障排除
+```bash
+# 在主菜单中选择 "9. 防火墙管理"
+# 系统会自动检测并配置防火墙
+
+# 防火墙自动配置功能
+# - 自动检测防火墙类型 (UFW/firewalld/nftables/iptables)
+# - 根据安装的功能自动开放端口
+# - 必需端口: SSH(22), DNS(53), HTTP(80), HTTPS(443), NTP(123)
+# - 功能端口: WireGuard(51820), BGP(179), Web管理(8080/8443), 监控(9090), API(3000)
+```
+
+#### 自动端口开放逻辑
+- **WireGuard VPN**: 自动开放 51820/udp
+- **BIRD BGP**: 自动开放 179/tcp
+- **Web管理界面**: 自动开放 8080/tcp, 8443/tcp
+- **监控系统**: 自动开放 9090/tcp
+- **客户端自动安装**: 自动开放 3000/tcp
+- **基础服务**: 自动开放 SSH(22), DNS(53), HTTP(80), HTTPS(443), NTP(123)
+
+## 🧪 验证安装
+
+### 1. 检查服务状态
+
+```bash
+# 检查主服务
+sudo systemctl status ipv6-wireguard-manager
+
+# 检查WireGuard服务
+sudo systemctl status wg-quick@wg0
+
+# 检查BIRD服务
+sudo systemctl status bird
+sudo systemctl status bird6
+```
+
+### 2. 检查配置文件
+
+```bash
+# 检查主配置文件
+ls -la /etc/ipv6-wireguard-manager/
+
+# 检查WireGuard配置
+ls -la /etc/wireguard/
+
+# 检查BIRD配置
+ls -la /etc/bird/
+```
+
+### 3. 测试功能
+
+```bash
+# 启动管理界面
+sudo ipv6-wireguard-manager
+
+# 测试各个功能模块
+# 1. 服务器管理 - 查看服务状态
+# 2. 客户端管理 - 添加测试客户端
+# 3. 网络配置 - 检查IPv6配置
+# 4. 防火墙管理 - 检查防火墙规则
+```
+
+## 🔧 高级配置
+
+### 环境变量配置
+
+```bash
+# 编辑环境变量文件
+sudo nano /etc/environment
+
+# 添加以下配置
+REPO_OWNER=ipzh
+REPO_NAME=ipv6-wireguard-manager
+REPO_BRANCH=main
+REPO_URL=https://github.com/ipzh/ipv6-wireguard-manager
+RAW_URL=https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main
+```
+
+### 配置文件位置
+
+```
+/etc/ipv6-wireguard-manager/
+├── manager.conf              # 主配置文件
+├── repository.conf           # 仓库配置
+├── update.conf              # 更新配置
+└── auto_install/            # 自动安装配置
+    └── auto_install.conf
+
+/etc/bird/
+├── bird.conf                # BIRD IPv4配置
+├── bird6.conf               # BIRD IPv6配置
+└── keys/                    # BGP密钥目录
+
+/etc/wireguard/
+└── wg0.conf                 # WireGuard配置
+
+/var/lib/ipv6-wireguard-manager/
+├── clients.db               # 客户端数据库
+├── install_tokens.db        # 安装令牌数据库
+└── install_logs.db          # 安装日志数据库
+```
+
+## 🐛 故障排除
 
 ### 常见问题
 
-1. **权限问题**
-   ```bash
-   sudo ./ipv6-wireguard-manager-core.sh
-   ```
-
-2. **BIRD服务未启动**
-   ```bash
-   # 检查BIRD版本
-   systemctl status bird2  # BIRD 2.x
-   systemctl status bird   # BIRD 1.x
-   
-   # 启动服务
-   sudo systemctl start bird2  # BIRD 2.x
-   sudo systemctl start bird   # BIRD 1.x
-   ```
-
-3. **防火墙问题**
-   ```bash
-   # 检查防火墙状态
-   sudo ufw status          # Ubuntu/Debian
-   sudo firewall-cmd --state # CentOS/RHEL/Fedora
-   ```
-
-4. **端口占用**
-   ```bash
-   # 检查端口占用
-   sudo netstat -tulpn | grep 51820
-   ```
-
-5. **模块文件缺失**
-   ```bash
-   # 检查模块文件
-   ls -la modules/
-   
-   # 重新安装
-   sudo ./install.sh
-   ```
-
-6. **IPv6地址配置错误**
-   - 问题：WireGuard接口使用子网段作为地址
-   - 解决：管理器自动将子网段转换为正确的服务器地址
-   - 验证：检查WireGuard配置中的Address行
-   ```bash
-   # 查看WireGuard配置
-   sudo cat /etc/wireguard/wg0.conf | grep Address
-   # 应该显示类似：Address = 10.0.0.1/24, 2001:db8::1/64
-   # 而不是：Address = 10.0.0.1/24, 2001:db8::/48
-   ```
-
-7. **IPv6前缀管理功能缺失**
-   - 问题：网络配置菜单中某些功能不可用
-   - 解决：确保使用最新版本的管理器
-   - 验证：检查网络管理模块是否完整
-   ```bash
-   # 检查网络管理模块
-   grep -c "modify_ipv6_prefix\|remove_ipv6_prefix\|show_prefix_statistics" modules/network_management.sh
-   # 应该返回 3
-   ```
-
-8. **客户端地址分配问题**
-   - 问题：客户端地址分配不支持/56到/72的子网段
-   - 解决：使用最新版本的管理器，支持灵活的子网段分配
-   - 验证：检查客户端管理模块是否支持新的地址分配
-   ```bash
-   # 检查客户端地址分配功能
-   grep -c "get_current_ipv6_network\|client_subnet_mask" modules/client_management.sh
-   # 应该返回 2
-   ```
-
-9. **子网段配置说明**
-   - 支持范围：/56 到 /72 的IPv6子网段
-   - 自动分配：根据网络前缀自动确定客户端子网掩码
-   - 配置示例：
-     - /56网络 → 客户端使用/64子网掩码
-     - /64网络 → 客户端使用/72子网掩码
-     - /72网络 → 客户端使用/80子网掩码
-
-10. **WireGuard服务启动失败**
-    - 问题：WireGuard服务启动失败，显示"control process exited with error code"
-    - 解决：使用以下步骤诊断和修复
-    
-    **快速修复（推荐）**
-    ```bash
-    # 使用自动修复脚本
-    sudo ./fix_wireguard_service.sh
-    ```
-    
-    **手动诊断步骤**
-    ```bash
-    # 1. 查看详细错误信息
-    sudo systemctl status wg-quick@wg0.service
-    sudo journalctl -xeu wg-quick@wg0.service
-    
-    # 2. 检查配置文件
-    sudo cat /etc/wireguard/wg0.conf
-    
-    # 3. 检查配置文件语法
-    sudo wg-quick strip wg0
-    
-    # 4. 检查网络接口
-    ip link show wg0
-    
-    # 5. 检查端口占用
-    sudo netstat -tulpn | grep 51820
-    ```
-    
-    **常见解决方案**
-    ```bash
-    # 方案1：重新生成配置
-    ipv6-wg-manager
-    # 选择：3. 服务器管理 -> 重新配置 WireGuard
-    
-    # 方案2：修复权限问题
-    sudo chmod 600 /etc/wireguard/wg0.conf
-    sudo chown root:root /etc/wireguard/wg0.conf
-    
-    # 方案3：启用IPv6支持
-    echo 0 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
-    echo 1 | sudo tee /proc/sys/net/ipv6/conf/all/forwarding
-    
-    # 方案4：加载WireGuard模块
-    sudo modprobe wireguard
-    
-    # 方案5：检查防火墙设置
-    sudo ufw allow 51820/udp
-    sudo ufw reload
-    
-    # 方案6：修复IPv6配置
-    sudo ./fix_ipv6_config.sh
-    ```
-    
-    **验证修复**
-    ```bash
-    # 启动服务
-    sudo systemctl start wg-quick@wg0.service
-    
-    # 检查状态
-    sudo systemctl status wg-quick@wg0.service
-    sudo wg show
-    ```
-
-### 日志检查
-
+#### 1. 权限问题
 ```bash
-# 查看系统日志
-sudo journalctl -u wireguard
-sudo journalctl -u bird2  # BIRD 2.x
-sudo journalctl -u bird   # BIRD 1.x
+# 确保以root权限运行
+sudo ./install.sh
 
-# 查看安装日志
-tail -f /var/log/ipv6-wireguard-manager.log
+# 检查文件权限
+sudo chown -R root:root /opt/ipv6-wireguard-manager
+sudo chmod +x /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh
 ```
 
-## 卸载
-
-如果需要卸载IPv6 WireGuard Manager：
-
+#### 2. 依赖问题
 ```bash
-sudo ./uninstall.sh
+# 手动安装依赖
+sudo apt update  # Ubuntu/Debian
+sudo apt install wireguard bird2 curl wget git
+
+# 或者
+sudo yum install wireguard-tools bird curl wget git  # CentOS/RHEL
 ```
 
-卸载脚本将：
-- 停止相关服务
-- 删除配置文件
-- 删除符号链接
-- 清理安装文件
+#### 3. 网络问题
+```bash
+# 检查网络连接
+ping -c 4 8.8.8.8
+ping -c 4 2001:4860:4860::8888
 
-## 更新
+# 检查防火墙
+sudo ufw status
+sudo firewall-cmd --list-all
+```
+
+#### 4. 服务启动问题
+```bash
+# 查看服务日志
+sudo journalctl -u ipv6-wireguard-manager -f
+
+# 重启服务
+sudo systemctl restart ipv6-wireguard-manager
+```
+
+### 日志文件
+
+```bash
+# 主服务日志
+sudo journalctl -u ipv6-wireguard-manager
+
+# 安装日志
+tail -f /var/log/ipv6-wireguard-manager/install.log
+
+# WireGuard日志
+sudo journalctl -u wg-quick@wg0
+
+# BIRD日志
+sudo journalctl -u bird
+sudo journalctl -u bird6
+```
+
+## 🔄 更新和升级
+
+### 检查更新
+```bash
+# 启动管理界面
+sudo ipv6-wireguard-manager
+
+# 选择 "13. 更新检查"
+# 选择 "2. 检查更新"
+```
 
 ### 自动更新
-
 ```bash
-# 使用管理器内置的更新功能
-ipv6-wg-manager
-# 选择 "9. 更新检查"
+# 在主菜单中选择 "13. 更新检查"
+# 选择 "3. 自动更新"
 ```
 
 ### 手动更新
-
 ```bash
 # 下载最新版本
-wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/ipv6-wireguard-manager-core.sh
-chmod +x ipv6-wireguard-manager-core.sh
+curl -sSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 
-# 重启服务
-sudo systemctl restart wireguard
-sudo systemctl restart bird2  # BIRD 2.x
-sudo systemctl restart bird   # BIRD 1.x
+# 或者使用更新脚本
+sudo /opt/ipv6-wireguard-manager/update.sh
 ```
 
-## 安全建议
+## 🗑️ 卸载
 
-1. **定期更新系统**
-2. **使用强密码**
-3. **配置防火墙规则**
-4. **定期备份配置**
-5. **监控系统日志**
-6. **使用HTTPS连接**
+### 完全卸载
+```bash
+# 运行卸载脚本
+sudo /opt/ipv6-wireguard-manager/uninstall.sh
 
-## 支持
+# 或者手动卸载
+sudo systemctl stop ipv6-wireguard-manager
+sudo systemctl disable ipv6-wireguard-manager
+sudo rm -rf /opt/ipv6-wireguard-manager
+sudo rm -rf /etc/ipv6-wireguard-manager
+sudo rm -rf /var/log/ipv6-wireguard-manager
+```
 
-如果遇到问题，请：
+### 保留配置卸载
+```bash
+# 备份配置文件
+sudo cp -r /etc/ipv6-wireguard-manager /tmp/backup-config
 
-1. 查看本文档的故障排除部分
-2. 检查系统日志
-3. 在GitHub Issues中报告问题
-4. 提供详细的错误信息和系统环境
+# 卸载程序
+sudo /opt/ipv6-wireguard-manager/uninstall.sh
 
----
+# 恢复配置文件
+sudo cp -r /tmp/backup-config /etc/ipv6-wireguard-manager
+```
 
-**推荐**: 使用模块化版本 `./ipv6-wireguard-manager-core.sh` 获得最佳性能体验。
+## 📞 获取帮助
+
+如果遇到问题，可以通过以下方式获取帮助：
+
+1. **查看日志**: 检查系统日志和程序日志
+2. **检查配置**: 验证配置文件是否正确
+3. **重启服务**: 尝试重启相关服务
+4. **重新安装**: 如果问题严重，可以尝试重新安装
+
+## 📚 相关文档
+
+- [使用指南](USAGE.md) - 详细的功能使用说明
+- [项目主页](https://github.com/ipzh/ipv6-wireguard-manager) - 项目主页和最新信息
+- [问题反馈](https://github.com/ipzh/ipv6-wireguard-manager/issues) - 提交问题和建议
