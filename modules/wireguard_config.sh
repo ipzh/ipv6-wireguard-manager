@@ -3,6 +3,11 @@
 # WireGuard配置模块
 # 负责WireGuard服务器的配置、管理和维护
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # WireGuard配置变量
 WIREGUARD_CONFIG_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_FILE="${WIREGUARD_CONFIG_DIR}/${WIREGUARD_INTERFACE:-wg0}.conf"

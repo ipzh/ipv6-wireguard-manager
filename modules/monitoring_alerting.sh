@@ -3,6 +3,11 @@
 # 监控和告警系统模块
 # 负责系统监控、客户端监控、告警通知等功能
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # 监控配置变量
 MONITORING_CONFIG_DIR="${CONFIG_DIR}/monitoring"
 MONITORING_CONFIG_FILE="${MONITORING_CONFIG_DIR}/monitoring.conf"

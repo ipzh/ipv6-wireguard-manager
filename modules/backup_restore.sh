@@ -3,6 +3,11 @@
 # 配置备份恢复模块
 # 负责配置文件的备份、恢复、导入、导出等功能
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # 备份配置变量
 BACKUP_DIR="/var/lib/ipv6-wireguard-manager/backups"
 BACKUP_CONFIG_FILE="${CONFIG_DIR}/backup.conf"

@@ -3,6 +3,11 @@
 # BIRD配置模块
 # 负责BIRD BGP路由器的配置、管理和维护
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # BIRD配置变量
 BIRD_CONFIG_DIR="/etc/bird"
 BIRD_CONFIG_FILE="${BIRD_CONFIG_DIR}/bird.conf"

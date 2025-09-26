@@ -3,6 +3,11 @@
 # 网络管理模块
 # 负责IPv6子网管理、BGP邻居配置、路由表管理等网络相关功能
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # IPv6子网管理变量
 IPV6_SUBNET_DB="/var/lib/ipv6-wireguard-manager/subnets.db"
 IPV6_ALLOCATION_DB="/var/lib/ipv6-wireguard-manager/allocations.db"

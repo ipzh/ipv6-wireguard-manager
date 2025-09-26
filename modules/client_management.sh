@@ -3,6 +3,11 @@
 # 客户端管理模块
 # 负责客户端配置管理、状态监控、批量操作等客户端相关功能
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # 客户端管理变量
 CLIENT_DB="/var/lib/ipv6-wireguard-manager/clients.db"
 CLIENT_CONFIG_DIR="/etc/wireguard/clients"

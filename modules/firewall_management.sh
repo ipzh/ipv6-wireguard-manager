@@ -3,6 +3,11 @@
 # 防火墙管理模块
 # 负责防火墙规则管理、端口管理、服务管理等防火墙相关功能
 
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
+
 # 设置默认变量（如果未定义）
 CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
 LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
