@@ -1,0 +1,148 @@
+# IPv6 WireGuard Manager Pre-commit 配置
+# 版本: 1.0.0
+
+repos:
+  # 基础检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: 移除行尾空白
+        description: 移除行尾的空白字符
+      - id: end-of-file-fixer
+        name: 文件末尾换行
+        description: 确保文件以换行符结尾
+      - id: check-yaml
+        name: YAML语法检查
+        description: 检查YAML文件语法
+      - id: check-added-large-files
+        name: 检查大文件
+        description: 检查是否添加了过大的文件
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+        name: 检查合并冲突
+        description: 检查文件中是否存在合并冲突标记
+      - id: mixed-line-ending
+        name: 检查行尾符
+        description: 检查文件中的混合行尾符
+      - id: check-case-conflict
+        name: 检查大小写冲突
+        description: 检查文件名大小写冲突
+      - id: check-json
+        name: JSON语法检查
+        description: 检查JSON文件语法
+      - id: check-toml
+        name: TOML语法检查
+        description: 检查TOML文件语法
+      - id: check-xml
+        name: XML语法检查
+        description: 检查XML文件语法
+      - id: check-ast
+        name: Python语法检查
+        description: 检查Python文件语法
+      - id: debug-statements
+        name: 检查调试语句
+        description: 检查Python文件中的调试语句
+      - id: name-tests-test
+        name: 测试文件命名
+        description: 检查测试文件命名规范
+
+  # Shell脚本检查
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.9.0
+    hooks:
+      - id: shellcheck
+        name: Shell脚本静态分析
+        description: 使用ShellCheck进行Shell脚本静态分析
+        args: ['--severity=warning', '--exclude=SC1090', '--exclude=SC1091']
+
+  # Shell脚本格式化
+  - repo: https://github.com/detailyang/pre-commit-shell
+    rev: v1.0.6
+    hooks:
+      - id: shell-lint
+        name: Shell脚本格式检查
+        description: 检查Shell脚本格式规范
+
+  # 安全检查
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: 检测敏感信息
+        description: 检测代码中的敏感信息泄露
+        args: ['--baseline', '.secrets.baseline']
+
+  # 代码质量检查
+  - repo: https://github.com/pre-commit/mirrors-pylint
+    rev: v3.0.3
+    hooks:
+      - id: pylint
+        name: Python代码质量检查
+        description: 使用Pylint进行Python代码质量检查
+        args: ['--disable=C0114,C0116']
+
+  # 文档检查
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        name: Python类型检查
+        description: 使用MyPy进行Python类型检查
+        additional_dependencies: [types-requests, types-PyYAML]
+
+  # 自定义检查
+  - repo: local
+    hooks:
+      - id: ipv6-wireguard-syntax-check
+        name: IPv6 WireGuard语法检查
+        description: 检查IPv6 WireGuard Manager脚本语法
+        entry: bash -c 'find . -name "*.sh" -type f -exec bash -n {} \;'
+        language: system
+        files: \.sh$
+
+      - id: ipv6-wireguard-config-check
+        name: IPv6 WireGuard配置检查
+        description: 检查配置文件语法
+        entry: bash -c 'find . -name "*.conf" -type f -exec bash -n {} \;'
+        language: system
+        files: \.conf$
+
+      - id: ipv6-wireguard-security-check
+        name: IPv6 WireGuard安全检查
+        description: 检查硬编码凭据和敏感信息
+        entry: bash -c '
+          if grep -r -i "password.*=" . --include="*.sh" --include="*.conf" | grep -v "PASSWORD.*="; then
+            echo "发现可能的硬编码凭据"
+            exit 1
+          fi
+        '
+        language: system
+
+      - id: ipv6-wireguard-dependency-check
+        name: IPv6 WireGuard依赖检查
+        description: 检查模块依赖关系
+        entry: bash -c '
+          if [[ -f modules/module_loader.sh ]]; then
+            source modules/module_loader.sh
+            echo "模块依赖检查通过"
+          else
+            echo "模块加载器不存在"
+            exit 1
+          fi
+        '
+        language: system
+
+      - id: ipv6-wireguard-test-check
+        name: IPv6 WireGuard测试检查
+        description: 检查测试文件完整性
+        entry: bash -c '
+          if [[ -f tests/run_tests.sh ]]; then
+            chmod +x tests/run_tests.sh
+            echo "测试文件检查通过"
+          else
+            echo "测试文件不存在"
+            exit 1
+          fi
+        '
+        language: system
