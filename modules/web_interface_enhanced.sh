@@ -882,6 +882,12 @@ EOF
 configure_web_server() {
     log_info "配置Web服务器..."
     
+    # 检查并安装Nginx
+    if ! command -v nginx &> /dev/null; then
+        log_info "Nginx未安装，正在安装..."
+        install_nginx
+    fi
+    
     # 创建nginx配置
     create_nginx_config
     
@@ -892,8 +898,69 @@ configure_web_server() {
     start_web_service
 }
 
+# 安装Nginx
+install_nginx() {
+    log_info "安装Nginx..."
+    
+    # 检测包管理器
+    local package_manager=""
+    if command -v apt &> /dev/null; then
+        package_manager="apt"
+    elif command -v yum &> /dev/null; then
+        package_manager="yum"
+    elif command -v dnf &> /dev/null; then
+        package_manager="dnf"
+    elif command -v pacman &> /dev/null; then
+        package_manager="pacman"
+    elif command -v zypper &> /dev/null; then
+        package_manager="zypper"
+    fi
+    
+    case "$package_manager" in
+        "apt")
+            apt-get update
+            apt-get install -y nginx
+            ;;
+        "yum"|"dnf")
+            $package_manager install -y nginx
+            ;;
+        "pacman")
+            pacman -S --noconfirm nginx
+            ;;
+        "zypper")
+            zypper install -y nginx
+            ;;
+        *)
+            log_error "不支持的包管理器，请手动安装Nginx"
+            return 1
+            ;;
+    esac
+    
+    # 启动并启用Nginx服务
+    systemctl start nginx
+    systemctl enable nginx
+    
+    # 创建必要的目录
+    mkdir -p /etc/nginx/sites-available
+    mkdir -p /etc/nginx/sites-enabled
+    
+    log_success "Nginx安装完成"
+}
+
 # 创建nginx配置
 create_nginx_config() {
+    log_info "创建Nginx配置..."
+    
+    # 确保Nginx目录存在
+    mkdir -p /etc/nginx/sites-available
+    mkdir -p /etc/nginx/sites-enabled
+    
+    # 检查Nginx是否已安装
+    if ! command -v nginx &> /dev/null; then
+        log_error "Nginx未安装，请先安装Nginx"
+        return 1
+    fi
+    
     cat > "/etc/nginx/sites-available/ipv6-wireguard-manager" << EOF
 server {
     listen 8080;
@@ -920,10 +987,25 @@ server {
 EOF
     
     # 启用站点
-    ln -sf "/etc/nginx/sites-available/ipv6-wireguard-manager" "/etc/nginx/sites-enabled/"
+    if ln -sf "/etc/nginx/sites-available/ipv6-wireguard-manager" "/etc/nginx/sites-enabled/"; then
+        log_info "Nginx站点配置已启用"
+    else
+        log_error "无法创建Nginx站点链接"
+        return 1
+    fi
     
     # 测试配置
-    nginx -t && systemctl reload nginx
+    if nginx -t; then
+        log_success "Nginx配置测试通过"
+        if systemctl reload nginx; then
+            log_success "Nginx配置已重载"
+        else
+            log_warn "Nginx重载失败，请手动重启"
+        fi
+    else
+        log_error "Nginx配置测试失败"
+        return 1
+    fi
 }
 
 # 创建Web服务

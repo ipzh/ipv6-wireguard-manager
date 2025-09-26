@@ -1888,7 +1888,50 @@ install_web_interface() {
 # 安装Nginx
 install_nginx() {
     log_info "安装Nginx..."
-    # 这里添加Nginx安装逻辑
+    
+    # 检测包管理器
+    local package_manager=""
+    if command -v apt &> /dev/null; then
+        package_manager="apt"
+    elif command -v yum &> /dev/null; then
+        package_manager="yum"
+    elif command -v dnf &> /dev/null; then
+        package_manager="dnf"
+    elif command -v pacman &> /dev/null; then
+        package_manager="pacman"
+    elif command -v zypper &> /dev/null; then
+        package_manager="zypper"
+    fi
+    
+    case "$package_manager" in
+        "apt")
+            apt-get update
+            apt-get install -y nginx
+            ;;
+        "yum"|"dnf")
+            $package_manager install -y nginx
+            ;;
+        "pacman")
+            pacman -S --noconfirm nginx
+            ;;
+        "zypper")
+            zypper install -y nginx
+            ;;
+        *)
+            log_error "不支持的包管理器，请手动安装Nginx"
+            return 1
+            ;;
+    esac
+    
+    # 启动并启用Nginx服务
+    systemctl start nginx
+    systemctl enable nginx
+    
+    # 创建必要的目录
+    mkdir -p /etc/nginx/sites-available
+    mkdir -p /etc/nginx/sites-enabled
+    
+    log_success "Nginx安装完成"
 }
 
 # 配置Web服务器
