@@ -245,6 +245,7 @@ load_modules() {
         "resource_quota"
         "lazy_loading"
         "performance_optimization"
+        "performance_enhancements"
     )
     
     for module in "${modules[@]}"; do

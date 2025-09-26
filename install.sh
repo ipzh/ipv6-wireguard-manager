@@ -732,6 +732,20 @@ if [[ -d "$LOG_DIR" ]]; then
     rm -rf "$LOG_DIR"
 fi
 
+# 停止性能监控
+if command -v pkill &> /dev/null; then
+    log_info "停止性能监控..."
+    pkill -f "performance_monitor.sh" 2>/dev/null || true
+    rm -f "/tmp/performance_monitor.sh"
+fi
+
+# 清理缓存
+if [[ -f "$INSTALL_DIR/modules/performance_enhancements.sh" ]]; then
+    log_info "清理性能缓存..."
+    source "$INSTALL_DIR/modules/performance_enhancements.sh"
+    clear_cache 2>/dev/null || true
+fi
+
 log_info "IPv6 WireGuard Manager 卸载完成"
 EOF
     
@@ -1926,6 +1940,12 @@ install_performance_optimization() {
     if [[ -f "$INSTALL_DIR/modules/performance_optimization.sh" ]]; then
         source "$INSTALL_DIR/modules/performance_optimization.sh"
         init_performance_optimization
+    fi
+    
+    # 初始化性能增强模块
+    if [[ -f "$INSTALL_DIR/modules/performance_enhancements.sh" ]]; then
+        source "$INSTALL_DIR/modules/performance_enhancements.sh"
+        init_performance_enhancements
     fi
     
     log_info "性能优化功能安装完成"
