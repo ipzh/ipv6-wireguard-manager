@@ -442,24 +442,66 @@ install_dependencies() {
         esac
     done
     
-    # 安装BIRD（可选）
+    # 安装BIRD 2.x（可选）
     if [[ "$INSTALL_TYPE" == "full" ]]; then
-        log_info "安装BIRD BGP路由器..."
+        log_info "安装BIRD 2.x BGP路由器..."
         
         case "$package_manager" in
             "apt")
-                apt-get install -y bird || log_warn "BIRD安装失败"
+                # Ubuntu/Debian: 优先安装bird2，回退到bird
+                if apt-cache show bird2 >/dev/null 2>&1; then
+                    apt-get install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
+                    apt-get install -y bird || log_warn "BIRD安装失败"
+                else
+                    apt-get install -y bird || log_warn "BIRD安装失败"
+                fi
                 ;;
             "yum"|"dnf")
-                $package_manager install -y bird || log_warn "BIRD安装失败"
+                # CentOS/RHEL/Fedora: 优先安装bird2
+                if $package_manager search bird2 >/dev/null 2>&1; then
+                    $package_manager install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
+                    $package_manager install -y bird || log_warn "BIRD安装失败"
+                else
+                    $package_manager install -y bird || log_warn "BIRD安装失败"
+                fi
                 ;;
             "pacman")
-                pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                # Arch Linux: 优先安装bird2
+                if pacman -Ss bird2 >/dev/null 2>&1; then
+                    pacman -S --noconfirm bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
+                    pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                else
+                    pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                fi
                 ;;
             "zypper")
-                zypper install -y bird || log_warn "BIRD安装失败"
+                # openSUSE: 优先安装bird2
+                if zypper search bird2 >/dev/null 2>&1; then
+                    zypper install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
+                    zypper install -y bird || log_warn "BIRD安装失败"
+                else
+                    zypper install -y bird || log_warn "BIRD安装失败"
+                fi
                 ;;
         esac
+        
+        # 验证BIRD版本
+        if command -v bird &> /dev/null; then
+            local bird_version=$(bird --version 2>&1 | head -1)
+            log_info "BIRD版本: $bird_version"
+            
+            # 检查是否为BIRD 2.x
+            if [[ $bird_version =~ BIRD\ ([0-9]+)\. ]]; then
+                local major_version="${BASH_REMATCH[1]}"
+                if [[ $major_version -ge 2 ]]; then
+                    log_success "BIRD 2.x 安装成功"
+                else
+                    log_warn "检测到BIRD 1.x，建议升级到BIRD 2.x"
+                fi
+            fi
+        else
+            log_error "BIRD安装失败"
+        fi
     fi
     
     log_info "依赖安装完成"
