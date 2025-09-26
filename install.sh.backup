@@ -9,9 +9,6 @@ set -euo pipefail
 # 导入公共函数库
 if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh" ]]; then
     source "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh"
-    echo "已加载公共函数库"
-else
-    echo "警告: 无法加载公共函数库，使用内置函数"
 fi
 
 # 颜色定义（如果公共函数库未加载则定义）
@@ -24,46 +21,6 @@ CYAN="${CYAN:-'\033[0;36m'}"
 WHITE="${WHITE:-'\033[1;37m'}"
 INFO_COLOR="${INFO_COLOR:-'\033[0;36m'}"  # 信息颜色（青色）
 NC="${NC:-'\033[0m'}"
-
-# 备用日志函数（如果公共函数库未加载）
-if ! declare -f log_info >/dev/null 2>&1; then
-    log_info() {
-        local log_file="${LOG_FILE:-/tmp/install.log}"
-        mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
-        echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$log_file"
-    }
-    
-    log_success() {
-        local log_file="${LOG_FILE:-/tmp/install.log}"
-        mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
-        echo -e "${GREEN}[SUCCESS]${NC} $1" | tee -a "$log_file"
-    }
-    
-    log_warn() {
-        local log_file="${LOG_FILE:-/tmp/install.log}"
-        mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
-        echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$log_file"
-    }
-    
-    log_error() {
-        local log_file="${LOG_FILE:-/tmp/install.log}"
-        mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
-        echo -e "${RED}[ERROR]${NC} $1" | tee -a "$log_file"
-    }
-    
-    log_debug() {
-        if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
-            local log_file="${LOG_FILE:-/tmp/install.log}"
-            mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
-            echo -e "${CYAN}[DEBUG]${NC} $1" | tee -a "$log_file"
-        fi
-    }
-    
-    echo "已加载备用日志函数"
-fi
-
-# 确保LOG_FILE变量已定义
-LOG_FILE="${LOG_FILE:-/tmp/install.log}"
 
 # 安装配置
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
