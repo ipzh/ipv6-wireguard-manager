@@ -30,10 +30,10 @@
 
 ```bash
 # 自动安装 - 安装所有功能
-curl -sSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install.sh | bash
 
 # 手动下载安装
-wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
+wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install.sh
 chmod +x install.sh
 sudo ./install.sh
 ```
