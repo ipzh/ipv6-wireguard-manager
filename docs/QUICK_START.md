@@ -64,9 +64,26 @@ ipv6-wireguard-manager --add-client
 
 如果安装了Web管理界面，可以通过以下方式访问：
 
-- **HTTP访问**: `http://服务器IP:8080`
-- **HTTPS访问**: `https://服务器IP:8443`
-- **本地访问**: `http://localhost:8080`
+### IPv4访问
+- **HTTP访问**: `http://服务器IPv4地址:8080`
+- **HTTPS访问**: `https://服务器IPv4地址:8443`
+
+### IPv6访问
+- **HTTP访问**: `http://[服务器IPv6地址]:8080`
+- **HTTPS访问**: `https://[服务器IPv6地址]:8443`
+
+### 本地访问
+- **HTTP访问**: `http://localhost:8080`
+- **HTTPS访问**: `https://localhost:8443`
+
+### 获取服务器地址
+```bash
+# 获取IPv4地址
+ip route get 1.1.1.1 | grep -oP 'src \K\S+'
+
+# 获取IPv6地址
+ip -6 addr show | grep -oP 'inet6 \K[^/]+' | grep -v '^::1$' | grep -v '^fe80:'
+```
 
 ## 📋 配置文件位置
 

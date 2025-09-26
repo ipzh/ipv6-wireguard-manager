@@ -201,6 +201,41 @@ main() {
     
     echo -e "${YELLOW}🚀 快速启动: ${CYAN}ipv6-wireguard-manager${NC}"
     echo -e "${YELLOW}📋 服务管理: ${CYAN}systemctl start ipv6-wireguard-manager${NC}"
+    
+    # 显示Web界面地址（如果安装了Web界面）
+    echo -e "${GREEN}🌐 Web界面:${NC}"
+    
+    # 获取IPv4地址
+    local ipv4_addr=""
+    if command -v ip &> /dev/null; then
+        ipv4_addr=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    elif command -v hostname &> /dev/null; then
+        ipv4_addr=$(hostname -I | awk '{print $1}' 2>/dev/null)
+    fi
+    
+    # 获取IPv6地址
+    local ipv6_addr=""
+    if command -v ip &> /dev/null; then
+        ipv6_addr=$(ip -6 addr show | grep -oP 'inet6 \K[^/]+' | grep -v '^::1$' | grep -v '^fe80:' | head -1)
+    fi
+    
+    # 显示Web界面地址
+    if [[ -n "$ipv4_addr" ]]; then
+        echo -e "  ├─ IPv4: ${CYAN}http://$ipv4_addr:8080${NC}"
+        echo -e "  └─ IPv4: ${CYAN}https://$ipv4_addr:8443${NC}"
+    fi
+    
+    if [[ -n "$ipv6_addr" ]]; then
+        echo -e "  ├─ IPv6: ${CYAN}http://[$ipv6_addr]:8080${NC}"
+        echo -e "  └─ IPv6: ${CYAN}https://[$ipv6_addr]:8443${NC}"
+    fi
+    
+    # 如果都没有获取到，显示本地地址
+    if [[ -z "$ipv4_addr" && -z "$ipv6_addr" ]]; then
+        echo -e "  ├─ 本地: ${CYAN}http://localhost:8080${NC}"
+        echo -e "  └─ 本地: ${CYAN}https://localhost:8443${NC}"
+    fi
+    
     echo
     echo -e "${GREEN}感谢使用IPv6 WireGuard Manager！${NC}"
     echo
