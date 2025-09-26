@@ -862,6 +862,9 @@ main() {
 
 # 显示安装方法选择
 show_install_methods() {
+    # 确保INFO_COLOR变量已定义
+    INFO_COLOR="${INFO_COLOR:-$CYAN}"
+    
     echo -e "${CYAN}=== 安装方法选择 ===${NC}"
     echo
     echo -e "${GREEN}1.${NC} 快速安装 - 使用默认配置"
