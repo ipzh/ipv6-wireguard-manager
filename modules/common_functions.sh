@@ -603,19 +603,28 @@ set_config_value() {
 
 # 基本日志函数
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
+    local log_file="${LOG_FILE:-/tmp/manager.log}"
+    # 确保日志目录存在
+    mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
+    echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$log_file"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1" | tee -a "$LOG_FILE"
+    local log_file="${LOG_FILE:-/tmp/manager.log}"
+    mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
+    echo -e "${GREEN}[SUCCESS]${NC} $1" | tee -a "$log_file"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$LOG_FILE"
+    local log_file="${LOG_FILE:-/tmp/manager.log}"
+    mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
+    echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$log_file"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
+    local log_file="${LOG_FILE:-/tmp/manager.log}"
+    mkdir -p "$(dirname "$log_file")" 2>/dev/null || true
+    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$log_file"
 }
 
 log_debug() {

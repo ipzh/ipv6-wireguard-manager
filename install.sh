@@ -187,8 +187,8 @@ parse_arguments() {
 
 # 检查系统兼容性
 check_system_compatibility() {
-    # 确保LOG_FILE变量已定义
-    LOG_FILE="${LOG_FILE:-/tmp/install.log}"
+    # 确保日志目录和文件存在
+    mkdir -p "$(dirname "${LOG_FILE:-/tmp/install.log}")" 2>/dev/null || true
     log_info "检查系统兼容性..."
     
     # 检查操作系统
