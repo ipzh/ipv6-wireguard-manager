@@ -1281,7 +1281,7 @@ perform_installation() {
     echo -e "${GREEN}开始执行安装...${NC}"
     
     # 检查系统要求
-    check_system_requirements
+    check_system_compatibility
     
     # 检查现有安装
     check_existing_installation
