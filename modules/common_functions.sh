@@ -60,30 +60,53 @@ confirm() {
     if [[ "$default" == "y" ]]; then
         read -p "$prompt [Y/n]: " -n 1 -r
         echo
-        [[ $REPLY =~ ^[Nn]$ ]] && return 1
+        if [[ -z "$REPLY" ]]; then
+            return 0  # 默认选择Y
+        else
+            [[ $REPLY =~ ^[Yy]$ ]] && return 0
+            return 1
+        fi
     else
         read -p "$prompt [y/N]: " -n 1 -r
         echo
-        [[ $REPLY =~ ^[Yy]$ ]] && return 0
+        if [[ -z "$REPLY" ]]; then
+            return 1  # 默认选择N
+        else
+            [[ $REPLY =~ ^[Yy]$ ]] && return 0
+            return 1
+        fi
     fi
-    
-    return 1
 }
 
 # 输入验证函数
 validate_ipv4() {
     local ip="$1"
-    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        local IFS='.'
-        local -a ip_parts=($ip)
-        for part in "${ip_parts[@]}"; do
-            if [[ $part -gt 255 ]]; then
-                return 1
-            fi
-        done
-        return 0
+    
+    # 检查基本格式
+    if [[ ! $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        return 1
     fi
-    return 1
+    
+    # 检查是否有前导零
+    if [[ $ip =~ 0[0-9] ]]; then
+        return 1
+    fi
+    
+    # 检查每个部分的数值范围
+    local IFS='.'
+    local -a ip_parts=($ip)
+    for part in "${ip_parts[@]}"; do
+        # 检查是否为空或超过255
+        if [[ -z "$part" || $part -gt 255 ]]; then
+            return 1
+        fi
+        # 检查是否有前导零（除了单独的0）
+        if [[ ${#part} -gt 1 && ${part:0:1} == "0" ]]; then
+            return 1
+        fi
+    done
+    
+    return 0
 }
 
 validate_ipv6() {
