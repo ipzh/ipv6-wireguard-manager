@@ -596,7 +596,7 @@ create_configuration() {
     log_info "创建配置文件..."
     
     # 主配置文件
-    cat > "$CONFIG_DIR/manager.conf" << EOF
+    cat > "$CONFIG_DIR/manager.conf" << 'EOF'
 # IPv6 WireGuard Manager 主配置文件
 # 生成时间: $(date)
 
@@ -622,20 +622,20 @@ WEB_PASS=admin123
 
 # 日志配置
 LOG_LEVEL=INFO
-LOG_FILE=$LOG_DIR/manager.log
+LOG_FILE=/var/log/ipv6-wireguard-manager/manager.log
 
 # 备份配置
 BACKUP_DIR=/var/backups/ipv6-wireguard
 CLIENT_CONFIG_DIR=/etc/wireguard/clients
 
 # 系统配置
-INSTALL_DIR=$INSTALL_DIR
-CONFIG_DIR=$CONFIG_DIR
-LOG_DIR=$LOG_DIR
+INSTALL_DIR=/opt/ipv6-wireguard-manager
+CONFIG_DIR=/etc/ipv6-wireguard-manager
+LOG_DIR=/var/log/ipv6-wireguard-manager
 EOF
     
     # 错误处理配置
-    cat > "$CONFIG_DIR/error_handling.conf" << EOF
+    cat > "$CONFIG_DIR/error_handling.conf" << 'EOF'
 # 错误处理配置文件
 LOG_ERRORS=true
 SEND_ALERTS=false
@@ -646,11 +646,11 @@ ERROR_THRESHOLD=10
 CLEANUP_ON_ERROR=true
 ALERT_EMAIL=""
 ALERT_WEBHOOK=""
-ERROR_LOG_FILE=$LOG_DIR/errors.log
+ERROR_LOG_FILE=/var/log/ipv6-wireguard-manager/errors.log
 EOF
     
     # 用户界面配置
-    cat > "$CONFIG_DIR/ui.conf" << EOF
+    cat > "$CONFIG_DIR/ui.conf" << 'EOF'
 # 用户界面配置文件
 THEME=default
 COLORS=true
@@ -668,6 +668,14 @@ EOF
     
     # 设置配置文件权限
     chmod 600 "$CONFIG_DIR"/*.conf
+    
+    # 确保配置文件使用Unix行尾符
+    for conf_file in "$CONFIG_DIR"/*.conf; do
+        if [[ -f "$conf_file" ]]; then
+            # 转换Windows行尾符为Unix行尾符
+            sed -i 's/\r$//' "$conf_file" 2>/dev/null || true
+        fi
+    done
     
     log_info "配置文件创建完成"
 }
@@ -896,14 +904,14 @@ show_installation_complete() {
     
     # 快速启动
     echo -e "${YELLOW}🚀 快速启动:${NC}"
-    echo "  ${CYAN}ipv6-wireguard-manager${NC}"
+    echo -e "  ${CYAN}ipv6-wireguard-manager${NC}"
     echo
     
     # 服务管理
     echo -e "${BLUE}⚙️  服务管理:${NC}"
-    echo "  ├─ 启动服务: ${CYAN}systemctl start ipv6-wireguard-manager${NC}"
-    echo "  ├─ 查看状态: ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
-    echo "  └─ 查看日志: ${CYAN}journalctl -u ipv6-wireguard-manager -f${NC}"
+    echo -e "  ├─ 启动服务: ${CYAN}systemctl start ipv6-wireguard-manager${NC}"
+    echo -e "  ├─ 查看状态: ${CYAN}systemctl status ipv6-wireguard-manager${NC}"
+    echo -e "  └─ 查看日志: ${CYAN}journalctl -u ipv6-wireguard-manager -f${NC}"
     echo
     
     # Web界面
@@ -937,13 +945,13 @@ show_installation_complete() {
         else
             echo -e "${RED}错误: 找不到可执行文件${NC}"
             echo -e "${RED}请检查以下位置:${NC}"
-            echo "  - /usr/local/bin/ipv6-wireguard-manager"
-            echo "  - $BIN_DIR/ipv6-wireguard-manager"
-            echo "  - $INSTALL_DIR/ipv6-wireguard-manager.sh"
+            echo -e "  - /usr/local/bin/ipv6-wireguard-manager"
+            echo -e "  - $BIN_DIR/ipv6-wireguard-manager"
+            echo -e "  - $INSTALL_DIR/ipv6-wireguard-manager.sh"
             echo
             echo -e "${YELLOW}请手动运行以下命令之一:${NC}"
-            echo "  ${CYAN}sudo ln -sf $BIN_DIR/ipv6-wireguard-manager /usr/local/bin/ipv6-wireguard-manager${NC}"
-            echo "  ${CYAN}$BIN_DIR/ipv6-wireguard-manager${NC}"
+            echo -e "  ${CYAN}sudo ln -sf $BIN_DIR/ipv6-wireguard-manager /usr/local/bin/ipv6-wireguard-manager${NC}"
+            echo -e "  ${CYAN}$BIN_DIR/ipv6-wireguard-manager${NC}"
         fi
     fi
     
