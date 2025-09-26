@@ -256,6 +256,11 @@ check_system_compatibility() {
     fi
 }
 
+# 检查系统要求（别名函数，向后兼容）
+check_system_requirements() {
+    check_system_compatibility
+}
+
 # 检查现有安装
 check_existing_installation() {
     log_info "检查现有安装..."
