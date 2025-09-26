@@ -499,6 +499,25 @@ install_files() {
     
     # 获取脚本所在目录
     local script_dir="$(dirname "${BASH_SOURCE[0]}")"
+    
+    # 如果脚本目录是当前目录，尝试从不同位置查找
+    if [[ "$script_dir" == "." ]]; then
+        # 尝试从常见位置查找
+        local possible_dirs=(
+            "/tmp/ipv6-wireguard-manager"
+            "/tmp/${REPO_NAME}"
+            "$(pwd)"
+            "/opt/ipv6-wireguard-manager"
+        )
+        
+        for dir in "${possible_dirs[@]}"; do
+            if [[ -f "$dir/ipv6-wireguard-manager.sh" ]]; then
+                script_dir="$dir"
+                break
+            fi
+        done
+    fi
+    
     local main_script="$script_dir/ipv6-wireguard-manager.sh"
     
     # 复制主脚本
@@ -894,6 +913,12 @@ main() {
     
     # 创建目录结构
     create_directories
+    
+    # 下载项目文件（如果还没有）
+    if [[ ! -f "ipv6-wireguard-manager.sh" ]]; then
+        log_info "下载项目文件..."
+        download_project_files
+    fi
     
     # 安装文件
     install_files
@@ -1342,7 +1367,7 @@ download_project_files() {
         
         # 移动到当前目录
         if [[ -d "${REPO_NAME}-${REPO_BRANCH}" ]]; then
-            cp -r "${REPO_NAME}-${REPO_BRANCH}"/* "$(pwd)/"
+            cp -r "${REPO_NAME}-${REPO_BRANCH}"/* ./
             rm -rf "${REPO_NAME}-${REPO_BRANCH}"
         fi
         
