@@ -2,9 +2,9 @@
 
 ## 🚀 安装后立即启动
 
-### 方法一：直接启动管理界面
+### 方法一：直接启动管理界面（推荐）
 ```bash
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh
+ipv6-wireguard-manager
 ```
 
 ### 方法二：启动系统服务
@@ -42,22 +42,22 @@ sudo journalctl -u ipv6-wireguard-manager -f
 ### 管理界面命令
 ```bash
 # 启动管理界面
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh
+ipv6-wireguard-manager
 
 # 查看帮助
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --help
+ipv6-wireguard-manager --help
 
 # 查看系统状态
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --status
+ipv6-wireguard-manager --status
 
 # 配置WireGuard
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --configure-wireguard
+ipv6-wireguard-manager --configure-wireguard
 
 # 配置BGP路由
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --configure-bird
+ipv6-wireguard-manager --configure-bird
 
 # 添加客户端
-/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --add-client
+ipv6-wireguard-manager --add-client
 ```
 
 ## 🌐 Web管理界面
@@ -106,22 +106,22 @@ sudo netstat -tlnp | grep :51820
 
 1. **配置WireGuard服务器**
    ```bash
-   /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --configure-wireguard
+   ipv6-wireguard-manager --configure-wireguard
    ```
 
 2. **配置BGP路由**
    ```bash
-   /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --configure-bird
+   ipv6-wireguard-manager --configure-bird
    ```
 
 3. **添加客户端**
    ```bash
-   /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --add-client
+   ipv6-wireguard-manager --add-client
    ```
 
 4. **查看系统状态**
    ```bash
-   /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --status
+   ipv6-wireguard-manager --status
    ```
 
 ## ⚠️ 重要提示
