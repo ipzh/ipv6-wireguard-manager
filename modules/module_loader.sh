@@ -42,33 +42,45 @@ MODULE_LOAD_ORDER=(
 
 # 模块依赖关系定义
 MODULE_DEPENDENCIES=(
+    # 基础模块 - 无依赖
+    ["common_functions"]=""
+    
+    # 第一层依赖 - 仅依赖common_functions
     ["error_handling"]="common_functions"
-    ["system_detection"]="common_functions error_handling"
-    ["user_interface"]="common_functions error_handling"
+    ["system_detection"]="common_functions"
+    ["user_interface"]="common_functions"
+    ["repository_config"]="common_functions"
+    ["config_management"]="common_functions"
+    ["lazy_loading"]="common_functions"
+    ["performance_optimization"]="common_functions"
+    
+    # 第二层依赖 - 依赖基础模块
     ["menu_templates"]="common_functions user_interface"
     ["wireguard_config"]="common_functions system_detection"
     ["bird_config"]="common_functions system_detection"
+    ["backup_restore"]="common_functions"
+    ["update_management"]="common_functions system_detection"
+    ["firewall_ports"]="common_functions system_detection"
+    ["oauth_authentication"]="common_functions"
+    
+    # 第三层依赖 - 依赖第二层模块
     ["network_management"]="common_functions wireguard_config bird_config"
     ["firewall_management"]="common_functions system_detection"
     ["client_management"]="common_functions wireguard_config"
-    ["backup_restore"]="common_functions"
     ["monitoring_alerting"]="common_functions system_detection"
-    ["client_auto_install"]="common_functions client_management"
     ["web_management"]="common_functions client_management"
-    ["update_management"]="common_functions system_detection"
-    ["repository_config"]="common_functions"
-    ["firewall_ports"]="common_functions system_detection"
-    ["config_management"]="common_functions"
-    ["web_interface_enhanced"]="common_functions web_management"
-    ["oauth_authentication"]="common_functions"
     ["security_audit_monitoring"]="common_functions oauth_authentication"
+    
+    # 第四层依赖 - 依赖第三层模块
+    ["client_auto_install"]="common_functions client_management"
+    ["web_interface_enhanced"]="common_functions web_management"
     ["network_topology"]="common_functions web_management"
     ["api_documentation"]="common_functions web_management"
     ["websocket_realtime"]="common_functions web_management"
     ["multi_tenant"]="common_functions oauth_authentication"
+    
+    # 第五层依赖 - 依赖第四层模块
     ["resource_quota"]="common_functions multi_tenant"
-    ["lazy_loading"]="common_functions"
-    ["performance_optimization"]="common_functions"
 )
 
 # 加载单个模块

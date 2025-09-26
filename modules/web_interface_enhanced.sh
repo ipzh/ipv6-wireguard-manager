@@ -82,7 +82,7 @@ EOF
 
 # 创建默认管理员用户
 create_default_admin_user() {
-    local admin_password="admin123"
+    local admin_password="${WEB_ADMIN_PASSWORD:-admin123}"
     local password_hash=$(echo -n "$admin_password" | sha256sum | awk '{print $1}')
     
     sqlite3 "$USERS_DB" << EOF

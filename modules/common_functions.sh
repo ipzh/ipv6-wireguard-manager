@@ -580,6 +580,73 @@ add_temp_file() {
     TEMP_FILES+=("$file")
 }
 
+# 输入验证和清理
+sanitize_input() {
+    local input="$1"
+    
+    # 移除危险字符
+    input=$(echo "$input" | sed 's/[;&|`$(){}[\]<>]/_/g')
+    
+    # 限制长度
+    if [[ ${#input} -gt 255 ]]; then
+        input="${input:0:255}"
+    fi
+    
+    echo "$input"
+}
+
+# 验证用户名
+validate_username() {
+    local username="$1"
+    
+    # 检查长度
+    if [[ ${#username} -lt 3 || ${#username} -gt 20 ]]; then
+        return 1
+    fi
+    
+    # 检查字符
+    if [[ ! "$username" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        return 1
+    fi
+    
+    return 0
+}
+
+# 验证密码强度
+validate_password() {
+    local password="$1"
+    
+    # 检查长度
+    if [[ ${#password} -lt 8 ]]; then
+        return 1
+    fi
+    
+    # 检查复杂度
+    if [[ ! "$password" =~ [A-Z] ]] || [[ ! "$password" =~ [a-z] ]] || [[ ! "$password" =~ [0-9] ]]; then
+        return 1
+    fi
+    
+    return 0
+}
+
+# 安全输入函数
+secure_input() {
+    local prompt="$1"
+    local default="$2"
+    local value
+    
+    if [[ -n "$default" ]]; then
+        read -p "$prompt [$default]: " value
+        value="${value:-$default}"
+    else
+        read -p "$prompt: " value
+    fi
+    
+    # 输入验证和清理
+    value=$(sanitize_input "$value")
+    echo "$value"
+}
+
 # 导出函数供其他模块使用
 export -f print_header print_section print_success print_error print_warning print_info
 export -f show_progress confirm validate_ipv4 validate_ipv6 validate_cidr validate_port validate_interface
@@ -593,3 +660,4 @@ export -f generate_random_string generate_wireguard_key generate_wireguard_publi
 export -f get_config_value set_config_value
 export -f log_with_timestamp log_debug_enhanced log_info_enhanced log_warn_enhanced log_error_enhanced
 export -f handle_error cleanup_on_exit add_temp_file
+export -f sanitize_input validate_username validate_password secure_input
