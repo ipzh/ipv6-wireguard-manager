@@ -92,24 +92,17 @@ confirm() {
     local prompt="$1"
     local default="${2:-n}"
     
+    # 简化逻辑，确保默认值处理正确
     if [[ "$default" == "y" ]]; then
         read -p "$prompt [Y/n]: " -n 1 -r
         echo
-        if [[ -z "$REPLY" ]]; then
-            return 0  # 默认选择Y
-        else
-            [[ $REPLY =~ ^[Yy]$ ]] && return 0
-            return 1
-        fi
+        # 空输入或Y/y返回0，其他返回1
+        [[ -z "$REPLY" || $REPLY =~ ^[Yy]$ ]] && return 0 || return 1
     else
         read -p "$prompt [y/N]: " -n 1 -r
         echo
-        if [[ -z "$REPLY" ]]; then
-            return 1  # 默认选择N
-        else
-            [[ $REPLY =~ ^[Yy]$ ]] && return 0
-            return 1
-        fi
+        # 只有Y/y返回0，空输入或其他返回1
+        [[ $REPLY =~ ^[Yy]$ ]] && return 0 || return 1
     fi
 }
 
@@ -122,21 +115,22 @@ validate_ipv4() {
         return 1
     fi
     
-    # 检查是否有前导零
-    if [[ $ip =~ 0[0-9] ]]; then
-        return 1
-    fi
-    
-    # 检查每个部分的数值范围
+    # 检查每个部分的数值范围和前导零
     local IFS='.'
     local -a ip_parts=($ip)
     for part in "${ip_parts[@]}"; do
-        # 检查是否为空或超过255
-        if [[ -z "$part" || $part -gt 255 ]]; then
+        # 检查是否为空
+        if [[ -z "$part" ]]; then
             return 1
         fi
-        # 检查是否有前导零（除了单独的0）
+        
+        # 检查前导零（除了单独的"0"）
         if [[ ${#part} -gt 1 && ${part:0:1} == "0" ]]; then
+            return 1
+        fi
+        
+        # 检查数值范围
+        if [[ $part -gt 255 ]]; then
             return 1
         fi
     done
