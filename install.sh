@@ -6,16 +6,21 @@
 
 set -euo pipefail
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-INFO_COLOR='\033[0;36m'  # 信息颜色（青色）
-NC='\033[0m' # No Color
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh"
+fi
+
+# 颜色定义（如果公共函数库未加载则定义）
+RED="${RED:-'\033[0;31m'}"
+GREEN="${GREEN:-'\033[0;32m'}"
+YELLOW="${YELLOW:-'\033[1;33m'}"
+BLUE="${BLUE:-'\033[0;34m'}"
+PURPLE="${PURPLE:-'\033[0;35m'}"
+CYAN="${CYAN:-'\033[0;36m'}"
+WHITE="${WHITE:-'\033[1;37m'}"
+INFO_COLOR="${INFO_COLOR:-'\033[0;36m'}"  # 信息颜色（青色）
+NC="${NC:-'\033[0m'}"
 
 # 安装配置
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
@@ -86,24 +91,7 @@ show_banner() {
     echo -e "${NC}"
 }
 
-# 日志函数
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-log_debug() {
-    if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${BLUE}[DEBUG]${NC} $1"
-    fi
-}
+# 日志函数已从公共函数库导入
 
 # 检查权限
 check_root() {
