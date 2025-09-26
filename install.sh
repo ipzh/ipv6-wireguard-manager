@@ -228,6 +228,16 @@ parse_arguments() {
     done
 }
 
+# 检测操作系统
+detect_os() {
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        echo "$ID"
+    else
+        echo "unknown"
+    fi
+}
+
 # 检查系统兼容性
 check_system_compatibility() {
     # 确保日志目录和文件存在
@@ -381,24 +391,28 @@ install_dependencies() {
             packages=(
                 "wireguard" "wireguard-tools" "iptables" "ip6tables"
                 "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+                "sqlite3" "python3-psutil"
             )
             ;;
         "yum"|"dnf")
             packages=(
                 "wireguard-tools" "iptables" "ip6tables"
                 "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+                "sqlite" "python3-psutil"
             )
             ;;
         "pacman")
             packages=(
                 "wireguard-tools" "iptables" "ip6tables"
                 "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+                "sqlite" "python-psutil"
             )
             ;;
         "zypper")
             packages=(
                 "wireguard-tools" "iptables" "ip6tables"
                 "curl" "wget" "jq" "qrencode" "systemd" "rsyslog"
+                "sqlite3" "python3-psutil"
             )
             ;;
     esac
@@ -1753,6 +1767,12 @@ install_config_management() {
             "fedora")
                 dnf install -y yq || log_warn "yq安装失败"
                 ;;
+            "arch")
+                pacman -S --noconfirm yq || log_warn "yq安装失败"
+                ;;
+            "opensuse")
+                zypper install -y yq || log_warn "yq安装失败"
+                ;;
         esac
     fi
     
@@ -1769,10 +1789,30 @@ install_config_management() {
 install_web_interface_enhanced() {
     log_info "安装增强Web界面功能..."
     
+    # 安装系统依赖
+    log_info "安装系统依赖..."
+    case "$(detect_os)" in
+        "ubuntu"|"debian")
+            apt-get update && apt-get install -y sqlite3 python3-psutil || log_warn "系统依赖安装失败"
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            yum install -y sqlite python3-psutil || log_warn "系统依赖安装失败"
+            ;;
+        "fedora")
+            dnf install -y sqlite python3-psutil || log_warn "系统依赖安装失败"
+            ;;
+        "arch")
+            pacman -S --noconfirm sqlite python-psutil || log_warn "系统依赖安装失败"
+            ;;
+        "opensuse")
+            zypper install -y sqlite3 python3-psutil || log_warn "系统依赖安装失败"
+            ;;
+    esac
+    
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install psutil sqlite3 || log_warn "Python依赖安装失败"
+        pip3 install psutil || log_warn "Python依赖安装失败"
     else
         log_warn "Python3未安装，增强Web界面功能可能无法正常工作"
     fi
@@ -1803,6 +1843,12 @@ install_oauth_authentication() {
             "fedora")
                 dnf install -y openssl
                 ;;
+            "arch")
+                pacman -S --noconfirm openssl
+                ;;
+            "opensuse")
+                zypper install -y openssl
+                ;;
         esac
     fi
     
@@ -1832,6 +1878,12 @@ install_security_audit_monitoring() {
             "fedora")
                 dnf install -y mailx
                 ;;
+            "arch")
+                pacman -S --noconfirm mailutils
+                ;;
+            "opensuse")
+                zypper install -y mailx
+                ;;
         esac
     fi
     
@@ -1847,6 +1899,12 @@ install_security_audit_monitoring() {
                 ;;
             "fedora")
                 dnf install -y curl
+                ;;
+            "arch")
+                pacman -S --noconfirm curl
+                ;;
+            "opensuse")
+                zypper install -y curl
                 ;;
         esac
     fi
@@ -1897,6 +1955,12 @@ install_api_documentation() {
                 ;;
             "fedora")
                 dnf install -y wget
+                ;;
+            "arch")
+                pacman -S --noconfirm wget
+                ;;
+            "opensuse")
+                zypper install -y wget
                 ;;
         esac
     fi
