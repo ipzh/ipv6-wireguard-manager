@@ -63,6 +63,10 @@ TEST_SUITES=(
     "performance_test"
     "security_test"
     "compatibility_test"
+    "version_check"
+    "module_test"
+    "config_test"
+    "monitoring_test"
 )
 
 # 创建必要目录
@@ -310,6 +314,153 @@ run_compatibility_test() {
     test_bash_compatibility
     
     log_success "兼容性测试完成"
+}
+
+# 版本检查测试
+run_version_check() {
+    log_info "开始版本检查测试..."
+    
+    # 检查版本信息
+    test_version_info() {
+        log_info "测试版本信息..."
+        
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --version'" "测试版本信息" "true"; then
+            log_success "✓ 版本信息正常"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 版本信息异常"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    # 检查版本兼容性
+    test_version_compatibility() {
+        log_info "测试版本兼容性..."
+        
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --check-compatibility'" "测试版本兼容性" "true"; then
+            log_success "✓ 版本兼容性正常"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 版本兼容性异常"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_version_info
+    test_version_compatibility
+    
+    log_success "版本检查测试完成"
+}
+
+# 模块测试
+run_module_test() {
+    log_info "开始模块测试..."
+    
+    # 测试模块加载
+    test_module_loading() {
+        log_info "测试模块加载..."
+        
+        local modules=(
+            "common_functions.sh"
+            "unified_config.sh"
+            "lazy_loading.sh"
+            "common_utils.sh"
+            "version_control.sh"
+            "system_monitoring.sh"
+            "self_diagnosis.sh"
+        )
+        
+        for module in "${modules[@]}"; do
+            if [[ -f "$MODULES_DIR/$module" ]]; then
+                if execute_command "bash -n '$MODULES_DIR/$module'" "语法检查: $module" "true"; then
+                    log_success "✓ $module 语法正确"
+                    ((PASSED_TESTS++))
+                else
+                    log_error "✗ $module 语法错误"
+                    ((FAILED_TESTS++))
+                fi
+                ((TOTAL_TESTS++))
+            else
+                log_warn "模块不存在: $module"
+                ((SKIPPED_TESTS++))
+            fi
+        done
+    }
+    
+    test_module_loading
+    
+    log_success "模块测试完成"
+}
+
+# 配置测试
+run_config_test() {
+    log_info "开始配置测试..."
+    
+    # 测试配置文件
+    test_config_files() {
+        log_info "测试配置文件..."
+        
+        local config_files=(
+            "/etc/ipv6-wireguard-manager/manager.conf"
+            "/etc/wireguard/wg0.conf"
+            "/etc/bird/bird.conf"
+            "/etc/nginx/sites-available/ipv6-wireguard-manager"
+        )
+        
+        for config_file in "${config_files[@]}"; do
+            if [[ -f "$config_file" ]]; then
+                if execute_command "bash -n '$config_file'" "配置语法检查: $config_file" "true"; then
+                    log_success "✓ $config_file 语法正确"
+                    ((PASSED_TESTS++))
+                else
+                    log_error "✗ $config_file 语法错误"
+                    ((FAILED_TESTS++))
+                fi
+                ((TOTAL_TESTS++))
+            else
+                log_info "配置文件不存在: $config_file"
+                ((SKIPPED_TESTS++))
+            fi
+        done
+    }
+    
+    test_config_files
+    
+    log_success "配置测试完成"
+}
+
+# 监控测试
+run_monitoring_test() {
+    log_info "开始监控测试..."
+    
+    # 测试监控模块
+    test_monitoring_modules() {
+        log_info "测试监控模块..."
+        
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/system_monitoring.sh && init_monitoring'" "测试系统监控模块" "true"; then
+            log_success "✓ 系统监控模块正常"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 系统监控模块异常"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/self_diagnosis.sh && init_diagnosis'" "测试自我诊断模块" "true"; then
+            log_success "✓ 自我诊断模块正常"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 自我诊断模块异常"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_monitoring_modules
+    
+    log_success "监控测试完成"
 }
 
 # 生成测试报告

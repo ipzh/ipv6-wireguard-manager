@@ -6,12 +6,39 @@
 
 set -euo pipefail
 
+# 统一的导入机制
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
+
 # 导入公共函数库
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh" ]]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh"
-    echo "已加载公共函数库"
+if [[ -f "${MODULES_DIR}/common_functions.sh" ]]; then
+    source "${MODULES_DIR}/common_functions.sh"
+    # 验证导入是否成功
+    if ! command -v log_info &> /dev/null; then
+        echo -e "${RED}错误: 公共函数库导入失败，log_info函数不可用${NC}" >&2
+        exit 1
+    fi
 else
-    echo "警告: 无法加载公共函数库，使用内置函数"
+    echo -e "${RED}错误: 公共函数库文件不存在: ${MODULES_DIR}/common_functions.sh${NC}" >&2
+    exit 1
+fi
+
+# 导入模块加载器
+if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+    source "${MODULES_DIR}/module_loader.sh"
+    log_info "模块加载器已导入"
+else
+    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
+    exit 1
+fi
+
+# 导入统一配置管理
+if [[ -f "${MODULES_DIR}/unified_config.sh" ]]; then
+    source "${MODULES_DIR}/unified_config.sh"
+    log_info "统一配置管理已导入"
+else
+    log_error "统一配置管理文件不存在: ${MODULES_DIR}/unified_config.sh"
+    exit 1
 fi
 
 # 修复文件行尾符函数（备用定义）

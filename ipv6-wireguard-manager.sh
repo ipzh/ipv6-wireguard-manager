@@ -33,6 +33,42 @@ else
     exit 1
 fi
 
+# 导入统一配置管理
+if [[ -f "${MODULES_DIR}/unified_config.sh" ]]; then
+    source "${MODULES_DIR}/unified_config.sh"
+    log_info "统一配置管理已导入"
+else
+    log_error "统一配置管理文件不存在: ${MODULES_DIR}/unified_config.sh"
+    exit 1
+fi
+
+# 导入懒加载模块
+if [[ -f "${MODULES_DIR}/lazy_loading.sh" ]]; then
+    source "${MODULES_DIR}/lazy_loading.sh"
+    log_info "懒加载模块已导入"
+else
+    log_error "懒加载模块文件不存在: ${MODULES_DIR}/lazy_loading.sh"
+    exit 1
+fi
+
+# 导入通用工具函数
+if [[ -f "${MODULES_DIR}/common_utils.sh" ]]; then
+    source "${MODULES_DIR}/common_utils.sh"
+    log_info "通用工具函数已导入"
+else
+    log_error "通用工具函数文件不存在: ${MODULES_DIR}/common_utils.sh"
+    exit 1
+fi
+
+# 导入版本控制
+if [[ -f "${MODULES_DIR}/version_control.sh" ]]; then
+    source "${MODULES_DIR}/version_control.sh"
+    log_info "版本控制模块已导入"
+else
+    log_error "版本控制模块文件不存在: ${MODULES_DIR}/version_control.sh"
+    exit 1
+fi
+
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
@@ -56,23 +92,7 @@ LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 DOCS_DIR="${SCRIPT_DIR}/docs"
 CONFIG_FILE="${CONFIG_DIR}/manager.conf"
 
-# 统一的配置管理机制
-load_main_config() {
-    local config_file="$1"
-    local config_dir="$(dirname "$config_file")"
-    
-    # 确保配置目录存在
-    execute_command "mkdir -p '$config_dir'" "创建配置目录" "true"
-    
-    # 如果配置文件不存在，创建默认配置
-    if [[ ! -f "$config_file" ]]; then
-        create_default_config "$config_file"
-    fi
-    
-    # 加载配置文件
-    source "$config_file"
-    log_info "配置文件已加载: $config_file"
-}
+# 配置函数已在unified_config.sh中定义，无需重复定义
 
 # 创建默认配置文件
 create_default_config() {
@@ -230,28 +250,23 @@ check_root() {
 
 # 初始化配置
 init_config() {
+    # 初始化统一配置系统
+    init_config_system
+    
+    # 初始化懒加载系统
+    init_lazy_loading
+    
     # 创建必要的目录
     execute_command "mkdir -p '$CONFIG_DIR' '$MODULES_DIR' '$SCRIPTS_DIR' '$EXAMPLES_DIR' '$DOCS_DIR'" "创建项目目录结构"
     execute_command "mkdir -p '$(dirname "$LOG_FILE")'" "创建日志目录"
-    execute_command "mkdir -p '${BACKUP_DIR:-/var/backups/ipv6-wireguard}'" "创建备份目录"
-    execute_command "mkdir -p '${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}'" "创建客户端配置目录"
+    execute_command "mkdir -p '$BACKUP_DIR'" "创建备份目录"
+    execute_command "mkdir -p '$CLIENT_CONFIG_DIR'" "创建客户端配置目录"
     
     # 使用统一的配置管理机制
-    load_main_config "$CONFIG_FILE"
+    load_config "$CONFIG_FILE"
     
-    # 应用配置变量
-    WIREGUARD_PORT="${WIREGUARD_PORT:-51820}"
-    WIREGUARD_INTERFACE="${WIREGUARD_INTERFACE:-wg0}"
-    WIREGUARD_NETWORK="${WIREGUARD_NETWORK:-10.0.0.0/24}"
-    IPV6_PREFIX="${IPV6_PREFIX:-2001:db8::/56}"
-    BIRD_VERSION="${BIRD_VERSION:-auto}"
-    FIREWALL_TYPE="${FIREWALL_TYPE:-auto}"
-    WEB_PORT="${WEB_PORT:-8080}"
-    WEB_USER="${WEB_USER:-admin}"
-    WEB_PASS="${WEB_PASS:-admin123}"
-    LOG_LEVEL="${LOG_LEVEL:-INFO}"
-    BACKUP_DIR="${BACKUP_DIR:-/var/backups/ipv6-wireguard}"
-    CLIENT_CONFIG_DIR="${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}"
+    # 验证所有配置项
+    validate_all_config
 }
 
 # 系统检测

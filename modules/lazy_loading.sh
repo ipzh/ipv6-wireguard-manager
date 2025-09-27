@@ -1,12 +1,16 @@
 #!/bin/bash
-# 导入公共函数库
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
 
-# 确保日志相关变量已定义
-LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
-LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
-fi
+# IPv6 WireGuard Manager 懒加载模块
+# 版本: 1.0.0
+# 作者: IPv6 WireGuard Manager Team
+
+# 懒加载配置
+LAZY_LOAD_ENABLED="${LAZY_LOAD_ENABLED:-true}"
+LAZY_LOAD_CACHE_DIR="${LAZY_LOAD_CACHE_DIR:-/var/cache/ipv6-wireguard-manager}"
+
+# 模块加载状态
+declare -A MODULE_LOADED
+declare -A MODULE_LOAD_TIME
 
 # 配置懒加载模块
 # 实现配置的懒加载机制，优化系统启动和内存使用

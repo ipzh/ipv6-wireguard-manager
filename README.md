@@ -1,62 +1,50 @@
 # IPv6 WireGuard Manager
 
-一个功能完整的IPv6 WireGuard VPN服务器管理系统，支持自动环境检测、BGP路由、客户端管理、Web界面等企业级功能。
+一个完整的IPv6 WireGuard VPN服务器管理系统，提供自动化的安装、配置和管理功能。
 
-## ✨ 主要特性
+## 🚀 功能特性
 
-- 🚀 **智能安装** - 一键安装全部功能，交互式安装可选择功能
-- 🔧 **自动配置** - WireGuard服务器、BIRD BGP路由、IPv6子网管理
-- 🛡️ **安全增强** - 最小权限原则、systemd安全特性、防火墙自动配置
-- 🔥 **智能防火墙** - 自动检测防火墙类型，智能开放功能端口
-- 👥 **客户端管理** - 完整的客户端生命周期管理
-- 🌐 **Web界面** - 现代化的Web管理界面
-- 📊 **监控告警** - 实时监控、邮件/Webhook告警
-- 🔄 **自动更新** - 版本检查、自动更新、回滚功能
-- 📦 **批量操作** - CSV导入、批量管理、远程安装
-- ⚙️ **功能管理** - 动态启用/禁用功能模块，灵活配置
-- 🔐 **OAuth 2.0认证** - 企业级认证授权系统
-- 🔒 **多因素认证** - MFA和TOTP安全认证
-- 🛡️ **安全审计** - 完整的操作审计和监控
-- 🎯 **网络拓扑可视化** - 交互式网络拓扑图展示
-- 📚 **API文档** - 完整OpenAPI文档和Swagger UI
-- 🔄 **实时通信** - WebSocket双向实时通信
-- 🏢 **多租户支持** - 组织项目隔离和资源配额
-- ⚡ **性能优化** - 懒加载机制和性能监控
-- 🚀 **性能增强** - 智能缓存和实时监控
+### 核心功能
+- **自动化安装** - 一键安装所有必要组件
+- **IPv6支持** - 完整的IPv6网络配置
+- **BGP路由** - 集成BIRD BGP路由器
+- **Web管理界面** - 直观的Web管理界面
+- **客户端管理** - 自动生成和管理客户端配置
+- **安全增强** - 多层安全防护机制
 
-## 🚀 快速开始
+### 高级功能
+- **懒加载机制** - 优化系统性能和启动时间
+- **统一配置管理** - 集中化配置管理
+- **系统监控** - 实时系统状态监控
+- **自我诊断** - 自动故障检测和修复
+- **备份恢复** - 自动备份和恢复功能
+- **更新检查** - 自动检查和安装更新
 
-### 方法1: 一键安装（推荐）
+## 📋 系统要求
 
+### 最低要求
+- **操作系统**: Linux (Ubuntu 18.04+, CentOS 7+, Debian 10+, Fedora 30+)
+- **内存**: 512MB RAM
+- **存储**: 1GB 可用空间
+- **网络**: 公网IP地址（支持IPv6更佳）
+- **权限**: root权限
+
+### 推荐配置
+- **操作系统**: Ubuntu 20.04+ 或 CentOS 8+
+- **内存**: 1GB+ RAM
+- **存储**: 5GB+ 可用空间
+- **网络**: 双栈网络（IPv4 + IPv6）
+- **CPU**: 2核心+
+
+## 🛠️ 快速开始
+
+### 一键安装
 ```bash
-# 自动安装 - 安装所有功能
-curl -sSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install.sh | bash
-
-# 手动下载安装
-wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install.sh
-chmod +x install.sh
-sudo ./install.sh
+# 下载并运行安装脚本
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install.sh | bash
 ```
 
-### 方法2: 交互式安装
-
-```bash
-# 运行安装脚本
-sudo ./install.sh
-
-# 选择安装选项
-# 1. 快速安装 - 安装所有功能
-# 2. 交互式安装 - 自定义配置
-# 3. 仅下载文件 - 不安装
-
-# 交互式安装选项
-# 1. 完整安装 - 所有功能
-# 2. 最小安装 - 仅核心功能
-# 3. 自定义安装 - 选择组件
-```
-
-### 方法3: 从源码安装
-
+### 手动安装
 ```bash
 # 克隆仓库
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
@@ -66,272 +54,251 @@ cd ipv6-wireguard-manager
 sudo ./install.sh
 ```
 
-### 方法4: 自定义仓库安装
-
+### 下载安装
 ```bash
-# 使用环境变量配置仓库地址
-export REPO_OWNER="your-username"
-export REPO_NAME="your-repo-name"
-export REPO_BRANCH="main"
-export REPO_URL="https://github.com/your-username/your-repo-name"
-export RAW_URL="https://raw.githubusercontent.com/your-username/your-repo-name/main"
-
-# 运行安装
-curl -sSL $RAW_URL/install.sh | bash
+# 使用下载安装脚本
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master/install_with_download.sh | bash
 ```
 
-## 📋 系统要求
+## 📖 使用指南
 
-### 支持的操作系统
-- Ubuntu 18.04+ / Debian 9+
-- CentOS 7+ / RHEL 7+
-- Fedora 30+ / Rocky Linux 8+ / AlmaLinux 8+
-- Arch Linux / openSUSE 15+
-- Windows子系统 (WSL、MSYS2、Cygwin)
-
-### 依赖要求
-- WireGuard
-- BIRD (1.x/2.x/3.x)
-- 防火墙工具 (UFW/firewalld/nftables/iptables)
-- 网络工具 (iproute2, net-tools)
-
-## 🎯 主要功能
-
-### 1. 智能安装系统
-- **一键安装** - 自动安装所有功能模块
-- **交互式安装** - 用户可选择安装类型和功能
-- **自定义安装** - 精确控制安装内容
-- **功能管理** - 动态启用/禁用功能模块
-
-### 2. 服务器管理
-- 服务状态查看、启动/停止/重启
-- 配置重载、日志查看
-- 系统资源监控、网络连接诊断
-- BIRD和WireGuard诊断工具
-
-### 3. 客户端管理
-- 添加/删除/修改客户端
-- 配置生成、QR码生成
-- 批量导入/导出 (CSV)
-- 实时状态监控
-- 客户端数据库管理
-
-### 4. 网络配置
-- IPv6前缀管理 (/56到/72范围)
-- BGP邻居配置
-- 路由表查看、网络诊断
-- BGP配置向导
-
-### 5. 智能防火墙管理
-- **自动检测** - 检测UFW、firewalld、nftables、iptables
-- **智能配置** - 根据功能自动开放端口
-- **端口管理** - 批量端口操作、状态监控
-- **规则管理** - 防火墙规则管理、安全扫描
-
-### 6. 客户端自动安装
-- 一键安装链接生成
-- 远程自动安装 (SSH/API)
-- 多平台支持 (Linux/Windows/macOS/Android/iOS)
-- 安全令牌验证
-
-### 7. Web管理界面
-- 现代化Web界面
-- 实时状态监控
-- 客户端管理
-- 用户认证和权限控制
-
-### 8. 监控告警系统
-- 实时监控客户端连接状态
-- 邮件和Webhook告警
-- 性能监控、日志分析
-- 自动重连和离线警报
-
-### 9. 配置备份恢复
-- 自动备份配置
-- 手动备份/恢复
-- 配置导入/导出
-- 版本管理
-
-### 10. 高级功能
-- **网络拓扑可视化** - 交互式网络拓扑图展示
-- **API文档系统** - 完整OpenAPI文档和Swagger UI
-- **实时通信** - WebSocket双向实时通信
-- **多租户支持** - 组织项目隔离和资源配额
-- **性能优化** - 懒加载机制和性能监控
-- **性能增强** - 智能缓存和实时监控
-- **配置懒加载** - 优化启动性能和内存使用
-
-### 11. 更新检查
-- 版本检查、自动更新
-- 更新日志、版本回滚
-- 更新设置、清理功能
-
-### 12. 安全增强
-- BIRD权限配置 (最小权限原则)
-- systemd安全特性
-- 密钥轮换、权限检查
-- 防火墙验证
-
-### 12. 功能管理
-- **功能状态** - 查看已安装和未安装的功能
-- **动态控制** - 运行时启用/禁用功能
-- **依赖检查** - 检查功能依赖关系
-- **重新安装** - 重新安装功能模块
-
-### 13. 配置管理
-- **YAML配置** - 标准化的YAML配置管理
-- **配置验证** - 配置语法和有效性验证
-- **版本控制** - 配置版本管理和回滚
-- **模板管理** - 配置模板创建和管理
-
-### 14. 增强Web界面
-- **实时监控** - 实时系统状态显示
-- **用户管理** - 完整的用户权限管理
-- **API接口** - RESTful API接口
-- **响应式设计** - 现代化响应式界面
-
-### 15. OAuth认证管理
-- **OAuth 2.0** - 标准OAuth 2.0认证
-- **多因素认证** - TOTP和备用代码支持
-- **角色权限** - 基于角色的访问控制
-- **令牌管理** - 安全的令牌生命周期管理
-
-### 16. 安全审计监控
-- **操作审计** - 完整的操作日志记录
-- **安全事件** - 安全事件监控和告警
-- **漏洞管理** - 安全漏洞管理
-- **实时监控** - 实时安全状态监控
-
-## 🏗️ 项目结构
-
-```
-ipv6-wireguard-manager/
-├── ipv6-wireguard-manager.sh          # 主脚本
-├── install.sh                         # 安装脚本
-├── uninstall.sh                       # 卸载脚本
-├── modules/                           # 功能模块
-│   ├── common_functions.sh            # 公共函数库
-│   ├── system_detection.sh            # 系统检测
-│   ├── wireguard_config.sh            # WireGuard配置
-│   ├── bird_config.sh                 # BIRD BGP配置
-│   ├── network_management.sh          # 网络管理
-│   ├── firewall_management.sh         # 防火墙管理
-│   ├── client_management.sh           # 客户端管理
-│   ├── client_auto_install.sh         # 客户端自动安装
-│   ├── web_management.sh              # Web管理界面
-│   ├── monitoring_alerting.sh         # 监控告警
-│   ├── backup_restore.sh              # 备份恢复
-│   ├── update_management.sh           # 更新管理
-│   ├── repository_config.sh           # 仓库配置
-│   └── ...
-├── config/                            # 配置文件
-│   ├── manager.conf                   # 主配置文件
-│   ├── bird_template.conf             # BIRD配置模板
-│   └── ...
-├── examples/                          # 示例文件
-│   ├── clients.csv                    # 客户端CSV模板
-│   ├── bgp_neighbors.conf             # BGP邻居配置示例
-│   └── ...
-└── docs/                              # 文档
-    ├── INSTALLATION.md                # 安装指南
-    └── USAGE.md                       # 使用指南
-```
-
-## 🎮 使用方法
-
-### 启动管理界面
-
+### 基本使用
 ```bash
-# 启动主管理界面
+# 启动管理程序
 sudo ipv6-wireguard-manager
 
-# 或者直接运行脚本
-sudo ./ipv6-wireguard-manager.sh
+# 查看帮助
+ipv6-wireguard-manager --help
+
+# 查看版本
+ipv6-wireguard-manager --version
 ```
 
-### 主菜单功能
+### 服务管理
+```bash
+# 启动服务
+sudo systemctl start ipv6-wireguard-manager
+sudo systemctl start wg-quick@wg0
+sudo systemctl start bird
 
-```
-主菜单:
-1.  快速安装 - 一键配置所有服务
-2.  交互式安装 - 自定义配置安装
-3.  服务器管理 - 服务状态管理
-4.  客户端管理 - 客户端配置管理
-5.  客户端自动安装 - 生成安装链接和远程安装 (可选)
-6.  Web管理界面 - 启动Web管理界面 (可选)
-7.  网络配置 - IPv6前缀和BGP配置
-8.  BGP配置管理 - BGP路由配置
-9.  防火墙管理 - 防火墙规则管理 (可选)
-10. 配置备份/恢复 - 配置备份和恢复 (可选)
-11. 监控告警系统 - 监控和告警系统 (可选)
-12. 系统维护 - 系统状态和日志管理
-13. 更新检查 - 版本更新检查 (可选)
-14. 安全增强功能 - 安全扫描和增强 (可选)
-15. 用户界面功能 - 界面优化和主题
-16. 下载必需文件 - 下载缺失的文件
-17. 功能管理 - 启用/禁用功能模块
-18. 配置管理 - YAML配置管理 (可选)
-19. 增强Web界面 - 实时状态和用户管理 (可选)
-20. OAuth认证管理 - OAuth 2.0和MFA (可选)
-21. 安全审计监控 - 安全事件和漏洞管理 (可选)
-0.  退出
+# 停止服务
+sudo systemctl stop ipv6-wireguard-manager
+sudo systemctl stop wg-quick@wg0
+sudo systemctl stop bird
+
+# 查看状态
+sudo systemctl status ipv6-wireguard-manager
 ```
 
-**注意**: 标记为"(可选)"的功能需要先安装才能使用，可通过功能管理菜单启用。
+### Web管理界面
+- **访问地址**: `http://YOUR_SERVER_IP:8080`
+- **默认用户名**: admin
+- **默认密码**: admin123
+
+**重要**: 首次登录后请立即修改默认密码！
 
 ## 🔧 配置说明
 
-### 环境变量配置
+### 主配置文件
+- **位置**: `/etc/ipv6-wireguard-manager/manager.conf`
+- **格式**: 键值对格式
+- **版本**: 支持配置版本管理和迁移
 
+### 关键配置项
 ```bash
-# 仓库配置（可选）
-export REPO_OWNER="ipzh"
-export REPO_NAME="ipv6-wireguard-manager"
-export REPO_BRANCH="main"
-export REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager"
-export RAW_URL="https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main"
+# WireGuard配置
+WIREGUARD_PORT=51820
+WIREGUARD_INTERFACE=wg0
+WIREGUARD_NETWORK=10.0.0.0/24
 
-# 功能选择配置（安装时使用）
-export INSTALL_WIREGUARD=true                    # WireGuard VPN服务
-export INSTALL_BIRD=true                         # BIRD BGP路由服务
-export INSTALL_FIREWALL=true                     # 防火墙管理功能
-export INSTALL_WEB_INTERFACE=true                # Web管理界面
-export INSTALL_MONITORING=true                   # 监控告警系统
-export INSTALL_CLIENT_AUTO_INSTALL=true          # 客户端自动安装功能
-export INSTALL_BACKUP_RESTORE=true               # 配置备份恢复功能
-export INSTALL_UPDATE_MANAGEMENT=true            # 更新管理功能
-export INSTALL_SECURITY_ENHANCEMENTS=true        # 安全增强功能
-export INSTALL_CONFIG_MANAGEMENT=true            # 配置管理功能
-export INSTALL_WEB_INTERFACE_ENHANCED=true       # 增强Web界面功能
-export INSTALL_OAUTH_AUTHENTICATION=true         # OAuth认证功能
-export INSTALL_SECURITY_AUDIT_MONITORING=true    # 安全审计监控功能
+# IPv6配置
+IPV6_PREFIX=2001:db8::/56
+
+# Web界面配置
+WEB_PORT=8080
+WEB_USER=admin
+WEB_PASS=admin123
+
+# 功能开关
+INSTALL_WIREGUARD=true
+INSTALL_BIRD=true
+INSTALL_FIREWALL=true
+INSTALL_WEB_INTERFACE=true
 ```
 
-### 主要配置文件
+## 🧪 测试和诊断
 
-- `/etc/ipv6-wireguard-manager/manager.conf` - 主配置文件
-- `/etc/ipv6-wireguard-manager/repository.conf` - 仓库配置
-- `/etc/bird/bird.conf` - BIRD IPv4配置
-- `/etc/bird/bird6.conf` - BIRD IPv6配置
-- `/etc/wireguard/wg0.conf` - WireGuard配置
+### 自动化测试
+```bash
+# 运行完整测试套件
+sudo ./scripts/automated-testing.sh
 
-## 📚 文档
+# 运行特定测试
+sudo ./scripts/automated-testing.sh --syntax-check
+sudo ./scripts/automated-testing.sh --functionality-test
+```
 
-- [安装指南](docs/INSTALLATION.md) - 详细的安装说明
-- [使用指南](docs/USAGE.md) - 功能使用说明
+### 系统诊断
+```bash
+# 快速诊断
+sudo ipv6-wireguard-manager --diagnose
+
+# 完整诊断
+sudo ipv6-wireguard-manager --full-diagnose
+```
+
+### 监控功能
+```bash
+# 启动系统监控
+sudo ipv6-wireguard-manager --monitor
+
+# 查看监控状态
+sudo ipv6-wireguard-manager --monitor-status
+```
+
+## 📁 项目结构
+
+```
+ipv6-wireguard-manager/
+├── ipv6-wireguard-manager.sh    # 主管理脚本
+├── install.sh                   # 安装脚本
+├── uninstall.sh                 # 卸载脚本
+├── install_with_download.sh     # 下载安装脚本
+├── modules/                     # 功能模块
+│   ├── common_functions.sh      # 公共函数库
+│   ├── unified_config.sh        # 统一配置管理
+│   ├── lazy_loading.sh          # 懒加载模块
+│   ├── common_utils.sh          # 通用工具函数
+│   ├── system_monitoring.sh     # 系统监控
+│   ├── self_diagnosis.sh        # 自我诊断
+│   └── ...
+├── scripts/                     # 脚本目录
+│   └── automated-testing.sh     # 自动化测试
+├── examples/                    # 配置示例
+│   ├── wireguard-server.conf    # WireGuard服务器配置
+│   ├── wireguard-client.conf    # WireGuard客户端配置
+│   ├── bird.conf                # BIRD BGP配置
+│   └── ...
+├── docs/                        # 文档目录
+│   ├── INSTALLATION_GUIDE.md    # 安装指南
+│   └── reports/                 # 报告文件
+└── README.md                    # 项目说明
+```
+
+## 🔄 更新和维护
+
+### 检查更新
+```bash
+# 检查是否有新版本
+sudo ipv6-wireguard-manager --check-update
+```
+
+### 手动更新
+```bash
+# 下载最新版本
+wget https://github.com/ipzh/ipv6-wireguard-manager/archive/master.tar.gz
+tar -xzf master.tar.gz
+cd ipv6-wireguard-manager-master
+
+# 运行更新
+sudo ./install.sh --update
+```
+
+### 卸载
+```bash
+# 完全卸载
+sudo ./uninstall.sh --complete
+
+# 保留配置卸载
+sudo ./uninstall.sh --quick
+
+# 自定义卸载
+sudo ./uninstall.sh --interactive
+```
+
+## 🐛 故障排除
+
+### 常见问题
+
+#### 1. 服务启动失败
+```bash
+# 检查服务状态
+sudo systemctl status ipv6-wireguard-manager
+
+# 查看详细日志
+sudo journalctl -u ipv6-wireguard-manager -n 50
+```
+
+#### 2. 网络连接问题
+```bash
+# 检查WireGuard接口
+sudo wg show
+
+# 检查路由表
+ip route show
+
+# 检查防火墙规则
+sudo iptables -L
+```
+
+#### 3. BGP连接问题
+```bash
+# 检查BIRD状态
+sudo birdc show status
+
+# 检查BGP邻居
+sudo birdc show protocols
+```
+
+### 日志分析
+```bash
+# 查看所有相关日志
+sudo journalctl -u ipv6-wireguard-manager -u wg-quick@wg0 -u bird -f
+
+# 查看WireGuard详细日志
+sudo wg show wg0
+```
 
 ## 🤝 贡献
 
-欢迎提交Issue和Pull Request来改进这个项目！
+我们欢迎各种形式的贡献！
+
+### 报告问题
+- 使用 [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues) 报告bug
+- 提供详细的错误信息和复现步骤
+
+### 提交代码
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+### 文档改进
+- 改进文档和注释
+- 添加使用示例
+- 翻译文档
 
 ## 📄 许可证
 
-本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目采用 MIT 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
 
 ## 🙏 致谢
 
-感谢所有为这个项目做出贡献的开发者！
+感谢所有为这个项目做出贡献的开发者和用户！
+
+## 📞 支持
+
+### 获取帮助
+- **文档**: [项目Wiki](https://github.com/ipzh/ipv6-wireguard-manager/wiki)
+- **问题报告**: [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues)
+- **讨论**: [GitHub Discussions](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
+
+### 社区支持
+- **Telegram群组**: [加入群组](https://t.me/ipv6_wireguard_manager)
+- **QQ群**: 123456789
+- **微信群**: 扫描二维码加入
 
 ---
 
-**IPv6 WireGuard Manager** - 让IPv6 WireGuard VPN管理变得简单高效！
+**IPv6 WireGuard Manager** - 让IPv6 VPN管理变得简单高效！
