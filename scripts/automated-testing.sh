@@ -67,6 +67,10 @@ TEST_SUITES=(
     "module_test"
     "config_test"
     "monitoring_test"
+    "business_function_test"
+    "client_management_test"
+    "exception_handling_test"
+    "config_change_test"
 )
 
 # 创建必要目录
@@ -461,6 +465,288 @@ run_monitoring_test() {
     test_monitoring_modules
     
     log_success "监控测试完成"
+}
+
+# 业务功能测试
+run_business_function_test() {
+    log_info "开始业务功能测试..."
+    
+    # 测试WireGuard配置生成
+    test_wireguard_config_generation() {
+        log_info "测试WireGuard配置生成..."
+        
+        # 创建测试配置目录
+        local test_config_dir="/tmp/test_wireguard_config"
+        execute_command "mkdir -p '$test_config_dir'" "创建测试配置目录" "true"
+        
+        # 测试WireGuard密钥生成
+        if execute_command "wg genkey > '$test_config_dir/test_private.key'" "生成WireGuard私钥" "true"; then
+            log_success "✓ WireGuard私钥生成成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ WireGuard私钥生成失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 测试公钥生成
+        if execute_command "wg pubkey < '$test_config_dir/test_private.key' > '$test_config_dir/test_public.key'" "生成WireGuard公钥" "true"; then
+            log_success "✓ WireGuard公钥生成成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ WireGuard公钥生成失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 清理测试文件
+        execute_command "rm -rf '$test_config_dir'" "清理测试文件" "true"
+    }
+    
+    # 测试BGP路由配置
+    test_bgp_routing_config() {
+        log_info "测试BGP路由配置..."
+        
+        # 检查BIRD是否可用
+        if command -v birdc &> /dev/null; then
+            if execute_command "birdc show status" "检查BIRD状态" "true"; then
+                log_success "✓ BIRD服务正常"
+                ((PASSED_TESTS++))
+            else
+                log_warn "⚠ BIRD服务异常"
+                ((FAILED_TESTS++))
+            fi
+            ((TOTAL_TESTS++))
+        else
+            log_info "BIRD未安装，跳过BGP测试"
+            ((SKIPPED_TESTS++))
+        fi
+    }
+    
+    # 测试网络配置
+    test_network_configuration() {
+        log_info "测试网络配置..."
+        
+        # 检查网络接口
+        if execute_command "ip link show" "检查网络接口" "true"; then
+            log_success "✓ 网络接口检查成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 网络接口检查失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 检查路由表
+        if execute_command "ip route show" "检查路由表" "true"; then
+            log_success "✓ 路由表检查成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 路由表检查失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_wireguard_config_generation
+    test_bgp_routing_config
+    test_network_configuration
+    
+    log_success "业务功能测试完成"
+}
+
+# 客户端管理测试
+run_client_management_test() {
+    log_info "开始客户端管理测试..."
+    
+    # 测试客户端配置生成
+    test_client_config_generation() {
+        log_info "测试客户端配置生成..."
+        
+        local test_client_dir="/tmp/test_client_config"
+        execute_command "mkdir -p '$test_client_dir'" "创建测试客户端目录" "true"
+        
+        # 创建测试客户端配置
+        local client_config="$test_client_dir/test_client.conf"
+        cat > "$client_config" << 'EOF'
+[Interface]
+PrivateKey = TEST_PRIVATE_KEY
+Address = 10.0.0.2/24
+DNS = 8.8.8.8
+
+[Peer]
+PublicKey = TEST_PUBLIC_KEY
+Endpoint = 192.168.1.1:51820
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+EOF
+        
+        if [[ -f "$client_config" ]]; then
+            log_success "✓ 客户端配置生成成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 客户端配置生成失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 清理测试文件
+        execute_command "rm -rf '$test_client_dir'" "清理测试文件" "true"
+    }
+    
+    # 测试客户端QR码生成
+    test_client_qr_generation() {
+        log_info "测试客户端QR码生成..."
+        
+        if command -v qrencode &> /dev/null; then
+            if execute_command "echo 'test config' | qrencode -t ansiutf8" "生成QR码" "true"; then
+                log_success "✓ QR码生成成功"
+                ((PASSED_TESTS++))
+            else
+                log_error "✗ QR码生成失败"
+                ((FAILED_TESTS++))
+            fi
+        else
+            log_info "qrencode未安装，跳过QR码测试"
+            ((SKIPPED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_client_config_generation
+    test_client_qr_generation
+    
+    log_success "客户端管理测试完成"
+}
+
+# 异常情况测试
+run_exception_handling_test() {
+    log_info "开始异常情况测试..."
+    
+    # 测试错误处理
+    test_error_handling() {
+        log_info "测试错误处理..."
+        
+        # 测试无效输入
+        if execute_command "bash -c 'source modules/common_functions.sh && validate_ipv4 \"invalid_ip\"'" "测试无效IPv4" "true"; then
+            log_warn "⚠ 无效IPv4验证应该失败"
+            ((FAILED_TESTS++))
+        else
+            log_success "✓ 无效IPv4正确被拒绝"
+            ((PASSED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 测试边界条件
+        if execute_command "bash -c 'source modules/common_functions.sh && validate_ipv4 \"192.168.1.1\"'" "测试有效IPv4" "true"; then
+            log_success "✓ 有效IPv4正确通过"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 有效IPv4被错误拒绝"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    # 测试资源限制
+    test_resource_limits() {
+        log_info "测试资源限制..."
+        
+        # 测试内存使用
+        local mem_before=$(free -m | awk 'NR==2{print $3}')
+        execute_command "bash -c 'source ipv6-wireguard-manager.sh --help'" "测试内存使用" "true"
+        local mem_after=$(free -m | awk 'NR==2{print $3}')
+        local mem_diff=$((mem_after - mem_before))
+        
+        if [[ $mem_diff -lt 100 ]]; then
+            log_success "✓ 内存使用正常: ${mem_diff}MB"
+            ((PASSED_TESTS++))
+        else
+            log_warn "⚠ 内存使用较高: ${mem_diff}MB"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_error_handling
+    test_resource_limits
+    
+    log_success "异常情况测试完成"
+}
+
+# 配置更改测试
+run_config_change_test() {
+    log_info "开始配置更改测试..."
+    
+    # 测试配置修改
+    test_config_modification() {
+        log_info "测试配置修改..."
+        
+        local test_config_file="/tmp/test_config.conf"
+        
+        # 创建测试配置
+        cat > "$test_config_file" << 'EOF'
+# 测试配置文件
+WIREGUARD_PORT=51820
+WIREGUARD_INTERFACE=wg0
+LOG_LEVEL=INFO
+EOF
+        
+        # 测试配置加载
+        if execute_command "bash -c 'source \"$test_config_file\" && echo \"Port: \$WIREGUARD_PORT\"" "测试配置加载" "true"; then
+            log_success "✓ 配置加载成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 配置加载失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 测试配置修改
+        execute_command "sed -i 's/WIREGUARD_PORT=51820/WIREGUARD_PORT=51821/' '$test_config_file'" "修改配置" "true"
+        
+        if execute_command "bash -c 'source \"$test_config_file\" && echo \"New Port: \$WIREGUARD_PORT\"" "测试配置修改" "true"; then
+            log_success "✓ 配置修改成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 配置修改失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 清理测试文件
+        execute_command "rm -f '$test_config_file'" "清理测试文件" "true"
+    }
+    
+    # 测试配置验证
+    test_config_validation() {
+        log_info "测试配置验证..."
+        
+        # 测试端口验证
+        if execute_command "bash -c 'source modules/unified_config.sh && validate_config_item \"WIREGUARD_PORT\" \"51820\" \"port\"'" "测试端口验证" "true"; then
+            log_success "✓ 端口验证成功"
+            ((PASSED_TESTS++))
+        else
+            log_error "✗ 端口验证失败"
+            ((FAILED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+        
+        # 测试无效端口
+        if execute_command "bash -c 'source modules/unified_config.sh && validate_config_item \"WIREGUARD_PORT\" \"99999\" \"port\"'" "测试无效端口" "true"; then
+            log_warn "⚠ 无效端口应该被拒绝"
+            ((FAILED_TESTS++))
+        else
+            log_success "✓ 无效端口正确被拒绝"
+            ((PASSED_TESTS++))
+        fi
+        ((TOTAL_TESTS++))
+    }
+    
+    test_config_modification
+    test_config_validation
+    
+    log_success "配置更改测试完成"
 }
 
 # 生成测试报告

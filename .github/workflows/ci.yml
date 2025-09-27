@@ -1,0 +1,215 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨2点运行
+
+jobs:
+  syntax-check:
+    name: 语法检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 设置Bash
+        run: |
+          echo "Bash version: $(bash --version)"
+          
+      - name: 检查主脚本语法
+        run: |
+          bash -n ipv6-wireguard-manager.sh
+          bash -n install.sh
+          bash -n uninstall.sh
+          bash -n install_with_download.sh
+          
+      - name: 检查模块语法
+        run: |
+          for file in modules/*.sh; do
+            if [[ -f "$file" ]]; then
+              echo "检查: $file"
+              bash -n "$file"
+            fi
+          done
+          
+      - name: 检查脚本语法
+        run: |
+          for file in scripts/*.sh; do
+            if [[ -f "$file" ]]; then
+              echo "检查: $file"
+              bash -n "$file"
+            fi
+          done
+
+  functionality-test:
+    name: 功能测试
+    runs-on: ubuntu-latest
+    needs: syntax-check
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl wget tar gzip bc jq
+          
+      - name: 运行自动化测试
+        run: |
+          chmod +x scripts/automated-testing.sh
+          bash scripts/automated-testing.sh --syntax-check
+          bash scripts/automated-testing.sh --functionality-test
+          
+      - name: 测试配置管理
+        run: |
+          # 测试统一配置管理
+          bash -c 'source modules/unified_config.sh && init_config_system'
+          
+      - name: 测试懒加载
+        run: |
+          # 测试懒加载机制
+          bash -c 'source modules/lazy_loading.sh && init_lazy_loading'
+
+  integration-test:
+    name: 集成测试
+    runs-on: ubuntu-latest
+    needs: functionality-test
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard-tools bird2 nginx sqlite3
+          
+      - name: 运行集成测试
+        run: |
+          chmod +x scripts/automated-testing.sh
+          bash scripts/automated-testing.sh --integration-test
+          
+      - name: 测试模块集成
+        run: |
+          # 测试模块加载器
+          bash -c 'source modules/module_loader.sh'
+          
+      - name: 测试版本控制
+        run: |
+          # 测试版本控制功能
+          bash -c 'source modules/version_control.sh && get_version_info'
+
+  security-test:
+    name: 安全测试
+    runs-on: ubuntu-latest
+    needs: integration-test
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 运行安全测试
+        run: |
+          chmod +x scripts/automated-testing.sh
+          bash scripts/automated-testing.sh --security-test
+          
+      - name: 检查文件权限
+        run: |
+          find . -name "*.sh" -exec ls -la {} \;
+          
+      - name: 检查敏感信息
+        run: |
+          # 检查是否有硬编码的密码或密钥
+          grep -r "password\|secret\|key" --include="*.sh" . || true
+
+  performance-test:
+    name: 性能测试
+    runs-on: ubuntu-latest
+    needs: security-test
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 运行性能测试
+        run: |
+          chmod +x scripts/automated-testing.sh
+          bash scripts/automated-testing.sh --performance-test
+          
+      - name: 测试启动时间
+        run: |
+          time bash -c 'source ipv6-wireguard-manager.sh --help' || true
+          
+      - name: 测试内存使用
+        run: |
+          # 检查脚本内存使用
+          bash -c 'source ipv6-wireguard-manager.sh --help' &
+          sleep 2
+          ps aux | grep ipv6-wireguard-manager || true
+
+  compatibility-test:
+    name: 兼容性测试
+    runs-on: ${{ matrix.os }}
+    needs: performance-test
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-latest]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 运行兼容性测试
+        run: |
+          chmod +x scripts/automated-testing.sh
+          bash scripts/automated-testing.sh --compatibility-test
+          
+      - name: 测试系统兼容性
+        run: |
+          # 测试版本控制兼容性
+          bash -c 'source modules/version_control.sh && check_version_compatibility'
+
+  build-and-package:
+    name: 构建和打包
+    runs-on: ubuntu-latest
+    needs: [syntax-check, functionality-test, integration-test, security-test, performance-test, compatibility-test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 创建发布包
+        run: |
+          # 创建发布包
+          tar -czf ipv6-wireguard-manager-$(date +%Y%m%d).tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='docs/reports' \
+            --exclude='*.md' \
+            .
+            
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: ipv6-wireguard-manager-build
+          path: ipv6-wireguard-manager-*.tar.gz
+
+  notify:
+    name: 通知
+    runs-on: ubuntu-latest
+    needs: [syntax-check, functionality-test, integration-test, security-test, performance-test, compatibility-test]
+    if: always()
+    steps:
+      - name: 测试结果通知
+        run: |
+          if [[ "${{ needs.syntax-check.result }}" == "success" && 
+                "${{ needs.functionality-test.result }}" == "success" && 
+                "${{ needs.integration-test.result }}" == "success" && 
+                "${{ needs.security-test.result }}" == "success" && 
+                "${{ needs.performance-test.result }}" == "success" && 
+                "${{ needs.compatibility-test.result }}" == "success" ]]; then
+            echo "✅ 所有测试通过"
+          else
+            echo "❌ 部分测试失败"
+            exit 1
+          fi
