@@ -5,21 +5,79 @@
 
 set -euo pipefail
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
-# 配置
+# 统一的导入机制
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+MODULES_DIR="${MODULES_DIR:-${PROJECT_ROOT}/modules}"
+
+# 导入公共函数库
+if [[ -f "${MODULES_DIR}/common_functions.sh" ]]; then
+    source "${MODULES_DIR}/common_functions.sh"
+    # 验证导入是否成功
+    if ! command -v log_info &> /dev/null; then
+        echo -e "${RED}错误: 公共函数库导入失败，log_info函数不可用${NC}" >&2
+        exit 1
+    fi
+else
+    echo -e "${RED}错误: 公共函数库文件不存在: ${MODULES_DIR}/common_functions.sh${NC}" >&2
+    exit 1
+fi
+
+# 导入模块加载器
+if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+    source "${MODULES_DIR}/module_loader.sh"
+    log_info "模块加载器已导入"
+else
+    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
+    exit 1
+fi
+
+# 配置
 TEST_DIR="$PROJECT_ROOT/tests"
 REPORT_DIR="$PROJECT_ROOT/reports"
 LOG_DIR="$PROJECT_ROOT/logs"
+
+# 统一的命令执行函数
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    local timeout="${4:-300}"  # 默认5分钟超时
+    
+    log_info "${description}..."
+    
+    # 使用timeout命令限制执行时间
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout" bash -c "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    else
+        # 如果没有timeout命令，直接执行
+        if eval "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    fi
+}
 
 # 测试配置
 TEST_TIMEOUT=300  # 5分钟超时

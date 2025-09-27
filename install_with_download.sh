@@ -6,6 +6,32 @@
 
 set -euo pipefail
 
+# 统一的导入机制
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
+
+# 导入公共函数库
+if [[ -f "${MODULES_DIR}/common_functions.sh" ]]; then
+    source "${MODULES_DIR}/common_functions.sh"
+    # 验证导入是否成功
+    if ! command -v log_info &> /dev/null; then
+        echo -e "${RED}错误: 公共函数库导入失败，log_info函数不可用${NC}" >&2
+        exit 1
+    fi
+else
+    echo -e "${RED}错误: 公共函数库文件不存在: ${MODULES_DIR}/common_functions.sh${NC}" >&2
+    exit 1
+fi
+
+# 导入模块加载器
+if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+    source "${MODULES_DIR}/module_loader.sh"
+    log_info "模块加载器已导入"
+else
+    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
+    exit 1
+fi
+
 # 仓库配置
 REPO_OWNER="${REPO_OWNER:-ipzh}"
 REPO_NAME="${REPO_NAME:-ipv6-wireguard-manager}"
@@ -13,29 +39,46 @@ REPO_BRANCH="${REPO_BRANCH:-master}"
 REPO_URL="${REPO_URL:-https://github.com/ipzh/ipv6-wireguard-manager}"
 RAW_URL="${RAW_URL:-https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/master}"
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-# 日志函数
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+# 统一的命令执行函数
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    local timeout="${4:-300}"  # 默认5分钟超时
+    
+    log_info "${description}..."
+    
+    # 使用timeout命令限制执行时间
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout" bash -c "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    else
+        # 如果没有timeout命令，直接执行
+        if eval "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    fi
 }
 
 # 显示横幅

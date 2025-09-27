@@ -6,9 +6,30 @@
 
 set -euo pipefail
 
+# 统一的导入机制
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
+
 # 导入公共函数库
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh" ]]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/modules/common_functions.sh"
+if [[ -f "${MODULES_DIR}/common_functions.sh" ]]; then
+    source "${MODULES_DIR}/common_functions.sh"
+    # 验证导入是否成功
+    if ! command -v log_info &> /dev/null; then
+        echo -e "${RED}错误: 公共函数库导入失败，log_info函数不可用${NC}" >&2
+        exit 1
+    fi
+else
+    echo -e "${RED}错误: 公共函数库文件不存在: ${MODULES_DIR}/common_functions.sh${NC}" >&2
+    exit 1
+fi
+
+# 导入模块加载器
+if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+    source "${MODULES_DIR}/module_loader.sh"
+    log_info "模块加载器已导入"
+else
+    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
+    exit 1
 fi
 
 # 颜色定义（如果公共函数库未加载则定义）
@@ -28,6 +49,79 @@ LOG_DIR="/var/log/ipv6-wireguard-manager"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 BIN_DIR="/usr/local/bin"
 SERVICE_DIR="/etc/systemd/system"
+
+# 统一的命令执行函数
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    local timeout="${4:-300}"  # 默认5分钟超时
+    
+    log_info "${description}..."
+    
+    # 使用timeout命令限制执行时间
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout" bash -c "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    else
+        # 如果没有timeout命令，直接执行
+        if eval "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    fi
+}
+
+# 安全权限设置函数
+secure_permissions() {
+    local target_path="$1"
+    local mode="$2"
+    local user="${3:-root}"
+    local group="${4:-root}"
+    
+    if [[ ! -e "$target_path" ]]; then
+        log_warn "目标路径不存在: $target_path"
+        return 1
+    fi
+    
+    chown -R "${user}:${group}" "$target_path" || {
+        log_error "无法设置 $target_path 的所有者"
+        return 1
+    }
+    
+    chmod -R "$mode" "$target_path" || {
+        log_error "无法设置 $target_path 的权限"
+        return 1
+    }
+    
+    # 对于配置文件等敏感内容，额外限制权限
+    if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
+        find "$target_path" -type f \( -name "*.conf" -o -name "*.key" -o -name "*.pem" \) -exec chmod 600 {} \; 2>/dev/null || true
+    fi
+    
+    log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
+    return 0
+}
 
 # 卸载选项
 REMOVE_CONFIG=false
