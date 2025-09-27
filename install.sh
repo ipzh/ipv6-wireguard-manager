@@ -134,33 +134,85 @@ execute_command() {
     fi
 }
 
-# 安全的包安装函数
+# 统一的依赖安装函数
+install_dependency() {
+    local package_name="$1"
+    local package_description="${2:-$1}"
+    local allow_failure="${3:-false}"
+    
+    # 检查是否已安装
+    if command -v "$package_name" &> /dev/null; then
+        log_info "${package_description}已安装，跳过"
+        return 0
+    fi
+    
+    log_info "安装${package_description}..."
+    local os_type="$(detect_os)"
+    
+    case "$os_type" in
+        "ubuntu"|"debian")
+            execute_command "apt-get update -qq" "更新包列表" "false"
+            execute_command "apt-get install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            execute_command "yum install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "fedora")
+            execute_command "dnf install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "arch")
+            execute_command "pacman -S --noconfirm $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "opensuse")
+            execute_command "zypper install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        *)
+            log_error "不支持的包管理器: $os_type"
+            return 1
+            ;;
+    esac
+    
+    # 验证安装结果
+    if command -v "$package_name" &> /dev/null; then
+        log_success "${package_description}安装成功"
+        return 0
+    else
+        if [[ "$allow_failure" == "true" ]]; then
+            log_warn "${package_description}安装失败，但允许继续"
+            return 1
+        else
+            log_error "${package_description}安装失败"
+            return 1
+        fi
+    fi
+}
+
+# 安装Python依赖的统一函数
+install_python_dependency() {
+    local package_name="$1"
+    local description="${2:-$package_name}"
+    local allow_failure="${3:-true}"
+    
+    if ! command -v python3 &> /dev/null; then
+        log_warn "Python3未安装，${description}功能可能无法正常工作"
+        return 1
+    fi
+    
+    if command -v pip3 &> /dev/null; then
+        execute_command "pip3 install $package_name" "安装Python依赖: $description" "$allow_failure"
+    else
+        log_warn "pip3未安装，无法安装Python依赖: $description"
+        return 1
+    fi
+}
+
+# 安全的包安装函数（保持向后兼容）
 install_package_safe() {
     local package="$1"
     local description="$2"
     local allow_failure="${3:-false}"
     
-    case "$(detect_os)" in
-        "ubuntu"|"debian")
-            execute_command "apt-get install -y $package" "$description" "$allow_failure"
-            ;;
-        "centos"|"rhel"|"rocky"|"almalinux")
-            execute_command "yum install -y $package" "$description" "$allow_failure"
-            ;;
-        "fedora")
-            execute_command "dnf install -y $package" "$description" "$allow_failure"
-            ;;
-        "arch")
-            execute_command "pacman -S --noconfirm $package" "$description" "$allow_failure"
-            ;;
-        "opensuse")
-            execute_command "zypper install -y $package" "$description" "$allow_failure"
-            ;;
-        *)
-            log_error "不支持的包管理器"
-            return 1
-            ;;
-    esac
+    install_dependency "$package" "$description" "$allow_failure"
 }
 
 # 确保LOG_FILE变量已定义
@@ -2074,26 +2126,16 @@ install_security_enhancements() {
 install_config_management() {
     log_info "安装配置管理功能..."
     
-    # 检查yq工具是否安装
+    # 安装yq工具
     if ! command -v yq &> /dev/null; then
         log_info "安装yq工具..."
         case "$(detect_os)" in
-            "ubuntu"|"debian")
-                wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-                chmod +x /usr/local/bin/yq
+            "ubuntu"|"debian"|"centos"|"rhel"|"rocky"|"almalinux")
+                execute_command "wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" "下载yq工具" "false"
+                execute_command "chmod +x /usr/local/bin/yq" "设置yq工具权限" "false"
                 ;;
-            "centos"|"rhel"|"rocky"|"almalinux")
-                wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-                chmod +x /usr/local/bin/yq
-                ;;
-            "fedora")
-                dnf install -y yq || log_warn "yq安装失败"
-                ;;
-            "arch")
-                pacman -S --noconfirm yq || log_warn "yq安装失败"
-                ;;
-            "opensuse")
-                zypper install -y yq || log_warn "yq安装失败"
+            "fedora"|"arch"|"opensuse")
+                install_dependency "yq" "yq工具" "true"
                 ;;
         esac
     fi
@@ -2112,33 +2154,12 @@ install_web_interface_enhanced() {
     log_info "安装增强Web界面功能..."
     
     # 安装系统依赖
-    log_info "安装系统依赖..."
-    case "$(detect_os)" in
-        "ubuntu"|"debian")
-            execute_command "apt-get update" "更新包列表" "false"
-            execute_command "apt-get install -y sqlite3 python3-psutil" "安装系统依赖" "true"
-            ;;
-        "centos"|"rhel"|"rocky"|"almalinux")
-            execute_command "yum install -y sqlite python3-psutil" "安装系统依赖" "true"
-            ;;
-        "fedora")
-            execute_command "dnf install -y sqlite python3-psutil" "安装系统依赖" "true"
-            ;;
-        "arch")
-            execute_command "pacman -S --noconfirm sqlite python-psutil" "安装系统依赖" "true"
-            ;;
-        "opensuse")
-            execute_command "zypper install -y sqlite3 python3-psutil" "安装系统依赖" "true"
-            ;;
-    esac
+    install_dependency "sqlite3" "SQLite数据库" "true"
+    install_dependency "python3" "Python3" "true"
+    install_dependency "python3-psutil" "Python psutil库" "true"
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install psutil" "安装Python依赖" "true"
-    else
-        log_warn "Python3未安装，增强Web界面功能可能无法正常工作"
-    fi
+    install_python_dependency "psutil" "psutil库"
     
     # 初始化增强Web界面
     if [[ -f "$INSTALL_DIR/modules/web_interface_enhanced.sh" ]]; then
@@ -2154,26 +2175,7 @@ install_oauth_authentication() {
     log_info "安装OAuth认证功能..."
     
     # 安装OpenSSL（用于生成密钥）
-    if ! command -v openssl &> /dev/null; then
-        log_info "安装OpenSSL..."
-        case "$(detect_os)" in
-            "ubuntu"|"debian")
-                apt-get update && apt-get install -y openssl
-                ;;
-            "centos"|"rhel"|"rocky"|"almalinux")
-                yum install -y openssl
-                ;;
-            "fedora")
-                dnf install -y openssl
-                ;;
-            "arch")
-                pacman -S --noconfirm openssl
-                ;;
-            "opensuse")
-                zypper install -y openssl
-                ;;
-        esac
-    fi
+    install_dependency "openssl" "OpenSSL工具" "false"
     
     # 初始化OAuth认证系统
     if [[ -f "$INSTALL_DIR/modules/oauth_authentication.sh" ]]; then
@@ -2189,48 +2191,20 @@ install_security_audit_monitoring() {
     log_info "安装安全审计监控功能..."
     
     # 安装邮件发送工具
-    if ! command -v mail &> /dev/null; then
-        log_info "安装邮件发送工具..."
-        case "$(detect_os)" in
-            "ubuntu"|"debian")
-                apt-get update && apt-get install -y mailutils
-                ;;
-            "centos"|"rhel"|"rocky"|"almalinux")
-                yum install -y mailx
-                ;;
-            "fedora")
-                dnf install -y mailx
-                ;;
-            "arch")
-                pacman -S --noconfirm mailutils
-                ;;
-            "opensuse")
-                zypper install -y mailx
-                ;;
-        esac
-    fi
+    case "$(detect_os)" in
+        "ubuntu"|"debian")
+            install_dependency "mailutils" "邮件发送工具" "true"
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux"|"fedora"|"opensuse")
+            install_dependency "mailx" "邮件发送工具" "true"
+            ;;
+        "arch")
+            install_dependency "mailutils" "邮件发送工具" "true"
+            ;;
+    esac
     
     # 安装curl（用于Webhook通知）
-    if ! command -v curl &> /dev/null; then
-        log_info "安装curl..."
-        case "$(detect_os)" in
-            "ubuntu"|"debian")
-                apt-get update && apt-get install -y curl
-                ;;
-            "centos"|"rhel"|"rocky"|"almalinux")
-                yum install -y curl
-                ;;
-            "fedora")
-                dnf install -y curl
-                ;;
-            "arch")
-                pacman -S --noconfirm curl
-                ;;
-            "opensuse")
-                zypper install -y curl
-                ;;
-        esac
-    fi
+    install_dependency "curl" "curl工具" "true"
     
     # 初始化安全审计监控系统
     if [[ -f "$INSTALL_DIR/modules/security_audit_monitoring.sh" ]]; then
@@ -2246,12 +2220,7 @@ install_network_topology() {
     log_info "安装网络拓扑图功能..."
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install websockets" "安装websockets" "true"
-    else
-        log_warn "Python3未安装，网络拓扑图功能可能无法正常工作"
-    fi
+    install_python_dependency "websockets" "websockets库"
     
     # 初始化网络拓扑模块
     if [[ -f "$INSTALL_DIR/modules/network_topology.sh" ]]; then
@@ -2268,24 +2237,7 @@ install_api_documentation() {
     
     # 安装wget或curl（用于下载Swagger UI）
     if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
-        log_info "安装wget..."
-        case "$(detect_os)" in
-            "ubuntu"|"debian")
-                apt-get update && apt-get install -y wget
-                ;;
-            "centos"|"rhel"|"rocky"|"almalinux")
-                yum install -y wget
-                ;;
-            "fedora")
-                dnf install -y wget
-                ;;
-            "arch")
-                pacman -S --noconfirm wget
-                ;;
-            "opensuse")
-                zypper install -y wget
-                ;;
-        esac
+        install_dependency "wget" "wget工具" "true"
     fi
     
     # 初始化API文档模块
@@ -2302,12 +2254,7 @@ install_websocket_realtime() {
     log_info "安装WebSocket实时通信功能..."
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install websockets" "安装websockets" "true"
-    else
-        log_warn "Python3未安装，WebSocket实时通信功能可能无法正常工作"
-    fi
+    install_python_dependency "websockets" "websockets库"
     
     # 初始化WebSocket模块
     if [[ -f "$INSTALL_DIR/modules/websocket_realtime.sh" ]]; then
@@ -2336,12 +2283,7 @@ install_resource_quota() {
     log_info "安装资源配额管理功能..."
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install psutil" "安装psutil" "true"
-    else
-        log_warn "Python3未安装，资源配额管理功能可能无法正常工作"
-    fi
+    install_python_dependency "psutil" "psutil库"
     
     # 初始化资源配额模块
     if [[ -f "$INSTALL_DIR/modules/resource_quota.sh" ]]; then
@@ -2357,12 +2299,7 @@ install_lazy_loading() {
     log_info "安装配置懒加载功能..."
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install psutil" "安装psutil" "true"
-    else
-        log_warn "Python3未安装，配置懒加载功能可能无法正常工作"
-    fi
+    install_python_dependency "psutil" "psutil库"
     
     # 初始化懒加载模块
     if [[ -f "$INSTALL_DIR/modules/lazy_loading.sh" ]]; then
@@ -2378,12 +2315,7 @@ install_performance_optimization() {
     log_info "安装性能优化功能..."
     
     # 安装Python依赖
-    if command -v python3 &> /dev/null; then
-        log_info "安装Python依赖..."
-        execute_command "pip3 install psutil" "安装psutil" "true"
-    else
-        log_warn "Python3未安装，性能优化功能可能无法正常工作"
-    fi
+    install_python_dependency "psutil" "psutil库"
     
     # 初始化性能优化模块
     if [[ -f "$INSTALL_DIR/modules/performance_optimization.sh" ]]; then
