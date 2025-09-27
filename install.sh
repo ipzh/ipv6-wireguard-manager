@@ -92,6 +92,77 @@ if ! declare -f log_info >/dev/null 2>&1; then
     echo "已加载备用日志函数"
 fi
 
+# 改进的命令执行错误处理函数
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    local timeout="${4:-300}"  # 默认5分钟超时
+    
+    log_info "${description}..."
+    
+    # 使用timeout命令限制执行时间
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout" bash -c "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续安装过程 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    else
+        # 如果没有timeout命令，直接执行
+        if eval "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续安装过程 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    fi
+}
+
+# 安全的包安装函数
+install_package_safe() {
+    local package="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    
+    case "$(detect_os)" in
+        "ubuntu"|"debian")
+            execute_command "apt-get install -y $package" "$description" "$allow_failure"
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            execute_command "yum install -y $package" "$description" "$allow_failure"
+            ;;
+        "fedora")
+            execute_command "dnf install -y $package" "$description" "$allow_failure"
+            ;;
+        "arch")
+            execute_command "pacman -S --noconfirm $package" "$description" "$allow_failure"
+            ;;
+        "opensuse")
+            execute_command "zypper install -y $package" "$description" "$allow_failure"
+            ;;
+        *)
+            log_error "不支持的包管理器"
+            return 1
+            ;;
+    esac
+}
+
 # 确保LOG_FILE变量已定义
 LOG_FILE="${LOG_FILE:-/tmp/install.log}"
 
@@ -458,16 +529,16 @@ install_dependencies() {
         
         case "$package_manager" in
             "apt")
-                apt-get install -y "$package" || log_warn "包安装失败: $package"
+                execute_command "apt-get install -y $package" "安装包: $package" "true"
                 ;;
             "yum"|"dnf")
-                $package_manager install -y "$package" || log_warn "包安装失败: $package"
+                execute_command "$package_manager install -y $package" "安装包: $package" "true"
                 ;;
             "pacman")
-                pacman -S --noconfirm "$package" || log_warn "包安装失败: $package"
+                execute_command "pacman -S --noconfirm $package" "安装包: $package" "true"
                 ;;
             "zypper")
-                zypper install -y "$package" || log_warn "包安装失败: $package"
+                execute_command "zypper install -y $package" "安装包: $package" "true"
                 ;;
         esac
     done
@@ -480,37 +551,37 @@ install_dependencies() {
             "apt")
                 # Ubuntu/Debian: 优先安装bird2，回退到bird
                 if apt-cache show bird2 >/dev/null 2>&1; then
-                    apt-get install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
-                    apt-get install -y bird || log_warn "BIRD安装失败"
+                    execute_command "apt-get install -y bird2" "安装BIRD2" "true"
+                    execute_command "apt-get install -y bird" "安装BIRD" "true"
                 else
-                    apt-get install -y bird || log_warn "BIRD安装失败"
+                    execute_command "apt-get install -y bird" "安装BIRD" "true"
                 fi
                 ;;
             "yum"|"dnf")
                 # CentOS/RHEL/Fedora: 优先安装bird2
                 if $package_manager search bird2 >/dev/null 2>&1; then
-                    $package_manager install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
-                    $package_manager install -y bird || log_warn "BIRD安装失败"
+                    execute_command "$package_manager install -y bird2" "安装BIRD2" "true"
+                    execute_command "$package_manager install -y bird" "安装BIRD" "true"
                 else
-                    $package_manager install -y bird || log_warn "BIRD安装失败"
+                    execute_command "$package_manager install -y bird" "安装BIRD" "true"
                 fi
                 ;;
             "pacman")
                 # Arch Linux: 优先安装bird2
                 if pacman -Ss bird2 >/dev/null 2>&1; then
-                    pacman -S --noconfirm bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
-                    pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                    execute_command "pacman -S --noconfirm bird2" "安装BIRD2" "true"
+                    execute_command "pacman -S --noconfirm bird" "安装BIRD" "true"
                 else
-                    pacman -S --noconfirm bird || log_warn "BIRD安装失败"
+                    execute_command "pacman -S --noconfirm bird" "安装BIRD" "true"
                 fi
                 ;;
             "zypper")
                 # openSUSE: 优先安装bird2
                 if zypper search bird2 >/dev/null 2>&1; then
-                    zypper install -y bird2 || log_warn "BIRD2安装失败，尝试安装BIRD"
-                    zypper install -y bird || log_warn "BIRD安装失败"
+                    execute_command "zypper install -y bird2" "安装BIRD2" "true"
+                    execute_command "zypper install -y bird" "安装BIRD" "true"
                 else
-                    zypper install -y bird || log_warn "BIRD安装失败"
+                    execute_command "zypper install -y bird" "安装BIRD" "true"
                 fi
                 ;;
         esac
@@ -838,13 +909,7 @@ log_info() {
     echo -e "${GREEN}[INFO]${NC} \$1"
 }
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} \$1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} \$1"
-}
+# 重复的日志函数定义已移除，使用统一的日志函数
 
 # 检查权限
 if [[ \$EUID -ne 0 ]]; then
@@ -1842,12 +1907,11 @@ configure_ufw_ports() {
     log_info "配置UFW防火墙端口..."
     
     for port in "${ports[@]}"; do
-        log_info "开放端口: $port"
-        ufw allow "$port" 2>/dev/null || log_warn "无法开放端口: $port"
+        execute_command "ufw allow $port" "开放端口: $port" "true"
     done
     
     # 启用UFW
-    ufw --force enable 2>/dev/null || log_warn "无法启用UFW"
+    execute_command "ufw --force enable" "启用UFW防火墙" "true"
     
     log_info "UFW防火墙配置完成"
 }
@@ -1859,12 +1923,11 @@ configure_firewalld_ports() {
     log_info "配置firewalld防火墙端口..."
     
     for port in "${ports[@]}"; do
-        log_info "开放端口: $port"
-        firewall-cmd --permanent --add-port="$port" 2>/dev/null || log_warn "无法开放端口: $port"
+        execute_command "firewall-cmd --permanent --add-port=$port" "开放端口: $port" "true"
     done
     
     # 重载firewalld配置
-    firewall-cmd --reload 2>/dev/null || log_warn "无法重载firewalld配置"
+    execute_command "firewall-cmd --reload" "重载firewalld配置" "true"
     
     log_info "firewalld防火墙配置完成"
 }
@@ -2052,26 +2115,27 @@ install_web_interface_enhanced() {
     log_info "安装系统依赖..."
     case "$(detect_os)" in
         "ubuntu"|"debian")
-            apt-get update && apt-get install -y sqlite3 python3-psutil || log_warn "系统依赖安装失败"
+            execute_command "apt-get update" "更新包列表" "false"
+            execute_command "apt-get install -y sqlite3 python3-psutil" "安装系统依赖" "true"
             ;;
         "centos"|"rhel"|"rocky"|"almalinux")
-            yum install -y sqlite python3-psutil || log_warn "系统依赖安装失败"
+            execute_command "yum install -y sqlite python3-psutil" "安装系统依赖" "true"
             ;;
         "fedora")
-            dnf install -y sqlite python3-psutil || log_warn "系统依赖安装失败"
+            execute_command "dnf install -y sqlite python3-psutil" "安装系统依赖" "true"
             ;;
         "arch")
-            pacman -S --noconfirm sqlite python-psutil || log_warn "系统依赖安装失败"
+            execute_command "pacman -S --noconfirm sqlite python-psutil" "安装系统依赖" "true"
             ;;
         "opensuse")
-            zypper install -y sqlite3 python3-psutil || log_warn "系统依赖安装失败"
+            execute_command "zypper install -y sqlite3 python3-psutil" "安装系统依赖" "true"
             ;;
     esac
     
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install psutil || log_warn "Python依赖安装失败"
+        execute_command "pip3 install psutil" "安装Python依赖" "true"
     else
         log_warn "Python3未安装，增强Web界面功能可能无法正常工作"
     fi
@@ -2184,7 +2248,7 @@ install_network_topology() {
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install websockets || log_warn "websockets安装失败"
+        execute_command "pip3 install websockets" "安装websockets" "true"
     else
         log_warn "Python3未安装，网络拓扑图功能可能无法正常工作"
     fi
@@ -2240,7 +2304,7 @@ install_websocket_realtime() {
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install websockets || log_warn "websockets安装失败"
+        execute_command "pip3 install websockets" "安装websockets" "true"
     else
         log_warn "Python3未安装，WebSocket实时通信功能可能无法正常工作"
     fi
@@ -2274,7 +2338,7 @@ install_resource_quota() {
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install psutil || log_warn "psutil安装失败"
+        execute_command "pip3 install psutil" "安装psutil" "true"
     else
         log_warn "Python3未安装，资源配额管理功能可能无法正常工作"
     fi
@@ -2295,7 +2359,7 @@ install_lazy_loading() {
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install psutil || log_warn "psutil安装失败"
+        execute_command "pip3 install psutil" "安装psutil" "true"
     else
         log_warn "Python3未安装，配置懒加载功能可能无法正常工作"
     fi
@@ -2316,7 +2380,7 @@ install_performance_optimization() {
     # 安装Python依赖
     if command -v python3 &> /dev/null; then
         log_info "安装Python依赖..."
-        pip3 install psutil || log_warn "psutil安装失败"
+        execute_command "pip3 install psutil" "安装psutil" "true"
     else
         log_warn "Python3未安装，性能优化功能可能无法正常工作"
     fi
