@@ -215,15 +215,221 @@ install_package_safe() {
     install_dependency "$package" "$description" "$allow_failure"
 }
 
+# 统一的配置管理机制
+load_config() {
+    local config_file="$1"
+    local config_dir="$(dirname "$config_file")"
+    
+    # 确保配置目录存在
+    mkdir -p "$config_dir" 2>/dev/null || true
+    
+    # 如果配置文件不存在，创建默认配置
+    if [[ ! -f "$config_file" ]]; then
+        create_default_config "$config_file"
+    fi
+    
+    # 加载配置文件
+    source "$config_file"
+    log_info "配置文件已加载: $config_file"
+}
+
+# 创建默认配置文件
+create_default_config() {
+    local config_file="$1"
+    cat > "$config_file" << 'EOF'
+# IPv6 WireGuard Manager 配置文件
+# 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
+
+# 安装目录
+INSTALL_DIR="/opt/ipv6-wireguard-manager"
+
+# 配置目录
+CONFIG_DIR="/etc/ipv6-wireguard-manager"
+
+# 日志目录
+LOG_DIR="/var/log/ipv6-wireguard-manager"
+
+# 日志文件
+LOG_FILE="${LOG_DIR}/manager.log"
+
+# 日志级别 (DEBUG, INFO, WARN, ERROR)
+LOG_LEVEL="INFO"
+
+# 二进制目录
+BIN_DIR="/usr/local/bin"
+
+# 服务目录
+SERVICE_DIR="/etc/systemd/system"
+
+# 仓库配置
+REPO_OWNER="ipzh"
+REPO_NAME="ipv6-wireguard-manager"
+REPO_BRANCH="main"
+REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager"
+RAW_URL="https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main"
+
+# 功能开关
+INSTALL_WIREGUARD="true"
+INSTALL_BIRD="true"
+INSTALL_FIREWALL="true"
+INSTALL_WEB_INTERFACE="true"
+INSTALL_MONITORING="true"
+INSTALL_CLIENT_AUTO_INSTALL="true"
+INSTALL_BACKUP_RESTORE="true"
+INSTALL_UPDATE_MANAGEMENT="true"
+INSTALL_SECURITY_ENHANCEMENTS="true"
+INSTALL_CONFIG_MANAGEMENT="true"
+INSTALL_WEB_INTERFACE_ENHANCED="true"
+INSTALL_OAUTH_AUTHENTICATION="true"
+INSTALL_SECURITY_AUDIT_MONITORING="true"
+
+# 安全配置
+SECURE_PERMISSIONS="true"
+AUTO_UPDATE="false"
+BACKUP_ENABLED="true"
+
+# 性能配置
+LAZY_LOADING="true"
+CACHE_ENABLED="true"
+CACHE_TTL="300"
+
+# 网络配置
+DEFAULT_IPV6_PREFIX="/56"
+DEFAULT_BGP_AS="65001"
+DEFAULT_FIREWALL_TYPE="auto"
+
+# 数据库配置
+DATABASE_TYPE="sqlite"
+DATABASE_PATH="${CONFIG_DIR}/manager.db"
+
+# Web界面配置
+WEB_PORT="8080"
+WEB_SSL_PORT="8443"
+WEB_SSL_ENABLED="false"
+
+# 监控配置
+MONITORING_ENABLED="true"
+ALERT_EMAIL=""
+ALERT_WEBHOOK=""
+
+# 备份配置
+BACKUP_RETENTION_DAYS="30"
+BACKUP_COMPRESSION="true"
+EOF
+    
+    # 替换时间戳
+    sed -i "s/\$(date[^)]*)/$(date '+%Y-%m-%d %H:%M:%S')/g" "$config_file"
+    
+    log_info "默认配置文件已创建: $config_file"
+}
+
+# 加载主配置文件
+MAIN_CONFIG_FILE="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}/install.conf"
+load_config "$MAIN_CONFIG_FILE"
+
 # 确保LOG_FILE变量已定义
 LOG_FILE="${LOG_FILE:-/tmp/install.log}"
 
-# 安装配置
-INSTALL_DIR="/opt/ipv6-wireguard-manager"
-CONFIG_DIR="/etc/ipv6-wireguard-manager"
-LOG_DIR="/var/log/ipv6-wireguard-manager"
-BIN_DIR="/usr/local/bin"
-SERVICE_DIR="/etc/systemd/system"
+# 模块依赖管理
+MODULES_DIR="${MODULES_DIR:-$(dirname "${BASH_SOURCE[0]}")/modules}"
+
+# 导入模块加载器
+if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+    source "${MODULES_DIR}/module_loader.sh"
+    log_info "模块加载器已导入"
+else
+    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
+    exit 1
+fi
+
+# 懒加载机制
+lazy_load() {
+    local module_name="$1"
+    local module_path="${MODULES_DIR}/${module_name}.sh"
+    
+    if [[ ! -f "$module_path" ]]; then
+        log_error "懒加载失败: 模块文件不存在 $module_path"
+        return 1
+    fi
+    
+    # 检查模块是否已加载
+    if declare -f "module_${module_name}_loaded" >/dev/null 2>&1 && "module_${module_name}_loaded"; then
+        return 0
+    fi
+    
+    log_debug "懒加载模块: $module_name"
+    source "$module_path"
+    
+    # 标记模块已加载
+    eval "function module_${module_name}_loaded() { return 0; }"
+    return 0
+}
+
+# 安全权限设置函数
+secure_permissions() {
+    local target_path="$1"
+    local mode="$2"
+    local user="${3:-root}"
+    local group="${4:-root}"
+    
+    if [[ ! -e "$target_path" ]]; then
+        log_warn "目标路径不存在: $target_path"
+        return 1
+    fi
+    
+    chown -R "${user}:${group}" "$target_path" || {
+        log_error "无法设置 $target_path 的所有者"
+        return 1
+    }
+    
+    chmod -R "$mode" "$target_path" || {
+        log_error "无法设置 $target_path 的权限"
+        return 1
+    }
+    
+    # 对于配置文件等敏感内容，额外限制权限
+    if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
+        find "$target_path" -type f \( -name "*.conf" -o -name "*.key" -o -name "*.pem" \) -exec chmod 600 {} \; 2>/dev/null || true
+    fi
+    
+    log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
+    return 0
+}
+
+# 安全文件创建函数
+secure_create_file() {
+    local file_path="$1"
+    local content="$2"
+    local mode="${3:-600}"
+    local user="${4:-root}"
+    local group="${5:-root}"
+    
+    # 创建目录
+    mkdir -p "$(dirname "$file_path")" || {
+        log_error "无法创建目录: $(dirname "$file_path")"
+        return 1
+    }
+    
+    # 创建文件
+    echo "$content" > "$file_path" || {
+        log_error "无法创建文件: $file_path"
+        return 1
+    }
+    
+    # 设置权限
+    chown "${user}:${group}" "$file_path" || {
+        log_error "无法设置文件所有者: $file_path"
+        return 1
+    }
+    
+    chmod "$mode" "$file_path" || {
+        log_error "无法设置文件权限: $file_path"
+        return 1
+    }
+    
+    log_info "安全文件已创建: $file_path ($mode, ${user}:${group})"
+    return 0
+}
 
 # 仓库配置（可通过环境变量覆盖）
 REPO_OWNER="${REPO_OWNER:-ipzh}"
@@ -1856,7 +2062,7 @@ install_selected_features() {
         install_performance_optimization
     fi
     
-    echo -e "${GREEN}功能安装完成${NC}"
+    log_success "所有选择的功能安装完成"
 }
 
 # 安装WireGuard服务
