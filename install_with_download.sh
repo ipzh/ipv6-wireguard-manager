@@ -122,7 +122,7 @@ download_project_files() {
     local temp_dir="/tmp/${REPO_NAME}-download"
     
     # 创建临时目录
-    mkdir -p "$temp_dir"
+    execute_command "mkdir -p '$temp_dir'" "创建临时下载目录"
     cd "$temp_dir"
     
     # 下载项目文件
@@ -130,15 +130,9 @@ download_project_files() {
     log_info "下载URL: $download_url"
     
     if command -v curl &> /dev/null; then
-        if ! curl -L -o "${REPO_NAME}.tar.gz" "$download_url"; then
-            log_error "下载失败，请检查网络连接和URL"
-            return 1
-        fi
+        execute_command "curl -L -o '${REPO_NAME}.tar.gz' '$download_url'" "使用curl下载项目文件"
     elif command -v wget &> /dev/null; then
-        if ! wget -O "${REPO_NAME}.tar.gz" "$download_url"; then
-            log_error "下载失败，请检查网络连接和URL"
-            return 1
-        fi
+        execute_command "wget -O '${REPO_NAME}.tar.gz' '$download_url'" "使用wget下载项目文件"
     else
         log_error "需要curl或wget来下载文件"
         return 1
@@ -157,11 +151,7 @@ download_project_files() {
         fi
         
         # 解压文件
-        log_info "正在解压文件..."
-        if ! tar -xzf "${REPO_NAME}.tar.gz"; then
-            log_error "解压失败，文件可能损坏"
-            return 1
-        fi
+        execute_command "tar -xzf '${REPO_NAME}.tar.gz'" "解压项目文件"
         
         # 移动到当前目录
         if [[ -d "${REPO_NAME}-${REPO_BRANCH}" ]]; then
@@ -199,7 +189,7 @@ run_install_script() {
     log_info "运行安装脚本..."
     
     if [[ -f "install.sh" ]]; then
-        chmod +x install.sh
+        execute_command "chmod +x install.sh" "设置安装脚本执行权限"
         ./install.sh "$@"
     else
         log_error "安装脚本不存在"

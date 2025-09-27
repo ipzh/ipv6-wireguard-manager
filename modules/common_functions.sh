@@ -924,6 +924,196 @@ get_cache_stats() {
     echo "缓存条目数: $((cache_count / 2))"
 }
 
+# 统一的命令执行函数
+execute_command() {
+    local command="$1"
+    local description="$2"
+    local allow_failure="${3:-false}"
+    local timeout="${4:-300}"  # 默认5分钟超时
+    
+    log_info "${description}..."
+    
+    # 使用timeout命令限制执行时间
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout" bash -c "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    else
+        # 如果没有timeout命令，直接执行
+        if eval "$command"; then
+            log_success "${description}完成"
+            return 0
+        else
+            local exit_code=$?
+            if [[ "$allow_failure" == "true" ]]; then
+                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
+                return 1
+            else
+                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
+                exit 1
+            fi
+        fi
+    fi
+}
+
+# 安全权限设置函数
+secure_permissions() {
+    local target_path="$1"
+    local mode="$2"
+    local user="${3:-root}"
+    local group="${4:-root}"
+    
+    if [[ ! -e "$target_path" ]]; then
+        log_warn "目标路径不存在: $target_path"
+        return 1
+    fi
+    
+    execute_command "chown -R '${user}:${group}' '$target_path'" "设置 $target_path 的所有者" "true"
+    execute_command "chmod -R '$mode' '$target_path'" "设置 $target_path 的权限" "true"
+    
+    # 对于配置文件等敏感内容，额外限制权限
+    if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
+        execute_command "find '$target_path' -type f \\( -name '*.conf' -o -name '*.key' -o -name '*.pem' \\) -exec chmod 600 {} \\;" "设置敏感文件权限" "true"
+    fi
+    
+    log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
+    return 0
+}
+
+# 懒加载机制
+lazy_load() {
+    local module_name="$1"
+    local module_path="${MODULES_DIR:-/opt/ipv6-wireguard-manager/modules}/${module_name}.sh"
+    
+    if [[ ! -f "$module_path" ]]; then
+        log_error "懒加载失败: 模块文件不存在 $module_path"
+        return 1
+    fi
+    
+    # 检查模块是否已加载
+    if declare -f "module_${module_name}_loaded" >/dev/null 2>&1 && "module_${module_name}_loaded"; then
+        return 0
+    fi
+    
+    log_debug "懒加载模块: $module_name"
+    source "$module_path"
+    
+    # 标记模块已加载
+    eval "function module_${module_name}_loaded() { return 0; }"
+    return 0
+}
+
+# 统一的依赖安装函数
+install_dependency() {
+    local package_name="$1"
+    local package_description="${2:-$package_name}"
+    local allow_failure="${3:-false}"
+    
+    # 检查是否已安装
+    if command -v "$package_name" &> /dev/null; then
+        log_info "${package_description}已安装，跳过"
+        return 0
+    fi
+    
+    log_info "安装${package_description}..."
+    local os_type="$(detect_os)"
+    
+    case "$os_type" in
+        "ubuntu"|"debian")
+            execute_command "apt-get update -qq" "更新包列表" "false"
+            execute_command "apt-get install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            execute_command "yum install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "fedora")
+            execute_command "dnf install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "arch")
+            execute_command "pacman -S --noconfirm $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        "opensuse")
+            execute_command "zypper install -y $package_name" "安装${package_description}" "$allow_failure"
+            ;;
+        *)
+            log_error "不支持的包管理器: $os_type"
+            return 1
+            ;;
+    esac
+    
+    # 验证安装结果
+    if command -v "$package_name" &> /dev/null; then
+        log_success "${package_description}安装成功"
+        return 0
+    else
+        if [[ "$allow_failure" == "true" ]]; then
+            log_warn "${package_description}安装失败，但允许继续"
+            return 1
+        else
+            log_error "${package_description}安装失败"
+            return 1
+        fi
+    fi
+}
+
+# 统一的Python依赖安装函数
+install_python_dependency() {
+    local package_name="$1"
+    local description="${2:-$package_name}"
+    local allow_failure="${3:-true}"
+    
+    if ! command -v python3 &> /dev/null; then
+        log_warn "Python3未安装，${description}功能可能无法正常工作"
+        return 1
+    fi
+    
+    if command -v pip3 &> /dev/null; then
+        execute_command "pip3 install $package_name" "安装Python依赖: $description" "$allow_failure"
+    else
+        log_warn "pip3未安装，无法安装Python依赖: $description"
+        return 1
+    fi
+}
+
+# 操作系统检测函数
+detect_os() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        case "$ID" in
+            "ubuntu"|"debian")
+                echo "ubuntu"
+                ;;
+            "centos"|"rhel"|"rocky"|"almalinux")
+                echo "centos"
+                ;;
+            "fedora")
+                echo "fedora"
+                ;;
+            "arch")
+                echo "arch"
+                ;;
+            "opensuse"*)
+                echo "opensuse"
+                ;;
+            *)
+                echo "unknown"
+                ;;
+        esac
+    else
+        echo "unknown"
+    fi
+}
+
 # 导出函数供其他模块使用
 export -f print_header print_section print_success print_error print_warning print_info show_input show_success
 export -f show_progress confirm validate_ipv4 validate_ipv6 validate_cidr validate_port validate_interface
@@ -939,3 +1129,4 @@ export -f log_info log_success log_warn log_error log_debug log_with_timestamp l
 export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
 export -f fix_line_endings load_config cached_command clear_cache get_cache_stats
+export -f execute_command secure_permissions lazy_load install_dependency install_python_dependency detect_os

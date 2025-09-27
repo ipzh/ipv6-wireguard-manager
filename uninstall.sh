@@ -104,19 +104,12 @@ secure_permissions() {
         return 1
     fi
     
-    chown -R "${user}:${group}" "$target_path" || {
-        log_error "无法设置 $target_path 的所有者"
-        return 1
-    }
-    
-    chmod -R "$mode" "$target_path" || {
-        log_error "无法设置 $target_path 的权限"
-        return 1
-    }
+    execute_command "chown -R '${user}:${group}' '$target_path'" "设置 $target_path 的所有者" "true"
+    execute_command "chmod -R '$mode' '$target_path'" "设置 $target_path 的权限" "true"
     
     # 对于配置文件等敏感内容，额外限制权限
     if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
-        find "$target_path" -type f \( -name "*.conf" -o -name "*.key" -o -name "*.pem" \) -exec chmod 600 {} \; 2>/dev/null || true
+        execute_command "find '$target_path' -type f \\( -name '*.conf' -o -name '*.key' -o -name '*.pem' \\) -exec chmod 600 {} \\;" "设置敏感文件权限" "true"
     fi
     
     log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
@@ -317,25 +310,21 @@ stop_services() {
     
     # 停止IPv6 WireGuard Manager服务
     if systemctl is-active --quiet ipv6-wireguard-manager 2>/dev/null; then
-        log_info "停止IPv6 WireGuard Manager服务..."
-        systemctl stop ipv6-wireguard-manager || log_warn "停止服务失败"
+        execute_command "systemctl stop ipv6-wireguard-manager" "停止IPv6 WireGuard Manager服务" "true"
     fi
     
     # 停止WireGuard服务
     if systemctl is-active --quiet wg-quick@wg0 2>/dev/null; then
-        log_info "停止WireGuard服务..."
-        systemctl stop wg-quick@wg0 || log_warn "停止WireGuard服务失败"
+        execute_command "systemctl stop wg-quick@wg0" "停止WireGuard服务" "true"
     fi
     
     # 停止BIRD服务
     if systemctl is-active --quiet bird 2>/dev/null; then
-        log_info "停止BIRD服务..."
-        systemctl stop bird || log_warn "停止BIRD服务失败"
+        execute_command "systemctl stop bird" "停止BIRD服务" "true"
     fi
     
     if systemctl is-active --quiet bird6 2>/dev/null; then
-        log_info "停止BIRD6服务..."
-        systemctl stop bird6 || log_warn "停止BIRD6服务失败"
+        execute_command "systemctl stop bird6" "停止BIRD6服务" "true"
     fi
     
     log_info "服务停止完成"

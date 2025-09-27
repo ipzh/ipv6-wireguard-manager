@@ -86,7 +86,7 @@ VERBOSE=false
 DRY_RUN=false
 
 # 创建必要目录
-mkdir -p "$REPORT_DIR" "$LOG_DIR"
+execute_command "mkdir -p '$REPORT_DIR' '$LOG_DIR'" "创建测试目录"
 
 # 显示横幅
 show_banner() {
@@ -244,12 +244,12 @@ prepare_environment() {
     )
     
     for dir in "${test_dirs[@]}"; do
-        mkdir -p "$dir"
+        execute_command "mkdir -p '$dir'" "创建测试目录: $dir"
     done
     
     # 清理旧的测试数据
     if [[ -d "$PROJECT_ROOT/test_data" ]]; then
-        rm -rf "$PROJECT_ROOT/test_data"/*
+        execute_command "rm -rf '$PROJECT_ROOT/test_data'/*" "清理旧测试数据" "true"
     fi
     
     log_success "测试环境准备完成"
@@ -324,7 +324,7 @@ run_unit_tests() {
     fi
     
     # 设置测试权限
-    chmod +x "$TEST_DIR/run_tests.sh"
+    execute_command "chmod +x '$TEST_DIR/run_tests.sh'" "设置测试脚本执行权限"
     
     # 运行测试
     local test_args=""

@@ -178,101 +178,7 @@ OS_VERSION=""
 ARCH=""
 PACKAGE_MANAGER=""
 
-# 统一的命令执行函数
-execute_command() {
-    local command="$1"
-    local description="$2"
-    local allow_failure="${3:-false}"
-    local timeout="${4:-300}"  # 默认5分钟超时
-    
-    log_info "${description}..."
-    
-    # 使用timeout命令限制执行时间
-    if command -v timeout >/dev/null 2>&1; then
-        if timeout "$timeout" bash -c "$command"; then
-            log_success "${description}完成"
-            return 0
-        else
-            local exit_code=$?
-            if [[ "$allow_failure" == "true" ]]; then
-                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
-                return 1
-            else
-                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
-                exit 1
-            fi
-        fi
-    else
-        # 如果没有timeout命令，直接执行
-        if eval "$command"; then
-            log_success "${description}完成"
-            return 0
-        else
-            local exit_code=$?
-            if [[ "$allow_failure" == "true" ]]; then
-                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
-                return 1
-            else
-                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
-                exit 1
-            fi
-        fi
-    fi
-}
-
-# 安全权限设置函数
-secure_permissions() {
-    local target_path="$1"
-    local mode="$2"
-    local user="${3:-root}"
-    local group="${4:-root}"
-    
-    if [[ ! -e "$target_path" ]]; then
-        log_warn "目标路径不存在: $target_path"
-        return 1
-    fi
-    
-    chown -R "${user}:${group}" "$target_path" || {
-        log_error "无法设置 $target_path 的所有者"
-        return 1
-    }
-    
-    chmod -R "$mode" "$target_path" || {
-        log_error "无法设置 $target_path 的权限"
-        return 1
-    }
-    
-    # 对于配置文件等敏感内容，额外限制权限
-    if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
-        find "$target_path" -type f \( -name "*.conf" -o -name "*.key" -o -name "*.pem" \) -exec chmod 600 {} \; 2>/dev/null || true
-    fi
-    
-    log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
-    return 0
-}
-
-# 懒加载机制
-lazy_load() {
-    local module_name="$1"
-    local module_path="${MODULES_DIR}/${module_name}.sh"
-    
-    if [[ ! -f "$module_path" ]]; then
-        log_error "懒加载失败: 模块文件不存在 $module_path"
-        return 1
-    fi
-    
-    # 检查模块是否已加载
-    if declare -f "module_${module_name}_loaded" >/dev/null 2>&1 && "module_${module_name}_loaded"; then
-        return 0
-    fi
-    
-    log_debug "懒加载模块: $module_name"
-    source "$module_path"
-    
-    # 标记模块已加载
-    eval "function module_${module_name}_loaded() { return 0; }"
-    return 0
-}
+# 函数已在common_functions.sh中定义，无需重复定义
 
 # 加载模块函数（兼容性保留）
 load_module() {
@@ -325,10 +231,10 @@ check_root() {
 # 初始化配置
 init_config() {
     # 创建必要的目录
-    mkdir -p "$CONFIG_DIR" "$MODULES_DIR" "$SCRIPTS_DIR" "$EXAMPLES_DIR" "$DOCS_DIR"
-    mkdir -p "$(dirname "$LOG_FILE")"
-    mkdir -p "${BACKUP_DIR:-/var/backups/ipv6-wireguard}"
-    mkdir -p "${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}"
+    execute_command "mkdir -p '$CONFIG_DIR' '$MODULES_DIR' '$SCRIPTS_DIR' '$EXAMPLES_DIR' '$DOCS_DIR'" "创建项目目录结构"
+    execute_command "mkdir -p '$(dirname "$LOG_FILE")'" "创建日志目录"
+    execute_command "mkdir -p '${BACKUP_DIR:-/var/backups/ipv6-wireguard}'" "创建备份目录"
+    execute_command "mkdir -p '${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}'" "创建客户端配置目录"
     
     # 使用统一的配置管理机制
     load_main_config "$CONFIG_FILE"
