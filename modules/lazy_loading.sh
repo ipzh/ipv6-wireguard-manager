@@ -11,8 +11,8 @@ fi
 # 配置懒加载模块
 # 实现配置的懒加载机制，优化系统启动和内存使用
 
-# 懒加载配置
-LAZY_LOADING_DIR="${CONFIG_DIR}/lazy_loading"
+# 懒加载配置（使用全局CONFIG_DIR变量）
+LAZY_LOADING_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}/lazy_loading"
 LAZY_LOADING_CACHE="${LAZY_LOADING_DIR}/cache"
 LAZY_LOADING_CONFIG="${LAZY_LOADING_DIR}/lazy_loading.conf"
 LAZY_LOADING_LOG="${LOG_DIR}/lazy_loading.log"

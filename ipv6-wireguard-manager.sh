@@ -24,8 +24,8 @@ NC="${NC:-'\033[0m'}"
 
 # 全局变量
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="${SCRIPT_DIR}/config"
-MODULES_DIR="${SCRIPT_DIR}/modules"
+CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
+MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
 EXAMPLES_DIR="${SCRIPT_DIR}/examples"
 
@@ -34,6 +34,84 @@ LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 DOCS_DIR="${SCRIPT_DIR}/docs"
 CONFIG_FILE="${CONFIG_DIR}/manager.conf"
+
+# 统一的配置管理机制
+load_main_config() {
+    local config_file="$1"
+    local config_dir="$(dirname "$config_file")"
+    
+    # 确保配置目录存在
+    mkdir -p "$config_dir" 2>/dev/null || true
+    
+    # 如果配置文件不存在，创建默认配置
+    if [[ ! -f "$config_file" ]]; then
+        create_default_config "$config_file"
+    fi
+    
+    # 加载配置文件
+    source "$config_file"
+    log_info "配置文件已加载: $config_file"
+}
+
+# 创建默认配置文件
+create_default_config() {
+    local config_file="$1"
+    cat > "$config_file" << 'EOF'
+# IPv6 WireGuard Manager 主配置文件
+# 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
+
+# WireGuard配置
+WIREGUARD_PORT=51820
+WIREGUARD_INTERFACE=wg0
+WIREGUARD_NETWORK=10.0.0.0/24
+IPV6_PREFIX=2001:db8::/56
+
+# BIRD配置
+BIRD_VERSION=auto
+
+# 防火墙配置
+FIREWALL_TYPE=auto
+
+# Web界面配置
+WEB_PORT=8080
+WEB_USER=admin
+WEB_PASS=admin123
+
+# 日志配置
+LOG_LEVEL=INFO
+
+# 备份配置
+BACKUP_DIR=/var/backups/ipv6-wireguard
+CLIENT_CONFIG_DIR=/etc/wireguard/clients
+
+# 功能开关
+INSTALL_WIREGUARD=true
+INSTALL_BIRD=true
+INSTALL_FIREWALL=true
+INSTALL_WEB_INTERFACE=true
+INSTALL_MONITORING=true
+INSTALL_CLIENT_AUTO_INSTALL=true
+INSTALL_BACKUP_RESTORE=true
+INSTALL_UPDATE_MANAGEMENT=true
+INSTALL_SECURITY_ENHANCEMENTS=true
+INSTALL_CONFIG_MANAGEMENT=true
+INSTALL_WEB_INTERFACE_ENHANCED=true
+INSTALL_OAUTH_AUTHENTICATION=true
+INSTALL_SECURITY_AUDIT_MONITORING=true
+INSTALL_NETWORK_TOPOLOGY=true
+INSTALL_API_DOCUMENTATION=true
+INSTALL_WEBSOCKET_REALTIME=true
+INSTALL_MULTI_TENANT=true
+INSTALL_RESOURCE_QUOTA=true
+INSTALL_LAZY_LOADING=true
+INSTALL_PERFORMANCE_OPTIMIZATION=true
+EOF
+    
+    # 替换时间戳
+    sed -i "s/\$(date[^)]*)/$(date '+%Y-%m-%d %H:%M:%S')/g" "$config_file"
+    
+    log_info "默认配置文件已创建: $config_file"
+}
 
 # 默认配置
 DEFAULT_CONFIG=(
@@ -79,7 +157,30 @@ OS_VERSION=""
 ARCH=""
 PACKAGE_MANAGER=""
 
-# 加载模块函数
+# 懒加载机制
+lazy_load() {
+    local module_name="$1"
+    local module_path="${MODULES_DIR}/${module_name}.sh"
+    
+    if [[ ! -f "$module_path" ]]; then
+        log_error "懒加载失败: 模块文件不存在 $module_path"
+        return 1
+    fi
+    
+    # 检查模块是否已加载
+    if declare -f "module_${module_name}_loaded" >/dev/null 2>&1 && "module_${module_name}_loaded"; then
+        return 0
+    fi
+    
+    log_debug "懒加载模块: $module_name"
+    source "$module_path"
+    
+    # 标记模块已加载
+    eval "function module_${module_name}_loaded() { return 0; }"
+    return 0
+}
+
+# 加载模块函数（兼容性保留）
 load_module() {
     local module_name="$1"
     local module_file="${MODULES_DIR}/${module_name}.sh"
@@ -135,22 +236,22 @@ init_config() {
     mkdir -p "${BACKUP_DIR:-/var/backups/ipv6-wireguard}"
     mkdir -p "${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}"
     
-    # 创建默认配置文件
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        log_info "创建默认配置文件"
-        for config_line in "${DEFAULT_CONFIG[@]}"; do
-            echo "$config_line" >> "$CONFIG_FILE"
-        done
-    fi
+    # 使用统一的配置管理机制
+    load_main_config "$CONFIG_FILE"
     
-    # 加载配置
-    if [[ -f "$CONFIG_FILE" ]]; then
-        # 确保配置文件使用Unix行尾符
-        fix_line_endings "$CONFIG_FILE"
-        
-        source "$CONFIG_FILE"
-        log_info "已加载配置文件: $CONFIG_FILE"
-    fi
+    # 应用配置变量
+    WIREGUARD_PORT="${WIREGUARD_PORT:-51820}"
+    WIREGUARD_INTERFACE="${WIREGUARD_INTERFACE:-wg0}"
+    WIREGUARD_NETWORK="${WIREGUARD_NETWORK:-10.0.0.0/24}"
+    IPV6_PREFIX="${IPV6_PREFIX:-2001:db8::/56}"
+    BIRD_VERSION="${BIRD_VERSION:-auto}"
+    FIREWALL_TYPE="${FIREWALL_TYPE:-auto}"
+    WEB_PORT="${WEB_PORT:-8080}"
+    WEB_USER="${WEB_USER:-admin}"
+    WEB_PASS="${WEB_PASS:-admin123}"
+    LOG_LEVEL="${LOG_LEVEL:-INFO}"
+    BACKUP_DIR="${BACKUP_DIR:-/var/backups/ipv6-wireguard}"
+    CLIENT_CONFIG_DIR="${CLIENT_CONFIG_DIR:-/etc/wireguard/clients}"
 }
 
 # 系统检测

@@ -12,7 +12,7 @@ LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 fi
 
-# 配置管理变量
+# 配置管理变量（使用全局CONFIG_DIR变量）
 CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
 CONFIG_MANAGEMENT_DIR="${CONFIG_DIR}/management"
 YAML_CONFIG_DIR="${CONFIG_MANAGEMENT_DIR}/yaml"
