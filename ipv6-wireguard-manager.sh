@@ -62,7 +62,7 @@ load_main_config() {
     local config_dir="$(dirname "$config_file")"
     
     # 确保配置目录存在
-    mkdir -p "$config_dir" 2>/dev/null || true
+    execute_command "mkdir -p '$config_dir'" "创建配置目录" "true"
     
     # 如果配置文件不存在，创建默认配置
     if [[ ! -f "$config_file" ]]; then
@@ -687,6 +687,160 @@ quick_install() {
     
     log_info "快速安装完成!"
     read -p "按回车键继续..."
+}
+
+# 启动相关服务
+start_services() {
+    log_info "启动相关服务..."
+    
+    # 启动WireGuard服务
+    if systemctl is-enabled wg-quick@wg0 &>/dev/null; then
+        execute_command "systemctl start wg-quick@wg0" "启动WireGuard服务" "true"
+    fi
+    
+    # 启动BIRD服务
+    if systemctl is-enabled bird &>/dev/null; then
+        execute_command "systemctl start bird" "启动BIRD服务" "true"
+    fi
+    
+    if systemctl is-enabled bird6 &>/dev/null; then
+        execute_command "systemctl start bird6" "启动BIRD6服务" "true"
+    fi
+    
+    # 启动IPv6 WireGuard Manager服务
+    if systemctl is-enabled ipv6-wireguard-manager &>/dev/null; then
+        execute_command "systemctl start ipv6-wireguard-manager" "启动IPv6 WireGuard Manager服务" "true"
+    fi
+    
+    log_success "服务启动完成"
+}
+
+# 配置WireGuard
+configure_wireguard() {
+    log_info "配置WireGuard..."
+    
+    # 检查WireGuard是否已安装
+    if ! command -v wg &> /dev/null; then
+        log_warn "WireGuard未安装，跳过配置"
+        return 0
+    fi
+    
+    # 创建WireGuard配置目录
+    execute_command "mkdir -p /etc/wireguard" "创建WireGuard配置目录" "true"
+    
+    # 生成WireGuard密钥
+    if [[ ! -f /etc/wireguard/privatekey ]]; then
+        execute_command "wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey" "生成WireGuard密钥" "true"
+        execute_command "chmod 600 /etc/wireguard/privatekey" "设置私钥权限" "true"
+    fi
+    
+    log_success "WireGuard配置完成"
+}
+
+# 配置BIRD
+configure_bird() {
+    log_info "配置BIRD..."
+    
+    # 检查BIRD是否已安装
+    if ! command -v bird &> /dev/null && ! command -v bird2 &> /dev/null; then
+        log_warn "BIRD未安装，跳过配置"
+        return 0
+    fi
+    
+    # 创建BIRD配置目录
+    execute_command "mkdir -p /etc/bird" "创建BIRD配置目录" "true"
+    
+    # 创建基本BIRD配置
+    if [[ ! -f /etc/bird/bird.conf ]]; then
+        cat > /etc/bird/bird.conf << 'EOF'
+router id 192.168.1.1;
+
+protocol device {
+    scan time 10;
+}
+
+protocol kernel {
+    learn;
+    scan time 20;
+    import all;
+    export all;
+}
+EOF
+        execute_command "chmod 644 /etc/bird/bird.conf" "设置BIRD配置权限" "true"
+    fi
+    
+    log_success "BIRD配置完成"
+}
+
+# 配置防火墙
+configure_firewall() {
+    log_info "配置防火墙..."
+    
+    # 检测防火墙类型
+    local firewall_type=""
+    if command -v ufw &> /dev/null; then
+        firewall_type="ufw"
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall_type="firewalld"
+    elif command -v nft &> /dev/null; then
+        firewall_type="nftables"
+    elif command -v iptables &> /dev/null; then
+        firewall_type="iptables"
+    else
+        log_warn "未检测到支持的防火墙，跳过配置"
+        return 0
+    fi
+    
+    log_info "检测到防火墙类型: $firewall_type"
+    
+    # 根据防火墙类型进行配置
+    case "$firewall_type" in
+        "ufw")
+            execute_command "ufw allow 51820/udp" "配置UFW允许WireGuard端口" "true"
+            ;;
+        "firewalld")
+            execute_command "firewall-cmd --permanent --add-port=51820/udp" "配置Firewalld允许WireGuard端口" "true"
+            execute_command "firewall-cmd --reload" "重新加载Firewalld配置" "true"
+            ;;
+        "nftables")
+            execute_command "nft add rule inet filter input udp dport 51820 accept" "配置NFTables允许WireGuard端口" "true"
+            ;;
+        "iptables")
+            execute_command "iptables -A INPUT -p udp --dport 51820 -j ACCEPT" "配置iptables允许WireGuard端口" "true"
+            ;;
+    esac
+    
+    log_success "防火墙配置完成"
+}
+
+# 安装依赖
+install_dependencies() {
+    log_info "安装系统依赖..."
+    
+    # 安装WireGuard
+    install_dependency "wireguard-tools" "WireGuard工具"
+    
+    # 安装BIRD
+    install_dependency "bird2" "BIRD BGP路由器" "true"
+    if [[ $? -ne 0 ]]; then
+        install_dependency "bird" "BIRD BGP路由器" "true"
+    fi
+    
+    # 安装网络工具
+    install_dependency "iproute2" "IP路由工具" "true"
+    install_dependency "net-tools" "网络工具" "true"
+    
+    # 安装防火墙工具
+    if command -v ufw &> /dev/null; then
+        install_dependency "ufw" "UFW防火墙" "true"
+    elif command -v firewall-cmd &> /dev/null; then
+        install_dependency "firewalld" "Firewalld防火墙" "true"
+    fi
+    
+    # 安装Python依赖
+    install_python_dependency "psutil" "系统监控库" "true"
+    
+    log_success "依赖安装完成"
 }
 
 # 交互式安装

@@ -50,72 +50,6 @@ LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
 BIN_DIR="/usr/local/bin"
 SERVICE_DIR="/etc/systemd/system"
 
-# 统一的命令执行函数
-execute_command() {
-    local command="$1"
-    local description="$2"
-    local allow_failure="${3:-false}"
-    local timeout="${4:-300}"  # 默认5分钟超时
-    
-    log_info "${description}..."
-    
-    # 使用timeout命令限制执行时间
-    if command -v timeout >/dev/null 2>&1; then
-        if timeout "$timeout" bash -c "$command"; then
-            log_success "${description}完成"
-            return 0
-        else
-            local exit_code=$?
-            if [[ "$allow_failure" == "true" ]]; then
-                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
-                return 1
-            else
-                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
-                exit 1
-            fi
-        fi
-    else
-        # 如果没有timeout命令，直接执行
-        if eval "$command"; then
-            log_success "${description}完成"
-            return 0
-        else
-            local exit_code=$?
-            if [[ "$allow_failure" == "true" ]]; then
-                log_warn "${description}执行失败，继续执行 (退出码: $exit_code)"
-                return 1
-            else
-                log_error "${description}执行失败: 命令 '${command}' 返回非零状态 (退出码: $exit_code)"
-                exit 1
-            fi
-        fi
-    fi
-}
-
-# 安全权限设置函数
-secure_permissions() {
-    local target_path="$1"
-    local mode="$2"
-    local user="${3:-root}"
-    local group="${4:-root}"
-    
-    if [[ ! -e "$target_path" ]]; then
-        log_warn "目标路径不存在: $target_path"
-        return 1
-    fi
-    
-    execute_command "chown -R '${user}:${group}' '$target_path'" "设置 $target_path 的所有者" "true"
-    execute_command "chmod -R '$mode' '$target_path'" "设置 $target_path 的权限" "true"
-    
-    # 对于配置文件等敏感内容，额外限制权限
-    if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
-        execute_command "find '$target_path' -type f \\( -name '*.conf' -o -name '*.key' -o -name '*.pem' \\) -exec chmod 600 {} \\;" "设置敏感文件权限" "true"
-    fi
-    
-    log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"
-    return 0
-}
-
 # 卸载选项
 REMOVE_CONFIG=false
 REMOVE_LOGS=false
@@ -124,6 +58,9 @@ REMOVE_WIREGUARD=false
 REMOVE_BIRD=false
 FORCE_UNINSTALL=false
 VERBOSE=false
+
+# 卸载模式
+UNINSTALL_MODE="interactive"  # interactive, quick, force
 
 # 显示横幅
 show_banner() {
@@ -135,99 +72,202 @@ show_banner() {
     echo "║  版本: 1.0.0                                                                ║"
     echo "║  功能: 完全移除IPv6 WireGuard Manager及其相关组件                            ║"
     echo "║                                                                              ║"
-    echo "║  警告: 此操作将删除所有配置和数据，且不可恢复！                              ║"
-    echo "║                                                                              ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
 
-# 日志函数已从公共函数库导入
-
-# 检查权限
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        log_error "此卸载脚本需要root权限运行"
-        echo "请使用: sudo $0"
-        exit 1
-    fi
-}
-
-# 显示帮助信息
-show_help() {
-    echo "IPv6 WireGuard Manager 卸载脚本"
-    echo
-    echo "用法: $0 [选项]"
-    echo
-    echo "选项:"
-    echo "  --remove-config        删除配置文件"
-    echo "  --remove-logs          删除日志文件"
-    echo "  --remove-backups       删除备份文件"
-    echo "  --remove-wireguard     删除WireGuard配置"
-    echo "  --remove-bird          删除BIRD配置"
-    echo "  --force                强制卸载（不询问确认）"
-    echo "  -v, --verbose          详细输出"
-    echo "  -h, --help             显示此帮助信息"
-    echo
-    echo "示例:"
-    echo "  $0                      # 标准卸载"
-    echo "  $0 --remove-config      # 删除配置文件"
-    echo "  $0 --force              # 强制卸载"
-}
-
-# 解析命令行参数
-parse_arguments() {
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --remove-config)
-                REMOVE_CONFIG=true
-                shift
+# 显示卸载选项菜单
+show_uninstall_menu() {
+    while true; do
+        clear
+        show_banner
+        echo -e "${CYAN}=== 卸载选项 ===${NC}"
+        echo
+        echo "1. 快速卸载 - 移除核心组件，保留配置和日志"
+        echo "2. 完全卸载 - 移除所有组件，包括配置和日志"
+        echo "3. 自定义卸载 - 选择要移除的组件"
+        echo "4. 显示帮助信息"
+        echo "0. 退出"
+        echo
+        read -p "请选择卸载方式 [0-4]: " choice
+        
+        case "$choice" in
+            1)
+                quick_uninstall
+                break
                 ;;
-            --remove-logs)
-                REMOVE_LOGS=true
-                shift
+            2)
+                complete_uninstall
+                break
                 ;;
-            --remove-backups)
-                REMOVE_BACKUPS=true
-                shift
+            3)
+                custom_uninstall
+                break
                 ;;
-            --remove-wireguard)
-                REMOVE_WIREGUARD=true
-                shift
-                ;;
-            --remove-bird)
-                REMOVE_BIRD=true
-                shift
-                ;;
-            --force)
-                FORCE_UNINSTALL=true
-                shift
-                ;;
-            -v|--verbose)
-                VERBOSE=true
-                shift
-                ;;
-            -h|--help)
+            4)
                 show_help
+                ;;
+            0)
+                echo -e "${GREEN}退出卸载程序${NC}"
                 exit 0
                 ;;
             *)
-                log_error "未知选项: $1"
-                show_help
-                exit 1
+                echo -e "${RED}无效选择，请重新输入${NC}"
+                sleep 2
                 ;;
         esac
     done
 }
 
-# 确认卸载
-confirm_uninstall() {
-    if [[ "$FORCE_UNINSTALL" == "true" ]]; then
-        return 0
+# 快速卸载
+quick_uninstall() {
+    log_info "开始快速卸载..."
+    UNINSTALL_MODE="quick"
+    
+    # 停止服务
+    stop_services
+    
+    # 禁用服务
+    disable_services
+    
+    # 删除服务文件
+    remove_service_files
+    
+    # 删除可执行文件
+    remove_executable_files
+    
+    # 删除安装目录
+    remove_install_directory
+    
+    log_success "快速卸载完成"
+    show_uninstall_summary
+}
+
+# 完全卸载
+complete_uninstall() {
+    log_info "开始完全卸载..."
+    UNINSTALL_MODE="complete"
+    
+    # 停止服务
+    stop_services
+    
+    # 禁用服务
+    disable_services
+    
+    # 删除服务文件
+    remove_service_files
+    
+    # 删除可执行文件
+    remove_executable_files
+    
+    # 删除安装目录
+    remove_install_directory
+    
+    # 删除配置目录
+    remove_config_directory
+    
+    # 删除日志目录
+    remove_log_directory
+    
+    # 删除备份目录
+    remove_backup_directory
+    
+    # 清理WireGuard配置
+    if [[ "$REMOVE_WIREGUARD" == "true" ]]; then
+        remove_wireguard_config
     fi
     
-    echo -e "${YELLOW}警告: 此操作将完全删除IPv6 WireGuard Manager及其所有数据！${NC}"
+    # 清理BIRD配置
+    if [[ "$REMOVE_BIRD" == "true" ]]; then
+        remove_bird_config
+    fi
+    
+    log_success "完全卸载完成"
+    show_uninstall_summary
+}
+
+# 自定义卸载
+custom_uninstall() {
+    log_info "开始自定义卸载..."
+    UNINSTALL_MODE="custom"
+    
+    # 显示组件选择菜单
+    show_component_selection
+    
+    # 停止服务
+    stop_services
+    
+    # 禁用服务
+    disable_services
+    
+    # 根据选择删除组件
+    if [[ "$REMOVE_CONFIG" == "true" ]]; then
+        remove_config_directory
+    fi
+    
+    if [[ "$REMOVE_LOGS" == "true" ]]; then
+        remove_log_directory
+    fi
+    
+    if [[ "$REMOVE_BACKUPS" == "true" ]]; then
+        remove_backup_directory
+    fi
+    
+    if [[ "$REMOVE_WIREGUARD" == "true" ]]; then
+        remove_wireguard_config
+    fi
+    
+    if [[ "$REMOVE_BIRD" == "true" ]]; then
+        remove_bird_config
+    fi
+    
+    # 总是删除核心组件
+    remove_service_files
+    remove_executable_files
+    remove_install_directory
+    
+    log_success "自定义卸载完成"
+    show_uninstall_summary
+}
+
+# 显示组件选择菜单
+show_component_selection() {
+    echo -e "${CYAN}=== 选择要移除的组件 ===${NC}"
     echo
-    echo "将被删除的内容:"
+    
+    read -p "是否删除配置文件? [y/N]: " remove_config
+    if [[ "$remove_config" =~ ^[Yy]$ ]]; then
+        REMOVE_CONFIG=true
+    fi
+    
+    read -p "是否删除日志文件? [y/N]: " remove_logs
+    if [[ "$remove_logs" =~ ^[Yy]$ ]]; then
+        REMOVE_LOGS=true
+    fi
+    
+    read -p "是否删除备份文件? [y/N]: " remove_backups
+    if [[ "$remove_backups" =~ ^[Yy]$ ]]; then
+        REMOVE_BACKUPS=true
+    fi
+    
+    read -p "是否删除WireGuard配置? [y/N]: " remove_wireguard
+    if [[ "$remove_wireguard" =~ ^[Yy]$ ]]; then
+        REMOVE_WIREGUARD=true
+    fi
+    
+    read -p "是否删除BIRD配置? [y/N]: " remove_bird
+    if [[ "$remove_bird" =~ ^[Yy]$ ]]; then
+        REMOVE_BIRD=true
+    fi
+}
+
+# 显示卸载总结
+show_uninstall_summary() {
+    echo
+    echo -e "${GREEN}=== 卸载总结 ===${NC}"
+    echo -e "${GREEN}✓ IPv6 WireGuard Manager 已成功卸载${NC}"
+    echo
+    echo -e "${YELLOW}已移除的组件:${NC}"
     echo "  • 程序文件: $INSTALL_DIR"
     echo "  • 系统服务: ipv6-wireguard-manager.service"
     echo "  • 可执行文件: $BIN_DIR/ipv6-wireguard-manager"
@@ -253,55 +293,7 @@ confirm_uninstall() {
     fi
     
     echo
-    echo -e "${RED}此操作不可恢复！${NC}"
-    echo
-    
-    read -p "确认继续卸载? [y/N]: " -n 1 -r
-    echo
-    
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_info "卸载已取消"
-        exit 0
-    fi
-}
-
-# 检查安装状态
-check_installation_status() {
-    log_info "检查安装状态..."
-    
-    local installed_components=()
-    
-    # 检查程序文件
-    if [[ -d "$INSTALL_DIR" ]]; then
-        installed_components+=("程序文件")
-    fi
-    
-    # 检查系统服务
-    if systemctl list-unit-files | grep -q "ipv6-wireguard-manager.service"; then
-        installed_components+=("系统服务")
-    fi
-    
-    # 检查可执行文件
-    if [[ -L "$BIN_DIR/ipv6-wireguard-manager" ]]; then
-        installed_components+=("可执行文件")
-    fi
-    
-    # 检查配置文件
-    if [[ -d "$CONFIG_DIR" ]]; then
-        installed_components+=("配置文件")
-    fi
-    
-    # 检查日志文件
-    if [[ -d "$LOG_DIR" ]]; then
-        installed_components+=("日志文件")
-    fi
-    
-    if [[ ${#installed_components[@]} -eq 0 ]]; then
-        log_info "未检测到IPv6 WireGuard Manager安装"
-        exit 0
-    fi
-    
-    log_info "检测到已安装组件: ${installed_components[*]}"
+    echo -e "${CYAN}感谢使用IPv6 WireGuard Manager！${NC}"
 }
 
 # 停止服务
@@ -335,26 +327,22 @@ disable_services() {
     log_info "禁用相关服务..."
     
     # 禁用IPv6 WireGuard Manager服务
-    if systemctl is-enabled --quiet ipv6-wireguard-manager 2>/dev/null; then
-        log_info "禁用IPv6 WireGuard Manager服务..."
-        systemctl disable ipv6-wireguard-manager || log_warn "禁用服务失败"
+    if systemctl is-enabled ipv6-wireguard-manager 2>/dev/null; then
+        execute_command "systemctl disable ipv6-wireguard-manager" "禁用IPv6 WireGuard Manager服务" "true"
     fi
     
     # 禁用WireGuard服务
-    if systemctl is-enabled --quiet wg-quick@wg0 2>/dev/null; then
-        log_info "禁用WireGuard服务..."
-        systemctl disable wg-quick@wg0 || log_warn "禁用WireGuard服务失败"
+    if systemctl is-enabled wg-quick@wg0 2>/dev/null; then
+        execute_command "systemctl disable wg-quick@wg0" "禁用WireGuard服务" "true"
     fi
     
     # 禁用BIRD服务
-    if systemctl is-enabled --quiet bird 2>/dev/null; then
-        log_info "禁用BIRD服务..."
-        systemctl disable bird || log_warn "禁用BIRD服务失败"
+    if systemctl is-enabled bird 2>/dev/null; then
+        execute_command "systemctl disable bird" "禁用BIRD服务" "true"
     fi
     
-    if systemctl is-enabled --quiet bird6 2>/dev/null; then
-        log_info "禁用BIRD6服务..."
-        systemctl disable bird6 || log_warn "禁用BIRD6服务失败"
+    if systemctl is-enabled bird6 2>/dev/null; then
+        execute_command "systemctl disable bird6" "禁用BIRD6服务" "true"
     fi
     
     log_info "服务禁用完成"
@@ -366,342 +354,194 @@ remove_service_files() {
     
     # 删除IPv6 WireGuard Manager服务文件
     if [[ -f "$SERVICE_DIR/ipv6-wireguard-manager.service" ]]; then
-        log_info "删除IPv6 WireGuard Manager服务文件..."
-        rm -f "$SERVICE_DIR/ipv6-wireguard-manager.service"
-        systemctl daemon-reload
+        execute_command "rm -f '$SERVICE_DIR/ipv6-wireguard-manager.service'" "删除IPv6 WireGuard Manager服务文件" "true"
     fi
+    
+    # 重新加载systemd
+    execute_command "systemctl daemon-reload" "重新加载systemd配置" "true"
     
     log_info "服务文件删除完成"
 }
 
 # 删除可执行文件
-remove_executables() {
+remove_executable_files() {
     log_info "删除可执行文件..."
     
-    # 删除符号链接
+    # 删除全局命令别名
     if [[ -L "$BIN_DIR/ipv6-wireguard-manager" ]]; then
-        log_info "删除可执行文件链接..."
-        rm -f "$BIN_DIR/ipv6-wireguard-manager"
+        execute_command "rm -f '$BIN_DIR/ipv6-wireguard-manager'" "删除全局命令别名" "true"
     fi
     
     log_info "可执行文件删除完成"
 }
 
-# 删除程序文件
-remove_program_files() {
-    log_info "删除程序文件..."
+# 删除安装目录
+remove_install_directory() {
+    log_info "删除安装目录..."
     
     if [[ -d "$INSTALL_DIR" ]]; then
-        log_info "删除安装目录: $INSTALL_DIR"
-        rm -rf "$INSTALL_DIR"
+        execute_command "rm -rf '$INSTALL_DIR'" "删除安装目录" "true"
     fi
     
-    log_info "程序文件删除完成"
+    log_info "安装目录删除完成"
 }
 
-# 删除配置文件
-remove_configuration_files() {
-    if [[ "$REMOVE_CONFIG" != "true" ]]; then
-        log_info "保留配置文件（使用 --remove-config 删除）"
-        return 0
-    fi
-    
-    log_info "删除配置文件..."
+# 删除配置目录
+remove_config_directory() {
+    log_info "删除配置目录..."
     
     if [[ -d "$CONFIG_DIR" ]]; then
-        log_info "删除配置目录: $CONFIG_DIR"
-        rm -rf "$CONFIG_DIR"
+        execute_command "rm -rf '$CONFIG_DIR'" "删除配置目录" "true"
     fi
     
-    log_info "配置文件删除完成"
+    log_info "配置目录删除完成"
 }
 
-# 删除日志文件
-remove_log_files() {
-    if [[ "$REMOVE_LOGS" != "true" ]]; then
-        log_info "保留日志文件（使用 --remove-logs 删除）"
-        return 0
-    fi
-    
-    log_info "删除日志文件..."
+# 删除日志目录
+remove_log_directory() {
+    log_info "删除日志目录..."
     
     if [[ -d "$LOG_DIR" ]]; then
-        log_info "删除日志目录: $LOG_DIR"
-        rm -rf "$LOG_DIR"
+        execute_command "rm -rf '$LOG_DIR'" "删除日志目录" "true"
     fi
     
-    log_info "日志文件删除完成"
+    log_info "日志目录删除完成"
 }
 
-# 删除备份文件
-remove_backup_files() {
-    if [[ "$REMOVE_BACKUPS" != "true" ]]; then
-        log_info "保留备份文件（使用 --remove-backups 删除）"
-        return 0
-    fi
-    
-    log_info "删除备份文件..."
+# 删除备份目录
+remove_backup_directory() {
+    log_info "删除备份目录..."
     
     local backup_dir="/var/backups/ipv6-wireguard"
     if [[ -d "$backup_dir" ]]; then
-        log_info "删除备份目录: $backup_dir"
-        rm -rf "$backup_dir"
+        execute_command "rm -rf '$backup_dir'" "删除备份目录" "true"
     fi
     
-    log_info "备份文件删除完成"
+    log_info "备份目录删除完成"
 }
 
 # 删除WireGuard配置
-remove_wireguard_configuration() {
-    if [[ "$REMOVE_WIREGUARD" != "true" ]]; then
-        log_info "保留WireGuard配置（使用 --remove-wireguard 删除）"
-        return 0
-    fi
-    
+remove_wireguard_config() {
     log_info "删除WireGuard配置..."
     
-    # 停止WireGuard接口
-    if command -v wg &> /dev/null; then
-        local interfaces=$(wg show interfaces 2>/dev/null || echo "")
-        for interface in $interfaces; do
-            log_info "停止WireGuard接口: $interface"
-            wg-quick down "$interface" 2>/dev/null || true
-        done
-    fi
-    
-    # 删除WireGuard配置目录
     if [[ -d "/etc/wireguard" ]]; then
-        log_info "删除WireGuard配置目录: /etc/wireguard"
-        rm -rf /etc/wireguard
+        execute_command "rm -rf /etc/wireguard" "删除WireGuard配置" "true"
     fi
     
     log_info "WireGuard配置删除完成"
 }
 
 # 删除BIRD配置
-remove_bird_configuration() {
-    if [[ "$REMOVE_BIRD" != "true" ]]; then
-        log_info "保留BIRD配置（使用 --remove-bird 删除）"
-        return 0
-    fi
-    
+remove_bird_config() {
     log_info "删除BIRD配置..."
     
-    # 删除BIRD配置目录
     if [[ -d "/etc/bird" ]]; then
-        log_info "删除BIRD配置目录: /etc/bird"
-        rm -rf /etc/bird
+        execute_command "rm -rf /etc/bird" "删除BIRD配置" "true"
     fi
     
     log_info "BIRD配置删除完成"
 }
 
-# 清理防火墙规则
-cleanup_firewall_rules() {
-    log_info "清理防火墙规则..."
-    
-    # 清理iptables规则
-    if command -v iptables &> /dev/null; then
-        log_info "清理iptables规则..."
-        
-        # 删除WireGuard相关规则
-        iptables -D FORWARD -i wg+ -j ACCEPT 2>/dev/null || true
-        iptables -D FORWARD -o wg+ -j ACCEPT 2>/dev/null || true
-        iptables -t nat -D POSTROUTING -o wg+ -j MASQUERADE 2>/dev/null || true
-        
-        # 删除IPv6规则
-        ip6tables -D FORWARD -i wg+ -j ACCEPT 2>/dev/null || true
-        ip6tables -D FORWARD -o wg+ -j ACCEPT 2>/dev/null || true
-    fi
-    
-    # 清理UFW规则
-    if command -v ufw &> /dev/null; then
-        log_info "清理UFW规则..."
-        ufw --force delete allow 51820/udp 2>/dev/null || true
-    fi
-    
-    # 清理firewalld规则
-    if command -v firewall-cmd &> /dev/null; then
-        log_info "清理firewalld规则..."
-        firewall-cmd --permanent --remove-port=51820/udp 2>/dev/null || true
-        firewall-cmd --reload 2>/dev/null || true
-    fi
-    
-    log_info "防火墙规则清理完成"
+# 显示帮助信息
+show_help() {
+    clear
+    echo -e "${CYAN}=== IPv6 WireGuard Manager 卸载帮助 ===${NC}"
+    echo
+    echo -e "${YELLOW}卸载选项:${NC}"
+    echo "  1. 快速卸载 - 移除核心组件，保留配置和日志"
+    echo "     • 删除程序文件和服务"
+    echo "     • 保留配置文件和日志"
+    echo "     • 适合临时卸载或重新安装"
+    echo
+    echo "  2. 完全卸载 - 移除所有组件，包括配置和日志"
+    echo "     • 删除所有相关文件和目录"
+    echo "     • 清理WireGuard和BIRD配置"
+    echo "     • 适合完全移除"
+    echo
+    echo "  3. 自定义卸载 - 选择要移除的组件"
+    echo "     • 灵活选择要删除的组件"
+    echo "     • 适合部分清理"
+    echo
+    echo -e "${YELLOW}注意事项:${NC}"
+    echo "  • 卸载前请确保已备份重要数据"
+    echo "  • 完全卸载将删除所有配置和日志"
+    echo "  • 建议在卸载前停止相关服务"
+    echo
+    read -p "按回车键返回主菜单..."
 }
 
-# 清理系统配置
-cleanup_system_configuration() {
-    log_info "清理系统配置..."
-    
-    # 恢复IP转发设置
-    if [[ -f /etc/sysctl.conf ]]; then
-        log_info "恢复IP转发设置..."
-        sed -i '/net.ipv4.ip_forward = 1/d' /etc/sysctl.conf
-        sed -i '/net.ipv6.conf.all.forwarding = 1/d' /etc/sysctl.conf
-        sysctl -p &>/dev/null || true
-    fi
-    
-    # 清理cron任务
-    if [[ -f /etc/crontab ]]; then
-        log_info "清理cron任务..."
-        sed -i '/ipv6-wireguard-manager/d' /etc/crontab 2>/dev/null || true
-    fi
-    
-    log_info "系统配置清理完成"
+# 处理命令行参数
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --quick|-q)
+                UNINSTALL_MODE="quick"
+                shift
+                ;;
+            --complete|-c)
+                UNINSTALL_MODE="complete"
+                shift
+                ;;
+            --force|-f)
+                FORCE_UNINSTALL=true
+                shift
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            --version)
+                echo "IPv6 WireGuard Manager 卸载程序 v1.0.0"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}未知参数: $1${NC}"
+                echo "使用 --help 查看帮助信息"
+                exit 1
+                ;;
+        esac
+    done
 }
 
-# 验证卸载
-verify_uninstallation() {
-    log_info "验证卸载结果..."
-    
-    local remaining_items=()
-    
-    # 检查程序文件
-    if [[ -d "$INSTALL_DIR" ]]; then
-        remaining_items+=("程序文件: $INSTALL_DIR")
-    fi
-    
-    # 检查系统服务
-    if systemctl list-unit-files | grep -q "ipv6-wireguard-manager.service"; then
-        remaining_items+=("系统服务: ipv6-wireguard-manager.service")
-    fi
-    
-    # 检查可执行文件
-    if [[ -L "$BIN_DIR/ipv6-wireguard-manager" ]]; then
-        remaining_items+=("可执行文件: $BIN_DIR/ipv6-wireguard-manager")
-    fi
-    
-    # 检查配置文件
-    if [[ "$REMOVE_CONFIG" == "true" && -d "$CONFIG_DIR" ]]; then
-        remaining_items+=("配置文件: $CONFIG_DIR")
-    fi
-    
-    # 检查日志文件
-    if [[ "$REMOVE_LOGS" == "true" && -d "$LOG_DIR" ]]; then
-        remaining_items+=("日志文件: $LOG_DIR")
-    fi
-    
-    if [[ ${#remaining_items[@]} -eq 0 ]]; then
-        log_info "卸载验证通过，所有指定项目已删除"
-        return 0
-    else
-        log_warn "以下项目仍然存在:"
-        for item in "${remaining_items[@]}"; do
-            log_warn "  • $item"
-        done
-        return 1
-    fi
-}
-
-# 显示卸载完成信息
-show_uninstallation_complete() {
-    echo
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                       卸载完成！                                           ║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
-    echo
-    echo -e "${CYAN}卸载摘要:${NC}"
-    echo "  • IPv6 WireGuard Manager 已完全移除"
-    echo "  • 系统服务已停止并禁用"
-    echo "  • 程序文件已删除"
-    
-    if [[ "$REMOVE_CONFIG" == "true" ]]; then
-        echo "  • 配置文件已删除"
-    else
-        echo "  • 配置文件已保留"
-    fi
-    
-    if [[ "$REMOVE_LOGS" == "true" ]]; then
-        echo "  • 日志文件已删除"
-    else
-        echo "  • 日志文件已保留"
-    fi
-    
-    if [[ "$REMOVE_BACKUPS" == "true" ]]; then
-        echo "  • 备份文件已删除"
-    else
-        echo "  • 备份文件已保留"
-    fi
-    
-    if [[ "$REMOVE_WIREGUARD" == "true" ]]; then
-        echo "  • WireGuard配置已删除"
-    else
-        echo "  • WireGuard配置已保留"
-    fi
-    
-    if [[ "$REMOVE_BIRD" == "true" ]]; then
-        echo "  • BIRD配置已删除"
-    else
-        echo "  • BIRD配置已保留"
-    fi
-    
-    echo
-    echo -e "${YELLOW}注意: 如果保留了配置文件，您可以稍后手动删除它们${NC}"
-    echo
-}
-
-# 主卸载函数
+# 主函数
 main() {
-    show_banner
+    # 检查是否以root权限运行
+    if [[ $EUID -ne 0 ]]; then
+        echo -e "${RED}错误: 此脚本需要root权限运行${NC}"
+        echo "请使用: sudo $0"
+        exit 1
+    fi
     
-    # 解析参数
+    # 解析命令行参数
     parse_arguments "$@"
     
-    # 检查权限
-    check_root
+    # 显示横幅
+    show_banner
     
-    # 确认卸载
-    confirm_uninstall
-    
-    # 检查安装状态
-    check_installation_status
-    
-    # 停止服务
-    stop_services
-    
-    # 禁用服务
-    disable_services
-    
-    # 删除服务文件
-    remove_service_files
-    
-    # 删除可执行文件
-    remove_executables
-    
-    # 删除程序文件
-    remove_program_files
-    
-    # 删除配置文件
-    remove_configuration_files
-    
-    # 删除日志文件
-    remove_log_files
-    
-    # 删除备份文件
-    remove_backup_files
-    
-    # 删除WireGuard配置
-    remove_wireguard_configuration
-    
-    # 删除BIRD配置
-    remove_bird_configuration
-    
-    # 清理防火墙规则
-    cleanup_firewall_rules
-    
-    # 清理系统配置
-    cleanup_system_configuration
-    
-    # 验证卸载
-    verify_uninstallation
-    
-    # 显示卸载完成信息
-    show_uninstallation_complete
+    # 根据模式执行卸载
+    case "$UNINSTALL_MODE" in
+        "quick")
+            quick_uninstall
+            ;;
+        "complete")
+            complete_uninstall
+            ;;
+        "custom")
+            custom_uninstall
+            ;;
+        "interactive")
+            show_uninstall_menu
+            ;;
+        *)
+            echo -e "${RED}错误: 未知的卸载模式${NC}"
+            exit 1
+            ;;
+    esac
 }
-
-# 错误处理
-trap 'log_error "卸载过程中发生错误，行号: $LINENO"' ERR
 
 # 执行主函数
 main "$@"
