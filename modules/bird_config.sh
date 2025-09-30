@@ -1,0 +1,1451 @@
+#!/bin/bash
+
+# BIRD配置模块
+# 负责BIRD BGP路由器的配置、管理和维护
+
+# 导入公共函数库
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+
+# 确保日志相关变量已定义
+LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
+LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
+fi
+
+# BIRD配置变量
+BIRD_CONFIG_DIR="/etc/bird"
+BIRD_CONFIG_FILE="${BIRD_CONFIG_DIR}/bird.conf"
+BIRD6_CONFIG_FILE="${BIRD_CONFIG_DIR}/bird6.conf"
+BIRD_KEYS_DIR="${BIRD_CONFIG_DIR}/keys"
+
+# BIRD版本检测
+BIRD_VERSION=""
+BIRD_MAJOR_VERSION=""
+BIRD_MINOR_VERSION=""
+
+# 默认BIRD配置模板
+BIRD_V1_CONFIG_TEMPLATE=(
+    "router id ROUTER_ID;"
+    ""
+    "protocol device {"
+    "    scan time 10;"
+    "}"
+    ""
+    "protocol kernel {"
+    "    learn;"
+    "    scan time 20;"
+    "    import all;"
+    "    export all;"
+    "}"
+    ""
+    "protocol direct {"
+    "    interface \"wg*\", \"eth*\", \"ens*\", \"enp*\", \"enx*\";"
+    "}"
+    ""
+    "protocol bgp BGP_NEIGHBOR_NAME {"
+    "    local as LOCAL_AS;"
+    "    neighbor NEIGHBOR_IP as NEIGHBOR_AS;"
+    "    import all;"
+    "    export all;"
+    "    next hop self;"
+    "}"
+)
+
+BIRD_V2_CONFIG_TEMPLATE=(
+    "router id ROUTER_ID;"
+    ""
+    "# BIRD 2.x 配置"
+    "log syslog all;"
+    "log stderr all;"
+    ""
+    "protocol device {"
+    "    scan time 10;"
+    "}"
+    ""
+    "protocol kernel {"
+    "    learn;"
+    "    scan time 20;"
+    "    import all;"
+    "    export all;"
+    "    merge paths on;"
+    "}"
+    ""
+    "protocol direct {"
+    "    interface \"wg*\", \"eth*\", \"ens*\", \"enp*\", \"enx*\";"
+    "    check link yes;"
+    "}"
+    ""
+    "protocol bgp BGP_NEIGHBOR_NAME {"
+    "    local as LOCAL_AS;"
+    "    neighbor NEIGHBOR_IP as NEIGHBOR_AS;"
+    "    import all;"
+    "    export all;"
+    "    next hop self;"
+    "    hold time 240;"
+    "    keepalive time 80;"
+    "    connect retry time 120;"
+    "    start delay time 5;"
+    "    error wait time 60, 300;"
+    "    error forget time 300;"
+    "    disable after error off;"
+    "    tcp security on;"
+    "}"
+)
+
+BIRD_V3_CONFIG_TEMPLATE=(
+    "router id ROUTER_ID;"
+    ""
+    "protocol device {"
+    "    scan time 10;"
+    "}"
+    ""
+    "protocol kernel {"
+    "    learn;"
+    "    scan time 20;"
+    "    import all;"
+    "    export all;"
+    "}"
+    ""
+    "protocol direct {"
+    "    interface \"wg*\", \"eth*\", \"ens*\", \"enp*\", \"enx*\";"
+    "}"
+    ""
+    "protocol bgp BGP_NEIGHBOR_NAME {"
+    "    local as LOCAL_AS;"
+    "    neighbor NEIGHBOR_IP as NEIGHBOR_AS;"
+    "    import all;"
+    "    export all;"
+    "    next hop self;"
+    "}"
+)
+
+# 初始化BIRD配置
+init_bird_config() {
+    log_info "初始化BIRD配置..."
+    
+    # 创建BIRD专用用户和组
+    create_bird_user_and_group
+    
+    # 设置BIRD权限
+    setup_bird_permissions
+    
+    # 检测BIRD版本
+    detect_bird_version
+    
+    # 创建必要的目录
+    mkdir -p "$BIRD_CONFIG_DIR" "$BIRD_KEYS_DIR"
+    
+    # 设置目录权限
+    chmod 755 "$BIRD_CONFIG_DIR"
+    chmod 700 "$BIRD_KEYS_DIR"
+    
+    # 创建配置文件
+    create_bird_config
+    
+    # 创建IPv6配置文件
+    create_bird6_config
+    
+    log_info "BIRD配置初始化完成"
+}
+
+# 检测BIRD版本
+detect_bird_version() {
+    log_info "检测BIRD版本..."
+    
+    # 优先检测bird2，然后检测bird
+    local bird_command=""
+    if command -v bird2 &> /dev/null; then
+        bird_command="bird2"
+        log_info "检测到BIRD2命令"
+    elif command -v bird &> /dev/null; then
+        bird_command="bird"
+        log_info "检测到BIRD命令"
+    else
+        log_error "BIRD未安装"
+        return 1
+    fi
+    
+    local version_output=$($bird_command --version 2>&1 | head -1)
+    BIRD_VERSION="$version_output"
+    
+    # 解析版本号
+    if [[ $version_output =~ BIRD\ ([0-9]+)\.([0-9]+) ]]; then
+        BIRD_MAJOR_VERSION="${BASH_REMATCH[1]}"
+        BIRD_MINOR_VERSION="${BASH_REMATCH[2]}"
+    elif [[ $version_output =~ ([0-9]+)\.([0-9]+) ]]; then
+        BIRD_MAJOR_VERSION="${BASH_REMATCH[1]}"
+        BIRD_MINOR_VERSION="${BASH_REMATCH[2]}"
+    fi
+    
+    log_info "BIRD版本: $BIRD_VERSION (主版本: $BIRD_MAJOR_VERSION, 次版本: $BIRD_MINOR_VERSION)"
+    
+    # 检查版本兼容性
+    if [[ $BIRD_MAJOR_VERSION -ge 2 ]]; then
+        log_success "BIRD 2.x 检测成功"
+    elif [[ $BIRD_MAJOR_VERSION -eq 1 ]]; then
+        log_warn "检测到BIRD 1.x，某些功能可能不可用"
+        log_warn "建议升级到BIRD 2.x以获得完整功能"
+    else
+        log_warn "未知的BIRD版本"
+    fi
+}
+
+# 创建BIRD配置
+create_bird_config() {
+    log_info "创建BIRD配置文件..."
+    
+    # 获取路由器ID
+    local router_id=$(get_router_id)
+    
+    # 根据版本选择模板
+    local template_name="BIRD_V${BIRD_MAJOR_VERSION}_CONFIG_TEMPLATE"
+    local template_ref="${template_name}[@]"
+    local template=("${!template_ref}")
+    
+    # 如果没有对应版本的模板，使用BIRD 2.x模板
+    if [[ ${#template[@]} -eq 0 ]]; then
+        log_warn "未找到BIRD ${BIRD_MAJOR_VERSION}.x模板，使用BIRD 2.x模板"
+        template=("${BIRD_V2_CONFIG_TEMPLATE[@]}")
+    fi
+    
+    # 创建配置文件
+    cat > "$BIRD_CONFIG_FILE" << EOF
+# BIRD IPv4 Configuration
+# Generated by IPv6 WireGuard Manager
+# Version: $BIRD_VERSION
+# BIRD Major Version: $BIRD_MAJOR_VERSION
+
+EOF
+    
+    # 添加模板内容
+    for line in "${template[@]}"; do
+        # 替换占位符
+        line=$(echo "$line" | sed "s/ROUTER_ID/$router_id/g")
+        echo "$line" >> "$BIRD_CONFIG_FILE"
+    done
+    
+    chmod 644 "$BIRD_CONFIG_FILE"
+    
+    log_info "BIRD配置文件已创建: $BIRD_CONFIG_FILE"
+    log_info "使用模板: $template_name"
+}
+
+# 创建BIRD6配置
+create_bird6_config() {
+    log_info "创建BIRD6配置文件..."
+    
+    # 获取路由器ID
+    local router_id=$(get_router_id)
+    
+    # 根据版本选择模板
+    local template_name="BIRD_V${BIRD_MAJOR_VERSION}_CONFIG_TEMPLATE"
+    local template_ref="${template_name}[@]"
+    local template=("${!template_ref}")
+    
+    # 如果没有对应版本的模板，使用BIRD 2.x模板
+    if [[ ${#template[@]} -eq 0 ]]; then
+        log_warn "未找到BIRD ${BIRD_MAJOR_VERSION}.x模板，使用BIRD 2.x模板"
+        template=("${BIRD_V2_CONFIG_TEMPLATE[@]}")
+    fi
+    
+    # 创建IPv6配置文件
+    cat > "$BIRD6_CONFIG_FILE" << EOF
+# BIRD IPv6 Configuration
+# Generated by IPv6 WireGuard Manager
+# Version: $BIRD_VERSION
+# BIRD Major Version: $BIRD_MAJOR_VERSION
+
+EOF
+    
+    # 添加模板内容
+    for line in "${template[@]}"; do
+        # 替换占位符
+        line=$(echo "$line" | sed "s/ROUTER_ID/$router_id/g")
+        echo "$line" >> "$BIRD6_CONFIG_FILE"
+    done
+    
+    chmod 644 "$BIRD6_CONFIG_FILE"
+    
+    log_info "BIRD6配置文件已创建: $BIRD6_CONFIG_FILE"
+    log_info "使用模板: $template_name"
+}
+
+# 获取路由器ID
+get_router_id() {
+    local router_id=""
+    
+    # 尝试从配置获取
+    if [[ -n "${BIRD_ROUTER_ID:-}" ]]; then
+        router_id="$BIRD_ROUTER_ID"
+    else
+        # 使用主接口IP作为路由器ID
+        router_id="${SYSTEM_INFO["primary_ipv4"]}"
+    fi
+    
+    # 验证路由器ID格式
+    if validate_ipv4 "$router_id"; then
+        echo "$router_id"
+    else
+        log_error "无效的路由器ID: $router_id"
+        return 1
+    fi
+}
+
+# 配置BIRD
+configure_bird() {
+    log_info "配置BIRD..."
+    
+    # 初始化配置
+    init_bird_config
+    
+    # 启动服务
+    start_bird_service
+    
+    # 启用开机自启
+    enable_bird_service
+    
+    log_info "BIRD配置完成"
+}
+
+# 启动BIRD服务
+start_bird_service() {
+    log_info "启动BIRD服务..."
+    
+    # 启动IPv4 BIRD
+    if start_service "bird"; then
+        log_info "BIRD IPv4服务启动成功"
+    else
+        log_error "BIRD IPv4服务启动失败"
+        return 1
+    fi
+    
+    # 启动IPv6 BIRD
+    if start_service "bird6"; then
+        log_info "BIRD IPv6服务启动成功"
+    else
+        log_error "BIRD IPv6服务启动失败"
+        return 1
+    fi
+}
+
+# 停止BIRD服务
+stop_bird_service() {
+    log_info "停止BIRD服务..."
+    
+    # 停止IPv4 BIRD
+    if stop_service "bird"; then
+        log_info "BIRD IPv4服务停止成功"
+    else
+        log_error "BIRD IPv4服务停止失败"
+    fi
+    
+    # 停止IPv6 BIRD
+    if stop_service "bird6"; then
+        log_info "BIRD IPv6服务停止成功"
+    else
+        log_error "BIRD IPv6服务停止失败"
+    fi
+}
+
+# 重启BIRD服务
+restart_bird_service() {
+    log_info "重启BIRD服务..."
+    
+    stop_bird_service
+    sleep 2
+    start_bird_service
+}
+
+# 启用BIRD服务
+enable_bird_service() {
+    log_info "启用BIRD开机自启..."
+    
+    enable_service "bird"
+    enable_service "bird6"
+    
+    log_info "BIRD服务已设置为开机自启"
+}
+
+# 禁用BIRD服务
+disable_bird_service() {
+    log_info "禁用BIRD开机自启..."
+    
+    disable_service "bird"
+    disable_service "bird6"
+    
+    log_info "BIRD服务已禁用开机自启"
+}
+
+# 添加BGP邻居
+add_bgp_neighbor() {
+    local neighbor_name="$1"
+    local neighbor_ip="$2"
+    local neighbor_as="$3"
+    local local_as="${4:-64512}"
+    
+    if [[ -z "$neighbor_name" || -z "$neighbor_ip" || -z "$neighbor_as" ]]; then
+        log_error "BGP邻居参数不完整"
+        return 1
+    fi
+    
+    log_info "添加BGP邻居: $neighbor_name ($neighbor_ip, AS$neighbor_as)"
+    
+    # 验证IP地址
+    if ! validate_ipv4 "$neighbor_ip" && ! validate_ipv6 "$neighbor_ip"; then
+        log_error "无效的邻居IP地址: $neighbor_ip"
+        return 1
+    fi
+    
+    # 备份配置文件
+    backup_file "$BIRD_CONFIG_FILE"
+    backup_file "$BIRD6_CONFIG_FILE"
+    
+    # 添加IPv4邻居配置
+    add_bgp_neighbor_to_config "$BIRD_CONFIG_FILE" "$neighbor_name" "$neighbor_ip" "$neighbor_as" "$local_as"
+    
+    # 添加IPv6邻居配置
+    add_bgp_neighbor_to_config "$BIRD6_CONFIG_FILE" "$neighbor_name" "$neighbor_ip" "$neighbor_as" "$local_as"
+    
+    # 重载配置
+    reload_bird_config
+    
+    log_info "BGP邻居 $neighbor_name 添加成功"
+}
+
+# 添加BGP邻居到配置文件
+add_bgp_neighbor_to_config() {
+    local config_file="$1"
+    local neighbor_name="$2"
+    local neighbor_ip="$3"
+    local neighbor_as="$4"
+    local local_as="$5"
+    
+    # 检查邻居是否已存在
+    if grep -q "protocol bgp $neighbor_name" "$config_file"; then
+        log_warn "BGP邻居 $neighbor_name 已存在"
+        return 0
+    fi
+    
+    # 添加邻居配置
+    cat >> "$config_file" << EOF
+
+# BGP Neighbor: $neighbor_name
+protocol bgp $neighbor_name {
+    local as $local_as;
+    neighbor $neighbor_ip as $neighbor_as;
+    import all;
+    export all;
+    next hop self;
+}
+EOF
+    
+    log_info "BGP邻居配置已添加到: $config_file"
+}
+
+# 删除BGP邻居
+remove_bgp_neighbor() {
+    local neighbor_name="$1"
+    
+    if [[ -z "$neighbor_name" ]]; then
+        log_error "邻居名称不能为空"
+        return 1
+    fi
+    
+    log_info "删除BGP邻居: $neighbor_name"
+    
+    # 备份配置文件
+    backup_file "$BIRD_CONFIG_FILE"
+    backup_file "$BIRD6_CONFIG_FILE"
+    
+    # 从IPv4配置中删除
+    remove_bgp_neighbor_from_config "$BIRD_CONFIG_FILE" "$neighbor_name"
+    
+    # 从IPv6配置中删除
+    remove_bgp_neighbor_from_config "$BIRD6_CONFIG_FILE" "$neighbor_name"
+    
+    # 重载配置
+    reload_bird_config
+    
+    log_info "BGP邻居 $neighbor_name 删除成功"
+}
+
+# 从配置文件中删除BGP邻居
+remove_bgp_neighbor_from_config() {
+    local config_file="$1"
+    local neighbor_name="$2"
+    
+    # 创建临时文件
+    local temp_config=$(create_temp_file "bird_config")
+    
+    # 删除邻居配置块
+    awk -v name="$neighbor_name" '
+    /^# BGP Neighbor: / { in_block = 0 }
+    /^protocol bgp / { 
+        if ($3 == name) { 
+            in_block = 1; 
+            next 
+        } 
+    }
+    in_block && /^}/ { 
+        in_block = 0; 
+        next 
+    }
+    !in_block { print }
+    ' "$config_file" > "$temp_config"
+    
+    # 替换原文件
+    mv "$temp_config" "$config_file"
+    
+    log_info "BGP邻居配置已从 $config_file 中删除"
+}
+
+# 重载BIRD配置
+reload_bird_config() {
+    log_info "重载BIRD配置..."
+    
+    # 验证配置语法
+    if ! validate_bird_config; then
+        log_error "BIRD配置验证失败"
+        return 1
+    fi
+    
+    # 重载IPv4配置
+    if command -v birdc &> /dev/null; then
+        birdc configure 2>/dev/null || log_warn "BIRD IPv4配置重载失败"
+    fi
+    
+    # 重载IPv6配置
+    if command -v birdc6 &> /dev/null; then
+        birdc6 configure 2>/dev/null || log_warn "BIRD IPv6配置重载失败"
+    fi
+    
+    log_info "BIRD配置重载完成"
+}
+
+# 验证BIRD配置
+validate_bird_config() {
+    local config_file="${1:-$BIRD_CONFIG_FILE}"
+    
+    if [[ ! -f "$config_file" ]]; then
+        log_error "配置文件不存在: $config_file"
+        return 1
+    fi
+    
+    log_info "验证BIRD配置: $config_file"
+    
+    # 检查配置语法
+    if command -v bird &> /dev/null; then
+        if bird -p -c "$config_file" >/dev/null 2>&1; then
+            log_info "BIRD配置语法正确"
+        else
+            log_error "BIRD配置语法错误"
+            return 1
+        fi
+    else
+        log_warn "BIRD未安装，跳过语法检查"
+    fi
+    
+    # 检查必需字段
+    local required_fields=("router id" "protocol device" "protocol kernel")
+    for field in "${required_fields[@]}"; do
+        if ! grep -q "$field" "$config_file"; then
+            log_error "缺少必需字段: $field"
+            return 1
+        fi
+    done
+    
+    log_info "BIRD配置验证通过"
+    return 0
+}
+
+# 显示BIRD状态
+show_bird_status() {
+    log_info "BIRD状态信息:"
+    
+    # IPv4 BIRD状态
+    if is_service_running "bird"; then
+        echo "BIRD IPv4: 运行中"
+        echo
+        
+        if command -v birdc &> /dev/null; then
+            echo "BIRD IPv4 状态:"
+            birdc show status 2>/dev/null || echo "无法获取状态"
+            echo
+            
+            echo "BIRD IPv4 协议:"
+            birdc show protocols 2>/dev/null || echo "无法获取协议信息"
+            echo
+            
+            echo "BIRD IPv4 路由:"
+            birdc show route 2>/dev/null | head -20 || echo "无法获取路由信息"
+        fi
+    else
+        echo "BIRD IPv4: 未运行"
+    fi
+    
+    echo "----------------------------------------"
+    
+    # IPv6 BIRD状态
+    if is_service_running "bird6"; then
+        echo "BIRD IPv6: 运行中"
+        echo
+        
+        if command -v birdc6 &> /dev/null; then
+            echo "BIRD IPv6 状态:"
+            birdc6 show status 2>/dev/null || echo "无法获取状态"
+            echo
+            
+            echo "BIRD IPv6 协议:"
+            birdc6 show protocols 2>/dev/null || echo "无法获取协议信息"
+            echo
+            
+            echo "BIRD IPv6 路由:"
+            birdc6 show route 2>/dev/null | head -20 || echo "无法获取路由信息"
+        fi
+    else
+        echo "BIRD IPv6: 未运行"
+    fi
+}
+
+# 显示BGP邻居状态
+show_bgp_neighbors() {
+    log_info "BGP邻居状态:"
+    
+    if command -v birdc &> /dev/null; then
+        echo "IPv4 BGP邻居:"
+        birdc show protocols all 2>/dev/null | grep -A 10 "BGP" || echo "没有BGP邻居"
+        echo
+    fi
+    
+    if command -v birdc6 &> /dev/null; then
+        echo "IPv6 BGP邻居:"
+        birdc6 show protocols all 2>/dev/null | grep -A 10 "BGP" || echo "没有BGP邻居"
+        echo
+    fi
+}
+
+# 显示路由表
+show_bird_routes() {
+    local family="${1:-all}"  # all, ipv4, ipv6
+    
+    log_info "BIRD路由表:"
+    
+    case "$family" in
+        "ipv4"|"all")
+            if command -v birdc &> /dev/null; then
+                echo "IPv4路由表:"
+                birdc show route 2>/dev/null || echo "无法获取IPv4路由"
+                echo
+            fi
+            ;;
+    esac
+    
+    case "$family" in
+        "ipv6"|"all")
+            if command -v birdc6 &> /dev/null; then
+                echo "IPv6路由表:"
+                birdc6 show route 2>/dev/null || echo "无法获取IPv6路由"
+                echo
+            fi
+            ;;
+    esac
+}
+
+# 配置IPv6前缀分发
+configure_ipv6_prefix_distribution() {
+    local prefix="$1"
+    local prefix_length="${2:-64}"
+    
+    if [[ -z "$prefix" ]]; then
+        log_error "IPv6前缀不能为空"
+        return 1
+    fi
+    
+    if ! validate_cidr "$prefix"; then
+        log_error "无效的IPv6前缀: $prefix"
+        return 1
+    fi
+    
+    log_info "配置IPv6前缀分发: $prefix"
+    
+    # 备份配置
+    backup_file "$BIRD6_CONFIG_FILE"
+    
+    # 添加前缀分发配置
+    cat >> "$BIRD6_CONFIG_FILE" << EOF
+
+# IPv6 Prefix Distribution
+protocol static {
+    route $prefix/$prefix_length via "${WIREGUARD_INTERFACE:-wg0}";
+}
+EOF
+    
+    # 重载配置
+    reload_bird_config
+    
+    log_info "IPv6前缀分发配置完成"
+}
+
+# 备份BIRD配置
+backup_bird_config() {
+    local backup_dir="${BACKUP_DIR:-/var/backups/ipv6-wireguard}"
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_file="${backup_dir}/bird_config_${timestamp}.tar.gz"
+    
+    mkdir -p "$backup_dir"
+    
+    log_info "备份BIRD配置到: $backup_file"
+    
+    tar -czf "$backup_file" -C "$BIRD_CONFIG_DIR" . 2>/dev/null
+    
+    if [[ -f "$backup_file" ]]; then
+        log_info "BIRD配置备份成功"
+        echo "$backup_file"
+    else
+        log_error "BIRD配置备份失败"
+        return 1
+    fi
+}
+
+# 恢复BIRD配置
+restore_bird_config() {
+    local backup_file="$1"
+    
+    if [[ -z "$backup_file" ]]; then
+        log_error "备份文件路径不能为空"
+        return 1
+    fi
+    
+    if [[ ! -f "$backup_file" ]]; then
+        log_error "备份文件不存在: $backup_file"
+        return 1
+    fi
+    
+    log_info "从备份恢复BIRD配置: $backup_file"
+    
+    # 停止服务
+    stop_bird_service
+    
+    # 备份当前配置
+    backup_bird_config
+    
+    # 恢复配置
+    tar -xzf "$backup_file" -C "$BIRD_CONFIG_DIR" 2>/dev/null
+    
+    # 设置权限
+    chmod 644 "$BIRD_CONFIG_FILE" "$BIRD6_CONFIG_FILE"
+    
+    # 启动服务
+    start_bird_service
+    
+    log_info "BIRD配置恢复成功"
+}
+
+# 导出函数
+export -f init_bird_config detect_bird_version create_bird_config create_bird6_config
+export -f get_router_id configure_bird start_bird_service stop_bird_service
+export -f restart_bird_service enable_bird_service disable_bird_service
+export -f add_bgp_neighbor add_bgp_neighbor_to_config remove_bgp_neighbor
+export -f remove_bgp_neighbor_from_config reload_bird_config validate_bird_config
+export -f show_bird_status show_bgp_neighbors show_bird_routes
+export -f configure_ipv6_prefix_distribution backup_bird_config restore_bird_config
+
+# BIRD权限配置函数
+
+# 创建BIRD专用用户和组
+create_bird_user_and_group() {
+    log_info "创建BIRD专用用户和组..."
+    
+    # 创建bird组
+    if ! getent group bird >/dev/null 2>&1; then
+        groupadd -r bird
+        log_info "已创建bird组"
+    else
+        log_info "bird组已存在"
+    fi
+    
+    # 创建bird用户
+    if ! getent passwd bird >/dev/null 2>&1; then
+        useradd -r -g bird -d /var/lib/bird -s /bin/false -c "BIRD BGP daemon" bird
+        log_info "已创建bird用户"
+    else
+        log_info "bird用户已存在"
+    fi
+    
+    # 创建bird主目录
+    mkdir -p /var/lib/bird
+    chown bird:bird /var/lib/bird
+    chmod 755 /var/lib/bird
+    
+    # 设置BIRD配置目录权限
+    chown -R bird:bird "$BIRD_CONFIG_DIR"
+    chmod 755 "$BIRD_CONFIG_DIR"
+    chmod 700 "$BIRD_KEYS_DIR"
+}
+
+# 设置BIRD权限
+setup_bird_permissions() {
+    log_info "设置BIRD权限..."
+    
+    # 设置最小权限原则
+    setup_bird_filesystem_permissions
+    setup_bird_systemd_security
+    setup_bird_capabilities
+}
+
+# 设置BIRD文件系统权限
+setup_bird_filesystem_permissions() {
+    log_info "设置BIRD文件系统权限..."
+    
+    # 创建BIRD运行时目录
+    mkdir -p /var/run/bird
+    chown bird:bird /var/run/bird
+    chmod 755 /var/run/bird
+    
+    # 设置日志目录权限
+    mkdir -p /var/log/bird
+    chown bird:bird /var/log/bird
+    chmod 755 /var/log/bird
+    
+    # 设置配置文件权限
+    chown bird:bird "$BIRD_CONFIG_FILE" 2>/dev/null || true
+    chown bird:bird "$BIRD6_CONFIG_FILE" 2>/dev/null || true
+    chmod 644 "$BIRD_CONFIG_FILE" 2>/dev/null || true
+    chmod 644 "$BIRD6_CONFIG_FILE" 2>/dev/null || true
+    
+    # 设置密钥文件权限
+    chown -R bird:bird "$BIRD_KEYS_DIR"
+    chmod 600 "$BIRD_KEYS_DIR"/* 2>/dev/null || true
+}
+
+# 设置BIRD systemd安全特性
+setup_bird_systemd_security() {
+    log_info "设置BIRD systemd安全特性..."
+    
+    create_bird_systemd_service
+    configure_bird_systemd_security
+}
+
+# 创建BIRD systemd服务文件
+create_bird_systemd_service() {
+    local service_file="/etc/systemd/system/bird.service"
+    local service6_file="/etc/systemd/system/bird6.service"
+    
+    # 创建bird.service
+    cat > "$service_file" << 'EOF'
+[Unit]
+Description=BIRD Internet Routing Daemon
+Documentation=man:bird(8)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+User=bird
+Group=bird
+ExecStart=/usr/sbin/bird -f -u bird -g bird -c /etc/bird/bird.conf
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=60
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bird /var/run/bird /var/log/bird
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# 网络设置
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=172.16.0.0/12
+IPAddressAllow=192.168.0.0/16
+IPAddressAllow=fc00::/7
+IPAddressAllow=fe80::/10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 创建bird6.service
+    cat > "$service6_file" << 'EOF'
+[Unit]
+Description=BIRD Internet Routing Daemon (IPv6)
+Documentation=man:bird6(8)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+User=bird
+Group=bird
+ExecStart=/usr/sbin/bird6 -f -u bird -g bird -c /etc/bird/bird6.conf
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=60
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bird /var/run/bird /var/log/bird
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# 网络设置
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=172.16.0.0/12
+IPAddressAllow=192.168.0.0/16
+IPAddressAllow=fc00::/7
+IPAddressAllow=fe80::/10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    log_info "BIRD systemd服务文件已创建"
+}
+
+# 配置BIRD systemd安全特性
+configure_bird_systemd_security() {
+    log_info "配置BIRD systemd安全特性..."
+    systemctl enable bird
+    systemctl enable bird6
+    log_info "BIRD systemd安全特性配置完成"
+}
+
+# 设置BIRD进程能力限制
+setup_bird_capabilities() {
+    log_info "设置BIRD进程能力限制..."
+    
+    if command -v setcap &> /dev/null; then
+        setcap 'cap_net_admin,cap_net_raw+ep' /usr/sbin/bird 2>/dev/null || true
+        setcap 'cap_net_admin,cap_net_raw+ep' /usr/sbin/bird6 2>/dev/null || true
+        log_info "BIRD进程能力限制已设置"
+    else
+        log_warn "setcap命令不可用，无法设置进程能力限制"
+    fi
+}
+
+# BGP配置管理功能
+
+# BGP配置管理主菜单
+bgp_config_management_menu() {
+    while true; do
+        clear
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== BGP配置管理 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} BGP配置向导"
+        echo -e "${GREEN}2.${NC} Router ID设置"
+        echo -e "${GREEN}3.${NC} AS Number管理"
+        echo -e "${GREEN}4.${NC} 邻居配置"
+        echo -e "${GREEN}5.${NC} 路由策略"
+        echo -e "${GREEN}6.${NC} BGP状态查看"
+        echo -e "${GREEN}7.${NC} 路由表查看"
+        echo -e "${GREEN}8.${NC} BGP诊断"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
+        echo
+        
+        read -p "请选择操作 [0-8]: " choice
+        
+        case $choice in
+            1) bgp_config_wizard ;;
+            2) set_router_id ;;
+            3) manage_as_number ;;
+            4) configure_bgp_neighbors ;;
+            5) configure_routing_policy ;;
+            6) view_bgp_status ;;
+            7) view_routing_table ;;
+            8) bgp_diagnostics ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
+        esac
+        
+        read -p "按回车键继续..."
+    done
+}
+
+# BGP配置向导
+bgp_config_wizard() {
+    echo -e "${SECONDARY_COLOR}=== BGP配置向导 ===${NC}"
+    echo
+    
+    log_info "开始BGP配置向导..."
+    
+    # 步骤1: 设置Router ID
+    local router_id=$(show_input "请输入Router ID (例如: 192.168.1.1)" "")
+    if [[ -z "$router_id" ]]; then
+        router_id=$(get_public_ipv4)
+        log_info "自动检测Router ID: $router_id"
+    fi
+    
+    # 步骤2: 设置AS Number
+    local local_as=$(show_input "请输入本地AS Number" "")
+    if [[ -z "$local_as" ]]; then
+        show_error "AS Number不能为空"
+        return 1
+    fi
+    
+    # 步骤3: 配置BGP邻居
+    local neighbor_name=$(show_input "请输入邻居名称" "")
+    local neighbor_ip=$(show_input "请输入邻居IP地址" "")
+    local neighbor_as=$(show_input "请输入邻居AS Number" "")
+    
+    if [[ -z "$neighbor_name" ]] || [[ -z "$neighbor_ip" ]] || [[ -z "$neighbor_as" ]]; then
+        show_error "邻居信息不能为空"
+        return 1
+    fi
+    
+    # 步骤4: 应用配置
+    if show_confirm "确认应用BGP配置？"; then
+        # 更新Router ID
+        update_router_id "$router_id"
+        
+        # 添加BGP邻居
+        add_bgp_neighbor "$neighbor_name" "$neighbor_ip" "$neighbor_as" "$local_as"
+        
+        # 重载BIRD配置
+        reload_bird_config
+        
+        log_info "BGP配置向导完成"
+    else
+        log_info "BGP配置向导取消"
+    fi
+}
+
+# 设置Router ID
+set_router_id() {
+    echo -e "${SECONDARY_COLOR}=== Router ID设置 ===${NC}"
+    echo
+    
+    local current_router_id=$(get_router_id)
+    echo "当前Router ID: $current_router_id"
+    
+    local new_router_id=$(show_input "请输入新的Router ID" "$current_router_id")
+    
+    if [[ -n "$new_router_id" ]]; then
+        if update_router_id "$new_router_id"; then
+            log_info "Router ID已更新: $new_router_id"
+            reload_bird_config
+        else
+            log_error "Router ID更新失败"
+        fi
+    else
+        show_error "Router ID不能为空"
+    fi
+}
+
+# 更新Router ID
+update_router_id() {
+    local router_id="$1"
+    
+    # 验证Router ID格式
+    if ! validate_ipv4 "$router_id"; then
+        show_error "无效的Router ID格式"
+        return 1
+    fi
+    
+    # 更新IPv4配置
+    if [[ -f "$BIRD_CONFIG_FILE" ]]; then
+        sed -i "s/^router id .*/router id $router_id;/" "$BIRD_CONFIG_FILE"
+    fi
+    
+    # 更新IPv6配置
+    if [[ -f "$BIRD6_CONFIG_FILE" ]]; then
+        sed -i "s/^router id .*/router id $router_id;/" "$BIRD6_CONFIG_FILE"
+    fi
+    
+    return 0
+}
+
+# AS Number管理
+manage_as_number() {
+    echo -e "${SECONDARY_COLOR}=== AS Number管理 ===${NC}"
+    echo
+    
+    local action=$(show_selection "操作" "查看当前AS" "设置本地AS" "管理AS范围")
+    
+    case "$action" in
+        "查看当前AS")
+            view_current_as_numbers
+            ;;
+        "设置本地AS")
+            set_local_as_number
+            ;;
+        "管理AS范围")
+            manage_as_ranges
+            ;;
+    esac
+}
+
+# 查看当前AS号码
+view_current_as_numbers() {
+    echo "当前AS配置:"
+    echo "----------------------------------------"
+    
+    if [[ -f "$BIRD_CONFIG_FILE" ]]; then
+        echo "IPv4 BGP配置:"
+        grep -E "local as|neighbor.*as" "$BIRD_CONFIG_FILE" | sed 's/^/  /'
+    fi
+    
+    if [[ -f "$BIRD6_CONFIG_FILE" ]]; then
+        echo "IPv6 BGP配置:"
+        grep -E "local as|neighbor.*as" "$BIRD6_CONFIG_FILE" | sed 's/^/  /'
+    fi
+}
+
+# 设置本地AS号码
+set_local_as_number() {
+    local current_as=$(grep "local as" "$BIRD_CONFIG_FILE" | head -1 | awk '{print $3}' | sed 's/;//')
+    local new_as=$(show_input "请输入本地AS Number" "$current_as")
+    
+    if [[ -n "$new_as" ]]; then
+        # 更新所有BGP配置中的本地AS
+        sed -i "s/local as [0-9]*/local as $new_as/g" "$BIRD_CONFIG_FILE"
+        sed -i "s/local as [0-9]*/local as $new_as/g" "$BIRD6_CONFIG_FILE"
+        
+        log_info "本地AS Number已更新: $new_as"
+        reload_bird_config
+    fi
+}
+
+# 管理AS范围
+manage_as_ranges() {
+    echo "AS范围管理功能待实现"
+    log_info "AS范围管理功能待实现"
+}
+
+# 配置BGP邻居
+configure_bgp_neighbors() {
+    echo -e "${SECONDARY_COLOR}=== BGP邻居配置 ===${NC}"
+    echo
+    
+    local action=$(show_selection "操作" "添加邻居" "删除邻居" "查看邻居" "修改邻居")
+    
+    case "$action" in
+        "添加邻居")
+            add_bgp_neighbor_interactive
+            ;;
+        "删除邻居")
+            remove_bgp_neighbor_interactive
+            ;;
+        "查看邻居")
+            view_bgp_neighbors
+            ;;
+        "修改邻居")
+            modify_bgp_neighbor
+            ;;
+    esac
+}
+
+# 交互式添加BGP邻居
+add_bgp_neighbor_interactive() {
+    local neighbor_name=$(show_input "邻居名称" "")
+    local neighbor_ip=$(show_input "邻居IP地址" "")
+    local neighbor_as=$(show_input "邻居AS Number" "")
+    local local_as=$(show_input "本地AS Number" "")
+    
+    if [[ -n "$neighbor_name" ]] && [[ -n "$neighbor_ip" ]] && [[ -n "$neighbor_as" ]] && [[ -n "$local_as" ]]; then
+        if add_bgp_neighbor "$neighbor_name" "$neighbor_ip" "$neighbor_as" "$local_as"; then
+            log_info "BGP邻居添加成功: $neighbor_name"
+        else
+            log_error "BGP邻居添加失败"
+        fi
+    else
+        show_error "所有字段都是必需的"
+    fi
+}
+
+# 交互式删除BGP邻居
+remove_bgp_neighbor_interactive() {
+    view_bgp_neighbors
+    echo
+    
+    local neighbor_name=$(show_input "要删除的邻居名称" "")
+    
+    if [[ -n "$neighbor_name" ]]; then
+        if remove_bgp_neighbor "$neighbor_name"; then
+            log_info "BGP邻居删除成功: $neighbor_name"
+        else
+            log_error "BGP邻居删除失败"
+        fi
+    else
+        show_error "邻居名称不能为空"
+    fi
+}
+
+# 查看BGP邻居
+view_bgp_neighbors() {
+    echo "BGP邻居列表:"
+    echo "----------------------------------------"
+    
+    if [[ -f "$BIRD_CONFIG_FILE" ]]; then
+        echo "IPv4 BGP邻居:"
+        grep -A 5 "protocol bgp" "$BIRD_CONFIG_FILE" | grep -E "protocol bgp|neighbor|local as" | sed 's/^/  /'
+    fi
+    
+    if [[ -f "$BIRD6_CONFIG_FILE" ]]; then
+        echo "IPv6 BGP邻居:"
+        grep -A 5 "protocol bgp" "$BIRD6_CONFIG_FILE" | grep -E "protocol bgp|neighbor|local as" | sed 's/^/  /'
+    fi
+}
+
+# 修改BGP邻居
+modify_bgp_neighbor() {
+    echo "修改BGP邻居功能待实现"
+    log_info "修改BGP邻居功能待实现"
+}
+
+# 配置路由策略
+configure_routing_policy() {
+    echo -e "${SECONDARY_COLOR}=== 路由策略配置 ===${NC}"
+    echo
+    
+    local action=$(show_selection "操作" "查看策略" "添加策略" "删除策略" "修改策略")
+    
+    case "$action" in
+        "查看策略")
+            view_routing_policies
+            ;;
+        "添加策略")
+            add_routing_policy
+            ;;
+        "删除策略")
+            remove_routing_policy
+            ;;
+        "修改策略")
+            modify_routing_policy
+            ;;
+    esac
+}
+
+# 查看路由策略
+view_routing_policies() {
+    echo "当前路由策略:"
+    echo "----------------------------------------"
+    
+    if [[ -f "$BIRD_CONFIG_FILE" ]]; then
+        grep -E "filter|function" "$BIRD_CONFIG_FILE" | sed 's/^/  /'
+    fi
+}
+
+# 添加路由策略
+add_routing_policy() {
+    echo "添加路由策略功能待实现"
+    log_info "添加路由策略功能待实现"
+}
+
+# 删除路由策略
+remove_routing_policy() {
+    echo "删除路由策略功能待实现"
+    log_info "删除路由策略功能待实现"
+}
+
+# 修改路由策略
+modify_routing_policy() {
+    echo "修改路由策略功能待实现"
+    log_info "修改路由策略功能待实现"
+}
+
+# 查看BGP状态
+view_bgp_status() {
+    echo -e "${SECONDARY_COLOR}=== BGP状态查看 ===${NC}"
+    echo
+    
+    if systemctl is-active --quiet bird; then
+        echo "BIRD IPv4状态:"
+        echo "----------------------------------------"
+        birdc show protocols all 2>/dev/null || echo "无法连接到BIRD控制台"
+    else
+        echo "BIRD IPv4服务未运行"
+    fi
+    
+    echo
+    
+    if systemctl is-active --quiet bird6; then
+        echo "BIRD IPv6状态:"
+        echo "----------------------------------------"
+        birdc6 show protocols all 2>/dev/null || echo "无法连接到BIRD6控制台"
+    else
+        echo "BIRD IPv6服务未运行"
+    fi
+}
+
+# 查看路由表
+view_routing_table() {
+    echo -e "${SECONDARY_COLOR}=== 路由表查看 ===${NC}"
+    echo
+    
+    local table_type=$(show_selection "路由表类型" "IPv4路由表" "IPv6路由表" "BGP路由表" "系统路由表")
+    
+    case "$table_type" in
+        "IPv4路由表")
+            view_ipv4_routing_table
+            ;;
+        "IPv6路由表")
+            view_ipv6_routing_table
+            ;;
+        "BGP路由表")
+            view_bgp_routing_table
+            ;;
+        "系统路由表")
+            view_system_routing_table
+            ;;
+    esac
+}
+
+# 查看IPv4路由表
+view_ipv4_routing_table() {
+    echo "IPv4路由表:"
+    echo "----------------------------------------"
+    if systemctl is-active --quiet bird; then
+        birdc show route 2>/dev/null || echo "无法获取IPv4路由表"
+    else
+        echo "BIRD IPv4服务未运行"
+    fi
+}
+
+# 查看IPv6路由表
+view_ipv6_routing_table() {
+    echo "IPv6路由表:"
+    echo "----------------------------------------"
+    if systemctl is-active --quiet bird6; then
+        birdc6 show route 2>/dev/null || echo "无法获取IPv6路由表"
+    else
+        echo "BIRD IPv6服务未运行"
+    fi
+}
+
+# 查看BGP路由表
+view_bgp_routing_table() {
+    echo "BGP路由表:"
+    echo "----------------------------------------"
+    if systemctl is-active --quiet bird; then
+        birdc show route protocol bgp 2>/dev/null || echo "无法获取BGP路由表"
+    else
+        echo "BIRD服务未运行"
+    fi
+}
+
+# 查看系统路由表
+view_system_routing_table() {
+    echo "系统路由表:"
+    echo "----------------------------------------"
+    ip route show
+    echo
+    echo "IPv6路由表:"
+    echo "----------------------------------------"
+    ip -6 route show
+}
+
+# BGP诊断
+bgp_diagnostics() {
+    echo -e "${SECONDARY_COLOR}=== BGP诊断 ===${NC}"
+    echo
+    
+    local diagnostic_type=$(show_selection "诊断类型" "连接测试" "配置验证" "性能分析" "日志分析")
+    
+    case "$diagnostic_type" in
+        "连接测试")
+            bgp_connection_test
+            ;;
+        "配置验证")
+            bgp_config_validation
+            ;;
+        "性能分析")
+            bgp_performance_analysis
+            ;;
+        "日志分析")
+            bgp_log_analysis
+            ;;
+    esac
+}
+
+# BGP连接测试
+bgp_connection_test() {
+    echo "BGP连接测试:"
+    echo "----------------------------------------"
+    
+    # 测试BGP邻居连接
+    if systemctl is-active --quiet bird; then
+        echo "测试BGP邻居连接..."
+        birdc show protocols 2>/dev/null | grep -E "BGP|Established|Active" || echo "无BGP连接"
+    else
+        echo "BIRD服务未运行"
+    fi
+}
+
+# BGP配置验证
+bgp_config_validation() {
+    echo "BGP配置验证:"
+    echo "----------------------------------------"
+    
+    if validate_bird_config; then
+        log_info "BGP配置验证通过"
+    else
+        log_error "BGP配置验证失败"
+    fi
+}
+
+# BGP性能分析
+bgp_performance_analysis() {
+    echo "BGP性能分析:"
+    echo "----------------------------------------"
+    
+    if systemctl is-active --quiet bird; then
+        echo "BGP统计信息:"
+        birdc show protocols all 2>/dev/null | grep -A 10 "BGP" || echo "无法获取BGP统计信息"
+    else
+        echo "BIRD服务未运行"
+    fi
+}
+
+# BGP日志分析
+bgp_log_analysis() {
+    echo "BGP日志分析:"
+    echo "----------------------------------------"
+    
+    echo "最近的BGP日志:"
+    journalctl -u bird -u bird6 --since "1 hour ago" | grep -i bgp | tail -20 || echo "无BGP日志"
+}
+
+# 更新导出函数
+export -f create_bird_user_and_group setup_bird_permissions setup_bird_filesystem_permissions
+export -f setup_bird_systemd_security create_bird_systemd_service configure_bird_systemd_security
+export -f setup_bird_capabilities bgp_config_management_menu bgp_config_wizard
+export -f set_router_id update_router_id manage_as_number view_current_as_numbers
+export -f set_local_as_number configure_bgp_neighbors add_bgp_neighbor_interactive
+export -f remove_bgp_neighbor_interactive view_bgp_neighbors configure_routing_policy
+export -f view_routing_policies view_bgp_status view_routing_table view_ipv4_routing_table
+export -f view_ipv6_routing_table view_bgp_routing_table view_system_routing_table
+export -f bgp_diagnostics bgp_connection_test bgp_config_validation bgp_performance_analysis bgp_log_analysis

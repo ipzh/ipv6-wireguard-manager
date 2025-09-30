@@ -1,0 +1,549 @@
+#!/bin/bash
+
+# 增强的错误处理模块
+# 提供异常场景覆盖、恢复机制和详细日志功能
+
+# =============================================================================
+# 异常场景覆盖
+# =============================================================================
+
+# 异常场景类型
+declare -A EXCEPTION_TYPES=(
+    ["network"]="网络连接异常"
+    ["file"]="文件操作异常"
+    ["permission"]="权限异常"
+    ["resource"]="资源不足异常"
+    ["timeout"]="超时异常"
+    ["dependency"]="依赖异常"
+    ["config"]="配置异常"
+    ["system"]="系统异常"
+)
+
+# 异常处理策略
+declare -A EXCEPTION_STRATEGIES=(
+    ["retry"]="重试"
+    ["fallback"]="降级"
+    ["abort"]="中止"
+    ["ignore"]="忽略"
+    ["recover"]="恢复"
+)
+
+# 异常场景检测
+detect_exception_scenario() {
+    local error_code="$1"
+    local context="$2"
+    local exception_type=""
+    
+    case "$error_code" in
+        1|2|3|4|5)
+            exception_type="system"
+            ;;
+        101|102|103)
+            exception_type="permission"
+            ;;
+        104|105|106)
+            exception_type="network"
+            ;;
+        107|108|109)
+            exception_type="file"
+            ;;
+        110|111|112)
+            exception_type="resource"
+            ;;
+        113|114|115)
+            exception_type="timeout"
+            ;;
+        116|117|118)
+            exception_type="dependency"
+            ;;
+        119|120|121)
+            exception_type="config"
+            ;;
+        *)
+            exception_type="system"
+            ;;
+    esac
+    
+    echo "$exception_type"
+}
+
+# 异常场景处理
+handle_exception_scenario() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    local strategy="${4:-retry}"
+    
+    log_error "检测到异常场景: ${EXCEPTION_TYPES[$exception_type]} (错误码: $error_code, 上下文: $context)"
+    
+    case "$strategy" in
+        "retry")
+            handle_retry_strategy "$exception_type" "$error_code" "$context"
+            ;;
+        "fallback")
+            handle_fallback_strategy "$exception_type" "$error_code" "$context"
+            ;;
+        "abort")
+            handle_abort_strategy "$exception_type" "$error_code" "$context"
+            ;;
+        "ignore")
+            handle_ignore_strategy "$exception_type" "$error_code" "$context"
+            ;;
+        "recover")
+            handle_recover_strategy "$exception_type" "$error_code" "$context"
+            ;;
+        *)
+            log_warn "未知的异常处理策略: $strategy"
+            handle_retry_strategy "$exception_type" "$error_code" "$context"
+            ;;
+    esac
+}
+
+# 重试策略
+handle_retry_strategy() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    local max_retries=3
+    local retry_delay=1
+    
+    log_info "执行重试策略: 最大重试次数 $max_retries, 重试间隔 ${retry_delay}秒"
+    
+    for ((i=1; i<=max_retries; i++)); do
+        log_info "重试第 $i 次..."
+        sleep "$retry_delay"
+        
+        # 根据异常类型执行不同的重试逻辑
+        case "$exception_type" in
+            "network")
+                if retry_network_operation "$context"; then
+                    log_success "网络操作重试成功"
+                    return 0
+                fi
+                ;;
+            "file")
+                if retry_file_operation "$context"; then
+                    log_success "文件操作重试成功"
+                    return 0
+                fi
+                ;;
+            "permission")
+                if retry_permission_operation "$context"; then
+                    log_success "权限操作重试成功"
+                    return 0
+                fi
+                ;;
+            *)
+                log_warn "暂不支持 $exception_type 类型的重试"
+                return 1
+                ;;
+        esac
+        
+        retry_delay=$((retry_delay * 2))  # 指数退避
+    done
+    
+    log_error "重试策略失败: 已达到最大重试次数"
+    return 1
+}
+
+# 降级策略
+handle_fallback_strategy() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    
+    log_info "执行降级策略: 使用备用方案"
+    
+    case "$exception_type" in
+        "network")
+            if use_fallback_network_config "$context"; then
+                log_success "网络降级成功"
+                return 0
+            fi
+            ;;
+        "file")
+            if use_fallback_file_location "$context"; then
+                log_success "文件降级成功"
+                return 0
+            fi
+            ;;
+        "config")
+            if use_fallback_config "$context"; then
+                log_success "配置降级成功"
+                return 0
+            fi
+            ;;
+        *)
+            log_warn "暂不支持 $exception_type 类型的降级"
+            return 1
+            ;;
+    esac
+    
+    log_error "降级策略失败"
+    return 1
+}
+
+# 中止策略
+handle_abort_strategy() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    
+    log_error "执行中止策略: 停止当前操作"
+    exit_with_error "$error_code" "操作中止: ${EXCEPTION_TYPES[$exception_type]}" "$context"
+}
+
+# 忽略策略
+handle_ignore_strategy() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    
+    log_warn "执行忽略策略: 忽略异常并继续执行"
+    return 0
+}
+
+# 恢复策略
+handle_recover_strategy() {
+    local exception_type="$1"
+    local error_code="$2"
+    local context="$3"
+    
+    log_info "执行恢复策略: 尝试恢复系统状态"
+    
+    case "$exception_type" in
+        "system")
+            if recover_system_state "$context"; then
+                log_success "系统状态恢复成功"
+                return 0
+            fi
+            ;;
+        "resource")
+            if recover_resource_state "$context"; then
+                log_success "资源状态恢复成功"
+                return 0
+            fi
+            ;;
+        *)
+            log_warn "暂不支持 $exception_type 类型的恢复"
+            return 1
+            ;;
+    esac
+    
+    log_error "恢复策略失败"
+    return 1
+}
+
+# =============================================================================
+# 恢复机制
+# =============================================================================
+
+# 系统状态恢复
+recover_system_state() {
+    local context="$1"
+    
+    log_info "恢复系统状态..."
+    
+    # 清理临时文件
+    cleanup_temp_files
+    
+    # 重置环境变量
+    reset_environment_variables
+    
+    # 重新初始化核心模块
+    if load_module_smart "common_functions" "true"; then
+        log_success "核心模块重新加载成功"
+    else
+        log_error "核心模块重新加载失败"
+        return 1
+    fi
+    
+    return 0
+}
+
+# 资源状态恢复
+recover_resource_state() {
+    local context="$1"
+    
+    log_info "恢复资源状态..."
+    
+    # 清理缓存
+    clear_cache
+    
+    # 释放内存
+    optimize_memory
+    
+    # 清理日志文件
+    cleanup_log_files
+    
+    return 0
+}
+
+# 网络操作重试
+retry_network_operation() {
+    local context="$1"
+    
+    # 检查网络连接
+    if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# 文件操作重试
+retry_file_operation() {
+    local context="$1"
+    
+    # 检查文件权限
+    if [[ -w "$context" ]] || [[ -w "$(dirname "$context")" ]]; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# 权限操作重试
+retry_permission_operation() {
+    local context="$1"
+    
+    # 尝试使用sudo
+    if command -v sudo >/dev/null 2>&1; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# 备用网络配置
+use_fallback_network_config() {
+    local context="$1"
+    
+    log_info "使用备用网络配置..."
+    
+    # 使用本地配置
+    export IPV6WGM_USE_LOCAL_CONFIG=true
+    
+    return 0
+}
+
+# 备用文件位置
+use_fallback_file_location() {
+    local context="$1"
+    
+    log_info "使用备用文件位置..."
+    
+    # 使用临时目录
+    local fallback_path="/tmp/ipv6-wireguard-manager/$(basename "$context")"
+    mkdir -p "$(dirname "$fallback_path")"
+    
+    if [[ -f "$context" ]]; then
+        cp "$context" "$fallback_path"
+        export IPV6WGM_FALLBACK_PATH="$fallback_path"
+        return 0
+    fi
+    
+    return 1
+}
+
+# 备用配置
+use_fallback_config() {
+    local context="$1"
+    
+    log_info "使用备用配置..."
+    
+    # 使用默认配置
+    export IPV6WGM_USE_DEFAULT_CONFIG=true
+    
+    return 0
+}
+
+# =============================================================================
+# 详细日志增强
+# =============================================================================
+
+# 增强的错误日志
+enhanced_error_log() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="${3:-unknown}"
+    local severity="${4:-ERROR}"
+    local line_number="${5:-$LINENO}"
+    local function_name="${6:-${FUNCNAME[1]}}"
+    
+    # 获取系统信息
+    local system_info=$(get_system_info)
+    local memory_info=$(get_memory_info)
+    local disk_info=$(get_disk_info)
+    
+    # 构建详细错误信息
+    local detailed_error="
+=== 错误详情 ===
+时间: $(date '+%Y-%m-%d %H:%M:%S')
+错误码: $error_code
+严重级别: $severity
+错误消息: $error_message
+上下文: $context
+函数: $function_name
+行号: $line_number
+调用栈: ${FUNCNAME[*]}
+
+=== 系统信息 ===
+$system_info
+
+=== 内存信息 ===
+$memory_info
+
+=== 磁盘信息 ===
+$disk_info
+
+=== 环境变量 ===
+PATH: $PATH
+PWD: $PWD
+USER: $USER
+HOME: $HOME
+"
+    
+    # 写入错误日志
+    echo "$detailed_error" >> "$IPV6WGM_LOG_DIR/error.log" 2>/dev/null || true
+    
+    # 写入系统日志
+    if command -v logger >/dev/null 2>&1; then
+        echo "$error_message" | logger -t "ipv6-wireguard-manager" -p "user.$severity" 2>/dev/null || true
+    fi
+    
+    # 发送告警（如果配置了）
+    if [[ "$severity" == "FATAL" || "$severity" == "CRITICAL" ]]; then
+        send_error_alert "$error_code" "$error_message" "$context"
+    fi
+}
+
+# 获取系统信息
+get_system_info() {
+    local info=""
+    
+    if [[ -f /proc/version ]]; then
+        info+="内核版本: $(cat /proc/version)\n"
+    fi
+    
+    if command -v uname >/dev/null 2>&1; then
+        info+="系统信息: $(uname -a)\n"
+    fi
+    
+    if command -v uptime >/dev/null 2>&1; then
+        info+="运行时间: $(uptime)\n"
+    fi
+    
+    echo -e "$info"
+}
+
+# 获取内存信息
+get_memory_info() {
+    local info=""
+    
+    if command -v free >/dev/null 2>&1; then
+        info+="内存使用:\n$(free -h)\n"
+    fi
+    
+    if [[ -f /proc/meminfo ]]; then
+        info+="内存详情:\n$(head -10 /proc/meminfo)\n"
+    fi
+    
+    echo -e "$info"
+}
+
+# 获取磁盘信息
+get_disk_info() {
+    local info=""
+    
+    if command -v df >/dev/null 2>&1; then
+        info+="磁盘使用:\n$(df -h)\n"
+    fi
+    
+    if command -v du >/dev/null 2>&1; then
+        info+="目录大小:\n$(du -sh /tmp /var/log 2>/dev/null || true)\n"
+    fi
+    
+    echo -e "$info"
+}
+
+# 发送错误告警
+send_error_alert() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="$3"
+    
+    # 检查是否配置了告警
+    if [[ -n "$IPV6WGM_ALERT_EMAIL" ]]; then
+        send_email_alert "$error_code" "$error_message" "$context"
+    fi
+    
+    if [[ -n "$IPV6WGM_ALERT_WEBHOOK" ]]; then
+        send_webhook_alert "$error_code" "$error_message" "$context"
+    fi
+}
+
+# 发送邮件告警
+send_email_alert() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="$3"
+    
+    if command -v mail >/dev/null 2>&1; then
+        echo "IPv6 WireGuard Manager 错误告警
+
+错误码: $error_code
+错误消息: $error_message
+上下文: $context
+时间: $(date)
+
+请及时处理此错误。
+" | mail -s "IPv6 WireGuard Manager 错误告警" "$IPV6WGM_ALERT_EMAIL" 2>/dev/null || true
+    fi
+}
+
+# 发送Webhook告警
+send_webhook_alert() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="$3"
+    
+    if command -v curl >/dev/null 2>&1; then
+        local payload="{
+            \"error_code\": \"$error_code\",
+            \"error_message\": \"$error_message\",
+            \"context\": \"$context\",
+            \"timestamp\": \"$(date -Iseconds)\",
+            \"service\": \"ipv6-wireguard-manager\"
+        }"
+        
+        curl -X POST -H "Content-Type: application/json" \
+             -d "$payload" "$IPV6WGM_ALERT_WEBHOOK" 2>/dev/null || true
+    fi
+}
+
+# 全局错误陷阱增强
+enhanced_trap_error() {
+    local exit_code="$?"
+    local command="$BASH_COMMAND"
+    local line_number="$LINENO"
+    local function_name="${FUNCNAME[1]}"
+    
+    if [[ $exit_code -ne 0 && $exit_code -ne 130 ]]; then
+        # 检测异常场景
+        local exception_type=$(detect_exception_scenario "$exit_code" "$function_name")
+        
+        # 记录详细错误
+        enhanced_error_log "$exit_code" "命令执行失败: $command" "$function_name" "ERROR" "$line_number" "$function_name"
+        
+        # 处理异常场景
+        handle_exception_scenario "$exception_type" "$exit_code" "$function_name" "retry"
+    fi
+}
+
+# 导出函数
+export -f detect_exception_scenario handle_exception_scenario
+export -f recover_system_state recover_resource_state
+export -f enhanced_error_log enhanced_trap_error
+export -f get_system_info get_memory_info get_disk_info
+export -f send_error_alert send_email_alert send_webhook_alert
