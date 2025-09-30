@@ -314,7 +314,10 @@ run_performance_test() {
         log_info "测试脚本启动时间..."
         
         local start_time=$(date +%s%N)
-        execute_command "cd '$PROJECT_ROOT' && timeout 10 bash -c 'source ipv6-wireguard-manager.sh --help'" "测试启动时间" "true" || exit
+        execute_command "cd '$PROJECT_ROOT' && timeout 10 bash -c 'source ipv6-wireguard-manager.sh --help'" "测试启动时间" "true" || {
+            log_error "启动时间测试失败，继续执行其他测试"
+            return 1
+        }
         local end_time=$(date +%s%N)
         local duration=$(( (end_time - start_time) / 1000000 )) # 转换为毫秒
         
