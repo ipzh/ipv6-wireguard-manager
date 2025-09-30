@@ -309,7 +309,7 @@ test_memory_usage() {
     
     # 获取初始内存使用
     local initial_memory
-    initial_memory=$(get_memory_usage 2>/dev/null || echo "0")
+    initial_memory=$(get_memory_usage "$@" 2>/dev/null || echo "0")
     
     # 执行一些内存密集型操作
     for i in {1..100}; do
@@ -322,7 +322,7 @@ test_memory_usage() {
     
     # 获取最终内存使用
     local final_memory
-    final_memory=$(get_memory_usage 2>/dev/null || echo "0")
+    final_memory=$(get_memory_usage "$@" 2>/dev/null || echo "0")
     # 处理小数，转换为整数
     local initial_mem_int
     local final_mem_int
