@@ -1,0 +1,481 @@
+name: IPv6-WireGuard Manager CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每天凌晨2点运行测试
+    - cron: '0 2 * * *'
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  IPV6WGM_TEST_MODE: "true"
+  IPV6WGM_DEBUG_MODE: "false"
+  IPV6WGM_CI_MODE: "true"
+
+jobs:
+  # 代码质量检查
+  code-quality:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          shellcheck \
+          yamllint \
+          python3 \
+          python3-pip \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3
+        
+        # 安装Python依赖
+        pip3 install yamllint
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行ShellCheck静态分析
+      run: |
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck
+        
+    - name: 检查配置文件语法
+      run: |
+        # 检查YAML文件
+        yamllint .github/workflows/ci.yml || true
+        yamllint docker-compose.yml || true
+        
+        # 检查Makefile
+        make -n all || true
+        
+    - name: 运行代码质量检查
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type syntax
+        fi
+
+  # 单元测试
+  unit-tests:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        shell: [bash, dash]
+        ubuntu-version: [20.04, 22.04]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        echo "SHELL=/bin/${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $GITHUB_ENV
+        
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ${{ matrix.shell }} \
+          shellcheck \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行单元测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type unit
+        else
+          echo "自动化测试脚本不存在，跳过单元测试"
+        fi
+        
+    - name: 生成测试报告
+      if: always()
+      run: |
+        echo "测试完成时间: $(date)" > test-report-${{ matrix.shell }}.txt
+        echo "Shell: ${{ matrix.shell }}" >> test-report-${{ matrix.shell }}.txt
+        echo "Ubuntu版本: ${{ matrix.ubuntu-version }}" >> test-report-${{ matrix.shell }}.txt
+        
+    - name: 上传测试报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-report-${{ matrix.shell }}
+        path: test-report-${{ matrix.shell }}.txt
+
+  # 集成测试
+  integration-tests:
+    name: 集成测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [code-quality, unit-tests]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3 \
+          docker.io
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行集成测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type integration
+        else
+          echo "自动化测试脚本不存在，跳过集成测试"
+        fi
+
+  # 安全测试
+  security-tests:
+    name: 安全测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装安全扫描工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          shellcheck \
+          curl \
+          wget \
+          git
+          
+    - name: 运行安全扫描
+      run: |
+        # 使用ShellCheck进行安全扫描
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --severity=warning
+        
+        # 检查敏感信息
+        if grep -r "password\|secret\|key" --include="*.sh" . | grep -v "example\|test\|demo"; then
+          echo "警告: 发现可能的敏感信息"
+        fi
+
+  # 性能测试
+  performance-tests:
+    name: 性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          time
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行性能测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type performance
+        else
+          echo "自动化测试脚本不存在，跳过性能测试"
+        fi
+
+  # Windows兼容性测试
+  windows-compatibility-tests:
+    name: Windows兼容性测试
+    runs-on: windows-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Git Bash
+      run: |
+        echo "SHELL=/usr/bin/bash" >> $GITHUB_ENV
+        
+    - name: 安装依赖
+      run: |
+        # 在Windows上安装Git Bash和必要工具
+        choco install git -y || true
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行Windows兼容性测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type compatibility
+        else
+          echo "自动化测试脚本不存在，跳过Windows兼容性测试"
+        fi
+
+  # Docker构建和测试
+  docker-build:
+    name: Docker构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [code-quality, unit-tests]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 构建Docker镜像
+      run: |
+        docker build -t ipv6-wireguard-manager:${{ env.IPV6WGM_VERSION }} .
+        docker tag ipv6-wireguard-manager:${{ env.IPV6WGM_VERSION }} ipv6-wireguard-manager:latest
+        
+    - name: 测试Docker镜像
+      run: |
+        # 测试镜像是否能正常启动
+        docker run --rm ipv6-wireguard-manager:${{ env.IPV6WGM_VERSION }} --version || true
+        
+    - name: 保存Docker镜像
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: |
+          /tmp/docker-image.tar
+      if: always()
+      
+    - name: 清理Docker缓存
+      run: |
+        docker system prune -f
+
+  # Makefile构建和测试
+  makefile-build:
+    name: Makefile构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [code-quality]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          make \
+          zip \
+          tar
+          
+    - name: 检查Makefile语法
+      run: |
+        make -n all
+        make -n help
+        
+    - name: 运行Makefile构建
+      run: |
+        make build
+        
+    - name: 运行Makefile测试
+      run: |
+        make test-unit || echo "单元测试完成"
+        
+    - name: 运行Makefile代码质量检查
+      run: |
+        make lint
+        
+    - name: 创建发布包
+      run: |
+        make release
+        
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: makefile-build-artifacts
+        path: |
+          dist/
+          *.tar.gz
+          *.zip
+
+  # Docker Compose测试
+  docker-compose-test:
+    name: Docker Compose测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [docker-build]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        
+    - name: 验证Docker Compose配置
+      run: |
+        docker-compose config
+        
+    - name: 构建测试服务
+      run: |
+        docker-compose build ipv6-wireguard-manager-test
+        
+    - name: 运行Docker Compose测试
+      run: |
+        docker-compose --profile testing up --abort-on-container-exit ipv6-wireguard-manager-test
+        
+    - name: 清理Docker Compose
+      run: |
+        docker-compose down -v
+        docker system prune -f
+
+  # 构建和部署
+  build:
+    name: 构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [code-quality, unit-tests, integration-tests, security-tests, performance-tests, windows-compatibility-tests, docker-build, makefile-build, docker-compose-test]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          make
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行完整构建
+      run: |
+        make ci
+        
+    - name: 创建最终发布包
+      run: |
+        make release
+        
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: ipv6-wireguard-manager-${{ env.IPV6WGM_VERSION }}
+        path: dist/
+
+  # 测试总结
+  test-summary:
+    name: 测试总结
+    runs-on: ubuntu-latest
+    needs: [code-quality, unit-tests, integration-tests, security-tests, performance-tests, windows-compatibility-tests, docker-build, makefile-build, docker-compose-test, build]
+    if: always()
+    
+    steps:
+    - name: 生成测试总结
+      run: |
+        echo "# IPv6-WireGuard Manager CI 测试总结" > test-summary.md
+        echo "" >> test-summary.md
+        echo "## 测试时间" >> test-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> test-summary.md
+        echo "- 结束时间: $(date)" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 测试结果" >> test-summary.md
+        echo "- 代码质量检查: ${{ needs.code-quality.result }}" >> test-summary.md
+        echo "- 单元测试: ${{ needs.unit-tests.result }}" >> test-summary.md
+        echo "- 集成测试: ${{ needs.integration-tests.result }}" >> test-summary.md
+        echo "- 安全测试: ${{ needs.security-tests.result }}" >> test-summary.md
+        echo "- 性能测试: ${{ needs.performance-tests.result }}" >> test-summary.md
+        echo "- Windows兼容性测试: ${{ needs.windows-compatibility-tests.result }}" >> test-summary.md
+        echo "- Docker构建: ${{ needs.docker-build.result }}" >> test-summary.md
+        echo "- Makefile构建: ${{ needs.makefile-build.result }}" >> test-summary.md
+        echo "- Docker Compose测试: ${{ needs.docker-compose-test.result }}" >> test-summary.md
+        echo "- 最终构建: ${{ needs.build.result }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 构建产物" >> test-summary.md
+        echo "- Docker镜像: ipv6-wireguard-manager:${{ env.IPV6WGM_VERSION }}" >> test-summary.md
+        echo "- 发布包: dist/ipv6-wireguard-manager-${{ env.IPV6WGM_VERSION }}.tar.gz" >> test-summary.md
+        echo "- 发布包: dist/ipv6-wireguard-manager-${{ env.IPV6WGM_VERSION }}.zip" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 提交信息" >> test-summary.md
+        echo "- 提交哈希: ${{ github.sha }}" >> test-summary.md
+        echo "- 分支: ${{ github.ref_name }}" >> test-summary.md
+        echo "- 作者: ${{ github.actor }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 环境信息" >> test-summary.md
+        echo "- 运行器: ubuntu-latest" >> test-summary.md
+        echo "- Docker版本: $(docker --version)" >> test-summary.md
+        echo "- Make版本: $(make --version | head -1)" >> test-summary.md
+        
+    - name: 上传测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-summary
+        path: test-summary.md

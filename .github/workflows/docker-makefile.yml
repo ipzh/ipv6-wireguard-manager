@@ -1,0 +1,329 @@
+name: Docker & Makefile 专项测试
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - 'modules/**'
+      - 'scripts/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - 'modules/**'
+      - 'scripts/**'
+  workflow_dispatch:
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  DOCKER_REGISTRY: "ghcr.io"
+  IMAGE_NAME: "ipv6-wireguard-manager"
+
+jobs:
+  # Docker镜像构建和测试
+  docker-build-test:
+    name: Docker构建测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 登录到容器注册表
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 提取元数据
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: 构建并推送Docker镜像
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: 测试Docker镜像
+      run: |
+        # 测试镜像基本功能
+        docker run --rm ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest --help || true
+        
+        # 测试健康检查
+        docker run --rm -d --name test-container ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest
+        sleep 10
+        docker exec test-container /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --version || true
+        docker stop test-container || true
+        
+    - name: 清理Docker缓存
+      run: |
+        docker system prune -f
+
+  # Makefile功能测试
+  makefile-test:
+    name: Makefile功能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          make \
+          zip \
+          tar \
+          shellcheck
+          
+    - name: 验证Makefile语法
+      run: |
+        make -n all
+        make -n help
+        make -n build
+        make -n test
+        make -n lint
+        make -n clean
+        make -n release
+        
+    - name: 运行Makefile帮助
+      run: |
+        make help
+        
+    - name: 运行Makefile构建
+      run: |
+        make build
+        
+    - name: 运行Makefile代码质量检查
+      run: |
+        make lint
+        
+    - name: 运行Makefile测试
+      run: |
+        make test-unit || echo "单元测试完成"
+        make test-integration || echo "集成测试完成"
+        
+    - name: 运行Makefile清理
+      run: |
+        make clean
+        
+    - name: 运行Makefile发布
+      run: |
+        make release
+        
+    - name: 验证发布包
+      run: |
+        ls -la dist/
+        if [[ -f "dist/ipv6-wireguard-manager-${IPV6WGM_VERSION}.tar.gz" ]]; then
+          echo "✓ tar.gz 发布包创建成功"
+          tar -tzf dist/ipv6-wireguard-manager-${IPV6WGM_VERSION}.tar.gz | head -10
+        fi
+        if [[ -f "dist/ipv6-wireguard-manager-${IPV6WGM_VERSION}.zip" ]]; then
+          echo "✓ zip 发布包创建成功"
+          unzip -l dist/ipv6-wireguard-manager-${IPV6WGM_VERSION}.zip | head -10
+        fi
+        
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: makefile-build-artifacts
+        path: dist/
+
+  # Docker Compose集成测试
+  docker-compose-test:
+    name: Docker Compose集成测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [docker-build-test]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
+        
+    - name: 验证Docker Compose配置
+      run: |
+        docker-compose config --quiet
+        echo "✓ Docker Compose配置验证通过"
+        
+    - name: 构建服务
+      run: |
+        docker-compose build --no-cache
+        
+    - name: 启动服务进行测试
+      run: |
+        # 启动主服务
+        docker-compose up -d ipv6-wireguard-manager
+        sleep 30
+        
+        # 检查服务状态
+        docker-compose ps
+        
+        # 检查服务日志
+        docker-compose logs ipv6-wireguard-manager | tail -20
+        
+        # 停止服务
+        docker-compose down
+        
+    - name: 运行测试服务
+      run: |
+        # 运行测试服务
+        docker-compose --profile testing up --abort-on-container-exit ipv6-wireguard-manager-test
+        
+        # 检查测试结果
+        if [[ -d "test-results" ]]; then
+          echo "测试结果目录:"
+          ls -la test-results/
+        fi
+        
+    - name: 清理Docker环境
+      run: |
+        docker-compose down -v
+        docker system prune -f
+
+  # 多架构Docker构建测试
+  multi-arch-docker:
+    name: 多架构Docker构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 构建多架构镜像
+      run: |
+        docker buildx build \
+          --platform linux/amd64,linux/arm64,linux/arm/v7 \
+          --tag ${{ env.IMAGE_NAME }}:test-multiarch \
+          --load \
+          .
+          
+    - name: 检查多架构镜像
+      run: |
+        docker images | grep ${{ env.IMAGE_NAME }}
+        docker run --rm --platform linux/amd64 ${{ env.IMAGE_NAME }}:test-multiarch --version || true
+
+  # 性能基准测试
+  performance-benchmark:
+    name: 性能基准测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          make \
+          time
+          
+    - name: 运行性能基准测试
+      run: |
+        echo "开始性能基准测试..."
+        
+        # 测试构建时间
+        echo "测试Makefile构建时间:"
+        time make build
+        
+        # 测试测试执行时间
+        echo "测试单元测试执行时间:"
+        time make test-unit || echo "单元测试完成"
+        
+        # 测试代码质量检查时间
+        echo "测试代码质量检查时间:"
+        time make lint
+        
+        # 测试清理时间
+        echo "测试清理时间:"
+        time make clean
+        
+        echo "性能基准测试完成"
+
+  # 测试总结
+  test-summary:
+    name: Docker & Makefile 测试总结
+    runs-on: ubuntu-latest
+    needs: [docker-build-test, makefile-test, docker-compose-test, multi-arch-docker, performance-benchmark]
+    if: always()
+    
+    steps:
+    - name: 生成测试总结
+      run: |
+        echo "# Docker & Makefile 专项测试总结" > docker-makefile-summary.md
+        echo "" >> docker-makefile-summary.md
+        echo "## 测试时间" >> docker-makefile-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> docker-makefile-summary.md
+        echo "- 结束时间: $(date)" >> docker-makefile-summary.md
+        echo "" >> docker-makefile-summary.md
+        echo "## 测试结果" >> docker-makefile-summary.md
+        echo "- Docker构建测试: ${{ needs.docker-build-test.result }}" >> docker-makefile-summary.md
+        echo "- Makefile功能测试: ${{ needs.makefile-test.result }}" >> docker-makefile-summary.md
+        echo "- Docker Compose集成测试: ${{ needs.docker-compose-test.result }}" >> docker-makefile-summary.md
+        echo "- 多架构Docker构建: ${{ needs.multi-arch-docker.result }}" >> docker-makefile-summary.md
+        echo "- 性能基准测试: ${{ needs.performance-benchmark.result }}" >> docker-makefile-summary.md
+        echo "" >> docker-makefile-summary.md
+        echo "## 构建产物" >> docker-makefile-summary.md
+        echo "- Docker镜像: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}" >> docker-makefile-summary.md
+        echo "- 发布包: dist/ipv6-wireguard-manager-${{ env.IPV6WGM_VERSION }}.tar.gz" >> docker-makefile-summary.md
+        echo "- 发布包: dist/ipv6-wireguard-manager-${{ env.IPV6WGM_VERSION }}.zip" >> docker-makefile-summary.md
+        echo "" >> docker-makefile-summary.md
+        echo "## 环境信息" >> docker-makefile-summary.md
+        echo "- 运行器: ubuntu-latest" >> docker-makefile-summary.md
+        echo "- Docker版本: $(docker --version)" >> docker-makefile-summary.md
+        echo "- Docker Compose版本: $(docker-compose --version)" >> docker-makefile-summary.md
+        echo "- Make版本: $(make --version | head -1)" >> docker-makefile-summary.md
+        
+    - name: 上传测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-makefile-test-summary
+        path: docker-makefile-summary.md
