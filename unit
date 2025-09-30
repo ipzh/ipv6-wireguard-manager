@@ -1,0 +1,22 @@
+{
+    "test_summary": {
+        "total_tests": 5,
+        "passed_tests": 5,
+        "failed_tests": 0,
+        "skipped_tests": 0,
+        "start_time": "1759195306",
+        "end_time": "",
+        "duration": -1759195306
+    },
+    "test_results": {
+        "bash -c 'source "/mnt/d/IPv6- WireGuard -manager/modules/enhanced_config_management.sh" && validate_ipv4 192.168.1.1'": "PASSED"
+,
+        "bash -c 'source "/mnt/d/IPv6- WireGuard -manager/modules/common_functions.sh" && log_info "测试日志功能"'": "PASSED"
+,
+        "bash -c 'source "/mnt/d/IPv6- WireGuard -manager/modules/resource_monitoring.sh" && get_memory_usage'": "PASSED"
+,
+        "bash -c 'source "/mnt/d/IPv6- WireGuard -manager/modules/function_management.sh" && register_function test_func 1.0.0'": "PASSED"
+,
+        "bash -c 'source "/mnt/d/IPv6- WireGuard -manager/modules/variable_management.sh" && ensure_variables'": "PASSED"
+    }
+}

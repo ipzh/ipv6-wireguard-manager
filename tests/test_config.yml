@@ -1,0 +1,187 @@
+# IPv6 WireGuard Manager 测试配置文件
+
+# 测试环境配置
+test_environment:
+  name: "automated_testing"
+  log_level: "DEBUG"
+  debug_mode: true
+  verbose_mode: true
+
+# 测试目录配置
+test_directories:
+  config_dir: "/tmp/ipv6wgm_test_config"
+  log_dir: "/tmp/ipv6wgm_test_logs"
+  temp_dir: "/tmp/ipv6wgm_test_temp"
+  results_dir: "/tmp/ipv6wgm_test_results"
+  coverage_dir: "/tmp/ipv6wgm_test_coverage"
+
+# 测试超时配置
+test_timeouts:
+  unit_test: 30        # 单元测试超时（秒）
+  integration_test: 60 # 集成测试超时（秒）
+  performance_test: 120 # 性能测试超时（秒）
+  compatibility_test: 90 # 兼容性测试超时（秒）
+
+# 测试数据配置
+test_data:
+  # 测试配置文件内容
+  test_config:
+    wireguard_interface: "wg0"
+    wireguard_port: "51820"
+    wireguard_ipv4_network: "10.0.0.0/24"
+    wireguard_ipv6_network: "fd00:dead:beef::/64"
+    bgp_enabled: false
+    web_ui_enabled: false
+    
+  # 测试客户端配置
+  test_clients:
+    - name: "test-client-1"
+      public_key: "test-public-key-1"
+      allowed_ips: "10.0.0.2/32,fd00:dead:beef::2/128"
+    - name: "test-client-2"
+      public_key: "test-public-key-2"
+      allowed_ips: "10.0.0.3/32,fd00:dead:beef::3/128"
+
+# 性能测试配置
+performance_tests:
+  # 缓存测试配置
+  cache_tests:
+    enabled: true
+    ttl: 300
+    max_size: 1000
+    test_commands:
+      - "echo 'test1'"
+      - "echo 'test2'"
+      - "echo 'test3'"
+      
+  # 并行测试配置
+  parallel_tests:
+    enabled: true
+    max_jobs: 4
+    job_timeout: 30
+    test_tasks:
+      - "sleep 1 && echo 'Task 1'"
+      - "sleep 1 && echo 'Task 2'"
+      - "sleep 1 && echo 'Task 3'"
+      - "sleep 1 && echo 'Task 4'"
+
+# 兼容性测试配置
+compatibility_tests:
+  # 操作系统测试
+  operating_systems:
+    - name: "ubuntu"
+      versions: ["20.04", "22.04", "24.04"]
+    - name: "debian"
+      versions: ["11", "12"]
+    - name: "centos"
+      versions: ["7", "8"]
+    - name: "fedora"
+      versions: ["38", "39", "40"]
+      
+  # 架构测试
+  architectures:
+    - "x86_64"
+    - "aarch64"
+    - "armv7l"
+    
+  # Shell测试
+  shells:
+    - "bash"
+    - "sh"
+    - "zsh"
+
+# 集成测试配置
+integration_tests:
+  # 模块加载测试
+  module_loading:
+    required_modules:
+      - "common_functions"
+      - "variable_management"
+      - "function_management"
+      - "main_script_refactor"
+      - "enhanced_config_management"
+      - "dependency_manager"
+      - "enhanced_system_compatibility"
+      - "advanced_performance_optimization"
+      - "advanced_error_handling"
+      
+  # 依赖关系测试
+  dependencies:
+    test_modules:
+      - "main_script_refactor"
+      - "enhanced_config_management"
+      - "advanced_performance_optimization"
+      
+# 错误处理测试配置
+error_handling_tests:
+  # 错误场景测试
+  error_scenarios:
+    - error_code: "101"
+      error_message: "Permission denied"
+      expected_scenario: "permission_denied"
+    - error_code: "102"
+      error_message: "File not found"
+      expected_scenario: "file_missing"
+    - error_code: "103"
+      error_message: "Configuration error"
+      expected_scenario: "config_invalid"
+    - error_code: "104"
+      error_message: "Network error"
+      expected_scenario: "network_unavailable"
+    - error_code: "105"
+      error_message: "Dependency missing"
+      expected_scenario: "dependency_missing"
+
+# 资源监控测试配置
+resource_monitoring_tests:
+  # 内存测试
+  memory_tests:
+    enabled: true
+    threshold: 80  # 内存使用率阈值（百分比）
+    
+  # CPU测试
+  cpu_tests:
+    enabled: true
+    threshold: 80  # CPU使用率阈值（百分比）
+    
+  # 磁盘测试
+  disk_tests:
+    enabled: true
+    threshold: 80  # 磁盘使用率阈值（百分比）
+
+# 报告配置
+reporting:
+  # 测试报告格式
+  formats:
+    - "text"
+    - "json"
+    - "html"
+    
+  # 覆盖率报告
+  coverage:
+    enabled: true
+    threshold: 80  # 覆盖率阈值（百分比）
+    
+  # 性能报告
+  performance:
+    enabled: true
+    include_metrics:
+      - "execution_time"
+      - "memory_usage"
+      - "cpu_usage"
+      - "cache_hit_rate"
+
+# 通知配置
+notifications:
+  # 测试失败通知
+  on_failure:
+    enabled: true
+    channels:
+      - "email"
+      - "slack"
+      
+  # 测试成功通知
+  on_success:
+    enabled: false
+    channels:
+      - "email"

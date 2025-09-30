@@ -1,0 +1,39 @@
+# GitHub Actions CI配置示例
+name: IPv6-WireGuard Manager CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wireguard bird bash python3 shellcheck
+        
+    - name: Run syntax check
+      run: bash scripts/automated-testing.sh --syntax
+        
+    - name: Run security tests
+      run: bash scripts/automated-testing.sh --security
+        
+    - name: Run unit tests
+      run: bash scripts/automated-testing.sh --basic
+        
+    - name: Run integration tests
+      run: bash scripts/automated-testing.sh --advanced
+        
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-report
+        path: report/
+
