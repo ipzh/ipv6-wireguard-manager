@@ -467,7 +467,7 @@ run_performance_tests() {
     echo -e "${BLUE}=== 运行性能测试 ===${NC}"
     test_command_performance
     test_cache_performance
-    test_memory_usage
+    test_memory_usage "$@"
 }
 
 # 运行所有压力测试
@@ -556,7 +556,7 @@ main() {
     # 运行所有测试
     run_unit_tests
     run_integration_tests
-    run_performance_tests
+    run_performance_tests "$@"
     run_stress_tests
     
     # 生成测试报告
