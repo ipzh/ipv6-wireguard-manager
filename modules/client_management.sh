@@ -140,8 +140,8 @@ add_client() {
     local client_id="client_$(date +%s)_$(generate_random_string 8)"
     
     # 获取下一个可用的IP地址
-    local ipv4_address=$(get_next_available_ip)
-    local ipv6_address=$(get_next_available_ipv6)
+    local ipv4_address=$(get_next_available_ip "$@")
+    local ipv6_address=$(get_next_available_ipv6 "$@")
     
     if [[ -z "$ipv4_address" ]] || [[ -z "$ipv6_address" ]]; then
         show_error "无法分配IP地址"
@@ -149,7 +149,7 @@ add_client() {
     fi
     
     # 生成客户端密钥
-    local client_private_key=$(generate_wireguard_key)
+    local client_private_key=$(generate_wireguard_key "$@")
     local client_public_key=$(generate_wireguard_public_key "$client_private_key")
     
     if [[ -z "$client_private_key" ]] || [[ -z "$client_public_key" ]]; then
@@ -170,7 +170,7 @@ add_client() {
     add_client_to_server_config "$client_name" "$client_public_key" "$ipv4_address" "$ipv6_address"
     
     # 添加到数据库
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     echo "$client_id|$client_name|$ipv4_address|$ipv6_address|$client_public_key|$client_private_key|$timestamp|$timestamp|$CLIENT_STATUS_OFFLINE|$description|$email|$phone|$department|$notes" >> "$CLIENT_DB"
     
     # 初始化统计记录
@@ -483,7 +483,7 @@ add_client_from_csv() {
     local client_id="client_$(date +%s)_$(generate_random_string 8)"
     
     # 生成客户端密钥
-    local client_private_key=$(generate_wireguard_key)
+    local client_private_key=$(generate_wireguard_key "$@")
     local client_public_key=$(generate_wireguard_public_key "$client_private_key")
     
     if [[ -z "$client_private_key" ]] || [[ -z "$client_public_key" ]]; then
@@ -503,7 +503,7 @@ add_client_from_csv() {
     add_client_to_server_config "$name" "$client_public_key" "$ipv4" "$ipv6"
     
     # 添加到数据库
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     echo "$client_id|$name|$ipv4|$ipv6|$client_public_key|$client_private_key|$timestamp|$timestamp|$CLIENT_STATUS_OFFLINE|$description|$email|$phone|$department|$notes" >> "$CLIENT_DB"
     
     # 初始化统计记录
@@ -710,7 +710,7 @@ create_client_config_file() {
     
     # 获取服务器信息
     local server_public_key=$(cat "${WIREGUARD_KEYS_DIR}/server_public.key")
-    local server_endpoint=$(get_public_ipv4)
+    local server_endpoint=$(get_public_ipv4 "$@")
     local server_port="${WIREGUARD_PORT:-51820}"
     
     # 创建客户端配置
@@ -749,7 +749,7 @@ check_client_connection_status() {
 update_client_status() {
     local client_name="$1"
     local status="$2"
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     
     # 更新数据库中的状态
     sed -i "s/^\([^|]*|$client_name|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|\)[^|]*\(|.*\)/\1$timestamp\2/" "$CLIENT_DB"
@@ -761,7 +761,7 @@ update_client_field() {
     local client_name="$1"
     local field="$2"
     local value="$3"
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     
     # 根据字段名确定位置
     local field_position=0
@@ -794,7 +794,7 @@ regenerate_client_keys() {
     
     if show_confirm "确认重新生成客户端密钥: $client_name"; then
         # 生成新密钥
-        local new_private_key=$(generate_wireguard_key)
+        local new_private_key=$(generate_wireguard_key "$@")
         local new_public_key=$(generate_wireguard_public_key "$new_private_key")
         
         # 更新密钥文件
@@ -851,7 +851,7 @@ modify_client_ip_addresses() {
 # 生成客户端安装URL
 generate_client_install_url() {
     local client_name="$1"
-    local server_ip=$(get_public_ipv4)
+    local server_ip=$(get_public_ipv4 "$@")
     local server_port="${WEB_PORT:-8080}"
     local token=$(generate_random_string 32)
     

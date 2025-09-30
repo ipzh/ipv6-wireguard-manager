@@ -51,7 +51,7 @@ create_default_ipv6_config() {
     
     cat > "$IPV6_PREFIXES_CONFIG" << EOF
 # IPv6前缀配置
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 主前缀配置
 [prefix_main]
@@ -248,7 +248,7 @@ dns_servers=2001:4860:4860::8888,2001:4860:4860::8844
 EOF
     
     # 添加到数据库
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     echo "$subnet_id|$prefix|$length|$description|false|false|$auto_assign|$priority|$(get_gateway_from_prefix "$prefix")|2001:4860:4860::8888,2001:4860:4860::8844|$timestamp|$timestamp" >> "$IPV6_SUBNET_DB"
     
     log_info "IPv6前缀添加成功: $prefix"
@@ -333,7 +333,7 @@ allocate_ipv6_subnet() {
     
     # 添加到分配数据库
     local allocation_id="alloc_$(date +%s)"
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     local expires_time=$(date -d "+1 year" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || date "+%Y-%m-%d %H:%M:%S")
     
     echo "$allocation_id|$client_name|$subnet_id|$ipv6_address|$timestamp|$expires_time|active" >> "$IPV6_ALLOCATION_DB"

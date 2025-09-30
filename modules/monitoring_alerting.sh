@@ -57,7 +57,7 @@ create_monitoring_config() {
     if [[ ! -f "$MONITORING_CONFIG_FILE" ]]; then
         cat > "$MONITORING_CONFIG_FILE" << EOF
 # 监控配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 监控设置
 MONITORING_ENABLED=true
@@ -105,7 +105,7 @@ create_alert_config() {
     if [[ ! -f "$ALERT_CONFIG_FILE" ]]; then
         cat > "$ALERT_CONFIG_FILE" << EOF
 # 告警配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 告警设置
 ALERT_ENABLED=true
@@ -282,15 +282,15 @@ show_system_status() {
     
     # CPU信息
     echo "CPU信息:"
-    local cpu_usage=$(get_cpu_usage)
+    local cpu_usage=$(get_cpu_usage "$@")
     echo "  CPU使用率: ${cpu_usage}%"
     echo "  CPU核心数: $(nproc)"
-    echo "  CPU负载: $(get_system_load)"
+    echo "  CPU负载: $(get_system_load "$@")"
     echo
     
     # 内存信息
     echo "内存信息:"
-    local memory_usage=$(get_memory_usage)
+    local memory_usage=$(get_memory_usage "$@")
     echo "  内存使用率: ${memory_usage}%"
     echo "  总内存: $(free -h | grep Mem | awk '{print $2}')"
     echo "  可用内存: $(free -h | grep Mem | awk '{print $7}')"
@@ -298,7 +298,7 @@ show_system_status() {
     
     # 磁盘信息
     echo "磁盘信息:"
-    local disk_usage=$(get_disk_usage)
+    local disk_usage=$(get_disk_usage "$@")
     echo "  磁盘使用率: ${disk_usage}%"
     echo "  总磁盘空间: $(df -h / | tail -1 | awk '{print $2}')"
     echo "  可用磁盘空间: $(df -h / | tail -1 | awk '{print $4}')"
@@ -356,7 +356,7 @@ memory_monitoring() {
     echo
     
     # 内存使用率趋势
-    echo "内存使用率: $(get_memory_usage)%"
+    echo "内存使用率: $(get_memory_usage "$@")%"
     echo
     
     # 进程内存使用率
@@ -380,7 +380,7 @@ disk_monitoring() {
     echo
     
     # 磁盘使用率
-    echo "根分区使用率: $(get_disk_usage)%"
+    echo "根分区使用率: $(get_disk_usage "$@")%"
     echo
     
     # 大文件查找
@@ -771,14 +771,14 @@ monitoring_reports() {
     
     cat > "$report_file" << EOF
 IPv6 WireGuard Manager 监控报告
-生成时间: $(get_timestamp)
+生成时间: $(get_timestamp "$@")
 主机: $(hostname)
 
 系统状态:
-  CPU使用率: $(get_cpu_usage)%
-  内存使用率: $(get_memory_usage)%
-  磁盘使用率: $(get_disk_usage)%
-  系统负载: $(get_system_load)
+  CPU使用率: $(get_cpu_usage "$@")%
+  内存使用率: $(get_memory_usage "$@")%
+  磁盘使用率: $(get_disk_usage "$@")%
+  系统负载: $(get_system_load "$@")
 
 网络状态:
   主接口: ${SYSTEM_INFO["primary_interface"]}
@@ -859,10 +859,10 @@ get_cpu_usage() {
 
 # 检查系统告警
 check_system_alerts() {
-    local cpu_usage=$(get_cpu_usage)
-    local memory_usage=$(get_memory_usage)
-    local disk_usage=$(get_disk_usage)
-    local system_load=$(get_system_load)
+    local cpu_usage=$(get_cpu_usage "$@")
+    local memory_usage=$(get_memory_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
+    local system_load=$(get_system_load "$@")
     
     # 检查CPU告警
     if (( $(echo "$cpu_usage > ${CPU_THRESHOLD:-80}" | bc -l) )); then
@@ -893,7 +893,7 @@ send_alert() {
     
     # 生成告警ID
     local alert_id="alert_$(date +%s)_$(generate_random_string 8)"
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     
     # 记录告警到数据库
     echo "$alert_id|$timestamp|$level|$message|$source|active|false|" >> "$ALERT_HISTORY_DB"
@@ -934,7 +934,7 @@ send_email_alert() {
     local body="告警级别: $level
 告警消息: $message
 告警来源: $source
-告警时间: $(get_timestamp)
+告警时间: $(get_timestamp "$@")
 主机: $(hostname)"
     
     if command -v mail &> /dev/null; then
@@ -958,7 +958,7 @@ send_webhook_alert() {
                 {\"title\": \"告警级别\", \"value\": \"$level\", \"short\": true},
                 {\"title\": \"告警消息\", \"value\": \"$message\", \"short\": false},
                 {\"title\": \"告警来源\", \"value\": \"$source\", \"short\": true},
-                {\"title\": \"告警时间\", \"value\": \"$(get_timestamp)\", \"short\": true},
+                {\"title\": \"告警时间\", \"value\": \"$(get_timestamp "$@")\", \"short\": true},
                 {\"title\": \"主机\", \"value\": \"$(hostname)\", \"short\": true}
             ]
         }]

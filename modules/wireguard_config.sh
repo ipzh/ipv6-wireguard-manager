@@ -252,7 +252,7 @@ create_server_config() {
     local server_public_key=$(cat "$public_key_file")
     
     # 获取服务器公网IP
-    local server_endpoint=$(get_public_ipv4)
+    local server_endpoint=$(get_public_ipv4 "$@")
     if [[ -z "$server_endpoint" ]]; then
         log_warn "无法获取公网IP，请手动设置"
         server_endpoint="YOUR_SERVER_IP"
@@ -430,7 +430,7 @@ add_wireguard_client() {
     
     # 获取服务器公钥和端点
     local server_public_key=$(cat "${IPV6WGM_WIREGUARD_KEYS_DIR}/server_public.key")
-    local server_endpoint=$(get_public_ipv4)
+    local server_endpoint=$(get_public_ipv4 "$@")
     local server_port="${WIREGUARD_PORT:-51820}"
     
     # 创建客户端配置

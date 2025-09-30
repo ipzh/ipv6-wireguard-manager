@@ -31,7 +31,7 @@ UPDATE_TEMP_DIR="/tmp/ipv6wgm_update_temp_$(date +%s)"
 show_update_info() {
     echo "IPv6 WireGuard Manager 更新工具"
     echo "================================="
-    echo "当前版本: $(get_current_version)"
+    echo "当前版本: $(get_current_version "$@")"
     echo "项目目录: $PROJECT_ROOT"
     echo
 }
@@ -41,7 +41,7 @@ check_for_updates() {
     log_info "检查更新..."
     
     local latest_version
-    latest_version=$(get_latest_version)
+    latest_version=$(get_latest_version "$@")
     
     if [[ -z "$latest_version" ]]; then
         log_error "无法获取最新版本信息"
@@ -49,7 +49,7 @@ check_for_updates() {
     fi
     
     local current_version
-    current_version=$(get_current_version)
+    current_version=$(get_current_version "$@")
     
     log_info "当前版本: $current_version"
     log_info "最新版本: $latest_version"
@@ -98,7 +98,7 @@ download_latest_version() {
     cd "$UPDATE_TEMP_DIR" || exit
     
     local download_url
-    download_url=$(get_download_url)
+    download_url=$(get_download_url "$@")
     
     if [[ -z "$download_url" ]]; then
         log_error "无法获取下载链接"
@@ -245,7 +245,7 @@ update_manager() {
     # 执行更新
     if download_latest_version && install_update && verify_update; then
         log_success "更新完成!"
-        log_info "新版本: $(get_current_version)"
+        log_info "新版本: $(get_current_version "$@")"
         
         # 启动服务
         log_info "启动服务..."

@@ -195,7 +195,7 @@ create_bird_config() {
     log_info "创建BIRD配置文件..."
     
     # 获取路由器ID
-    local router_id=$(get_router_id)
+    local router_id=$(get_router_id "$@")
     
     # 根据版本选择模板
     local template_name="BIRD_V${BIRD_MAJOR_VERSION}_CONFIG_TEMPLATE"
@@ -235,7 +235,7 @@ create_bird6_config() {
     log_info "创建BIRD6配置文件..."
     
     # 获取路由器ID
-    local router_id=$(get_router_id)
+    local router_id=$(get_router_id "$@")
     
     # 根据版本选择模板
     local template_name="BIRD_V${BIRD_MAJOR_VERSION}_CONFIG_TEMPLATE"
@@ -1005,7 +1005,7 @@ bgp_config_wizard() {
     # 步骤1: 设置Router ID
     local router_id=$(show_input "请输入Router ID (例如: 192.168.1.1)" "")
     if [[ -z "$router_id" ]]; then
-        router_id=$(get_public_ipv4)
+        router_id=$(get_public_ipv4 "$@")
         log_info "自动检测Router ID: $router_id"
     fi
     
@@ -1048,7 +1048,7 @@ set_router_id() {
     echo -e "${SECONDARY_COLOR}=== Router ID设置 ===${NC}"
     echo
     
-    local current_router_id=$(get_router_id)
+    local current_router_id=$(get_router_id "$@")
     echo "当前Router ID: $current_router_id"
     
     local new_router_id=$(show_input "请输入新的Router ID" "$current_router_id")

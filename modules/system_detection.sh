@@ -550,7 +550,7 @@ generate_system_report() {
     
     cat > "$report_file" << EOF
 IPv6 WireGuard Manager 系统报告
-生成时间: $(get_timestamp)
+生成时间: $(get_timestamp "$@")
 主机: $(hostname)
 用户: $(whoami)
 
@@ -606,9 +606,9 @@ WireGuard信息:
   用户空间: ${SYSTEM_INFO["wireguard_userspace"]}
 
 系统资源:
-  内存使用: $(get_memory_usage)%
-  磁盘使用: $(get_disk_usage)%
-  系统负载: $(get_system_load)
+  内存使用: $(get_memory_usage "$@")%
+  磁盘使用: $(get_disk_usage "$@")%
+  系统负载: $(get_system_load "$@")
 EOF
     
     log_info "系统报告已生成: $report_file"

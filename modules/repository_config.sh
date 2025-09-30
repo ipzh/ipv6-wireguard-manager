@@ -51,7 +51,7 @@ create_repository_config() {
     if [[ ! -f "$REPOSITORY_CONFIG_FILE" ]]; then
         cat > "$REPOSITORY_CONFIG_FILE" << EOF
 # IPv6 WireGuard Manager 仓库配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 仓库基本信息
 REPO_OWNER=ipzh

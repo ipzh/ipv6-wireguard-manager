@@ -66,27 +66,27 @@ collect_system_metrics() {
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
     # CPU使用率
-    local cpu_usage=$(get_cpu_usage)
+    local cpu_usage=$(get_cpu_usage "$@")
     
     # 内存使用率
-    local memory_usage=$(get_memory_usage)
+    local memory_usage=$(get_memory_usage "$@")
     
     # 磁盘使用率
-    local disk_usage=$(get_disk_usage)
+    local disk_usage=$(get_disk_usage "$@")
     
     # 负载平均值
-    local load_avg=$(get_load_average)
+    local load_avg=$(get_load_average "$@")
     
     # WireGuard指标
-    local wireguard_peers=$(get_wireguard_peers)
-    local wireguard_traffic=$(get_wireguard_traffic)
+    local wireguard_peers=$(get_wireguard_peers "$@")
+    local wireguard_traffic=$(get_wireguard_traffic "$@")
     
     # BGP指标
-    local bgp_neighbors=$(get_bgp_neighbors)
-    local bgp_routes=$(get_bgp_routes)
+    local bgp_neighbors=$(get_bgp_neighbors "$@")
+    local bgp_routes=$(get_bgp_routes "$@")
     
     # 服务状态
-    local services_status=$(get_services_status)
+    local services_status=$(get_services_status "$@")
     
     # 确保目录存在
     mkdir -p "$(dirname "$METRICS_FILE")" 2>/dev/null || true
@@ -245,7 +245,7 @@ check_alerts() {
     fi
     
     # 检查服务状态
-    local services_status=$(get_services_status)
+    local services_status=$(get_services_status "$@")
     local failed_services=$(echo "$services_status" | jq -r 'to_entries[] | select(.value == "failed") | .key' 2>/dev/null)
     
     if [[ -n "$failed_services" ]]; then

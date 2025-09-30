@@ -108,7 +108,7 @@ performance_metrics = true
 EOF
     
     # 替换时间戳
-    sed -i "s/\${TIMESTAMP}/$(get_timestamp)/g" "$LAZY_LOADING_CONFIG"
+    sed -i "s/\${TIMESTAMP}/$(get_timestamp "$@")/g" "$LAZY_LOADING_CONFIG"
 }
 
 # 初始化懒加载缓存
@@ -132,7 +132,7 @@ init_lazy_loading_cache() {
 EOF
     
     # 替换时间戳
-    sed -i "s/\"created_at\": \"\"/\"created_at\": \"$(get_timestamp)\"/g" "${LAZY_LOADING_CACHE}/index.json"
+    sed -i "s/\"created_at\": \"\"/\"created_at\": \"$(get_timestamp "$@")\"/g" "${LAZY_LOADING_CACHE}/index.json"
 }
 
 # 创建懒加载管理器

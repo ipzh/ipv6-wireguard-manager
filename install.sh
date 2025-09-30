@@ -514,7 +514,7 @@ install_dependency() {
     
     log_info "安装${package_description}..."
     local os_type
-    os_type="$(detect_os)"
+    os_type="$(detect_os "$@")"
     
     case "$os_type" in
         "ubuntu"|"debian")
@@ -2880,7 +2880,7 @@ install_config_management() {
     # 安装yq工具
     if ! command -v yq &> /dev/null; then
         log_info "安装yq工具..."
-        case "$(detect_os)" in
+        case "$(detect_os "$@")" in
             "ubuntu"|"debian"|"centos"|"rhel"|"rocky"|"almalinux")
                 execute_command "wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" "下载yq工具" "false"
                 execute_command "chmod +x /usr/local/bin/yq" "设置yq工具权限" "false"
@@ -2942,7 +2942,7 @@ install_security_audit_monitoring() {
     log_info "安装安全审计监控功能..."
     
     # 安装邮件发送工具
-    case "$(detect_os)" in
+    case "$(detect_os "$@")" in
         "ubuntu"|"debian")
             install_dependency "mailutils" "邮件发送工具" "true"
             ;;

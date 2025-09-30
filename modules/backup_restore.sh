@@ -50,7 +50,7 @@ create_backup_config() {
     if [[ ! -f "$BACKUP_CONFIG_FILE" ]]; then
         cat > "$BACKUP_CONFIG_FILE" << EOF
 # 备份配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 备份设置
 BACKUP_ENABLED=true
@@ -596,7 +596,7 @@ backup_schedule() {
     echo "  自动备份: $([ "$AUTO_BACKUP_ENABLED" == "true" ] && echo "启用" || echo "禁用")"
     echo "  备份间隔: ${AUTO_BACKUP_INTERVAL}小时"
     echo "  备份时间: $AUTO_BACKUP_TIME"
-    echo "  下次备份: $(get_next_backup_time)"
+    echo "  下次备份: $(get_next_backup_time "$@")"
     echo
     
     local choice=$(show_selection "操作" "立即执行备份" "修改计划" "查看计划详情")
@@ -624,7 +624,7 @@ create_backup() {
     
     local backup_id="backup_$(date +%s)_$(generate_random_string 8)"
     local backup_path="$BACKUP_DIR/${backup_name}.tar.gz"
-    local timestamp=$(get_timestamp)
+    local timestamp=$(get_timestamp "$@")
     
     log_info "创建备份: $backup_name (类型: $backup_type)"
     

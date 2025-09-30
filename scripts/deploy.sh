@@ -278,7 +278,7 @@ main() {
             
             local backup_path=""
             if [[ "$BACKUP_ENABLED" == "true" ]]; then
-                backup_path=$(backup_current_version)
+                backup_path=$(backup_current_version "$@")
             fi
             
             case "$target" in

@@ -2636,7 +2636,7 @@ health_check() {
     if command -v get_memory_usage &> /dev/null; then
         local memory_usage
         local memory_int
-        memory_usage=$(get_memory_usage)
+        memory_usage=$(get_memory_usage "$@")
         # 将浮点数转换为整数进行比较
         memory_int=$(echo "$memory_usage" | cut -d. -f1)
         if [[ $memory_int -gt 90 ]]; then

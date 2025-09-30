@@ -211,9 +211,9 @@ calculate_module_coverage() {
 
 # 计算总体覆盖率
 calculate_overall_coverage() {
-    local line_coverage=$(calculate_line_coverage)
-    local function_coverage=$(calculate_function_coverage)
-    local module_coverage=$(calculate_module_coverage)
+    local line_coverage=$(calculate_line_coverage "$@")
+    local function_coverage=$(calculate_function_coverage "$@")
+    local module_coverage=$(calculate_module_coverage "$@")
     
     # 加权平均：行覆盖率权重50%，函数覆盖率权重30%，模块覆盖率权重20%
     local overall_coverage=$((line_coverage * 50 + function_coverage * 30 + module_coverage * 20))
@@ -232,10 +232,10 @@ generate_text_coverage_report() {
     
     log_info "生成文本覆盖率报告: $report_file"
     
-    local line_coverage=$(calculate_line_coverage)
-    local function_coverage=$(calculate_function_coverage)
-    local module_coverage=$(calculate_module_coverage)
-    local overall_coverage=$(calculate_overall_coverage)
+    local line_coverage=$(calculate_line_coverage "$@")
+    local function_coverage=$(calculate_function_coverage "$@")
+    local module_coverage=$(calculate_module_coverage "$@")
+    local overall_coverage=$(calculate_overall_coverage "$@")
     
     cat > "$report_file" << EOF
 IPv6 WireGuard Manager 测试覆盖率报告
@@ -297,10 +297,10 @@ generate_json_coverage_report() {
     
     log_info "生成JSON覆盖率报告: $report_file"
     
-    local line_coverage=$(calculate_line_coverage)
-    local function_coverage=$(calculate_function_coverage)
-    local module_coverage=$(calculate_module_coverage)
-    local overall_coverage=$(calculate_overall_coverage)
+    local line_coverage=$(calculate_line_coverage "$@")
+    local function_coverage=$(calculate_function_coverage "$@")
+    local module_coverage=$(calculate_module_coverage "$@")
+    local overall_coverage=$(calculate_overall_coverage "$@")
     
     cat > "$report_file" << EOF
 {
@@ -376,10 +376,10 @@ generate_html_coverage_report() {
     
     log_info "生成HTML覆盖率报告: $report_file"
     
-    local line_coverage=$(calculate_line_coverage)
-    local function_coverage=$(calculate_function_coverage)
-    local module_coverage=$(calculate_module_coverage)
-    local overall_coverage=$(calculate_overall_coverage)
+    local line_coverage=$(calculate_line_coverage "$@")
+    local function_coverage=$(calculate_function_coverage "$@")
+    local module_coverage=$(calculate_module_coverage "$@")
+    local overall_coverage=$(calculate_overall_coverage "$@")
     
     cat > "$report_file" << EOF
 <!DOCTYPE html>
@@ -528,10 +528,10 @@ run_coverage_analysis() {
     generate_html_coverage_report "$output_dir/coverage_report_${timestamp}.html"
     
     # 输出覆盖率摘要
-    local overall_coverage=$(calculate_overall_coverage)
-    local line_coverage=$(calculate_line_coverage)
-    local function_coverage=$(calculate_function_coverage)
-    local module_coverage=$(calculate_module_coverage)
+    local overall_coverage=$(calculate_overall_coverage "$@")
+    local line_coverage=$(calculate_line_coverage "$@")
+    local function_coverage=$(calculate_function_coverage "$@")
+    local module_coverage=$(calculate_module_coverage "$@")
     
     log_info "覆盖率分析完成:"
     log_info "  总体覆盖率: ${overall_coverage}%"

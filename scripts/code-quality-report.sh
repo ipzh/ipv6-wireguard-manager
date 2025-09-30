@@ -257,10 +257,10 @@ EOF
 ## 📈 质量评分
 
 ### 综合评分
-- **代码质量**: $(calculate_quality_score)
-- **安全性**: $(calculate_security_score)
-- **性能**: $(calculate_performance_score)
-- **测试覆盖**: $(calculate_test_score)
+- **代码质量**: $(calculate_quality_score "$@")
+- **安全性**: $(calculate_security_score "$@")
+- **性能**: $(calculate_performance_score "$@")
+- **测试覆盖**: $(calculate_test_score "$@")
 
 ### 改进建议
 EOF
@@ -425,10 +425,10 @@ main() {
     echo "  - 函数数量: $FUNCTION_COUNT"
     echo "  - 注释率: ${COMMENT_RATIO}%"
     echo "  - 测试函数: $TEST_FUNCTIONS"
-    echo "  - 质量评分: $(calculate_quality_score)/100"
-    echo "  - 安全评分: $(calculate_security_score)/100"
-    echo "  - 性能评分: $(calculate_performance_score)/100"
-    echo "  - 测试评分: $(calculate_test_score)/100"
+    echo "  - 质量评分: $(calculate_quality_score "$@")/100"
+    echo "  - 安全评分: $(calculate_security_score "$@")/100"
+    echo "  - 性能评分: $(calculate_performance_score "$@")/100"
+    echo "  - 测试评分: $(calculate_test_score "$@")/100"
 }
 
 # 运行主函数

@@ -50,7 +50,7 @@ create_update_config() {
     if [[ ! -f "$UPDATE_CONFIG_FILE" ]]; then
         cat > "$UPDATE_CONFIG_FILE" << EOF
 # 更新管理配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # 版本信息
 CURRENT_VERSION=$CURRENT_VERSION
@@ -160,9 +160,9 @@ check_current_version() {
     echo "----------------------------------------"
     echo "版本号: $CURRENT_VERSION"
     echo "安装路径: $(pwd)"
-    echo "安装时间: $(get_installation_time)"
-    echo "构建信息: $(get_build_info)"
-    echo "Git信息: $(get_git_info)"
+    echo "安装时间: $(get_installation_time "$@")"
+    echo "构建信息: $(get_build_info "$@")"
+    echo "Git信息: $(get_git_info "$@")"
     echo
     
     # 显示组件版本
@@ -209,8 +209,8 @@ get_git_info() {
 
 # 显示组件版本
 show_component_versions() {
-    echo "WireGuard: $(get_wireguard_version)"
-    echo "BIRD: $(get_bird_version)"
+    echo "WireGuard: $(get_wireguard_version "$@")"
+    echo "BIRD: $(get_bird_version "$@")"
     echo "系统内核: $(uname -r)"
     echo "Bash: $(bash --version | head -1)"
     echo "Python: $(python3 --version 2>/dev/null || echo '未安装')"
@@ -648,7 +648,7 @@ rollback_update() {
     log_info "回滚更新..."
     
     # 从备份恢复
-    local latest_backup=$(get_latest_backup)
+    local latest_backup=$(get_latest_backup "$@")
     if [[ -n "$latest_backup" ]]; then
         restore_from_backup "$latest_backup"
     else

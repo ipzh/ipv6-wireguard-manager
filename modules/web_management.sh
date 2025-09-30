@@ -52,7 +52,7 @@ create_web_config() {
     if [[ ! -f "$WEB_CONFIG_FILE" ]]; then
         cat > "$WEB_CONFIG_FILE" << EOF
 # Web管理界面配置文件
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 
 # Web服务器配置
 WEB_SERVER_TYPE=nginx
@@ -227,9 +227,9 @@ install_web_service() {
     log_info "Web管理服务安装完成"
     echo
     echo "Web管理界面访问地址:"
-    echo "  HTTP: http://$(get_public_ipv4):$WEB_SERVER_PORT"
+    echo "  HTTP: http://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
     if [[ "$WEB_SSL_ENABLED" == "true" ]]; then
-        echo "  HTTPS: https://$(get_public_ipv4):$WEB_SERVER_PORT"
+        echo "  HTTPS: https://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
     fi
     echo "  默认用户名: admin"
     echo "  默认密码: 请查看配置文件"
@@ -1250,9 +1250,9 @@ show_web_service_status() {
     echo
     
     echo "Web访问地址:"
-    echo "  HTTP: http://$(get_public_ipv4):$WEB_SERVER_PORT"
+    echo "  HTTP: http://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
     if [[ "$WEB_SSL_ENABLED" == "true" ]]; then
-        echo "  HTTPS: https://$(get_public_ipv4):$WEB_SERVER_PORT"
+        echo "  HTTPS: https://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
     fi
 }
 

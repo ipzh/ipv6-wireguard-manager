@@ -424,15 +424,15 @@ collect_performance_metrics() {
     local timestamp=$(date +%s)
     
     # CPU使用率
-    local cpu_usage=$(get_cpu_usage)
+    local cpu_usage=$(get_cpu_usage "$@")
     IPV6WGM_PERFORMANCE_METRICS["cpu_$timestamp"]="$cpu_usage"
     
     # 内存使用率
-    local memory_usage=$(get_memory_usage)
+    local memory_usage=$(get_memory_usage "$@")
     IPV6WGM_PERFORMANCE_METRICS["memory_$timestamp"]="$memory_usage"
     
     # 磁盘使用率
-    local disk_usage=$(get_disk_usage)
+    local disk_usage=$(get_disk_usage "$@")
     IPV6WGM_PERFORMANCE_METRICS["disk_$timestamp"]="$disk_usage"
     
     # 缓存统计
@@ -489,9 +489,9 @@ generate_performance_report() {
         echo ""
         
         echo "=== 系统资源 ==="
-        echo "当前CPU使用率: $(get_cpu_usage)%"
-        echo "当前内存使用率: $(get_memory_usage)%"
-        echo "当前磁盘使用率: $(get_disk_usage)%"
+        echo "当前CPU使用率: $(get_cpu_usage "$@")%"
+        echo "当前内存使用率: $(get_memory_usage "$@")%"
+        echo "当前磁盘使用率: $(get_disk_usage "$@")%"
         echo ""
         
         echo "=== 优化建议 ==="
@@ -505,9 +505,9 @@ generate_performance_report() {
 
 # 生成优化建议
 generate_optimization_suggestions() {
-    local cpu_usage=$(get_cpu_usage)
-    local memory_usage=$(get_memory_usage)
-    local disk_usage=$(get_disk_usage)
+    local cpu_usage=$(get_cpu_usage "$@")
+    local memory_usage=$(get_memory_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
     
     echo "基于当前性能指标的优化建议:"
     echo ""
@@ -558,9 +558,9 @@ auto_optimize_performance() {
     log_info "开始自动性能优化..."
     
     # 检查系统资源
-    local cpu_usage=$(get_cpu_usage)
-    local memory_usage=$(get_memory_usage)
-    local disk_usage=$(get_disk_usage)
+    local cpu_usage=$(get_cpu_usage "$@")
+    local memory_usage=$(get_memory_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
     
     # 根据资源使用情况调整配置
     if [[ $cpu_usage -gt 70 ]]; then

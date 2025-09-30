@@ -88,7 +88,7 @@ detect_windows_environment() {
 
 # 测试Windows环境检测
 test_windows_environment_detection() {
-    local detected_env=$(detect_windows_environment)
+    local detected_env=$(detect_windows_environment "$@")
     
     if [[ "$detected_env" != "linux" ]]; then
         log_info "检测到Windows环境: $detected_env"
@@ -270,7 +270,7 @@ test_error_handling() {
 main() {
     echo "=== Windows兼容性测试套件 ==="
     echo "测试时间: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "测试环境: $(detect_windows_environment)"
+    echo "测试环境: $(detect_windows_environment "$@")"
     echo
     
     # 检查是否为Windows环境

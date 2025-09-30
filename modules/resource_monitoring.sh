@@ -121,9 +121,9 @@ get_top_processes() {
 
 # 检查资源使用情况
 check_resources() {
-    local memory_usage=$(get_memory_usage)
-    local cpu_usage=$(get_cpu_usage)
-    local disk_usage=$(get_disk_usage)
+    local memory_usage=$(get_memory_usage "$@")
+    local cpu_usage=$(get_cpu_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
     
     # 记录历史数据
     local timestamp=$(date +%s)
@@ -182,7 +182,7 @@ log_cpu_details() {
         log_info "  CPU型号: $cpu_model"
     fi
     
-    local load_avg=$(get_system_load)
+    local load_avg=$(get_system_load "$@")
     log_info "  系统负载: $load_avg"
     
     log_info "CPU使用最多的进程:"
@@ -269,10 +269,10 @@ get_monitoring_status() {
 
 # 获取当前资源使用情况
 get_current_resources() {
-    local memory_usage=$(get_memory_usage)
-    local cpu_usage=$(get_cpu_usage)
-    local disk_usage=$(get_disk_usage)
-    local load_avg=$(get_system_load)
+    local memory_usage=$(get_memory_usage "$@")
+    local cpu_usage=$(get_cpu_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
+    local load_avg=$(get_system_load "$@")
     
     echo "当前资源使用情况:"
     echo "- 内存使用率: ${memory_usage}%"
@@ -337,9 +337,9 @@ cleanup_log_files() {
 
 # 系统优化建议
 get_optimization_suggestions() {
-    local memory_usage=$(get_memory_usage)
-    local cpu_usage=$(get_cpu_usage)
-    local disk_usage=$(get_disk_usage)
+    local memory_usage=$(get_memory_usage "$@")
+    local cpu_usage=$(get_cpu_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
     
     echo "系统优化建议:"
     
@@ -368,9 +368,9 @@ get_optimization_suggestions() {
 # 获取系统健康评分
 get_system_health_score() {
     local score=100
-    local mem_usage=$(get_memory_usage)
-    local cpu_usage=$(get_cpu_usage)
-    local disk_usage=$(get_disk_usage)
+    local mem_usage=$(get_memory_usage "$@")
+    local cpu_usage=$(get_cpu_usage "$@")
+    local disk_usage=$(get_disk_usage "$@")
     
     # 内存评分
     if [[ $mem_usage -gt 90 ]]; then
@@ -417,19 +417,19 @@ generate_resource_report() {
         echo ""
         
         echo "=== 内存使用情况 ==="
-        echo "内存使用率: $(get_memory_usage)%"
+        echo "内存使用率: $(get_memory_usage "$@")%"
         if command -v free &> /dev/null; then
             free -h
         fi
         echo ""
         
         echo "=== CPU使用情况 ==="
-        echo "CPU使用率: $(get_cpu_usage)%"
+        echo "CPU使用率: $(get_cpu_usage "$@")%"
         echo "负载平均值: $(cat /proc/loadavg 2>/dev/null || echo "无法获取")"
         echo ""
         
         echo "=== 磁盘使用情况 ==="
-        echo "磁盘使用率: $(get_disk_usage)%"
+        echo "磁盘使用率: $(get_disk_usage "$@")%"
         echo "磁盘空间:"
         df -h 2>/dev/null || echo "无法获取磁盘信息"
         echo ""
@@ -470,9 +470,9 @@ start_realtime_monitoring() {
         echo "按 Ctrl+C 停止监控"
         echo ""
         
-        echo "内存使用率: $(get_memory_usage)%"
-        echo "CPU使用率: $(get_cpu_usage)%"
-        echo "磁盘使用率: $(get_disk_usage)%"
+        echo "内存使用率: $(get_memory_usage "$@")%"
+        echo "CPU使用率: $(get_cpu_usage "$@")%"
+        echo "磁盘使用率: $(get_disk_usage "$@")%"
         echo "系统健康评分: $(get_system_health_score)/100"
         echo ""
         

@@ -212,7 +212,7 @@ create_firewall_rules_file() {
     if [[ ! -f "$FIREWALL_RULES_FILE" ]]; then
         cat > "$FIREWALL_RULES_FILE" << EOF
 # IPv6 WireGuard Manager 防火墙规则
-# 生成时间: $(get_timestamp)
+# 生成时间: $(get_timestamp "$@")
 # 防火墙类型: $FIREWALL_TYPE
 
 # 默认规则
@@ -440,7 +440,7 @@ add_firewall_rule() {
     esac
     
     # 记录规则到文件
-    echo "$action|$protocol|$port|$source|$destination|$description|$(get_timestamp)" >> "$FIREWALL_RULES_FILE"
+    echo "$action|$protocol|$port|$source|$destination|$description|$(get_timestamp "$@")" >> "$FIREWALL_RULES_FILE"
     
     log_info "防火墙规则添加成功"
 }

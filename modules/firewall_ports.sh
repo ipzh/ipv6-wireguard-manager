@@ -39,7 +39,7 @@ init_firewall_ports() {
     log_info "初始化防火墙端口配置..."
     
     # 检测防火墙类型
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         log_info "检测到防火墙类型: $firewall_type"
@@ -444,7 +444,7 @@ auto_configure_ports() {
     echo -e "${SECONDARY_COLOR}=== 自动配置端口 ===${NC}"
     echo
     
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         configure_firewall_ports "$firewall_type"
@@ -461,7 +461,7 @@ show_ports_status() {
     echo -e "${SECONDARY_COLOR}=== 端口状态 ===${NC}"
     echo
     
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         show_firewall_status "$firewall_type"
@@ -477,7 +477,7 @@ add_custom_port_menu() {
     
     local port=$(show_input "端口 (格式: 8080/tcp)" "")
     local service=$(show_input "服务名称" "custom")
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$port" ]] && [[ -n "$firewall_type" ]]; then
         add_custom_port "$port" "$service" "$firewall_type"
@@ -494,7 +494,7 @@ remove_port_menu() {
     echo
     
     local port=$(show_input "端口 (格式: 8080/tcp)" "")
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$port" ]] && [[ -n "$firewall_type" ]]; then
         remove_port "$port" "$firewall_type"
@@ -511,7 +511,7 @@ batch_configure_ports() {
     echo
     
     local ports_file=$(show_input "端口配置文件路径" "/etc/ipv6-wireguard-manager/ports.conf")
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         configure_ports_batch "$firewall_type" "$ports_file"
@@ -528,7 +528,7 @@ export_port_config_menu() {
     echo
     
     local output_file=$(show_input "输出文件路径" "/tmp/firewall_ports.conf")
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         export_port_config "$firewall_type" "$output_file"
@@ -544,7 +544,7 @@ import_port_config_menu() {
     echo
     
     local config_file=$(show_input "配置文件路径" "")
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$config_file" ]] && [[ -n "$firewall_type" ]]; then
         import_port_config "$firewall_type" "$config_file"
@@ -560,7 +560,7 @@ reload_firewall_config() {
     echo -e "${SECONDARY_COLOR}=== 重载防火墙配置 ===${NC}"
     echo
     
-    local firewall_type=$(detect_firewall_type)
+    local firewall_type=$(detect_firewall_type "$@")
     
     if [[ -n "$firewall_type" ]]; then
         reload_firewall "$firewall_type"
