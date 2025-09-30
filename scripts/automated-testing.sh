@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # IPv6 WireGuard Manager 自动化测试脚本
 # 版本: 1.0.0
@@ -280,7 +280,7 @@ run_integration_test() {
         log_info "测试脚本集成..."
         
         # 测试主脚本导入
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --help'" "测试主脚本集成" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --help'" "测试主脚本集成" "true"; then
             log_success "✓ 主脚本集成正常"
             ((PASSED_TESTS++))
         else
@@ -290,7 +290,7 @@ run_integration_test() {
         ((TOTAL_TESTS++))
         
         # 测试安装脚本集成
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source install.sh --help'" "测试安装脚本集成" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source install.sh --help'" "测试安装脚本集成" "true"; then
             log_success "✓ 安装脚本集成正常"
             ((PASSED_TESTS++))
         else
@@ -413,7 +413,7 @@ run_version_check() {
     test_version_info() {
         log_info "测试版本信息..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --version'" "测试版本信息" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --version'" "测试版本信息" "true"; then
             log_success "✓ 版本信息正常"
             ((PASSED_TESTS++))
         else
@@ -427,7 +427,7 @@ run_version_check() {
     test_version_compatibility() {
         log_info "测试版本兼容性..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --check-compatibility'" "测试版本兼容性" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --check-compatibility'" "测试版本兼容性" "true"; then
             log_success "✓ 版本兼容性正常"
             ((PASSED_TESTS++))
         else
@@ -528,7 +528,7 @@ run_monitoring_test() {
     test_monitoring_modules() {
         log_info "测试监控模块..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/system_monitoring.sh && init_monitoring'" "测试系统监控模块" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/system_monitoring.sh && init_monitoring'" "测试系统监控模块" "true"; then
             log_success "✓ 系统监控模块正常"
             ((PASSED_TESTS++))
         else
@@ -537,7 +537,7 @@ run_monitoring_test() {
         fi
         ((TOTAL_TESTS++))
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/self_diagnosis.sh && init_diagnosis'" "测试自我诊断模块" "true"; then || exit
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/self_diagnosis.sh && init_diagnosis'" "测试自我诊断模块" "true"; then
             log_success "✓ 自我诊断模块正常"
             ((PASSED_TESTS++))
         else
@@ -1498,3 +1498,4 @@ main() {
 
 # 运行主函数
 main "$@"
+

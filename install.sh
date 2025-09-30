@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # IPv6 WireGuard Manager 安装脚本
 # 版本: 1.0.0
@@ -102,7 +102,7 @@ download_project_files() {
     fi
     
     # 切换到临时目录
-    if ! cd "$temp_dir"; then || exit
+    if ! cd "$temp_dir"; then
         echo -e "${RED}[ERROR]${NC} 无法切换到临时目录: $temp_dir"
         return 1
     fi
@@ -3098,3 +3098,4 @@ else
     fi
     exit 1
 fi
+
