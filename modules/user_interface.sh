@@ -240,7 +240,7 @@ show_menu() {
         echo
         
         # 获取用户输入
-        read -p "请选择操作 [0-$((index-1))]: " choice
+        read -rp "请选择操作 [0-$((index-1))]: " choice
         
         # 验证输入
         if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 0 && $choice -lt $index ]]; then
@@ -302,11 +302,11 @@ show_confirm() {
     echo -e "${WARNING_COLOR}⚠ $message${NC}"
     
     if [[ "$default" == "y" ]]; then
-        read -p "确认执行? [Y/n]: " -n 1 -r
+        read -rp "确认执行? [Y/n]: " -n 1 -r
         echo
         [[ $REPLY =~ ^[Nn]$ ]] && return 1
     else
-        read -p "确认执行? [y/N]: " -n 1 -r
+        read -rp "确认执行? [y/N]: " -n 1 -r
         echo
         [[ $REPLY =~ ^[Yy]$ ]] && return 0
     fi
@@ -322,10 +322,10 @@ show_input() {
     
     while true; do
         if [[ -n "$default" ]]; then
-            read -p "$prompt [默认: $default]: " input
+            read -rp "$prompt [默认: $default]: " input
             input="${input:-$default}"
         else
-            read -p "$prompt: " input
+            read -rp "$prompt: " input
         fi
         
         if [[ -n "$validation" ]]; then
@@ -379,7 +379,7 @@ show_selection() {
     echo
     
     while true; do
-        read -p "请选择 [1-$((index-1))]: " choice
+        read -rp "请选择 [1-$((index-1))]: " choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 && $choice -lt $index ]]; then
             echo "${options[$((choice-1))]}"

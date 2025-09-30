@@ -100,7 +100,7 @@ echo "✅ JSON格式报告创建成功"
 # 显示结果目录内容
 echo ""
 echo "=== 结果目录内容 ==="
-ls -la "$TEST_RESULTS_DIR"
+find . -type f -exec ls -la {} + "$TEST_RESULTS_DIR"
 echo ""
 
 echo "=== 测试结果文件生成验证完成 ==="

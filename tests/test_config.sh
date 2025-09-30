@@ -8,8 +8,8 @@
 # =============================================================================
 
 # 获取测试目录
-TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$TEST_DIR/.." && pwd)"
+TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
+PROJECT_ROOT="$(cd "$TEST_DIR/.." && pwd)" || exit
 REPORT_DIR="$PROJECT_ROOT/reports"
 LOG_DIR="$PROJECT_ROOT/logs"
 TEMP_DIR="/tmp/ipv6wgm_test_$$"

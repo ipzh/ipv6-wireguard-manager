@@ -18,10 +18,10 @@ fi
 get_script_dir() {
     if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
         # 标准情况：通过BASH_SOURCE获取
-        echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
     elif [[ -n "${0:-}" && "$0" != "-bash" && "$0" != "bash" ]]; then
         # 备选方案1：通过$0获取
-        echo "$(cd "$(dirname "$0")" && pwd)"
+        echo "$(cd "$(dirname "$0")" && pwd)" || exit
     else
         # 备选方案2：使用当前工作目录
         echo "$(pwd)"
@@ -35,10 +35,10 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # 提前定义颜色变量，避免导入失败时出错
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+# PURPLE=  # unused'\033[0;35m'
+# CYAN=  # unused'\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 

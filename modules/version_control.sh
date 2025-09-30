@@ -194,7 +194,7 @@ download_and_install_update() {
     
     # 创建临时目录
     execute_command "mkdir -p '$temp_dir'" "创建临时更新目录" "true"
-    cd "$temp_dir"
+    cd "$temp_dir" || exit
     
     # 下载更新包
     if command -v curl &> /dev/null; then
@@ -212,7 +212,7 @@ download_and_install_update() {
     # 查找解压后的目录
     local extracted_dir=$(find . -maxdepth 1 -type d -name "ipv6-wireguard-manager-*" | head -1)
     if [[ -n "$extracted_dir" ]]; then
-        cd "$extracted_dir"
+        cd "$extracted_dir" || exit
         
         # 运行更新安装
         if [[ -f "install.sh" ]]; then

@@ -7,7 +7,7 @@ echo "=== 测试路径修复 ==="
 
 # 测试1: 直接运行脚本
 echo "测试1: 直接运行脚本"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 MODULES_DIR="${SCRIPT_DIR}/modules"
 
 echo "SCRIPT_DIR: $SCRIPT_DIR"

@@ -213,8 +213,8 @@ compare_versions() {
     local operator="$3"
     
     # 将版本号转换为数字数组
-    local v1_parts=($(echo "$version1" | tr '.' ' '))
-    local v2_parts=($(echo "$version2" | tr '.' ' '))
+    local mapfile -t v1_parts < <(echo "$version1" | tr '.' ' ')
+    local mapfile -t v2_parts < <(echo "$version2" | tr '.' ' ')
     
     # 补齐版本号长度
     local max_len=$((${#v1_parts[@]} > ${#v2_parts[@]} ? ${#v1_parts[@]} : ${#v2_parts[@]}))
@@ -268,7 +268,7 @@ check_module_dependencies() {
     log_info "检查模块依赖: $module_name"
     
     # 解析依赖
-    local dependencies=($(resolve_dependencies "$module_name"))
+    local mapfile -t dependencies < <(resolve_dependencies "$module_name")
     
     for dep in "${dependencies[@]}"; do
         # 检查依赖是否存在
@@ -318,7 +318,7 @@ check_dependency_exists() {
 # 自动安装缺失依赖
 install_missing_dependencies() {
     local module_name="$1"
-    local dependencies=($(resolve_dependencies "$module_name"))
+    local mapfile -t dependencies < <(resolve_dependencies "$module_name")
     
     log_info "自动安装缺失依赖: $module_name"
     

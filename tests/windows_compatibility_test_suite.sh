@@ -7,12 +7,12 @@
 # 定义颜色
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-YELLOW='\033[0;33m'
+# YELLOW=  # unused'\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 确保在项目根目录执行
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit
 if [[ -z "$SCRIPT_DIR" ]]; then
     echo -e "${RED}错误: 无法确定项目根目录。${NC}"
     exit 1
@@ -42,6 +42,7 @@ log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# shellcheck disable=SC2317
 log_debug() { :; } # Debug messages are suppressed by default in tests
 
 # 测试计数器

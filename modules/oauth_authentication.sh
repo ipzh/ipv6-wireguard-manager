@@ -414,7 +414,7 @@ oauth_authentication_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-8]: " choice
+        read -rp "请选择操作 [0-8]: " choice
         
         case $choice in
             1) oauth_client_management ;;
@@ -429,7 +429,7 @@ oauth_authentication_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -451,7 +451,7 @@ oauth_client_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) show_oauth_clients ;;
@@ -464,7 +464,7 @@ oauth_client_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -531,7 +531,7 @@ mfa_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) enable_user_mfa ;;
@@ -544,7 +544,7 @@ mfa_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -623,7 +623,7 @@ rbac_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-8]: " choice
+        read -rp "请选择操作 [0-8]: " choice
         
         case $choice in
             1) show_roles ;;
@@ -638,7 +638,7 @@ rbac_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -724,7 +724,7 @@ audit_log_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) show_audit_logs ;;
@@ -736,7 +736,7 @@ audit_log_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -797,7 +797,7 @@ security_event_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) show_security_events ;;
@@ -809,7 +809,7 @@ security_event_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

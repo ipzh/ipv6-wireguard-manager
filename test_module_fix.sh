@@ -5,7 +5,7 @@
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -17,7 +17,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # 安装目录
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 
 log_info "检查模块文件状态..."
 
@@ -35,10 +35,10 @@ if [[ ! -d "$CURRENT_DIR/modules" ]]; then
 fi
 
 log_info "当前项目模块文件:"
-ls -la "$CURRENT_DIR/modules/" | head -10
+find . -type f -exec ls -la {} + "$CURRENT_DIR/modules/" | head -10
 
 log_info "已安装的模块文件:"
-ls -la "$INSTALL_DIR/modules/" | head -10
+find . -type f -exec ls -la {} + "$INSTALL_DIR/modules/" | head -10
 
 # 检查关键模块
 log_info "检查关键模块文件..."

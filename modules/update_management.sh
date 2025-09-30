@@ -132,7 +132,7 @@ update_check_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-8]: " choice
+        read -rp "请选择操作 [0-8]: " choice
         
         case $choice in
             1) check_current_version ;;
@@ -147,7 +147,7 @@ update_check_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -200,7 +200,7 @@ get_git_info() {
     if command -v git &> /dev/null && [[ -d ".git" ]]; then
         local commit=$(git rev-parse --short HEAD 2>/dev/null)
         local branch=$(git branch --show-current 2>/dev/null)
-        local date=$(git log -1 --format=%cd --date=short 2>/dev/null)
+        local date=$(git log -1 --format=%cd --date=short 2>/dev/null) || exit
         echo "分支: $branch, 提交: $commit, 日期: $date"
     else
         echo "Git信息不可用"
@@ -457,7 +457,7 @@ download_update() {
     local download_url="${UPDATE_REPOSITORY}/archive/refs/tags/v${LATEST_VERSION}.tar.gz"
     
     mkdir -p "$download_dir"
-    cd "$download_dir"
+    cd "$download_dir" || exit
     
     if command -v curl &> /dev/null; then
         curl -L -o "update.tar.gz" "$download_url"

@@ -1059,7 +1059,7 @@ enhanced_web_interface_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-9]: " choice
+        read -rp "请选择操作 [0-9]: " choice
         
         case $choice in
             1) start_web_service ;;
@@ -1075,7 +1075,7 @@ enhanced_web_interface_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -1097,7 +1097,7 @@ user_management_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) show_user_list ;;
@@ -1110,7 +1110,7 @@ user_management_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

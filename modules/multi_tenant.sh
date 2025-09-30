@@ -246,7 +246,7 @@ multi_tenant_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) organization_management ;;
@@ -259,7 +259,7 @@ multi_tenant_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -281,7 +281,7 @@ organization_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) list_organizations ;;
@@ -294,7 +294,7 @@ organization_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -365,7 +365,7 @@ project_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) list_projects ;;
@@ -378,7 +378,7 @@ project_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -448,7 +448,7 @@ resource_quota_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) list_quotas ;;
@@ -460,7 +460,7 @@ resource_quota_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

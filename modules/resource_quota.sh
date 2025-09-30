@@ -436,7 +436,7 @@ resource_quota_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-7]: " choice
+        read -rp "请选择操作 [0-7]: " choice
         
         case $choice in
             1) list_resource_quotas ;;
@@ -450,7 +450,7 @@ resource_quota_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -550,7 +550,7 @@ quota_alert_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) list_quota_alerts ;;
@@ -562,7 +562,7 @@ quota_alert_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

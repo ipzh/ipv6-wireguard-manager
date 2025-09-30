@@ -14,7 +14,7 @@ declare -g IPV6WGM_LOG_FILE="${IPV6WGM_LOG_FILE:-$IPV6WGM_LOG_DIR/manager.log}"
 declare -g IPV6WGM_TEMP_DIR="${IPV6WGM_TEMP_DIR:-/tmp/ipv6-wireguard-manager}"
 
 # 脚本路径变量
-declare -g IPV6WGM_SCRIPT_DIR="${IPV6WGM_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)}"
+declare -g IPV6WGM_SCRIPT_DIR="${IPV6WGM_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)}" || exit
 declare -g IPV6WGM_MODULES_DIR="${IPV6WGM_MODULES_DIR:-$IPV6WGM_SCRIPT_DIR/modules}"
 declare -g IPV6WGM_BIN_DIR="${IPV6WGM_BIN_DIR:-/usr/local/bin}"
 

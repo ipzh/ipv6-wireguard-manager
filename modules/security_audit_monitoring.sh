@@ -338,7 +338,7 @@ security_audit_monitoring_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-8]: " choice
+        read -rp "请选择操作 [0-8]: " choice
         
         case $choice in
             1) security_alert_management ;;
@@ -353,7 +353,7 @@ security_audit_monitoring_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -374,7 +374,7 @@ security_alert_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) show_security_alerts ;;
@@ -386,7 +386,7 @@ security_alert_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -577,7 +577,7 @@ security_scan_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) execute_security_scan ;;
@@ -589,7 +589,7 @@ security_scan_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -673,7 +673,7 @@ vulnerability_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) show_vulnerabilities ;;
@@ -685,7 +685,7 @@ vulnerability_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

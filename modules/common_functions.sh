@@ -13,7 +13,7 @@ declare -g IPV6WGM_LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
 declare -g IPV6WGM_LOG_FILE="${LOG_FILE:-$IPV6WGM_LOG_DIR/manager.log}"
 
 # 脚本路径变量
-declare -g IPV6WGM_SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)}"
+declare -g IPV6WGM_SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)}" || exit
 declare -g IPV6WGM_MODULES_DIR="${MODULES_DIR:-$IPV6WGM_SCRIPT_DIR/modules}"
 
 # 兼容性变量（保持向后兼容）
@@ -178,10 +178,10 @@ declare -g IPV6WGM_COLOR_NC='\033[0m' # No Color
 # 兼容性变量
 RED="$IPV6WGM_COLOR_RED"
 GREEN="$IPV6WGM_COLOR_GREEN"
-YELLOW="$IPV6WGM_COLOR_YELLOW"
+# YELLOW=  # unused"$IPV6WGM_COLOR_YELLOW"
 BLUE="$IPV6WGM_COLOR_BLUE"
-CYAN="$IPV6WGM_COLOR_CYAN"
-PURPLE="$IPV6WGM_COLOR_PURPLE"
+# CYAN=  # unused"$IPV6WGM_COLOR_CYAN"
+# PURPLE=  # unused"$IPV6WGM_COLOR_PURPLE"
 SECONDARY_COLOR="$IPV6WGM_COLOR_SECONDARY"
 NC="$IPV6WGM_COLOR_NC"
 
@@ -221,10 +221,10 @@ show_input() {
     local value
     
     if [[ -n "$default" ]]; then
-        read -p "$prompt [$default]: " value
+        read -rp "$prompt [$default]: " value
         value="${value:-$default}"
     else
-        read -p "$prompt: " value
+        read -rp "$prompt: " value
     fi
     
     echo "$value"
@@ -261,12 +261,12 @@ confirm() {
     
     # 简化逻辑，确保默认值处理正确
     if [[ "$default" == "y" ]]; then
-        read -p "$prompt [Y/n]: " -n 1 -r
+        read -rp "$prompt [Y/n]: " -n 1 -r
         echo
         # 空输入或Y/y返回0，其他返回1
         [[ -z "$REPLY" || $REPLY =~ ^[Yy]$ ]] && return 0 || return 1
     else
-        read -p "$prompt [y/N]: " -n 1 -r
+        read -rp "$prompt [y/N]: " -n 1 -r
         echo
         # 只有Y/y返回0，空输入或其他返回1
         [[ $REPLY =~ ^[Yy]$ ]] && return 0 || return 1
@@ -930,6 +930,7 @@ log_with_level() {
 }
 
 # 重新定义日志函数
+# shellcheck disable=SC2317
 log_debug() { log_with_level "DEBUG" "$1"; }
 log_info() { log_with_level "INFO" "$1"; }
 log_warn() { log_with_level "WARN" "$1"; }
@@ -1288,10 +1289,10 @@ secure_input() {
     local value
     
     if [[ -n "$default" ]]; then
-        read -p "$prompt [$default]: " value
+        read -rp "$prompt [$default]: " value
         value="${value:-$default}"
     else
-        read -p "$prompt: " value
+        read -rp "$prompt: " value
     fi
     
     # 输入验证和清理

@@ -367,7 +367,7 @@ network_topology_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) view_network_topology ;;
@@ -379,7 +379,7 @@ network_topology_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

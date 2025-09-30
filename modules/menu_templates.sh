@@ -386,7 +386,7 @@ quick_install() {
         show_error "依赖检查失败，无法继续安装"
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 交互式安装
@@ -400,7 +400,7 @@ interactive_install() {
     quick_install
     
     show_success "交互式安装完成!"
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 获取用户配置
@@ -450,7 +450,7 @@ download_required_files() {
     done
     
     show_success "文件下载完成!"
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 显示服务状态
@@ -467,7 +467,7 @@ show_service_status() {
         fi
     done
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 启动服务
@@ -486,7 +486,7 @@ start_services() {
         done
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 停止服务
@@ -505,7 +505,7 @@ stop_services() {
         done
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 重启服务
@@ -524,7 +524,7 @@ restart_services() {
         done
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 重载配置
@@ -548,7 +548,7 @@ reload_configurations() {
         show_success "配置重载完成!"
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 显示服务日志
@@ -573,7 +573,7 @@ show_service_logs() {
         esac
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 显示系统资源
@@ -587,7 +587,7 @@ show_system_resources() {
     echo "运行时间: $(uptime -p)"
     echo "----------------------------------------"
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 显示网络连接
@@ -597,7 +597,7 @@ show_network_connections() {
     netstat -tuln | head -20
     echo "----------------------------------------"
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 运行BIRD诊断
@@ -619,7 +619,7 @@ run_bird_diagnostics() {
         show_error "BIRD客户端未安装"
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 运行WireGuard诊断
@@ -637,7 +637,7 @@ run_wireguard_diagnostics() {
         show_error "WireGuard工具未安装"
     fi
     
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 导出函数

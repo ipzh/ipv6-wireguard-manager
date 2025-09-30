@@ -4,8 +4,8 @@
 # 提供完整的测试用例实现
 
 # 获取脚本目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)" || exit
 
 # 导入统一测试框架
 if [[ -f "$PROJECT_ROOT/modules/unified_test_framework.sh" ]]; then

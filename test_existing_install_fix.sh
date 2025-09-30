@@ -7,7 +7,7 @@ echo "=== 测试现有安装检查修复 ==="
 # 创建测试目录
 TEST_DIR="/tmp/existing-install-test-$(date +%s)"
 mkdir -p "$TEST_DIR"
-cd "$TEST_DIR"
+cd "$TEST_DIR" || exit
 
 echo "测试目录: $TEST_DIR"
 
@@ -21,7 +21,7 @@ set -e
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -185,6 +185,6 @@ else
 fi
 
 # 清理
-cd /
+cd / || exit
 rm -rf "$TEST_DIR" "$INSTALL_DIR" "$CONFIG_DIR" "$LOG_DIR" "$BIN_DIR" "$SERVICE_DIR"
 echo "✓ 测试完成，临时目录已清理"

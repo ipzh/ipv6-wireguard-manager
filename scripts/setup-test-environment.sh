@@ -6,8 +6,8 @@
 set -euo pipefail
 
 # 获取脚本目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)" || exit
 
 # 导入公共函数
 if [[ -f "$PROJECT_ROOT/modules/common_functions.sh" ]]; then

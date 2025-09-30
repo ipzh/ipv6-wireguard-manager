@@ -167,7 +167,7 @@ web_management_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-12]: " choice
+        read -rp "请选择操作 [0-12]: " choice
         
         case $choice in
             1) install_web_service ;;
@@ -186,7 +186,7 @@ web_management_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -1114,7 +1114,7 @@ setup_web_database() {
     mkdir -p "$(dirname "$WEB_DB_PATH")"
     
     # 初始化数据库
-    cd "$WEB_ROOT_DIR"
+    cd "$WEB_ROOT_DIR" || exit
     source venv/bin/activate
     python3 -c "
 from app import app, db

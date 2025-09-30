@@ -149,7 +149,7 @@ confirm() {
     fi
     
     while true; do
-        read -p "$prompt" -r response
+        read -rp "$prompt" -r response
         case "$response" in
             [Yy]|[Yy][Ee][Ss])
                 return 0

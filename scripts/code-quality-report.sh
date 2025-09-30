@@ -8,14 +8,14 @@ set -euo pipefail
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+# PURPLE=  # unused'\033[0;35m'
+# CYAN=  # unused'\033[0;36m'
 NC='\033[0m' # No Color
 
 # 配置
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 REPORT_DIR="$PROJECT_ROOT/reports"
 QUALITY_REPORT="$REPORT_DIR/code-quality-report.md"

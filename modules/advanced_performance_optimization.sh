@@ -110,7 +110,7 @@ save_to_cache() {
 # 清理旧缓存条目
 cleanup_old_cache_entries() {
     local cache_dir="/tmp"
-    local cache_files=($(ls -t "$cache_dir"/ipv6wgm_cache_* 2>/dev/null | tail -n +$((IPV6WGM_CACHE_MAX_SIZE + 1))))
+    local mapfile -t cache_files < <(ls -t "$cache_dir"/ipv6wgm_cache_* 2>/dev/null | tail -n +$((IPV6WGM_CACHE_MAX_SIZE + 1)))
     
     for file in "${cache_files[@]}"; do
         rm -f "$file"

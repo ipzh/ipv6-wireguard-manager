@@ -6,9 +6,9 @@
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
+# PURPLE=  # unused'\033[0;35m'
 # CYAN='\033[0;36m'  # 未使用的变量
 NC='\033[0m'
 
@@ -29,6 +29,7 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# shellcheck disable=SC2317
 log_debug() {
     echo -e "${PURPLE}[DEBUG]${NC} $1"
 }

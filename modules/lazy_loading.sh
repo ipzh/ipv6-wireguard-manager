@@ -425,7 +425,7 @@ lazy_loading_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-7]: " choice
+        read -rp "请选择操作 [0-7]: " choice
         
         case $choice in
             1) show_lazy_loading_status ;;
@@ -439,7 +439,7 @@ lazy_loading_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -562,7 +562,7 @@ cache_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) view_cache_contents ;;
@@ -575,7 +575,7 @@ cache_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

@@ -7,7 +7,7 @@ echo "=== 测试安装脚本修复 ==="
 # 创建测试目录
 TEST_DIR="/tmp/install-test-$(date +%s)"
 mkdir -p "$TEST_DIR"
-cd "$TEST_DIR"
+cd "$TEST_DIR" || exit
 
 echo "测试目录: $TEST_DIR"
 
@@ -42,7 +42,7 @@ if command -v curl &> /dev/null; then
             # 检查解压后的目录结构
             echo "4. 检查目录结构..."
             echo "当前目录内容:"
-            ls -la
+            find . -type f -exec ls -la {} +
             
             # 查找解压后的目录
             EXTRACTED_DIR=""
@@ -56,7 +56,7 @@ if command -v curl &> /dev/null; then
             if [[ -n "$EXTRACTED_DIR" && -d "$EXTRACTED_DIR" ]]; then
                 echo "✓ 找到解压目录: $EXTRACTED_DIR"
                 echo "解压目录内容:"
-                ls -la "$EXTRACTED_DIR" | head -10
+                find . -type f -exec ls -la {} + "$EXTRACTED_DIR" | head -10
                 
                 # 检查关键文件
                 if [[ -f "$EXTRACTED_DIR/ipv6-wireguard-manager.sh" ]]; then
@@ -92,6 +92,6 @@ else
 fi
 
 # 清理
-cd /
+cd / || exit
 rm -rf "$TEST_DIR"
 echo "✓ 测试完成，临时目录已清理"

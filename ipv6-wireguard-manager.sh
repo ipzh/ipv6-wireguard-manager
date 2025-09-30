@@ -18,10 +18,10 @@ fi
 get_script_dir() {
     if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
         # 标准情况：通过BASH_SOURCE获取
-        echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        echo "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
     elif [[ -n "${0:-}" && "$0" != "-bash" && "$0" != "bash" ]]; then
         # 备选方案1：通过$0获取
-        echo "$(cd "$(dirname "$0")" && pwd)"
+        echo "$(cd "$(dirname "$0")" && pwd)" || exit
     else
         # 备选方案2：使用当前工作目录
         echo "$(pwd)"
@@ -44,10 +44,10 @@ fi
 # 提前定义颜色变量，避免导入失败时出错
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+# PURPLE=  # unused'\033[0;35m'
+# CYAN=  # unused'\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
@@ -340,15 +340,15 @@ fi
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
-YELLOW="${YELLOW:-'\033[1;33m'}"
+# YELLOW=  # unused"${YELLOW:-'\033[1;33m'}"
 BLUE="${BLUE:-'\033[0;34m'}"
-PURPLE="${PURPLE:-'\033[0;35m'}"
-CYAN="${CYAN:-'\033[0;36m'}"
+# PURPLE=  # unused"${PURPLE:-'\033[0;35m'}"
+# CYAN=  # unused"${CYAN:-'\033[0;36m'}"
 WHITE="${WHITE:-'\033[1;37m'}"
 NC="${NC:-'\033[0m'}"
 
 # 全局变量
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 CONFIG_DIR="${CONFIG_DIR:-/etc/ipv6-wireguard-manager}"
 MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
@@ -789,7 +789,7 @@ show_main_menu() {
         echo -e "${GREEN}0.${NC}  退出"
         echo
         
-        read -p "请选择操作 [0-38]: " choice
+        read -rp "请选择操作 [0-38]: " choice
         
         case $choice in
             1) quick_install ;;
@@ -976,7 +976,7 @@ quick_install() {
     start_services
     
     log_info "快速安装完成!"
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 启动相关服务
@@ -1144,35 +1144,35 @@ interactive_install() {
     quick_install
     
     log_info "交互式安装完成!"
-    read -p "按回车键继续..."
+    read -rp "按回车键继续..."
 }
 
 # 获取用户配置
 get_user_config() {
     echo -e "${YELLOW}请输入配置信息:${NC}"
     
-    read -p "WireGuard端口 [默认: 51820]: " port
+    read -rp "WireGuard端口 [默认: 51820]: " port
     WIREGUARD_PORT=${port:-51820}
     
-    read -p "WireGuard接口名 [默认: wg0]: " interface
+    read -rp "WireGuard接口名 [默认: wg0]: " interface
     WIREGUARD_INTERFACE=${interface:-wg0}
     
-    read -p "IPv4网络 [默认: 10.0.0.0/24]: " network
+    read -rp "IPv4网络 [默认: 10.0.0.0/24]: " network
     WIREGUARD_NETWORK=${network:-10.0.0.0/24}
     
-    read -p "IPv6前缀 [默认: 2001:db8::/56]: " prefix
+    read -rp "IPv6前缀 [默认: 2001:db8::/56]: " prefix
     IPV6_PREFIX=${prefix:-2001:db8::/56}
     
-    read -p "BIRD版本 [auto/1.x/2.x/3.x]: " bird_ver
+    read -rp "BIRD版本 [auto/1.x/2.x/3.x]: " bird_ver
     BIRD_VERSION=${bird_ver:-auto}
     
-    read -p "防火墙类型 [auto/ufw/firewalld/nftables/iptables]: " fw_type
+    read -rp "防火墙类型 [auto/ufw/firewalld/nftables/iptables]: " fw_type
     FIREWALL_TYPE=${fw_type:-auto}
     
-    read -p "Web管理端口 [默认: 8080]: " web_port
+    read -rp "Web管理端口 [默认: 8080]: " web_port
     WEB_PORT=${web_port:-8080}
     
-    read -p "Web管理用户名 [默认: admin]: " web_user
+    read -rp "Web管理用户名 [默认: admin]: " web_user
     WEB_USER=${web_user:-admin}
     
     read -s -p "Web管理密码 [默认: admin123]: " web_pass
@@ -1217,11 +1217,11 @@ config_version_management_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1)
-                read -p "请输入版本描述: " description
+                read -rp "请输入版本描述: " description
                 if command -v create_version &> /dev/null; then
                     create_version "" "$description"
                 else
@@ -1236,7 +1236,7 @@ config_version_management_menu() {
                 fi
                 ;;
             3)
-                read -p "请输入要回滚的版本号: " version
+                read -rp "请输入要回滚的版本号: " version
                 if command -v rollback_to_version &> /dev/null; then
                     rollback_to_version "$version"
                 else
@@ -1244,8 +1244,8 @@ config_version_management_menu() {
                 fi
                 ;;
             4)
-                read -p "请输入第一个版本号: " version1
-                read -p "请输入第二个版本号: " version2
+                read -rp "请输入第一个版本号: " version1
+                read -rp "请输入第二个版本号: " version2
                 if command -v compare_versions &> /dev/null; then
                     compare_versions "$version1" "$version2"
                 else
@@ -1253,7 +1253,7 @@ config_version_management_menu() {
                 fi
                 ;;
             5)
-                read -p "请输入要保留的版本数 (默认50): " keep_versions
+                read -rp "请输入要保留的版本数 (默认50): " keep_versions
                 keep_versions=${keep_versions:-50}
                 if command -v cleanup_old_versions &> /dev/null; then
                     cleanup_old_versions "$keep_versions"
@@ -1290,12 +1290,12 @@ config_backup_management_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1)
-                read -p "请输入备份名称 (可选): " backup_name
-                read -p "请输入备份描述: " description
+                read -rp "请输入备份名称 (可选): " backup_name
+                read -rp "请输入备份描述: " description
                 if command -v create_backup &> /dev/null; then
                     create_backup "$backup_name" "$description"
                 else
@@ -1310,7 +1310,7 @@ config_backup_management_menu() {
                 fi
                 ;;
             3)
-                read -p "请输入要恢复的备份名称: " backup_name
+                read -rp "请输入要恢复的备份名称: " backup_name
                 if command -v restore_backup &> /dev/null; then
                     restore_backup "$backup_name"
                 else
@@ -1318,7 +1318,7 @@ config_backup_management_menu() {
                 fi
                 ;;
             4)
-                read -p "请输入保留天数 (默认30): " retention_days
+                read -rp "请输入保留天数 (默认30): " retention_days
                 retention_days=${retention_days:-30}
                 if command -v cleanup_expired_backups &> /dev/null; then
                     cleanup_expired_backups "$retention_days"
@@ -1359,7 +1359,7 @@ config_hot_reload_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-7]: " choice
+        read -rp "请选择操作 [0-7]: " choice
         
         case $choice in
             1)
@@ -1377,7 +1377,7 @@ config_hot_reload_menu() {
                 fi
                 ;;
             3)
-                read -p "请输入要重载的文件路径 (可选): " file_path
+                read -rp "请输入要重载的文件路径 (可选): " file_path
                 if command -v trigger_reload &> /dev/null; then
                     trigger_reload "$file_path"
                 else
@@ -1392,7 +1392,7 @@ config_hot_reload_menu() {
                 fi
                 ;;
             5)
-                read -p "请输入要添加的文件路径: " file_path
+                read -rp "请输入要添加的文件路径: " file_path
                 if command -v add_watched_file &> /dev/null; then
                     add_watched_file "$file_path"
                 else
@@ -1400,7 +1400,7 @@ config_hot_reload_menu() {
                 fi
                 ;;
             6)
-                read -p "请输入要移除的文件路径: " file_path
+                read -rp "请输入要移除的文件路径: " file_path
                 if command -v remove_watched_file &> /dev/null; then
                     remove_watched_file "$file_path"
                 else
@@ -1408,8 +1408,8 @@ config_hot_reload_menu() {
                 fi
                 ;;
             7)
-                read -p "请输入监控间隔 (秒): " interval
-                read -p "是否启用配置验证 (true/false): " validation
+                read -rp "请输入监控间隔 (秒): " interval
+                read -rp "是否启用配置验证 (true/false): " validation
                 if command -v set_monitoring_parameters &> /dev/null; then
                     set_monitoring_parameters "$interval" "$validation"
                 else
@@ -1438,12 +1438,12 @@ module_version_compatibility_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1)
-                read -p "请输入模块名称: " module_name
-                read -p "请输入要求版本 (可选): " required_version
+                read -rp "请输入模块名称: " module_name
+                read -rp "请输入要求版本 (可选): " required_version
                 if command -v check_module_compatibility &> /dev/null; then
                     check_module_compatibility "$module_name" "$required_version"
                 else
@@ -1458,7 +1458,7 @@ module_version_compatibility_menu() {
                 fi
                 ;;
             3)
-                read -p "请输入模块名称: " module_name
+                read -rp "请输入模块名称: " module_name
                 if command -v check_module_dependencies &> /dev/null; then
                     check_module_dependencies "$module_name"
                 else
@@ -1466,7 +1466,7 @@ module_version_compatibility_menu() {
                 fi
                 ;;
             4)
-                read -p "请输入模块名称 (可选): " module_name
+                read -rp "请输入模块名称 (可选): " module_name
                 if command -v get_module_version_info &> /dev/null; then
                     get_module_version_info "$module_name"
                 else
@@ -1474,8 +1474,8 @@ module_version_compatibility_menu() {
                 fi
                 ;;
             5)
-                read -p "请输入模块名称: " module_name
-                read -p "请输入新版本号: " new_version
+                read -rp "请输入模块名称: " module_name
+                read -rp "请输入新版本号: " new_version
                 if command -v update_module_version &> /dev/null; then
                     update_module_version "$module_name" "$new_version"
                 else
@@ -1514,7 +1514,7 @@ module_preloading_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-9]: " choice
+        read -rp "请选择操作 [0-9]: " choice
         
         case $choice in
             1)
@@ -1567,10 +1567,10 @@ module_preloading_menu() {
                 fi
                 ;;
             8)
-                read -p "是否启用预加载 (true/false): " enabled
-                read -p "是否启用核心模块预加载 (true/false): " core_modules
-                read -p "是否启用高频模块预加载 (true/false): " frequent_modules
-                read -p "是否启用后台预加载 (true/false): " background
+                read -rp "是否启用预加载 (true/false): " enabled
+                read -rp "是否启用核心模块预加载 (true/false): " core_modules
+                read -rp "是否启用高频模块预加载 (true/false): " frequent_modules
+                read -rp "是否启用后台预加载 (true/false): " background
                 if command -v set_preload_parameters &> /dev/null; then
                     set_preload_parameters "$enabled" "$core_modules" "$frequent_modules" "$background"
                 else
@@ -1615,7 +1615,7 @@ script_self_check_menu() {
         echo -e "${GREEN}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-15]: " choice
+        read -rp "请选择操作 [0-15]: " choice
         
         case $choice in
             1)
@@ -1766,7 +1766,7 @@ feature_management_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回主菜单"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) show_feature_status ;;
@@ -1843,7 +1843,7 @@ enable_feature() {
         echo "$((i+1)). $feature_name $status"
     done
     
-    read -p "请选择功能编号: " choice
+    read -rp "请选择功能编号: " choice
     
     if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 ]] && [[ $choice -le ${#features[@]} ]]; then
         local selected_feature="${features[$((choice-1))]}"
@@ -1894,7 +1894,7 @@ disable_feature() {
         echo "$((i+1)). $feature_name $status"
     done
     
-    read -p "请选择功能编号: " choice
+    read -rp "请选择功能编号: " choice
     
     if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 ]] && [[ $choice -le ${#features[@]} ]]; then
         local selected_feature="${features[$((choice-1))]}"
@@ -1936,7 +1936,7 @@ reinstall_feature() {
         echo "$((i+1)). $feature_name"
     done
     
-    read -p "请选择功能编号: " choice
+    read -rp "请选择功能编号: " choice
     
     if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 ]] && [[ $choice -le ${#features[@]} ]]; then
         local selected_feature="${features[$((choice-1))]}"
@@ -2099,7 +2099,7 @@ enhanced_config_management_menu() {
                 fi
                 ;;
             4)
-                read -p "请输入备份名称: " backup_name
+                read -rp "请输入备份名称: " backup_name
                 if command -v restore_config_backup &> /dev/null; then
                     restore_config_backup "$IPV6WGM_CONFIG_DIR/manager.conf" "$backup_name"
                 else
@@ -2107,7 +2107,7 @@ enhanced_config_management_menu() {
                 fi
                 ;;
             5)
-                read -p "请输入导出格式 (plain/json/yaml): " format
+                read -rp "请输入导出格式 (plain/json/yaml): " format
                 if command -v export_config &> /dev/null; then
                     local export_file=$(export_config "$IPV6WGM_CONFIG_DIR/manager.conf" "" "$format")
                     show_success "配置已导出: $export_file"
@@ -2116,7 +2116,7 @@ enhanced_config_management_menu() {
                 fi
                 ;;
             6)
-                read -p "请输入导入文件路径: " import_file
+                read -rp "请输入导入文件路径: " import_file
                 if command -v import_config &> /dev/null; then
                     import_config "$import_file" "$IPV6WGM_CONFIG_DIR/manager.conf"
                 else
@@ -2131,7 +2131,7 @@ enhanced_config_management_menu() {
                 fi
                 ;;
             8)
-                read -p "请输入模板类型 (basic/advanced/minimal): " template_type
+                read -rp "请输入模板类型 (basic/advanced/minimal): " template_type
                 if command -v generate_config_template &> /dev/null; then
                     local template_file=$(generate_config_template "$template_type")
                     show_success "配置模板已生成: $template_file"
@@ -2265,7 +2265,7 @@ dependency_management_menu() {
         
         case $choice in
             1)
-                read -p "请输入模块名: " module_name
+                read -rp "请输入模块名: " module_name
                 if command -v check_module_dependencies &> /dev/null; then
                     check_module_dependencies "$module_name"
                 else
@@ -2273,16 +2273,16 @@ dependency_management_menu() {
                 fi
                 ;;
             2)
-                read -p "请输入模块名: " module_name
+                read -rp "请输入模块名: " module_name
                 if command -v resolve_dependencies &> /dev/null; then
-                    local deps=($(resolve_dependencies "$module_name"))
+                    local mapfile -t deps < <(resolve_dependencies "$module_name")
                     echo "依赖关系: ${deps[*]}"
                 else
                     show_error "依赖解析功能不可用"
                 fi
                 ;;
             3)
-                read -p "请输入模块名: " module_name
+                read -rp "请输入模块名: " module_name
                 if command -v install_missing_dependencies &> /dev/null; then
                     install_missing_dependencies "$module_name"
                 else
@@ -2297,7 +2297,7 @@ dependency_management_menu() {
                 fi
                 ;;
             5)
-                read -p "请输入模块名: " module_name
+                read -rp "请输入模块名: " module_name
                 if command -v check_circular_dependencies &> /dev/null; then
                     check_circular_dependencies "$module_name"
                 else
@@ -2358,7 +2358,7 @@ system_compatibility_menu() {
                 fi
                 ;;
             4)
-                read -p "请输入测试类型 (basic/functional/performance/full): " test_type
+                read -rp "请输入测试类型 (basic/functional/performance/full): " test_type
                 if command -v run_compatibility_test &> /dev/null; then
                     run_compatibility_test "$test_type"
                 else
@@ -2407,7 +2407,7 @@ performance_optimization_menu() {
         
         case $choice in
             1)
-                read -p "启用缓存? (y/n): " enable
+                read -rp "启用缓存? (y/n): " enable
                 if [[ "$enable" == "y" ]]; then
                     IPV6WGM_CACHE_ENABLED="true"
                     show_success "缓存已启用"
@@ -2497,8 +2497,8 @@ advanced_error_handling_menu() {
         
         case $choice in
             1)
-                read -p "请输入错误代码: " error_code
-                read -p "请输入错误消息: " error_message
+                read -rp "请输入错误代码: " error_code
+                read -rp "请输入错误消息: " error_message
                 if command -v detect_exception_scenario &> /dev/null; then
                     local scenario
                     scenario=$(detect_exception_scenario "$error_code" "$error_message")

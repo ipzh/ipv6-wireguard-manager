@@ -271,7 +271,7 @@ firewall_management_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-10]: " choice
+        read -rp "请选择操作 [0-10]: " choice
         
         case $choice in
             1) show_firewall_status ;;
@@ -288,7 +288,7 @@ firewall_management_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -349,7 +349,7 @@ manage_firewall_rules() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-7]: " choice
+        read -rp "请选择操作 [0-7]: " choice
         
         case $choice in
             1) list_firewall_rules ;;
@@ -363,7 +363,7 @@ manage_firewall_rules() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -648,7 +648,7 @@ manage_firewall_ports() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) list_open_ports ;;
@@ -660,7 +660,7 @@ manage_firewall_ports() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -810,7 +810,7 @@ manage_firewall_services() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-4]: " choice
+        read -rp "请选择操作 [0-4]: " choice
         
         case $choice in
             1) list_allowed_services ;;
@@ -821,7 +821,7 @@ manage_firewall_services() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -946,7 +946,7 @@ manage_firewall_zones() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) list_all_zones ;;
@@ -959,7 +959,7 @@ manage_firewall_zones() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

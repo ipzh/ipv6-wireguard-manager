@@ -208,7 +208,7 @@ monitoring_alerting_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-11]: " choice
+        read -rp "请选择操作 [0-11]: " choice
         
         case $choice in
             1) system_monitoring ;;
@@ -226,7 +226,7 @@ monitoring_alerting_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -249,7 +249,7 @@ system_monitoring() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-7]: " choice
+        read -rp "请选择操作 [0-7]: " choice
         
         case $choice in
             1) show_system_status ;;
@@ -263,7 +263,7 @@ system_monitoring() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -485,7 +485,7 @@ client_monitoring() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) client_connection_status ;;
@@ -498,7 +498,7 @@ client_monitoring() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -567,7 +567,7 @@ service_monitoring() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) service_status_check ;;
@@ -579,7 +579,7 @@ service_monitoring() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -620,7 +620,7 @@ network_monitoring() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-5]: " choice
+        read -rp "请选择操作 [0-5]: " choice
         
         case $choice in
             1) network_interface_status ;;
@@ -632,7 +632,7 @@ network_monitoring() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -675,7 +675,7 @@ alert_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) alert_rules_configuration ;;
@@ -688,7 +688,7 @@ alert_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -730,7 +730,7 @@ monitoring_configuration() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) monitoring_settings ;;
@@ -743,7 +743,7 @@ monitoring_configuration() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

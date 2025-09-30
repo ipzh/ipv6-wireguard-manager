@@ -51,6 +51,6 @@ else
 fi
 
 # 清理
-cd /
+cd / || exit
 rm -rf "$TEST_DIR"
 echo "✓ 测试完成，临时目录已清理"

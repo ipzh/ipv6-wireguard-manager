@@ -264,7 +264,7 @@ cleanup_old_backups() {
     fi
     
     # 按修改时间排序，删除最旧的备份
-    local backup_files=($(ls -t "$IPV6WGM_CONFIG_BACKUP_DIR"/*.conf 2>/dev/null))
+    local mapfile -t backup_files < <(ls -t "$IPV6WGM_CONFIG_BACKUP_DIR"/*.conf 2>/dev/null)
     local backup_count=${#backup_files[@]}
     
     if [[ $backup_count -gt $max_backups ]]; then

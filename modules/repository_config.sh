@@ -289,7 +289,7 @@ source_install() {
     
     echo "正在克隆仓库..."
     if git clone "$repo_url" "$repo_name"; then
-        cd "$repo_name"
+        cd "$repo_name" || exit
         echo "仓库克隆完成"
         echo "请运行: sudo ./install.sh"
         return 0
@@ -504,7 +504,7 @@ get_install_methods() {
     echo
     echo "4. 从源码安装"
     echo "   git clone $(get_repository_url)"
-    echo "   cd ipv6-wireguard-manager"
+    echo "   cd ipv6-wireguard-manager" || exit
     echo "   sudo ./install.sh"
 }
 

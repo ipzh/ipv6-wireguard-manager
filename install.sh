@@ -42,10 +42,10 @@ cleanup_and_exit() {
 # 1. 首先定义基础颜色变量和备用函数，避免导入失败时出错
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+# PURPLE=  # unused'\033[0;35m'
+# CYAN=  # unused'\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
@@ -102,7 +102,7 @@ download_project_files() {
     fi
     
     # 切换到临时目录
-    if ! cd "$temp_dir"; then
+    if ! cd "$temp_dir"; then || exit
         echo -e "${RED}[ERROR]${NC} 无法切换到临时目录: $temp_dir"
         return 1
     fi
@@ -134,7 +134,7 @@ download_project_files() {
     if [[ "$download_success" == "false" ]]; then
         echo -e "${RED}[ERROR]${NC} 所有下载方法都失败了"
         echo -e "${RED}[ERROR]${NC} 请检查网络连接和URL是否正确"
-        cd "$original_dir"
+        cd "$original_dir" || exit
         return 1
     fi
     
@@ -148,7 +148,7 @@ download_project_files() {
             echo -e "${RED}[ERROR]${NC} 下载的文件太小，可能是错误页面"
             echo -e "${RED}[ERROR]${NC} 文件内容:"
             head -5 "master.tar.gz" | while read -r line; do echo -e "${RED}[ERROR]${NC}   $line"; done
-            cd "$original_dir"
+            cd "$original_dir" || exit
             return 1
         fi
         
@@ -160,7 +160,7 @@ download_project_files() {
             file master.tar.gz | while read -r line; do
                 echo -e "${RED}[ERROR]${NC}   $line"
             done
-            cd "$original_dir"
+            cd "$original_dir" || exit
             return 1
         fi
         
@@ -192,7 +192,7 @@ download_project_files() {
             
             if ! cp -r "$extracted_dir"/* "$original_dir/"; then
                 echo -e "${RED}[ERROR]${NC} 复制项目文件失败"
-                cd "$original_dir"
+                cd "$original_dir" || exit
                 return 1
             fi
             
@@ -204,12 +204,12 @@ download_project_files() {
             find . -maxdepth 1 -type f -o -type d | while read -r line; do
                 echo -e "${RED}[ERROR]${NC}   $line"
             done
-            cd "$original_dir"
+            cd "$original_dir" || exit
             return 1
         fi
         
         # 恢复原始工作目录
-        cd "$original_dir"
+        cd "$original_dir" || exit
         
         # 更新SCRIPT_DIR
         SCRIPT_DIR="$(pwd)"
@@ -219,7 +219,7 @@ download_project_files() {
         echo -e "${BLUE}[INFO]${NC} 文件位置: $SCRIPT_DIR"
     else
         echo -e "${RED}[ERROR]${NC} 文件下载失败"
-        cd "$original_dir"
+        cd "$original_dir" || exit
         return 1
     fi
 }
@@ -249,6 +249,7 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" | tee -a "$log_file"
 }
 
+# shellcheck disable=SC2317
 log_debug() {
     if [[ "${LOG_LEVEL:-INFO}" == "DEBUG" ]]; then
         local log_file="${LOG_FILE:-/tmp/install.log}"
@@ -261,7 +262,7 @@ log_debug() {
 # 统一的导入机制
 # 处理通过管道执行的情况
 if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 else
     # 当通过管道执行时，使用当前工作目录
     SCRIPT_DIR="$(pwd)"
@@ -412,10 +413,10 @@ fi
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
-YELLOW="${YELLOW:-'\033[1;33m'}"
+# YELLOW=  # unused"${YELLOW:-'\033[1;33m'}"
 BLUE="${BLUE:-'\033[0;34m'}"
-PURPLE="${PURPLE:-'\033[0;35m'}"
-CYAN="${CYAN:-'\033[0;36m'}"
+# PURPLE=  # unused"${PURPLE:-'\033[0;35m'}"
+# CYAN=  # unused"${CYAN:-'\033[0;36m'}"
 WHITE="${WHITE:-'\033[1;37m'}"
 INFO_COLOR="${INFO_COLOR:-'\033[0;36m'}"  # 信息颜色（青色）
 NC="${NC:-'\033[0m'}"
@@ -993,7 +994,8 @@ check_system_compatibility() {
     fi
     
     # 检查架构
-    local arch=$(uname -m)
+    local arch
+    arch=$(uname -m)
     case "$arch" in
         "x86_64"|"aarch64")
             log_info "系统架构: $arch (支持)"
@@ -1004,12 +1006,15 @@ check_system_compatibility() {
     esac
     
     # 检查内核版本
-    local kernel_version=$(uname -r)
+    local kernel_version
+    kernel_version=$(uname -r)
     log_info "内核版本: $kernel_version"
     
     # 检查内存
-    local memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    local memory_gb=$((memory_kb / 1024 / 1024))
+    local memory_kb
+    memory_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    local memory_gb
+    memory_gb=$((memory_kb / 1024 / 1024))
     
     if [[ $memory_gb -lt 1 ]]; then
         log_warn "系统内存较少 ($memory_gb GB)，建议至少1GB"
@@ -1667,7 +1672,7 @@ create_uninstall_script() {
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 NC='\033[0m'
 
 log_info() {
@@ -1907,7 +1912,7 @@ show_installation_complete() {
     
     # 立即启动
     echo -e "${GREEN}🎯 立即启动?${NC}"
-    read -p "是否立即启动IPv6 WireGuard Manager? [Y/n]: " start_now
+    read -rp "是否立即启动IPv6 WireGuard Manager? [Y/n]: " start_now
     
     if [[ "$start_now" =~ ^[Nn]$ ]]; then
         echo -e "${YELLOW}稍后运行: ${CYAN}ipv6-wireguard-manager${NC}"
@@ -2065,7 +2070,7 @@ show_install_methods() {
     echo -e "${INFO_COLOR}0.${NC} 退出"
     echo
     
-    read -p "请选择安装方法 [0-4]: " choice
+    read -rp "请选择安装方法 [0-4]: " choice
     
     case $choice in
         1) quick_install ;;
@@ -2133,7 +2138,7 @@ show_install_help() {
     echo
     echo "4. 从源码安装"
     echo "   git clone ${REPO_URL}"
-    echo "   cd ${REPO_NAME}"
+    echo "   cd ${REPO_NAME}" || exit
     echo "   sudo ./install.sh"
     echo
     echo "安装选项:"
@@ -2144,7 +2149,7 @@ show_install_help() {
     echo
     echo "更多信息请访问: ${REPO_URL}"
     echo
-    read -p "按回车键返回主菜单..."
+    read -rp "按回车键返回主菜单..."
     show_install_methods
 }
 
@@ -2160,7 +2165,7 @@ configure_installation() {
     echo "3. 自定义安装 - 选择组件"
     echo
     
-    read -p "请选择安装类型 [1-3]: " install_choice
+    read -rp "请选择安装类型 [1-3]: " install_choice
     
     case $install_choice in
         1) 
@@ -2200,7 +2205,7 @@ configure_installation() {
     esac
     
     # 配置安装目录
-    read -p "安装目录 [默认: $INSTALL_DIR]: " custom_install_dir
+    read -rp "安装目录 [默认: $INSTALL_DIR]: " custom_install_dir
     if [[ -n "$custom_install_dir" ]]; then
         INSTALL_DIR="$custom_install_dir"
     fi
@@ -2208,22 +2213,22 @@ configure_installation() {
     # 配置选项
     echo
     echo "安装选项:"
-    read -p "跳过依赖安装? [y/N]: " skip_deps
+    read -rp "跳过依赖安装? [y/N]: " skip_deps
     if [[ "$skip_deps" =~ ^[Yy]$ ]]; then
         SKIP_DEPENDENCIES=true
     fi
     
-    read -p "跳过配置创建? [y/N]: " skip_config
+    read -rp "跳过配置创建? [y/N]: " skip_config
     if [[ "$skip_config" =~ ^[Yy]$ ]]; then
         SKIP_CONFIG=true
     fi
     
-    read -p "跳过服务安装? [y/N]: " skip_service
+    read -rp "跳过服务安装? [y/N]: " skip_service
     if [[ "$skip_service" =~ ^[Yy]$ ]]; then
         SKIP_SERVICE=true
     fi
     
-    read -p "强制安装（覆盖现有）? [y/N]: " force_install
+    read -rp "强制安装（覆盖现有）? [y/N]: " force_install
     if [[ "$force_install" =~ ^[Yy]$ ]]; then
         FORCE_INSTALL=true
     fi
@@ -2238,7 +2243,7 @@ configure_custom_installation() {
     echo
     
     # WireGuard配置
-    read -p "安装WireGuard VPN服务? [Y/n]: " install_wireguard
+    read -rp "安装WireGuard VPN服务? [Y/n]: " install_wireguard
     if [[ "$install_wireguard" =~ ^[Nn]$ ]]; then
         INSTALL_WIREGUARD=false
     else
@@ -2246,7 +2251,7 @@ configure_custom_installation() {
     fi
     
     # BIRD BGP路由
-    read -p "安装BIRD BGP路由服务? [Y/n]: " install_bird
+    read -rp "安装BIRD BGP路由服务? [Y/n]: " install_bird
     if [[ "$install_bird" =~ ^[Nn]$ ]]; then
         INSTALL_BIRD=false
     else
@@ -2254,7 +2259,7 @@ configure_custom_installation() {
     fi
     
     # 防火墙管理
-    read -p "安装防火墙管理功能? [Y/n]: " install_firewall
+    read -rp "安装防火墙管理功能? [Y/n]: " install_firewall
     if [[ "$install_firewall" =~ ^[Nn]$ ]]; then
         INSTALL_FIREWALL=false
     else
@@ -2262,7 +2267,7 @@ configure_custom_installation() {
     fi
     
     # Web管理界面
-    read -p "安装Web管理界面? [y/N]: " install_web
+    read -rp "安装Web管理界面? [y/N]: " install_web
     if [[ "$install_web" =~ ^[Yy]$ ]]; then
         INSTALL_WEB_INTERFACE=true
     else
@@ -2270,7 +2275,7 @@ configure_custom_installation() {
     fi
     
     # 监控告警系统
-    read -p "安装监控告警系统? [y/N]: " install_monitoring
+    read -rp "安装监控告警系统? [y/N]: " install_monitoring
     if [[ "$install_monitoring" =~ ^[Yy]$ ]]; then
         INSTALL_MONITORING=true
     else
@@ -2278,7 +2283,7 @@ configure_custom_installation() {
     fi
     
     # 客户端自动安装
-    read -p "安装客户端自动安装功能? [y/N]: " install_auto_install
+    read -rp "安装客户端自动安装功能? [y/N]: " install_auto_install
     if [[ "$install_auto_install" =~ ^[Yy]$ ]]; then
         INSTALL_CLIENT_AUTO_INSTALL=true
     else
@@ -2286,7 +2291,7 @@ configure_custom_installation() {
     fi
     
     # 备份恢复
-    read -p "安装配置备份恢复功能? [y/N]: " install_backup
+    read -rp "安装配置备份恢复功能? [y/N]: " install_backup
     if [[ "$install_backup" =~ ^[Yy]$ ]]; then
         INSTALL_BACKUP_RESTORE=true
     else
@@ -2294,7 +2299,7 @@ configure_custom_installation() {
     fi
     
     # 更新管理
-    read -p "安装更新管理功能? [y/N]: " install_update
+    read -rp "安装更新管理功能? [y/N]: " install_update
     if [[ "$install_update" =~ ^[Yy]$ ]]; then
         INSTALL_UPDATE_MANAGEMENT=true
     else
@@ -2302,7 +2307,7 @@ configure_custom_installation() {
     fi
     
     # 安全增强
-    read -p "安装安全增强功能? [y/N]: " install_security
+    read -rp "安装安全增强功能? [y/N]: " install_security
     if [[ "$install_security" =~ ^[Yy]$ ]]; then
         INSTALL_SECURITY_ENHANCEMENTS=true
     else
@@ -2310,7 +2315,7 @@ configure_custom_installation() {
     fi
     
     # 配置管理
-    read -p "安装配置管理功能? [y/N]: " install_config
+    read -rp "安装配置管理功能? [y/N]: " install_config
     if [[ "$install_config" =~ ^[Yy]$ ]]; then
         INSTALL_CONFIG_MANAGEMENT=true
     else
@@ -2318,7 +2323,7 @@ configure_custom_installation() {
     fi
     
     # 增强Web界面
-    read -p "安装增强Web界面功能? [y/N]: " install_web_enhanced
+    read -rp "安装增强Web界面功能? [y/N]: " install_web_enhanced
     if [[ "$install_web_enhanced" =~ ^[Yy]$ ]]; then
         INSTALL_WEB_INTERFACE_ENHANCED=true
     else
@@ -2326,7 +2331,7 @@ configure_custom_installation() {
     fi
     
     # OAuth认证
-    read -p "安装OAuth认证功能? [y/N]: " install_oauth
+    read -rp "安装OAuth认证功能? [y/N]: " install_oauth
     if [[ "$install_oauth" =~ ^[Yy]$ ]]; then
         INSTALL_OAUTH_AUTHENTICATION=true
     else
@@ -2334,7 +2339,7 @@ configure_custom_installation() {
     fi
     
     # 安全审计监控
-    read -p "安装安全审计监控功能? [y/N]: " install_audit
+    read -rp "安装安全审计监控功能? [y/N]: " install_audit
     if [[ "$install_audit" =~ ^[Yy]$ ]]; then
         INSTALL_SECURITY_AUDIT_MONITORING=true
     else
@@ -2342,7 +2347,7 @@ configure_custom_installation() {
     fi
     
     # 网络拓扑图
-    read -p "安装网络拓扑图功能? [y/N]: " install_topology
+    read -rp "安装网络拓扑图功能? [y/N]: " install_topology
     if [[ "$install_topology" =~ ^[Yy]$ ]]; then
         INSTALL_NETWORK_TOPOLOGY=true
     else
@@ -2350,7 +2355,7 @@ configure_custom_installation() {
     fi
     
     # API文档
-    read -p "安装API文档功能? [y/N]: " install_api_docs
+    read -rp "安装API文档功能? [y/N]: " install_api_docs
     if [[ "$install_api_docs" =~ ^[Yy]$ ]]; then
         INSTALL_API_DOCUMENTATION=true
     else
@@ -2358,7 +2363,7 @@ configure_custom_installation() {
     fi
     
     # WebSocket实时通信
-    read -p "安装WebSocket实时通信功能? [y/N]: " install_websocket
+    read -rp "安装WebSocket实时通信功能? [y/N]: " install_websocket
     if [[ "$install_websocket" =~ ^[Yy]$ ]]; then
         INSTALL_WEBSOCKET_REALTIME=true
     else
@@ -2366,7 +2371,7 @@ configure_custom_installation() {
     fi
     
     # 多租户管理
-    read -p "安装多租户管理功能? [y/N]: " install_tenant
+    read -rp "安装多租户管理功能? [y/N]: " install_tenant
     if [[ "$install_tenant" =~ ^[Yy]$ ]]; then
         INSTALL_MULTI_TENANT=true
     else
@@ -2374,7 +2379,7 @@ configure_custom_installation() {
     fi
     
     # 资源配额管理
-    read -p "安装资源配额管理功能? [y/N]: " install_quota
+    read -rp "安装资源配额管理功能? [y/N]: " install_quota
     if [[ "$install_quota" =~ ^[Yy]$ ]]; then
         INSTALL_RESOURCE_QUOTA=true
     else
@@ -2382,7 +2387,7 @@ configure_custom_installation() {
     fi
     
     # 配置懒加载
-    read -p "安装配置懒加载功能? [y/N]: " install_lazy
+    read -rp "安装配置懒加载功能? [y/N]: " install_lazy
     if [[ "$install_lazy" =~ ^[Yy]$ ]]; then
         INSTALL_LAZY_LOADING=true
     else
@@ -2390,7 +2395,7 @@ configure_custom_installation() {
     fi
     
     # 性能优化
-    read -p "安装性能优化功能? [y/N]: " install_performance
+    read -rp "安装性能优化功能? [y/N]: " install_performance
     if [[ "$install_performance" =~ ^[Yy]$ ]]; then
         INSTALL_PERFORMANCE_OPTIMIZATION=true
     else

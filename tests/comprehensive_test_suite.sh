@@ -30,7 +30,7 @@ GREEN='\033[0;32m'
 # YELLOW='\033[1;33m'  # 未使用的变量
 BLUE='\033[0;34m'
 # PURPLE='\033[0;35m'  # 未使用的变量
-CYAN='\033[0;36m'
+# CYAN=  # unused'\033[0;36m'
 NC='\033[0m'
 
 # =============================================================================
@@ -532,7 +532,7 @@ cleanup_test_environment() {
 # 主函数
 main() {
     # 导入common_functions模块
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
     
     # 检查是否通过符号链接运行，如果是则使用实际安装目录
     if [[ -L "/usr/local/bin/ipv6-wireguard-manager" ]]; then

@@ -4,7 +4,7 @@
 # 用于更新管理器到最新版本
 
 # 获取脚本目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 PROJECT_ROOT="$SCRIPT_DIR"
 
 # 导入公共函数
@@ -235,7 +235,7 @@ update_manager() {
     
     # 确认更新
     echo
-    read -p "是否继续更新? (y/N): " -n 1 -r
+    read -rp "是否继续更新? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         log_info "更新已取消"

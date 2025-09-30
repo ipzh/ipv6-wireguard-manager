@@ -7,7 +7,7 @@ echo "=== 测试完整管道安装流程 ==="
 # 创建测试目录
 TEST_DIR="/tmp/full-pipe-install-test-$(date +%s)"
 mkdir -p "$TEST_DIR"
-cd "$TEST_DIR"
+cd "$TEST_DIR" || exit
 
 echo "测试目录: $TEST_DIR"
 
@@ -24,7 +24,7 @@ set -e
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -118,6 +118,6 @@ else
 fi
 
 # 清理
-cd /
+cd / || exit
 rm -rf "$TEST_DIR"
 echo "✓ 测试完成，临时目录已清理"

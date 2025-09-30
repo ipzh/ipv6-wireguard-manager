@@ -4,7 +4,7 @@
 # 使用统一测试框架进行全面的单元测试、集成测试、性能测试和兼容性测试
 
 # 获取项目根目录
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit
 
 # 导入统一测试框架
 if [[ -f "$PROJECT_ROOT/modules/unified_test_framework.sh" ]]; then

@@ -7,7 +7,7 @@ echo "=== 测试WireGuard安装卡住问题修复 ==="
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -35,7 +35,7 @@ test_wireguard_install_fix() {
     # 创建测试目录
     TEST_DIR="/tmp/wireguard-test-$(date +%s)"
     mkdir -p "$TEST_DIR"
-    cd "$TEST_DIR"
+    cd "$TEST_DIR" || exit
     
     echo "测试目录: $TEST_DIR"
     
@@ -49,7 +49,7 @@ set -e
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -135,7 +135,7 @@ EOF
     fi
     
     # 清理
-    cd /
+    cd / || exit
     rm -rf "$TEST_DIR"
     echo "✓ 测试完成，临时目录已清理"
 }

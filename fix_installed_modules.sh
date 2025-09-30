@@ -8,7 +8,7 @@ set -e
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -27,7 +27,7 @@ fi
 
 # 安装目录
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 
 log_info "开始修复已安装的模块文件..."
 

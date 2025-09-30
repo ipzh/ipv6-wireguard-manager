@@ -16,10 +16,10 @@ fi
 get_script_dir() {
     if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
         # 标准情况：通过BASH_SOURCE获取
-        cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
+        cd "$(dirname "${BASH_SOURCE[0]}")" && pwd || exit
     elif [[ -n "${0:-}" && "$0" != "-bash" && "$0" != "bash" ]]; then
         # 备选方案1：通过$0获取
-        echo "$(cd "$(dirname "$0")" && pwd)"
+        echo "$(cd "$(dirname "$0")" && pwd)" || exit
     else
         # 备选方案2：使用当前工作目录
         echo "$(pwd)"
@@ -34,10 +34,10 @@ MODULES_DIR="${MODULES_DIR:-${PROJECT_ROOT}/modules}"
 # 提前定义颜色变量，避免导入失败时出错
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+# PURPLE=  # unused'\033[0;35m'
+# CYAN=  # unused'\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
@@ -280,7 +280,7 @@ run_integration_test() {
         log_info "测试脚本集成..."
         
         # 测试主脚本导入
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --help'" "测试主脚本集成" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --help'" "测试主脚本集成" "true"; then || exit
             log_success "✓ 主脚本集成正常"
             ((PASSED_TESTS++))
         else
@@ -290,7 +290,7 @@ run_integration_test() {
         ((TOTAL_TESTS++))
         
         # 测试安装脚本集成
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source install.sh --help'" "测试安装脚本集成" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source install.sh --help'" "测试安装脚本集成" "true"; then || exit
             log_success "✓ 安装脚本集成正常"
             ((PASSED_TESTS++))
         else
@@ -314,7 +314,7 @@ run_performance_test() {
         log_info "测试脚本启动时间..."
         
         local start_time=$(date +%s%N)
-        execute_command "cd '$PROJECT_ROOT' && timeout 10 bash -c 'source ipv6-wireguard-manager.sh --help'" "测试启动时间" "true"
+        execute_command "cd '$PROJECT_ROOT' && timeout 10 bash -c 'source ipv6-wireguard-manager.sh --help'" "测试启动时间" "true" || exit
         local end_time=$(date +%s%N)
         local duration=$(( (end_time - start_time) / 1000000 )) # 转换为毫秒
         
@@ -410,7 +410,7 @@ run_version_check() {
     test_version_info() {
         log_info "测试版本信息..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --version'" "测试版本信息" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --version'" "测试版本信息" "true"; then || exit
             log_success "✓ 版本信息正常"
             ((PASSED_TESTS++))
         else
@@ -424,7 +424,7 @@ run_version_check() {
     test_version_compatibility() {
         log_info "测试版本兼容性..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --check-compatibility'" "测试版本兼容性" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source ipv6-wireguard-manager.sh --check-compatibility'" "测试版本兼容性" "true"; then || exit
             log_success "✓ 版本兼容性正常"
             ((PASSED_TESTS++))
         else
@@ -525,7 +525,7 @@ run_monitoring_test() {
     test_monitoring_modules() {
         log_info "测试监控模块..."
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/system_monitoring.sh && init_monitoring'" "测试系统监控模块" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/system_monitoring.sh && init_monitoring'" "测试系统监控模块" "true"; then || exit
             log_success "✓ 系统监控模块正常"
             ((PASSED_TESTS++))
         else
@@ -534,7 +534,7 @@ run_monitoring_test() {
         fi
         ((TOTAL_TESTS++))
         
-        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/self_diagnosis.sh && init_diagnosis'" "测试自我诊断模块" "true"; then
+        if execute_command "cd '$PROJECT_ROOT' && bash -c 'source modules/self_diagnosis.sh && init_diagnosis'" "测试自我诊断模块" "true"; then || exit
             log_success "✓ 自我诊断模块正常"
             ((PASSED_TESTS++))
         else

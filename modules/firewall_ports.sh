@@ -420,7 +420,7 @@ firewall_ports_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-8]: " choice
+        read -rp "请选择操作 [0-8]: " choice
         
         case $choice in
             1) auto_configure_ports ;;
@@ -435,7 +435,7 @@ firewall_ports_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 

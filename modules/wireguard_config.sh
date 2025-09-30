@@ -578,7 +578,7 @@ list_wireguard_clients() {
     log_info "WireGuard客户端列表:"
     
     if [[ -d "$IPV6WGM_WIREGUARD_CLIENT_DIR" ]]; then
-        local clients=($(ls "$IPV6WGM_WIREGUARD_CLIENT_DIR"/*.conf 2>/dev/null | xargs -n 1 basename | sed 's/\.conf$//'))
+        local mapfile -t clients < <(ls "$IPV6WGM_WIREGUARD_CLIENT_DIR"/*.conf 2>/dev/null | xargs -n 1 basename | sed 's/\.conf$//')
         
         if [[ ${#clients[@]} -eq 0 ]]; then
             log_info "没有找到客户端"

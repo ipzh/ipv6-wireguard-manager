@@ -139,7 +139,7 @@ backup_restore_menu() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-10]: " choice
+        read -rp "请选择操作 [0-10]: " choice
         
         case $choice in
             1) auto_backup_settings ;;
@@ -156,7 +156,7 @@ backup_restore_menu() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -178,7 +178,7 @@ auto_backup_settings() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) toggle_auto_backup ;;
@@ -191,7 +191,7 @@ auto_backup_settings() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -467,7 +467,7 @@ backup_management() {
         echo -e "${INFO_COLOR}0.${NC} 返回上级菜单"
         echo
         
-        read -p "请选择操作 [0-6]: " choice
+        read -rp "请选择操作 [0-6]: " choice
         
         case $choice in
             1) list_available_backups ;;
@@ -480,7 +480,7 @@ backup_management() {
             *) show_error "无效选择，请重新输入" ;;
         esac
         
-        read -p "按回车键继续..."
+        read -rp "按回车键继续..."
     done
 }
 
@@ -490,7 +490,7 @@ list_available_backups() {
     echo "----------------------------------------"
     
     if [[ -d "$BACKUP_DIR" ]]; then
-        ls -la "$BACKUP_DIR" | grep -E "\.(tar\.gz|zip|tar)$" | while read -r line; do
+        find . -type f -exec ls -la {} + "$BACKUP_DIR" | grep -E "\.(tar\.gz|zip|tar)$" | while read -r line; do
             echo "$line"
         done
     else
