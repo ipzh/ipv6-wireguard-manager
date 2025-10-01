@@ -373,7 +373,7 @@ restart_wireguard_service() {
     log_info "重启WireGuard服务..."
     
     stop_wireguard_service
-    sleep 2
+    smart_sleep "$IPV6WGM_SLEEP_LONG"
     start_wireguard_service
 }
 

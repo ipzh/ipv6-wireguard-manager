@@ -352,7 +352,7 @@ restart_bird_service() {
     log_info "重启BIRD服务..."
     
     stop_bird_service
-    sleep 2
+    smart_sleep "$IPV6WGM_SLEEP_LONG"
     start_bird_service
 }
 

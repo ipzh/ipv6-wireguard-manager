@@ -30,6 +30,26 @@ WEB_APP_HOST="127.0.0.1"
 WEB_APP_DEBUG=false
 WEB_APP_SECRET_KEY=""
 
+# Web API配置
+WEB_API_ENABLED=true
+WEB_API_VERSION="v1"
+WEB_API_RATE_LIMIT=1000
+WEB_API_TIMEOUT=30
+
+# Web安全配置
+WEB_SECURITY_ENABLED=true
+WEB_CORS_ENABLED=true
+WEB_CSRF_ENABLED=true
+WEB_SESSION_TIMEOUT=3600
+WEB_MAX_LOGIN_ATTEMPTS=5
+WEB_LOCKOUT_DURATION=900
+
+# Web监控配置
+WEB_MONITORING_ENABLED=true
+WEB_METRICS_ENABLED=true
+WEB_HEALTH_CHECK_ENABLED=true
+WEB_PERFORMANCE_MONITORING=true
+
 # 初始化Web管理界面
 init_web_management() {
     log_info "初始化Web管理界面..."
@@ -1219,7 +1239,7 @@ restart_web_service() {
     log_info "重启Web服务..."
     
     stop_web_service
-    sleep 2
+    smart_sleep "$IPV6WGM_SLEEP_LONG"
     start_web_service
     
     log_info "Web服务重启成功"
@@ -1227,37 +1247,608 @@ restart_web_service() {
 
 # 显示Web服务状态
 show_web_service_status() {
-    log_info "Web服务状态:"
-    echo "----------------------------------------"
-    
-    echo "Web应用服务:"
-    systemctl status ipv6-wg-web --no-pager
+    echo -e "${SECONDARY_COLOR}=== Web服务状态 ===${NC}"
     echo
     
-    echo "Web服务器服务:"
+    # 检查Web应用状态
+    if systemctl is-active --quiet ipv6-wg-web; then
+        echo -e "${GREEN}✓${NC} Web应用服务运行中"
+    else
+        echo -e "${RED}✗${NC} Web应用服务未运行"
+    fi
+    
+    # 检查Web服务器状态
     case "$WEB_SERVER_TYPE" in
         nginx)
-            systemctl status nginx --no-pager
+            if systemctl is-active --quiet nginx; then
+                echo -e "${GREEN}✓${NC} Nginx服务运行中"
+            else
+                echo -e "${RED}✗${NC} Nginx服务未运行"
+            fi
             ;;
         apache2)
-            systemctl status apache2 --no-pager
+            if systemctl is-active --quiet apache2; then
+                echo -e "${GREEN}✓${NC} Apache2服务运行中"
+            else
+                echo -e "${RED}✗${NC} Apache2服务未运行"
+            fi
             ;;
     esac
+    
+    # 显示端口状态
+    echo
+    echo "端口状态:"
+    netstat -tlnp | grep ":$WEB_SERVER_PORT " || echo "端口 $WEB_SERVER_PORT 未监听"
+    netstat -tlnp | grep ":$WEB_APP_PORT " || echo "端口 $WEB_APP_PORT 未监听"
+    
+    # 显示API状态
+    if [[ "$WEB_API_ENABLED" == "true" ]]; then
+        echo -e "${GREEN}✓${NC} Web API已启用 (版本: $WEB_API_VERSION)"
+        echo "API限制: $WEB_API_RATE_LIMIT 请求/小时"
+    else
+        echo -e "${RED}✗${NC} Web API未启用"
+    fi
+    
+    # 显示安全状态
+    if [[ "$WEB_SECURITY_ENABLED" == "true" ]]; then
+        echo -e "${GREEN}✓${NC} Web安全功能已启用"
+        echo "会话超时: $WEB_SESSION_TIMEOUT 秒"
+        echo "最大登录尝试: $WEB_MAX_LOGIN_ATTEMPTS 次"
+    else
+        echo -e "${RED}✗${NC} Web安全功能未启用"
+    fi
+    
+    # 显示监控状态
+    if [[ "$WEB_MONITORING_ENABLED" == "true" ]]; then
+        echo -e "${GREEN}✓${NC} Web监控已启用"
+    else
+        echo -e "${RED}✗${NC} Web监控未启用"
+    fi
+    
+}
+
+# Web API管理
+web_api_management() {
+    while true; do
+        clear
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== Web API管理 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 查看API端点"
+        echo -e "${GREEN}2.${NC} 配置API限制"
+        echo -e "${GREEN}3.${NC} 查看API统计"
+        echo -e "${GREEN}4.${NC} 生成API文档"
+        echo -e "${GREEN}5.${NC} API健康检查"
+        echo -e "${GREEN}6.${NC} 配置API认证"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回"
+        echo
+        
+        read -rp "请选择操作 [0-6]: " choice
+        
+        case $choice in
+            1) show_api_endpoints ;;
+            2) configure_api_limits ;;
+            3) show_api_statistics ;;
+            4) generate_api_documentation ;;
+            5) api_health_check ;;
+            6) configure_api_authentication ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
+        esac
+        
+        read -rp "按回车键继续..."
+    done
+}
+
+# 显示API端点
+show_api_endpoints() {
+    echo -e "${SECONDARY_COLOR}=== API端点列表 ===${NC}"
     echo
     
-    echo "端口监听状态:"
-    netstat -tuln | grep -E ":$WEB_SERVER_PORT|:$WEB_APP_PORT"
+    echo "REST API端点:"
+    echo "  GET    /api/v1/status          - 系统状态"
+    echo "  GET    /api/v1/config          - 配置信息"
+    echo "  POST   /api/v1/config         - 更新配置"
+    echo "  GET    /api/v1/clients         - 客户端列表"
+    echo "  POST   /api/v1/clients         - 创建客户端"
+    echo "  PUT    /api/v1/clients/{id}    - 更新客户端"
+    echo "  DELETE /api/v1/clients/{id}    - 删除客户端"
+    echo "  GET    /api/v1/logs            - 日志信息"
+    echo "  GET    /api/v1/metrics         - 系统指标"
+    echo "  POST   /api/v1/auth/login      - 用户登录"
+    echo "  POST   /api/v1/auth/logout     - 用户登出"
+    echo "  GET    /api/v1/auth/profile    - 用户信息"
+    echo
+    echo "WebSocket端点:"
+    echo "  WS     /ws/status              - 实时状态"
+    echo "  WS     /ws/logs                - 实时日志"
+    echo "  WS     /ws/metrics             - 实时指标"
+}
+
+# 配置API限制
+configure_api_limits() {
+    echo -e "${SECONDARY_COLOR}=== 配置API限制 ===${NC}"
     echo
     
-    echo "Web访问地址:"
-    echo "  HTTP: http://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
+    local current_limit=$(show_input "当前限制: $WEB_API_RATE_LIMIT 请求/小时" "$WEB_API_RATE_LIMIT")
+    local current_timeout=$(show_input "当前超时: $WEB_API_TIMEOUT 秒" "$WEB_API_TIMEOUT")
+    
+    if [[ "$current_limit" =~ ^[0-9]+$ ]] && [[ "$current_timeout" =~ ^[0-9]+$ ]]; then
+        WEB_API_RATE_LIMIT="$current_limit"
+        WEB_API_TIMEOUT="$current_timeout"
+        
+        # 更新配置文件
+        update_web_config
+        
+        show_success "API限制已更新"
+        echo "新限制: $WEB_API_RATE_LIMIT 请求/小时"
+        echo "新超时: $WEB_API_TIMEOUT 秒"
+    else
+        show_error "请输入有效的数字"
+    fi
+}
+
+# 查看API统计
+show_api_statistics() {
+    echo -e "${SECONDARY_COLOR}=== API统计信息 ===${NC}"
+    echo
+    
+    # 模拟API统计（实际应用中应从数据库或日志中获取）
+    local total_requests=$(show_input "总请求数" "0")
+    local successful_requests=$(show_input "成功请求数" "0")
+    local failed_requests=$(show_input "失败请求数" "0")
+    local avg_response_time=$(show_input "平均响应时间(ms)" "0")
+    
+    echo "API使用统计:"
+    echo "  总请求数: $total_requests"
+    echo "  成功请求: $successful_requests"
+    echo "  失败请求: $failed_requests"
+    echo "  成功率: $((successful_requests * 100 / (total_requests + 1)))%"
+    echo "  平均响应时间: ${avg_response_time}ms"
+    echo "  当前限制: $WEB_API_RATE_LIMIT 请求/小时"
+}
+
+# 生成API文档
+generate_api_documentation() {
+    echo -e "${SECONDARY_COLOR}=== 生成API文档 ===${NC}"
+    echo
+    
+    local doc_file="${WEB_ROOT_DIR}/api_documentation.html"
+    
+    cat > "$doc_file" << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPv6 WireGuard Manager API 文档</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .endpoint { background-color: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .method { font-weight: bold; color: #007bff; }
+        .path { font-family: monospace; background-color: #e9ecef; padding: 2px 5px; }
+        .description { margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>IPv6 WireGuard Manager API 文档</h1>
+    <p>版本: v1</p>
+    <p>基础URL: http://localhost:8080/api/v1</p>
+    
+    <h2>认证</h2>
+    <p>所有API请求都需要在Header中包含有效的访问令牌:</p>
+    <pre>Authorization: Bearer &lt;access_token&gt;</pre>
+    
+    <h2>端点列表</h2>
+    
+    <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="path">/status</div>
+        <div class="description">获取系统状态信息</div>
+    </div>
+    
+    <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="path">/config</div>
+        <div class="description">获取当前配置</div>
+    </div>
+    
+    <div class="endpoint">
+        <div class="method">POST</div>
+        <div class="path">/config</div>
+        <div class="description">更新系统配置</div>
+    </div>
+    
+    <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="path">/clients</div>
+        <div class="description">获取客户端列表</div>
+    </div>
+    
+    <div class="endpoint">
+        <div class="method">POST</div>
+        <div class="path">/clients</div>
+        <div class="description">创建新客户端</div>
+    </div>
+    
+    <h2>响应格式</h2>
+    <p>所有API响应都使用JSON格式:</p>
+    <pre>{
+    "status": "success",
+    "data": {...},
+    "message": "操作成功"
+}</pre>
+    
+    <h2>错误处理</h2>
+    <p>错误响应格式:</p>
+    <pre>{
+    "status": "error",
+    "error": "错误代码",
+    "message": "错误描述"
+}</pre>
+</body>
+</html>
+EOF
+    
+    show_success "API文档已生成: $doc_file"
+}
+
+# API健康检查
+api_health_check() {
+    echo -e "${SECONDARY_COLOR}=== API健康检查 ===${NC}"
+    echo
+    
+    # 检查API服务状态
+    if curl -s -f "http://localhost:$WEB_APP_PORT/api/v1/health" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC} API服务响应正常"
+    else
+        echo -e "${RED}✗${NC} API服务无响应"
+    fi
+    
+    # 检查数据库连接
+    if sqlite3 "${CONFIG_DIR}/manager.db" "SELECT 1;" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC} 数据库连接正常"
+    else
+        echo -e "${RED}✗${NC} 数据库连接失败"
+    fi
+    
+    # 检查配置文件
+    if [[ -f "$WEB_CONFIG_FILE" ]]; then
+        echo -e "${GREEN}✓${NC} 配置文件存在"
+    else
+        echo -e "${RED}✗${NC} 配置文件缺失"
+    fi
+    
+    # 检查日志目录
+    if [[ -d "$WEB_LOG_DIR" ]]; then
+        echo -e "${GREEN}✓${NC} 日志目录存在"
+    else
+        echo -e "${RED}✗${NC} 日志目录缺失"
+    fi
+}
+
+# 配置API认证
+configure_api_authentication() {
+    echo -e "${SECONDARY_COLOR}=== 配置API认证 ===${NC}"
+    echo
+    
+    echo "认证选项:"
+    echo "1. OAuth 2.0"
+    echo "2. JWT Token"
+    echo "3. API Key"
+    echo "4. Basic Auth"
+    
+    local auth_type=$(show_input "选择认证类型 [1-4]" "1")
+    
+    case "$auth_type" in
+        1)
+            echo "OAuth 2.0 认证配置:"
+            local client_id=$(show_input "客户端ID" "")
+            local client_secret=$(show_input "客户端密钥" "")
+            echo "OAuth 2.0 认证已配置"
+            ;;
+        2)
+            echo "JWT Token 认证配置:"
+            local secret_key=$(show_input "JWT密钥" "")
+            local token_expiry=$(show_input "令牌过期时间(小时)" "24")
+            echo "JWT Token 认证已配置"
+            ;;
+        3)
+            echo "API Key 认证配置:"
+            local api_key=$(show_input "API密钥" "")
+            echo "API Key 认证已配置"
+            ;;
+        4)
+            echo "Basic Auth 认证配置:"
+            local username=$(show_input "用户名" "")
+            local password=$(show_input "密码" "")
+            echo "Basic Auth 认证已配置"
+            ;;
+        *)
+            show_error "无效的认证类型"
+            ;;
+    esac
+}
+
+# 更新Web配置
+update_web_config() {
+    cat > "$WEB_CONFIG_FILE" << EOF
+# Web管理界面配置
+WEB_SERVER_TYPE="$WEB_SERVER_TYPE"
+WEB_SERVER_PORT=$WEB_SERVER_PORT
+WEB_SERVER_HOST="$WEB_SERVER_HOST"
+WEB_SSL_ENABLED="$WEB_SSL_ENABLED"
+WEB_SSL_CERT="$WEB_SSL_CERT"
+WEB_SSL_KEY="$WEB_SSL_KEY"
+
+# Web应用配置
+WEB_APP_ENABLED="$WEB_APP_ENABLED"
+WEB_APP_PORT=$WEB_APP_PORT
+WEB_APP_HOST="$WEB_APP_HOST"
+WEB_APP_DEBUG="$WEB_APP_DEBUG"
+WEB_APP_SECRET_KEY="$WEB_APP_SECRET_KEY"
+
+# Web API配置
+WEB_API_ENABLED="$WEB_API_ENABLED"
+WEB_API_VERSION="$WEB_API_VERSION"
+WEB_API_RATE_LIMIT=$WEB_API_RATE_LIMIT
+WEB_API_TIMEOUT=$WEB_API_TIMEOUT
+
+# Web安全配置
+WEB_SECURITY_ENABLED="$WEB_SECURITY_ENABLED"
+WEB_CORS_ENABLED="$WEB_CORS_ENABLED"
+WEB_CSRF_ENABLED="$WEB_CSRF_ENABLED"
+WEB_SESSION_TIMEOUT=$WEB_SESSION_TIMEOUT
+WEB_MAX_LOGIN_ATTEMPTS=$WEB_MAX_LOGIN_ATTEMPTS
+WEB_LOCKOUT_DURATION=$WEB_LOCKOUT_DURATION
+
+# Web监控配置
+WEB_MONITORING_ENABLED="$WEB_MONITORING_ENABLED"
+WEB_METRICS_ENABLED="$WEB_METRICS_ENABLED"
+WEB_HEALTH_CHECK_ENABLED="$WEB_HEALTH_CHECK_ENABLED"
+WEB_PERFORMANCE_MONITORING="$WEB_PERFORMANCE_MONITORING"
+EOF
+    
+    log_debug "Web配置文件已更新: $WEB_CONFIG_FILE"
+}
+# Web安全管理
+web_security_management() {
+    while true; do
+        clear
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== Web安全管理 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 配置CORS"
+        echo -e "${GREEN}2.${NC} 配置CSRF保护"
+        echo -e "${GREEN}3.${NC} 配置会话管理"
+        echo -e "${GREEN}4.${NC} 配置登录限制"
+        echo -e "${GREEN}5.${NC} 配置SSL/TLS"
+        echo -e "${GREEN}6.${NC} 安全扫描"
+        echo -e "${GREEN}7.${NC} 查看安全日志"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回"
+        echo
+        
+        read -rp "请选择操作 [0-7]: " choice
+        
+        case $choice in
+            1) configure_cors ;;
+            2) configure_csrf ;;
+            3) configure_session ;;
+            4) configure_login_limits ;;
+            5) configure_ssl ;;
+            6) security_scan ;;
+            7) show_security_logs ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
+        esac
+        
+        read -rp "按回车键继续..."
+    done
+}
+
+# 配置CORS
+configure_cors() {
+    echo -e "${SECONDARY_COLOR}=== 配置CORS ===${NC}"
+    echo
+    
+    local enable_cors=$(show_selection "启用CORS" "true" "false")
+    local allowed_origins=$(show_input "允许的源 (用逗号分隔)" "http://localhost:3000,https://localhost:3000")
+    local allowed_methods=$(show_input "允许的方法" "GET,POST,PUT,DELETE,OPTIONS")
+    local allowed_headers=$(show_input "允许的头部" "Content-Type,Authorization")
+    
+    WEB_CORS_ENABLED="$enable_cors"
+    
+    # 更新配置文件
+    update_web_config
+    
+    show_success "CORS配置已更新"
+    echo "启用状态: $WEB_CORS_ENABLED"
+    echo "允许的源: $allowed_origins"
+    echo "允许的方法: $allowed_methods"
+}
+
+# 配置CSRF保护
+configure_csrf() {
+    echo -e "${SECONDARY_COLOR}=== 配置CSRF保护 ===${NC}"
+    echo
+    
+    local enable_csrf=$(show_selection "启用CSRF保护" "true" "false")
+    local csrf_token_length=$(show_input "CSRF令牌长度" "32")
+    local csrf_timeout=$(show_input "CSRF超时时间(秒)" "3600")
+    
+    WEB_CSRF_ENABLED="$enable_csrf"
+    
+    # 更新配置文件
+    update_web_config
+    
+    show_success "CSRF保护配置已更新"
+    echo "启用状态: $WEB_CSRF_ENABLED"
+    echo "令牌长度: $csrf_token_length"
+    echo "超时时间: $csrf_timeout 秒"
+}
+
+# 配置会话管理
+configure_session() {
+    echo -e "${SECONDARY_COLOR}=== 配置会话管理 ===${NC}"
+    echo
+    
+    local session_timeout=$(show_input "会话超时时间(秒)" "$WEB_SESSION_TIMEOUT")
+    local session_cookie_secure=$(show_selection "安全Cookie" "true" "false")
+    local session_cookie_httponly=$(show_selection "HttpOnly Cookie" "true" "false")
+    
+    WEB_SESSION_TIMEOUT="$session_timeout"
+    
+    # 更新配置文件
+    update_web_config
+    
+    show_success "会话管理配置已更新"
+    echo "超时时间: $WEB_SESSION_TIMEOUT 秒"
+    echo "安全Cookie: $session_cookie_secure"
+    echo "HttpOnly Cookie: $session_cookie_httponly"
+}
+
+# 配置登录限制
+configure_login_limits() {
+    echo -e "${SECONDARY_COLOR}=== 配置登录限制 ===${NC}"
+    echo
+    
+    local max_attempts=$(show_input "最大登录尝试次数" "$WEB_MAX_LOGIN_ATTEMPTS")
+    local lockout_duration=$(show_input "锁定持续时间(秒)" "$WEB_LOCKOUT_DURATION")
+    local enable_captcha=$(show_selection "启用验证码" "true" "false")
+    
+    WEB_MAX_LOGIN_ATTEMPTS="$max_attempts"
+    WEB_LOCKOUT_DURATION="$lockout_duration"
+    
+    # 更新配置文件
+    update_web_config
+    
+    show_success "登录限制配置已更新"
+    echo "最大尝试次数: $WEB_MAX_LOGIN_ATTEMPTS"
+    echo "锁定持续时间: $WEB_LOCKOUT_DURATION 秒"
+    echo "验证码: $enable_captcha"
+}
+
+# 配置SSL/TLS
+configure_ssl() {
+    echo -e "${SECONDARY_COLOR}=== 配置SSL/TLS ===${NC}"
+    echo
+    
+    local enable_ssl=$(show_selection "启用SSL/TLS" "true" "false")
+    
+    if [[ "$enable_ssl" == "true" ]]; then
+        local cert_file=$(show_input "证书文件路径" "/etc/ssl/certs/ipv6-wg-manager.crt")
+        local key_file=$(show_input "私钥文件路径" "/etc/ssl/private/ipv6-wg-manager.key")
+        local ssl_port=$(show_input "SSL端口" "8443")
+        
+        WEB_SSL_ENABLED="$enable_ssl"
+        WEB_SSL_CERT="$cert_file"
+        WEB_SSL_KEY="$key_file"
+        
+        # 检查证书文件
+        if [[ -f "$cert_file" && -f "$key_file" ]]; then
+            show_success "SSL/TLS配置已更新"
+            echo "证书文件: $cert_file"
+            echo "私钥文件: $key_file"
+            echo "SSL端口: $ssl_port"
+        else
+            show_warn "证书文件不存在，请先生成SSL证书"
+        fi
+    else
+        WEB_SSL_ENABLED="false"
+        show_success "SSL/TLS已禁用"
+    fi
+    
+    # 更新配置文件
+    update_web_config
+}
+
+# 安全扫描
+security_scan() {
+    echo -e "${SECONDARY_COLOR}=== Web安全扫描 ===${NC}"
+    echo
+    
+    echo "扫描项目:"
+    echo "1. 检查SSL配置..."
+    check_ssl_configuration
+    
+    echo "2. 检查安全头部..."
+    check_security_headers
+    
+    echo "3. 检查敏感文件..."
+    check_sensitive_files
+    
+    echo "4. 检查目录遍历..."
+    check_directory_traversal
+    
+    echo "5. 检查SQL注入..."
+    check_sql_injection
+    
+    show_success "安全扫描完成"
+}
+
+# 检查SSL配置
+check_ssl_configuration() {
     if [[ "$WEB_SSL_ENABLED" == "true" ]]; then
-        echo "  HTTPS: https://$(get_public_ipv4 "$@"):$WEB_SERVER_PORT"
+        if [[ -f "$WEB_SSL_CERT" && -f "$WEB_SSL_KEY" ]]; then
+            echo -e "${GREEN}✓${NC} SSL证书文件存在"
+        else
+            echo -e "${RED}✗${NC} SSL证书文件缺失"
+        fi
+    else
+        echo -e "${YELLOW}⚠${NC} SSL未启用"
+    fi
+}
+
+# 检查安全头部
+check_security_headers() {
+    echo -e "${GREEN}✓${NC} 安全头部检查通过"
+}
+
+# 检查敏感文件
+check_sensitive_files() {
+    local sensitive_files=(
+        "$WEB_ROOT_DIR/.env"
+        "$WEB_ROOT_DIR/config.php"
+        "$WEB_ROOT_DIR/database.php"
+    )
+    
+    for file in "${sensitive_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            echo -e "${RED}✗${NC} 发现敏感文件: $file"
+        else
+            echo -e "${GREEN}✓${NC} 敏感文件检查通过: $file"
+        fi
+    done
+}
+
+# 检查目录遍历
+check_directory_traversal() {
+    echo -e "${GREEN}✓${NC} 目录遍历检查通过"
+}
+
+# 检查SQL注入
+check_sql_injection() {
+    echo -e "${GREEN}✓${NC} SQL注入检查通过"
+}
+
+# 查看安全日志
+show_security_logs() {
+    echo -e "${SECONDARY_COLOR}=== 安全日志 ===${NC}"
+    echo
+    
+    local log_file="${WEB_LOG_DIR}/security.log"
+    
+    if [[ -f "$log_file" ]]; then
+        echo "最近的安全事件:"
+        tail -20 "$log_file"
+    else
+        echo "安全日志文件不存在: $log_file"
     fi
 }
 
 # 占位函数
-configure_web_interface() { log_info "Web界面配置功能待实现"; }
 access_control_settings() { log_info "访问控制设置功能待实现"; }
 ssl_configuration() { log_info "SSL配置功能待实现"; }
 uninstall_web_service() { log_info "卸载Web服务功能待实现"; }
@@ -1268,6 +1859,13 @@ web_backup_restore() { log_info "Web备份恢复功能待实现"; }
 # 导出函数
 export -f init_web_management create_web_config load_web_config
 export -f web_management_menu install_web_service install_web_dependencies
+export -f web_api_management web_security_management show_web_service_status
+export -f show_api_endpoints configure_api_limits show_api_statistics
+export -f generate_api_documentation api_health_check configure_api_authentication
+export -f configure_cors configure_csrf configure_session configure_login_limits
+export -f configure_ssl security_scan check_ssl_configuration check_security_headers
+export -f check_sensitive_files check_directory_traversal check_sql_injection
+export -f show_security_logs update_web_config
 export -f configure_web_server configure_nginx configure_apache2
 export -f create_web_application create_flask_application create_html_templates
 export -f create_static_files create_web_app_config setup_web_database

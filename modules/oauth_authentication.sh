@@ -1014,6 +1014,335 @@ generate_client_secret() {
     openssl rand -base64 32
 }
 
+# OAuth 2.0 授权码流程
+oauth_authorization_code_flow() {
+    local client_id="$1"
+    local redirect_uri="$2"
+    local scope="$3"
+    local state="$4"
+    
+    # 验证客户端
+    if ! validate_oauth_client "$client_id" "$redirect_uri"; then
+        log_error "OAuth客户端验证失败"
+        return 1
+    fi
+    
+    # 生成授权码
+    local auth_code=$(generate_authorization_code)
+    local expires_at=$(date -d '+10 minutes' '+%Y-%m-%d %H:%M:%S')
+    
+    # 保存授权码
+    sqlite3 "$OAUTH_TOKENS_DB" << EOF
+INSERT INTO oauth_authorization_codes (
+    code, client_id, user_id, redirect_uri, scopes, expires_at
+) VALUES (
+    '$auth_code', '$client_id', 1, '$redirect_uri', '$scope', '$expires_at'
+);
+EOF
+    
+    # 构建授权URL
+    local auth_url="${redirect_uri}?code=${auth_code}&state=${state}"
+    echo "$auth_url"
+}
+
+# 验证OAuth客户端
+validate_oauth_client() {
+    local client_id="$1"
+    local redirect_uri="$2"
+    
+    local valid_client=$(sqlite3 "$OAUTH_CLIENTS_DB" << EOF
+SELECT COUNT(*) FROM oauth_clients 
+WHERE client_id = '$client_id' 
+AND status = 'active' 
+AND redirect_uris LIKE '%$redirect_uri%';
+EOF
+)
+    
+    [[ "$valid_client" -gt 0 ]]
+}
+
+# 生成授权码
+generate_authorization_code() {
+    openssl rand -hex 32
+}
+
+# 交换访问令牌
+exchange_access_token() {
+    local auth_code="$1"
+    local client_id="$2"
+    local client_secret="$3"
+    local redirect_uri="$4"
+    
+    # 验证授权码
+    local auth_data=$(sqlite3 "$OAUTH_TOKENS_DB" << EOF
+SELECT user_id, scopes FROM oauth_authorization_codes 
+WHERE code = '$auth_code' 
+AND client_id = '$client_id' 
+AND used = FALSE 
+AND expires_at > datetime('now');
+EOF
+)
+    
+    if [[ -z "$auth_data" ]]; then
+        log_error "无效的授权码"
+        return 1
+    fi
+    
+    # 标记授权码为已使用
+    sqlite3 "$OAUTH_TOKENS_DB" << EOF
+UPDATE oauth_authorization_codes SET used = TRUE WHERE code = '$auth_code';
+EOF
+    
+    # 生成访问令牌
+    local access_token=$(generate_access_token)
+    local refresh_token=$(generate_refresh_token)
+    local expires_at=$(date -d '+1 hour' '+%Y-%m-%d %H:%M:%S')
+    
+    # 保存令牌
+    local user_id=$(echo "$auth_data" | cut -d'|' -f1)
+    local scopes=$(echo "$auth_data" | cut -d'|' -f2)
+    
+    sqlite3 "$OAUTH_TOKENS_DB" << EOF
+INSERT INTO oauth_tokens (
+    access_token, refresh_token, client_id, user_id, scopes, expires_at
+) VALUES (
+    '$access_token', '$refresh_token', '$client_id', $user_id, '$scopes', '$expires_at'
+);
+EOF
+    
+    # 返回令牌信息
+    cat << EOF
+{
+    "access_token": "$access_token",
+    "refresh_token": "$refresh_token",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "scope": "$scopes"
+}
+EOF
+}
+
+# 生成访问令牌
+generate_access_token() {
+    openssl rand -hex 32
+}
+
+# 生成刷新令牌
+generate_refresh_token() {
+    openssl rand -hex 32
+}
+
+# 验证访问令牌
+validate_access_token() {
+    local access_token="$1"
+    local required_scope="$2"
+    
+    local token_data=$(sqlite3 "$OAUTH_TOKENS_DB" << EOF
+SELECT user_id, scopes FROM oauth_tokens 
+WHERE access_token = '$access_token' 
+AND status = 'active' 
+AND expires_at > datetime('now');
+EOF
+)
+    
+    if [[ -z "$token_data" ]]; then
+        return 1
+    fi
+    
+    # 检查作用域
+    if [[ -n "$required_scope" ]]; then
+        local scopes=$(echo "$token_data" | cut -d'|' -f2)
+        if [[ "$scopes" != *"$required_scope"* ]]; then
+            return 1
+        fi
+    fi
+    
+    echo "$token_data"
+}
+
+# 刷新访问令牌
+refresh_access_token() {
+    local refresh_token="$1"
+    local client_id="$2"
+    local client_secret="$3"
+    
+    # 验证刷新令牌
+    local token_data=$(sqlite3 "$OAUTH_TOKENS_DB" << EOF
+SELECT user_id, scopes FROM oauth_tokens 
+WHERE refresh_token = '$refresh_token' 
+AND client_id = '$client_id' 
+AND status = 'active';
+EOF
+)
+    
+    if [[ -z "$token_data" ]]; then
+        log_error "无效的刷新令牌"
+        return 1
+    fi
+    
+    # 生成新的访问令牌
+    local new_access_token=$(generate_access_token)
+    local new_refresh_token=$(generate_refresh_token)
+    local expires_at=$(date -d '+1 hour' '+%Y-%m-%d %H:%M:%S')
+    
+    # 更新令牌
+    local user_id=$(echo "$token_data" | cut -d'|' -f1)
+    local scopes=$(echo "$token_data" | cut -d'|' -f2)
+    
+    sqlite3 "$OAUTH_TOKENS_DB" << EOF
+UPDATE oauth_tokens SET 
+    access_token = '$new_access_token',
+    refresh_token = '$new_refresh_token',
+    expires_at = '$expires_at'
+WHERE refresh_token = '$refresh_token';
+EOF
+    
+    # 返回新令牌
+    cat << EOF
+{
+    "access_token": "$new_access_token",
+    "refresh_token": "$new_refresh_token",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "scope": "$scopes"
+}
+EOF
+}
+
+# 撤销令牌
+revoke_token() {
+    local token="$1"
+    local token_type_hint="$2"
+    
+    if [[ "$token_type_hint" == "refresh_token" ]]; then
+        sqlite3 "$OAUTH_TOKENS_DB" << EOF
+UPDATE oauth_tokens SET status = 'revoked' WHERE refresh_token = '$token';
+EOF
+    else
+        sqlite3 "$OAUTH_TOKENS_DB" << EOF
+UPDATE oauth_tokens SET status = 'revoked' WHERE access_token = '$token';
+EOF
+    fi
+    
+    log_info "令牌已撤销"
+}
+
+# 客户端凭据流程
+oauth_client_credentials_flow() {
+    local client_id="$1"
+    local client_secret="$2"
+    local scope="$3"
+    
+    # 验证客户端凭据
+    if ! validate_client_credentials "$client_id" "$client_secret"; then
+        log_error "客户端凭据验证失败"
+        return 1
+    fi
+    
+    # 生成访问令牌
+    local access_token=$(generate_access_token)
+    local expires_at=$(date -d '+1 hour' '+%Y-%m-%d %H:%M:%S')
+    
+    # 保存令牌（客户端凭据流程没有用户ID）
+    sqlite3 "$OAUTH_TOKENS_DB" << EOF
+INSERT INTO oauth_tokens (
+    access_token, client_id, user_id, scopes, expires_at
+) VALUES (
+    '$access_token', '$client_id', 0, '$scope', '$expires_at'
+);
+EOF
+    
+    # 返回令牌
+    cat << EOF
+{
+    "access_token": "$access_token",
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "scope": "$scope"
+}
+EOF
+}
+
+# 验证客户端凭据
+validate_client_credentials() {
+    local client_id="$1"
+    local client_secret="$2"
+    
+    local valid_client=$(sqlite3 "$OAUTH_CLIENTS_DB" << EOF
+SELECT COUNT(*) FROM oauth_clients 
+WHERE client_id = '$client_id' 
+AND client_secret = '$client_secret' 
+AND status = 'active';
+EOF
+)
+    
+    [[ "$valid_client" -gt 0 ]]
+}
+
+# 验证MFA令牌
+verify_mfa_token() {
+    local username="$1"
+    local token="$2"
+    
+    # 获取用户ID
+    local user_id=$(sqlite3 "$USERS_DB" "SELECT id FROM users WHERE username = '$username'")
+    
+    if [[ -z "$user_id" ]]; then
+        return 1
+    fi
+    
+    # 获取MFA密钥
+    local mfa_secret=$(sqlite3 "$MFA_SECRETS_DB" "SELECT secret FROM mfa_secrets WHERE user_id = $user_id AND status = 'active'")
+    
+    if [[ -z "$mfa_secret" ]]; then
+        return 1
+    fi
+    
+    # 验证TOTP令牌
+    if command -v oathtool >/dev/null 2>&1; then
+        local expected_token=$(oathtool --totp -b "$mfa_secret")
+        if [[ "$token" == "$expected_token" ]]; then
+            return 0
+        fi
+    fi
+    
+    # 验证备用代码
+    local backup_code_valid=$(sqlite3 "$MFA_BACKUP_CODES_DB" << EOF
+SELECT COUNT(*) FROM mfa_backup_codes 
+WHERE user_id = $user_id 
+AND code = '$token' 
+AND used = FALSE;
+EOF
+)
+    
+    if [[ "$backup_code_valid" -gt 0 ]]; then
+        # 标记备用代码为已使用
+        sqlite3 "$MFA_BACKUP_CODES_DB" << EOF
+UPDATE mfa_backup_codes SET used = TRUE, used_at = datetime('now') 
+WHERE user_id = $user_id AND code = '$token';
+EOF
+        return 0
+    fi
+    
+    return 1
+}
+
+# 生成MFA二维码
+generate_mfa_qr_code() {
+    local username="$1"
+    local secret="$2"
+    
+    local issuer="IPv6-WireGuard-Manager"
+    local qr_data="otpauth://totp/${issuer}:${username}?secret=${secret}&issuer=${issuer}"
+    
+    if command -v qrencode >/dev/null 2>&1; then
+        qrencode -t ansiutf8 "$qr_data"
+    else
+        echo "QR码数据: $qr_data"
+        echo "请使用Google Authenticator等应用扫描"
+    fi
+}
+
 # 导出函数
 export -f init_oauth_authentication init_oauth_databases init_mfa_system init_rbac_system
 export -f init_audit_system create_default_oauth_clients create_default_roles_permissions
@@ -1026,3 +1355,8 @@ export -f create_security_event security_config_check check_password_strength
 export -f check_mfa_status check_permission_config check_audit_config
 export -f check_oauth_config check_system_security user_permission_test
 export -f check_user_permission generate_client_secret
+export -f oauth_authorization_code_flow validate_oauth_client generate_authorization_code
+export -f exchange_access_token generate_access_token generate_refresh_token
+export -f validate_access_token refresh_access_token revoke_token
+export -f oauth_client_credentials_flow validate_client_credentials
+export -f verify_mfa_token generate_mfa_qr_code

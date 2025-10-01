@@ -212,7 +212,7 @@ execute_parallel() {
         done
         
         # 短暂等待
-        sleep 0.1
+        smart_sleep "$IPV6WGM_SLEEP_SHORT"
     done
     
     # 检查结果
@@ -367,7 +367,7 @@ cleanup_log_files() {
         find "$log_dir" -name "*.log.*" -mtime +7 -delete 2>/dev/null || true
         
         # 截断大日志文件
-        find "$log_dir" -name "*.log" -size +100M -exec truncate -s 50M {} \; 2>/dev/null || true
+        find "$log_dir" -name "*.log" -size +100M -print0 | xargs -0 -r truncate -s 50M 2>/dev/null || true
     fi
 }
 

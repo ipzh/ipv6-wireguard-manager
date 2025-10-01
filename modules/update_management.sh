@@ -924,7 +924,7 @@ cleanup_old_backups() {
     log_info "清理旧备份..."
     
     local retention_days=${BACKUP_RETENTION_DAYS:-30}
-    find "$BACKUP_DIR" -type d -name "backup_*" -mtime +$retention_days -exec rm -rf {} \;
+    find "$BACKUP_DIR" -type d -name "backup_*" -mtime +$retention_days -print0 | xargs -0 -r rm -rf
     
     log_info "旧备份清理完成"
 }

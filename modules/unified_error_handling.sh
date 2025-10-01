@@ -306,7 +306,7 @@ recover_file_operation() {
         
         retry_count=$((retry_count + 1))
         log_warning "重试 $operation 操作 ($retry_count/$max_retries): $file_path"
-        sleep 1
+        smart_sleep "$IPV6WGM_SLEEP_MEDIUM"
     done
     
     log_error_event "ERROR" "OPERATION_FAILED" "文件操作恢复失败: $operation $file_path" "重试次数: $max_retries"
@@ -345,7 +345,7 @@ recover_network_operation() {
         
         retry_count=$((retry_count + 1))
         log_warning "重试 $operation 操作 ($retry_count/$max_retries): $target"
-        sleep 2
+        smart_sleep "$IPV6WGM_SLEEP_LONG"
     done
     
     log_error_event "ERROR" "NETWORK_ERROR" "网络操作恢复失败: $operation $target" "重试次数: $max_retries"

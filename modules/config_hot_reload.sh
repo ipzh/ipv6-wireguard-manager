@@ -188,7 +188,7 @@ start_inotify_monitoring() {
                     handle_file_change "$full_path" "$action"
                 fi
             done
-            sleep 1
+            smart_sleep "$IPV6WGM_SLEEP_MEDIUM"
         done
     ) &
     

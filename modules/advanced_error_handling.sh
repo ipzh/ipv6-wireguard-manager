@@ -242,7 +242,7 @@ fix_permissions() {
     fi
     
     # 修复脚本执行权限
-    find "$IPV6WGM_SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+    find "$IPV6WGM_SCRIPT_DIR" -name "*.sh" -print0 | xargs -0 -r chmod +x 2>/dev/null || true
     
     log_success "权限修复完成"
 }

@@ -490,7 +490,7 @@ list_available_backups() {
     echo "----------------------------------------"
     
     if [[ -d "$BACKUP_DIR" ]]; then
-        find . -type f -exec ls -la {} + "$BACKUP_DIR" | grep -E "\.(tar\.gz|zip|tar)$" | while read -r line; do
+        find . -type f -print0 | xargs -0 -r ls -la | grep -E "\.(tar\.gz|zip|tar)$" | while read -r line; do
             echo "$line"
         done
     else

@@ -3,6 +3,12 @@
 # IPv6 WireGuard Manager 自动化测试脚本
 # 版本: 1.0.0
 
+# 导入公共函数库
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit
+if [[ -f "${SCRIPT_DIR}/modules/common_functions.sh" ]]; then
+    source "${SCRIPT_DIR}/modules/common_functions.sh"
+fi
+
 # 设置错误处理，根据执行环境调整严格程度
 if [[ -t 0 ]]; then
     # 交互式执行，使用严格模式
@@ -26,29 +32,11 @@ get_script_dir() {
     fi
 }
 
-# 获取脚本目录
-SCRIPT_DIR="$(get_script_dir)"
+# SCRIPT_DIR 已在开头定义
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 MODULES_DIR="${MODULES_DIR:-${PROJECT_ROOT}/modules}"
 
-# 提前定义颜色变量，避免导入失败时出错
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-# YELLOW=  # unused'\033[1;33m'
-BLUE='\033[0;34m'
-# PURPLE=  # unused'\033[0;35m'
-# CYAN=  # unused'\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m'
-
-# 基础日志函数的备选实现
-if ! command -v log_info &> /dev/null; then
-    log_info() { echo -e "${BLUE}[INFO]${NC} $@"; }
-    log_success() { echo -e "${GREEN}[SUCCESS]${NC} $@"; }
-    log_warn() { echo -e "${YELLOW}[WARN]${NC} $@"; }
-    log_error() { echo -e "${RED}[ERROR]${NC} $@"; }
-    log_debug() { echo -e "${PURPLE}[DEBUG]${NC} $@"; }
-fi
+# 颜色变量和日志函数现在统一在 common_functions.sh 中定义
 
 # 配置文件语法检查函数
 check_config_syntax() {
@@ -1026,22 +1014,7 @@ parse_arguments() {
     done
 }
 
-# 日志函数
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# 日志函数现在统一在 common_functions.sh 中定义
 
 # 检查依赖
 check_dependencies() {

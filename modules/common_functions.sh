@@ -36,9 +36,39 @@ declare -g IPV6WGM_BUILD_DATE="$(date '+%Y-%m-%d')"
 declare -g IPV6WGM_DEBUG_MODE="${DEBUG:-false}"
 declare -g IPV6WGM_VERBOSE_MODE="${VERBOSE:-false}"
 
+# 性能配置变量
+declare -g IPV6WGM_SLEEP_SHORT="${SLEEP_SHORT:-0.1}"      # 短等待时间
+declare -g IPV6WGM_SLEEP_MEDIUM="${SLEEP_MEDIUM:-1}"      # 中等等待时间
+declare -g IPV6WGM_SLEEP_LONG="${SLEEP_LONG:-2}"          # 长等待时间
+declare -g IPV6WGM_SLEEP_UI="${SLEEP_UI:-0.5}"            # UI等待时间
+
 # 目录初始化状态
 declare -g IPV6WGM_DIRS_INITIALIZED=false
 declare -g IPV6WGM_LOG_WARNING_SHOWN=false
+
+# =============================================================================
+# 颜色变量定义区域 - 统一的颜色管理
+# =============================================================================
+
+# 基础颜色
+declare -g RED='\033[0;31m'
+declare -g GREEN='\033[0;32m'
+declare -g YELLOW='\033[1;33m'
+declare -g BLUE='\033[0;34m'
+declare -g PURPLE='\033[0;35m'
+declare -g CYAN='\033[0;36m'
+declare -g WHITE='\033[1;37m'
+declare -g NC='\033[0m'  # No Color
+
+# 兼容性变量（保持向后兼容）
+RED="${RED:-'\033[0;31m'}"
+GREEN="${GREEN:-'\033[0;32m'}"
+YELLOW="${YELLOW:-'\033[1;33m'}"
+BLUE="${BLUE:-'\033[0;34m'}"
+PURPLE="${PURPLE:-'\033[0;35m'}"
+CYAN="${CYAN:-'\033[0;36m'}"
+WHITE="${WHITE:-'\033[1;37m'}"
+NC="${NC:-'\033[0m'}"
 
 # =============================================================================
 # 变量初始化和管理函数
@@ -1185,6 +1215,73 @@ log_error_enhanced() {
     log_with_timestamp "ERROR" "$1"
 }
 
+# =============================================================================
+# 性能优化函数区域
+# =============================================================================
+
+# 智能等待函数 - 支持可配置的等待时间
+smart_sleep() {
+    local duration="${1:-$IPV6WGM_SLEEP_MEDIUM}"
+    local reason="${2:-等待}"
+    
+    if [[ "$IPV6WGM_DEBUG_MODE" == "true" ]]; then
+        log_debug "智能等待: ${duration}s - ${reason}"
+    fi
+    
+    sleep "$duration"
+}
+
+# 指数退避重试函数
+exponential_backoff_retry() {
+    local max_attempts="${1:-3}"
+    local base_delay="${2:-$IPV6WGM_SLEEP_MEDIUM}"
+    local command="${3:-}"
+    local description="${4:-执行命令}"
+    
+    local attempt=1
+    local delay="$base_delay"
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        log_debug "尝试 $attempt/$max_attempts: $description"
+        
+        if eval "$command" 2>/dev/null; then
+            log_success "$description 成功 (尝试 $attempt/$max_attempts)"
+            return 0
+        fi
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            log_warn "$description 失败，${delay}s后重试 (尝试 $attempt/$max_attempts)"
+            smart_sleep "$delay" "重试等待"
+            delay=$((delay * 2))  # 指数退避
+        fi
+        
+        ((attempt++))
+    done
+    
+    log_error "$description 失败，已达到最大重试次数 ($max_attempts)"
+    return 1
+}
+
+# 并行文件处理函数
+parallel_file_processing() {
+    local pattern="${1:-*.sh}"
+    local command="${2:-}"
+    local max_parallel="${3:-4}"
+    
+    if [[ -z "$command" ]]; then
+        log_error "并行文件处理: 未提供处理命令"
+        return 1
+    fi
+    
+    log_info "并行处理文件: $pattern (最大并行数: $max_parallel)"
+    
+    # 使用 find 和 xargs 进行并行处理
+    find . -name "$pattern" -type f -print0 | \
+    xargs -0 -P "$max_parallel" -I {} bash -c "$command" _ {}
+    
+    return $?
+}
+
 # 错误处理函数
 handle_error() {
     local exit_code="$1"
@@ -1712,7 +1809,7 @@ secure_permissions() {
     
     # 对于配置文件等敏感内容，额外限制权限
     if [[ "$target_path" == *"config"* || "$target_path" == *".key" ]]; then
-        execute_command "find '$target_path' -type f \\( -name '*.conf' -o -name '*.key' -o -name '*.pem' \\) -exec chmod 600 {} \\;" "设置敏感文件权限" "true"
+        execute_command "find '$target_path' -type f \\( -name '*.conf' -o -name '*.key' -o -name '*.pem' \\) -print0 | xargs -0 -r chmod 600" "设置敏感文件权限" "true"
     fi
     
     log_info "已设置 $target_path 的安全权限（$mode, ${user}:${group}）"

@@ -179,10 +179,10 @@ show_animated_banner() {
         echo -e "${PRIMARY_COLOR}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${PRIMARY_COLOR}║$(printf "%*s" $((80 - ${#frame})) "$frame")║${NC}"
         echo -e "${PRIMARY_COLOR}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
-        sleep 0.5
+        smart_sleep "$IPV6WGM_SLEEP_UI"
     done
     
-    sleep 1
+    smart_sleep "$IPV6WGM_SLEEP_MEDIUM"
 }
 
 # 显示横幅
@@ -252,7 +252,7 @@ show_menu() {
             fi
         else
             show_error "无效选择，请重新输入"
-            sleep 2
+            smart_sleep "$IPV6WGM_SLEEP_LONG"
         fi
     done
 }
@@ -425,7 +425,7 @@ show_loading() {
     for ((i=0; i<duration*10; i++)); do
         printf "\r${INFO_COLOR}%s${NC} %s" "${frames[$frame_index]}" "$message"
         ((frame_index = (frame_index + 1) % frame_count))
-        sleep 0.1
+        smart_sleep "$IPV6WGM_SLEEP_SHORT"
     done
     
     echo

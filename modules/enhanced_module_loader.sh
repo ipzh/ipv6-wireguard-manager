@@ -16,6 +16,7 @@ declare -A MODULE_DEPENDENCIES=(
     ["unified_config"]="common_functions variable_management"
     ["error_handling"]="common_functions variable_management"
     ["enhanced_error_handling"]="common_functions error_handling"
+    ["unified_error_handling"]="common_functions error_handling enhanced_error_handling"
     ["system_detection"]="common_functions variable_management"
     ["function_optimizer"]="common_functions function_management"
     ["wireguard_config"]="common_functions unified_config system_detection"
@@ -30,6 +31,15 @@ declare -A MODULE_DEPENDENCIES=(
     ["lazy_loading"]="common_functions"
     ["version_control"]="common_functions"
     ["enhanced_module_loader"]="common_functions function_management"
+    ["oauth_authentication"]="common_functions unified_config error_handling"
+    ["security_functions"]="common_functions unified_config"
+    ["security_audit_monitoring"]="common_functions security_functions"
+    ["smart_caching"]="common_functions"
+    ["unified_test_framework"]="common_functions"
+    ["advanced_performance_optimization"]="common_functions smart_caching"
+    ["config_hot_reload"]="common_functions unified_config"
+    ["user_interface"]="common_functions"
+    ["update_management"]="common_functions unified_config"
 )
 
 # 模块版本信息
@@ -41,20 +51,30 @@ declare -A MODULE_VERSIONS=(
     ["unified_config"]="1.1.0"
     ["error_handling"]="1.0.0"
     ["enhanced_error_handling"]="1.0.0"
+    ["unified_error_handling"]="1.0.0"
     ["system_detection"]="1.0.0"
     ["function_optimizer"]="1.0.0"
     ["wireguard_config"]="1.0.0"
     ["bird_config"]="1.0.0"
-    ["web_management"]="1.0.0"
+    ["web_management"]="1.1.0"
     ["firewall_management"]="1.0.0"
     ["client_management"]="1.0.0"
     ["backup_restore"]="1.0.0"
     ["system_monitoring"]="1.0.0"
-    ["resource_monitoring"]="1.0.0"
+    ["resource_monitoring"]="1.1.0"
     ["self_diagnosis"]="1.0.0"
     ["lazy_loading"]="1.0.0"
     ["version_control"]="1.0.0"
     ["enhanced_module_loader"]="1.1.0"
+    ["oauth_authentication"]="1.0.0"
+    ["security_functions"]="1.0.0"
+    ["security_audit_monitoring"]="1.0.0"
+    ["smart_caching"]="1.0.0"
+    ["unified_test_framework"]="1.0.0"
+    ["advanced_performance_optimization"]="1.0.0"
+    ["config_hot_reload"]="1.0.0"
+    ["user_interface"]="1.0.0"
+    ["update_management"]="1.0.0"
 )
 
 # 模块加载状态
@@ -379,7 +399,352 @@ load_module_on_demand() {
     return 1
 }
 
+# =============================================================================
+# 依赖冲突检测和循环依赖预防
+# =============================================================================
+
+# 检测循环依赖
+detect_circular_dependencies() {
+    local module="$1"
+    local visited=()
+    local recursion_stack=()
+    
+    # 深度优先搜索检测循环
+    local function detect_cycle() {
+        local current_module="$1"
+        local current_path="$2"
+        
+        # 检查是否已经在当前路径中（循环依赖）
+        if [[ "$current_path" == *"$current_module"* ]]; then
+            echo "检测到循环依赖: $current_path -> $current_module"
+            return 1
+        fi
+        
+        # 检查是否已经访问过
+        if [[ " ${visited[@]} " =~ " $current_module " ]]; then
+            return 0
+        fi
+        
+        # 标记为已访问
+        visited+=("$current_module")
+        
+        # 获取依赖
+        local dependencies="${MODULE_DEPENDENCIES[$current_module]:-}"
+        if [[ -z "$dependencies" ]]; then
+            return 0
+        fi
+        
+        # 递归检查每个依赖
+        for dep in $dependencies; do
+            local new_path="$current_path -> $current_module"
+            if ! detect_cycle "$dep" "$new_path"; then
+                return 1
+            fi
+        done
+        
+        return 0
+    }
+    
+    detect_cycle "$module" ""
+    return $?
+}
+
+# 检测依赖冲突
+detect_dependency_conflicts() {
+    local conflicts=()
+    local conflict_count=0
+    
+    echo "检查模块依赖冲突..."
+    
+    # 检查每个模块的依赖关系
+    for module in "${!MODULE_DEPENDENCIES[@]}"; do
+        local dependencies="${MODULE_DEPENDENCIES[$module]:-}"
+        
+        if [[ -n "$dependencies" ]]; then
+            # 检查循环依赖
+            if ! detect_circular_dependencies "$module"; then
+                conflicts+=("$module: 循环依赖")
+                ((conflict_count++))
+            fi
+            
+            # 检查版本冲突
+            local module_version="${MODULE_VERSIONS[$module]:-unknown}"
+            for dep in $dependencies; do
+                local dep_version="${MODULE_VERSIONS[$dep]:-unknown}"
+                
+                # 检查版本兼容性（简化版本检查）
+                if [[ "$module_version" != "unknown" && "$dep_version" != "unknown" ]]; then
+                    local module_major=$(echo "$module_version" | cut -d. -f1)
+                    local dep_major=$(echo "$dep_version" | cut -d. -f1)
+                    
+                    if [[ $module_major -lt $dep_major ]]; then
+                        conflicts+=("$module: 版本不兼容 (需要 $dep >= $dep_version)")
+                        ((conflict_count++))
+                    fi
+                fi
+            done
+        fi
+    done
+    
+    # 输出冲突报告
+    if [[ $conflict_count -gt 0 ]]; then
+        echo "发现 $conflict_count 个依赖冲突:"
+        for conflict in "${conflicts[@]}"; do
+            echo "  - $conflict"
+        done
+        return 1
+    else
+        echo "未发现依赖冲突"
+        return 0
+    fi
+}
+
+# 解决依赖冲突
+resolve_dependency_conflicts() {
+    echo -e "${SECONDARY_COLOR}=== 解决依赖冲突 ===${NC}"
+    echo
+    
+    # 检测冲突
+    if detect_dependency_conflicts; then
+        show_success "所有依赖冲突已解决"
+        return 0
+    fi
+    
+    echo "尝试自动解决冲突..."
+    
+    # 重新排序模块加载顺序
+    local sorted_modules=()
+    local remaining_modules=("${!MODULE_DEPENDENCIES[@]}")
+    
+    # 拓扑排序
+    while [[ ${#remaining_modules[@]} -gt 0 ]]; do
+        local added=false
+        
+        for i in "${!remaining_modules[@]}"; do
+            local module="${remaining_modules[$i]}"
+            local dependencies="${MODULE_DEPENDENCIES[$module]:-}"
+            local can_add=true
+            
+            # 检查所有依赖是否已排序
+            for dep in $dependencies; do
+                if [[ ! " ${sorted_modules[@]} " =~ " $dep " ]]; then
+                    can_add=false
+                    break
+                fi
+            done
+            
+            if [[ "$can_add" == "true" ]]; then
+                sorted_modules+=("$module")
+                unset remaining_modules[$i]
+                remaining_modules=("${remaining_modules[@]}")  # 重新索引
+                added=true
+                break
+            fi
+        done
+        
+        if [[ "$added" == "false" ]]; then
+            echo "无法解决循环依赖，请手动修复"
+            return 1
+        fi
+    done
+    
+    echo "建议的模块加载顺序:"
+    for i in "${!sorted_modules[@]}"; do
+        echo "  $((i+1)). ${sorted_modules[$i]}"
+    done
+    
+    show_success "依赖冲突解决建议已生成"
+}
+
+# 验证模块完整性
+validate_module_integrity() {
+    local module="$1"
+    local issues=()
+    
+    echo "验证模块完整性: $module"
+    
+    # 检查模块文件是否存在
+    local module_file="${MODULES_DIR}/${module}.sh"
+    if [[ ! -f "$module_file" ]]; then
+        issues+=("模块文件不存在: $module_file")
+    fi
+    
+    # 检查依赖模块是否存在
+    local dependencies="${MODULE_DEPENDENCIES[$module]:-}"
+    for dep in $dependencies; do
+        local dep_file="${MODULES_DIR}/${dep}.sh"
+        if [[ ! -f "$dep_file" ]]; then
+            issues+=("依赖模块文件不存在: $dep_file")
+        fi
+    done
+    
+    # 检查版本信息
+    local version="${MODULE_VERSIONS[$module]:-}"
+    if [[ -z "$version" ]]; then
+        issues+=("缺少版本信息")
+    fi
+    
+    # 输出验证结果
+    if [[ ${#issues[@]} -gt 0 ]]; then
+        echo "发现以下问题:"
+        for issue in "${issues[@]}"; do
+            echo "  - $issue"
+        done
+        return 1
+    else
+        echo "模块完整性验证通过"
+        return 0
+    fi
+}
+
+# 批量验证所有模块
+validate_all_modules() {
+    echo -e "${SECONDARY_COLOR}=== 批量验证所有模块 ===${NC}"
+    echo
+    
+    local total_modules=0
+    local valid_modules=0
+    local invalid_modules=0
+    
+    for module in "${!MODULE_DEPENDENCIES[@]}"; do
+        ((total_modules++))
+        
+        if validate_module_integrity "$module"; then
+            ((valid_modules++))
+        else
+            ((invalid_modules++))
+        fi
+        echo
+    done
+    
+    echo "验证结果汇总:"
+    echo "  总模块数: $total_modules"
+    echo "  有效模块: $valid_modules"
+    echo "  无效模块: $invalid_modules"
+    
+    if [[ $invalid_modules -eq 0 ]]; then
+        show_success "所有模块验证通过"
+        return 0
+    else
+        show_warn "发现 $invalid_modules 个模块存在问题"
+        return 1
+    fi
+}
+
+# 生成依赖关系图
+generate_dependency_graph() {
+    local output_file="${CONFIG_DIR}/dependency_graph.dot"
+    
+    echo "生成依赖关系图: $output_file"
+    
+    cat > "$output_file" << 'EOF'
+digraph ModuleDependencies {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    edge [color=gray];
+EOF
+    
+    # 添加节点
+    for module in "${!MODULE_DEPENDENCIES[@]}"; do
+        local version="${MODULE_VERSIONS[$module]:-unknown}"
+        echo "    \"$module\" [label=\"$module\\n$version\"];" >> "$output_file"
+    done
+    
+    # 添加边
+    for module in "${!MODULE_DEPENDENCIES[@]}"; do
+        local dependencies="${MODULE_DEPENDENCIES[$module]:-}"
+        for dep in $dependencies; do
+            echo "    \"$module\" -> \"$dep\";" >> "$output_file"
+        done
+    done
+    
+    echo "}" >> "$output_file"
+    
+    show_success "依赖关系图已生成: $output_file"
+    echo "可以使用 Graphviz 工具查看: dot -Tpng $output_file -o dependency_graph.png"
+}
+
+# 模块依赖管理菜单
+dependency_management_menu() {
+    while true; do
+        clear
+        show_banner
+        
+        echo -e "${SECONDARY_COLOR}=== 模块依赖管理 ===${NC}"
+        echo
+        echo -e "${GREEN}1.${NC} 检测循环依赖"
+        echo -e "${GREEN}2.${NC} 检测依赖冲突"
+        echo -e "${GREEN}3.${NC} 解决依赖冲突"
+        echo -e "${GREEN}4.${NC} 验证模块完整性"
+        echo -e "${GREEN}5.${NC} 批量验证所有模块"
+        echo -e "${GREEN}6.${NC} 生成依赖关系图"
+        echo -e "${GREEN}7.${NC} 查看模块统计"
+        echo -e "${GREEN}8.${NC} 重新加载所有模块"
+        echo
+        echo -e "${INFO_COLOR}0.${NC} 返回"
+        echo
+        
+        read -rp "请选择操作 [0-8]: " choice
+        
+        case $choice in
+            1) 
+                echo "检测循环依赖..."
+                for module in "${!MODULE_DEPENDENCIES[@]}"; do
+                    if ! detect_circular_dependencies "$module"; then
+                        echo "发现循环依赖"
+                    fi
+                done
+                ;;
+            2) detect_dependency_conflicts ;;
+            3) resolve_dependency_conflicts ;;
+            4) 
+                local module=$(show_input "输入模块名" "")
+                if [[ -n "$module" ]]; then
+                    validate_module_integrity "$module"
+                fi
+                ;;
+            5) validate_all_modules ;;
+            6) generate_dependency_graph ;;
+            7) get_module_stats ;;
+            8) 
+                echo "重新加载所有模块..."
+                clear_module_cache
+                preload_core_modules
+                ;;
+            0) return 0 ;;
+            *) show_error "无效选择，请重新输入" ;;
+        esac
+        
+        read -rp "按回车键继续..."
+    done
+}
+
+# 智能模块加载（增强版）
+load_module_smart_enhanced() {
+    local module_name="$1"
+    local force_reload="${2:-false}"
+    
+    # 验证模块完整性
+    if ! validate_module_integrity "$module_name" >/dev/null 2>&1; then
+        log_error "模块完整性验证失败: $module_name"
+        return 1
+    fi
+    
+    # 检测循环依赖
+    if ! detect_circular_dependencies "$module_name" >/dev/null 2>&1; then
+        log_error "检测到循环依赖: $module_name"
+        return 1
+    fi
+    
+    # 使用原有的智能加载逻辑
+    load_module_smart "$module_name" "$force_reload"
+    return $?
+}
+
 # 导出函数
 export -f load_module_smart lazy_load_module load_modules_batch
 export -f list_loaded_modules get_module_stats check_module_dependencies
 export -f unload_module clear_module_cache preload_core_modules load_module_on_demand
+export -f detect_circular_dependencies detect_dependency_conflicts resolve_dependency_conflicts
+export -f validate_module_integrity validate_all_modules generate_dependency_graph
+export -f dependency_management_menu load_module_smart_enhanced
