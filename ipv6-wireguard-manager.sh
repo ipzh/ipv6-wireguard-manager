@@ -82,21 +82,36 @@ import_module() {
     return 1
 }
 
-# 导入公共函数库
-if ! import_module "common_functions"; then
-    log_warn "无法导入公共函数库，使用内置函数"
-    # 继续使用内置的基本函数
-fi
-
-# 导入函数标准化模块
-if import_module "function_standardization"; then
-    log_info "函数标准化模块已导入"
-    # 确保所有核心函数统一
-    if command -v ensure_core_functions &> /dev/null; then
-        ensure_core_functions
+# 统一模块加载系统
+# 使用增强的模块加载器替代分散的import_module调用
+if import_module "enhanced_module_loader"; then
+    log_info "增强模块加载器已导入"
+    
+    # 初始化模块加载系统
+    if command -v init_module_loader &> /dev/null; then
+        init_module_loader
     fi
+    
+    # 加载核心模块（按依赖顺序）
+    load_module_smart_enhanced "common_functions"
+    load_module_smart_enhanced "unified_config"
+    load_module_smart_enhanced "unified_error_handling"
+    load_module_smart_enhanced "system_detection"
+    
+    log_info "核心模块加载完成"
 else
-    log_warn "函数标准化模块导入失败"
+    log_warn "增强模块加载器导入失败，使用传统方式"
+    
+    # 回退到传统模块导入方式
+    if ! import_module "common_functions"; then
+        log_error "无法导入公共函数库，脚本无法继续执行"
+        exit 1
+    fi
+    
+    # 导入其他核心模块
+    import_module "unified_config" || log_warn "统一配置模块导入失败"
+    import_module "unified_error_handling" || log_warn "统一错误处理模块导入失败"
+    import_module "system_detection" || log_warn "系统检测模块导入失败"
 fi
 
 # 导入变量管理系统
@@ -351,8 +366,18 @@ CONFIG_FILE="${CONFIG_DIR}/manager.conf"
 
 # 配置函数已在unified_config.sh中定义，无需重复定义
 
-# 创建默认配置文件
+# 创建默认配置文件 - 已废弃，使用unified_config.sh中的实现
+# 此函数保留仅为向后兼容，实际使用unified_config.sh中的create_default_config
 create_default_config() {
+    log_warn "使用已废弃的create_default_config函数，建议使用unified_config.sh中的实现"
+    
+    # 如果unified_config模块已加载，使用其实现
+    if command -v create_default_config &> /dev/null; then
+        create_default_config "$1"
+        return $?
+    fi
+    
+    # 回退实现
     local config_file="$1"
     cat > "$config_file" << 'EOF'
 # IPv6 WireGuard Manager 主配置文件
@@ -382,20 +407,85 @@ LOG_LEVEL=INFO
 BACKUP_DIR=/var/backups/ipv6-wireguard
 CLIENT_CONFIG_DIR=/etc/wireguard/clients
 
-# 功能开关
-INSTALL_WIREGUARD=true
-INSTALL_BIRD=true
-INSTALL_FIREWALL=true
-INSTALL_WEB_INTERFACE=true
-INSTALL_MONITORING=true
-INSTALL_CLIENT_AUTO_INSTALL=true
-INSTALL_BACKUP_RESTORE=true
-INSTALL_UPDATE_MANAGEMENT=true
-INSTALL_SECURITY_ENHANCEMENTS=true
-INSTALL_CONFIG_MANAGEMENT=true
-INSTALL_WEB_INTERFACE_ENHANCED=true
-INSTALL_OAUTH_AUTHENTICATION=true
-INSTALL_SECURITY_AUDIT_MONITORING=true
+# 功能开关 - 统一管理
+declare -A FEATURE_SWITCHES=(
+    ["INSTALL_WIREGUARD"]="true"
+    ["INSTALL_BIRD"]="true"
+    ["INSTALL_FIREWALL"]="true"
+    ["INSTALL_WEB_INTERFACE"]="true"
+    ["INSTALL_MONITORING"]="true"
+    ["INSTALL_CLIENT_AUTO_INSTALL"]="true"
+    ["INSTALL_BACKUP_RESTORE"]="true"
+    ["INSTALL_UPDATE_MANAGEMENT"]="true"
+    ["INSTALL_SECURITY_ENHANCEMENTS"]="true"
+    ["INSTALL_OAUTH_AUTHENTICATION"]="true"
+    ["INSTALL_RBAC"]="true"
+    ["INSTALL_MFA"]="true"
+    ["INSTALL_SMART_CACHING"]="true"
+    ["INSTALL_PERFORMANCE_OPTIMIZATION"]="true"
+    ["INSTALL_CONFIG_HOT_RELOAD"]="true"
+    ["INSTALL_DEPENDENCY_MANAGEMENT"]="true"
+)
+
+# 向后兼容的功能开关变量
+INSTALL_WIREGUARD="${FEATURE_SWITCHES[INSTALL_WIREGUARD]}"
+INSTALL_BIRD="${FEATURE_SWITCHES[INSTALL_BIRD]}"
+INSTALL_FIREWALL="${FEATURE_SWITCHES[INSTALL_FIREWALL]}"
+INSTALL_WEB_INTERFACE="${FEATURE_SWITCHES[INSTALL_WEB_INTERFACE]}"
+INSTALL_MONITORING="${FEATURE_SWITCHES[INSTALL_MONITORING]}"
+INSTALL_CLIENT_AUTO_INSTALL="${FEATURE_SWITCHES[INSTALL_CLIENT_AUTO_INSTALL]}"
+INSTALL_BACKUP_RESTORE="${FEATURE_SWITCHES[INSTALL_BACKUP_RESTORE]}"
+INSTALL_UPDATE_MANAGEMENT="${FEATURE_SWITCHES[INSTALL_UPDATE_MANAGEMENT]}"
+INSTALL_SECURITY_ENHANCEMENTS="${FEATURE_SWITCHES[INSTALL_SECURITY_ENHANCEMENTS]}"
+INSTALL_OAUTH_AUTHENTICATION="${FEATURE_SWITCHES[INSTALL_OAUTH_AUTHENTICATION]}"
+INSTALL_RBAC="${FEATURE_SWITCHES[INSTALL_RBAC]}"
+INSTALL_MFA="${FEATURE_SWITCHES[INSTALL_MFA]}"
+INSTALL_SMART_CACHING="${FEATURE_SWITCHES[INSTALL_SMART_CACHING]}"
+INSTALL_PERFORMANCE_OPTIMIZATION="${FEATURE_SWITCHES[INSTALL_PERFORMANCE_OPTIMIZATION]}"
+INSTALL_CONFIG_HOT_RELOAD="${FEATURE_SWITCHES[INSTALL_CONFIG_HOT_RELOAD]}"
+INSTALL_DEPENDENCY_MANAGEMENT="${FEATURE_SWITCHES[INSTALL_DEPENDENCY_MANAGEMENT]}"
+# 功能开关检查函数
+check_feature_enabled() {
+    local feature_name="$1"
+    if [[ -n "${FEATURE_SWITCHES[$feature_name]:-}" ]]; then
+        [[ "${FEATURE_SWITCHES[$feature_name]}" == "true" ]]
+    else
+        # 回退到传统变量检查
+        case "$feature_name" in
+            "INSTALL_WIREGUARD") [[ "${INSTALL_WIREGUARD:-false}" == "true" ]] ;;
+            "INSTALL_BIRD") [[ "${INSTALL_BIRD:-false}" == "true" ]] ;;
+            "INSTALL_FIREWALL") [[ "${INSTALL_FIREWALL:-false}" == "true" ]] ;;
+            "INSTALL_WEB_INTERFACE") [[ "${INSTALL_WEB_INTERFACE:-false}" == "true" ]] ;;
+            "INSTALL_MONITORING") [[ "${INSTALL_MONITORING:-false}" == "true" ]] ;;
+            "INSTALL_CLIENT_AUTO_INSTALL") [[ "${INSTALL_CLIENT_AUTO_INSTALL:-false}" == "true" ]] ;;
+            "INSTALL_BACKUP_RESTORE") [[ "${INSTALL_BACKUP_RESTORE:-false}" == "true" ]] ;;
+            "INSTALL_UPDATE_MANAGEMENT") [[ "${INSTALL_UPDATE_MANAGEMENT:-false}" == "true" ]] ;;
+            "INSTALL_SECURITY_ENHANCEMENTS") [[ "${INSTALL_SECURITY_ENHANCEMENTS:-false}" == "true" ]] ;;
+            "INSTALL_OAUTH_AUTHENTICATION") [[ "${INSTALL_OAUTH_AUTHENTICATION:-false}" == "true" ]] ;;
+            "INSTALL_RBAC") [[ "${INSTALL_RBAC:-false}" == "true" ]] ;;
+            "INSTALL_MFA") [[ "${INSTALL_MFA:-false}" == "true" ]] ;;
+            "INSTALL_SMART_CACHING") [[ "${INSTALL_SMART_CACHING:-false}" == "true" ]] ;;
+            "INSTALL_PERFORMANCE_OPTIMIZATION") [[ "${INSTALL_PERFORMANCE_OPTIMIZATION:-false}" == "true" ]] ;;
+            "INSTALL_CONFIG_HOT_RELOAD") [[ "${INSTALL_CONFIG_HOT_RELOAD:-false}" == "true" ]] ;;
+            "INSTALL_DEPENDENCY_MANAGEMENT") [[ "${INSTALL_DEPENDENCY_MANAGEMENT:-false}" == "true" ]] ;;
+            *) false ;;
+        esac
+    fi
+}
+
+# 启用功能
+enable_feature() {
+    local feature_name="$1"
+    FEATURE_SWITCHES["$feature_name"]="true"
+    log_info "功能 $feature_name 已启用"
+}
+
+# 禁用功能
+disable_feature() {
+    local feature_name="$1"
+    FEATURE_SWITCHES["$feature_name"]="false"
+    log_info "功能 $feature_name 已禁用"
+}
 INSTALL_NETWORK_TOPOLOGY=true
 INSTALL_API_DOCUMENTATION=true
 INSTALL_WEBSOCKET_REALTIME=true
@@ -648,7 +738,7 @@ show_main_menu() {
         echo -e "${GREEN}8.${NC}  BGP配置管理 - BGP路由配置"
         
         # 防火墙管理功能
-        if [[ "$INSTALL_FIREWALL" == "true" ]]; then
+        if check_feature_enabled "INSTALL_FIREWALL"; then
             echo -e "${GREEN}9.${NC}  防火墙管理 - 防火墙规则管理"
         else
             echo -e "${GRAY}9.${NC}  防火墙管理 - 功能未安装"
@@ -802,7 +892,7 @@ show_main_menu() {
             7) network_configuration_menu ;;
             8) bgp_config_management_menu ;;
             9) 
-                if [[ "$INSTALL_FIREWALL" == "true" ]]; then
+                if check_feature_enabled "INSTALL_FIREWALL"; then
                     firewall_management_menu
                 else
                     show_error "防火墙管理功能未安装"
@@ -1777,26 +1867,33 @@ show_feature_status() {
     echo
     
     echo "已安装的功能:"
-    [[ "$INSTALL_WIREGUARD" == "true" ]] && echo "  ✓ WireGuard VPN服务"
-    [[ "$INSTALL_BIRD" == "true" ]] && echo "  ✓ BIRD BGP路由服务"
-    [[ "$INSTALL_FIREWALL" == "true" ]] && echo "  ✓ 防火墙管理功能"
-    [[ "$INSTALL_WEB_INTERFACE" == "true" ]] && echo "  ✓ Web管理界面"
-    [[ "$INSTALL_MONITORING" == "true" ]] && echo "  ✓ 监控告警系统"
-    [[ "$INSTALL_CLIENT_AUTO_INSTALL" == "true" ]] && echo "  ✓ 客户端自动安装功能"
-    [[ "$INSTALL_BACKUP_RESTORE" == "true" ]] && echo "  ✓ 配置备份恢复功能"
-    [[ "$INSTALL_UPDATE_MANAGEMENT" == "true" ]] && echo "  ✓ 更新管理功能"
-    [[ "$INSTALL_SECURITY_ENHANCEMENTS" == "true" ]] && echo "  ✓ 安全增强功能"
+    check_feature_enabled "INSTALL_WIREGUARD" && echo "  ✓ WireGuard VPN服务"
+    check_feature_enabled "INSTALL_BIRD" && echo "  ✓ BIRD BGP路由服务"
+    check_feature_enabled "INSTALL_FIREWALL" && echo "  ✓ 防火墙管理功能"
+    check_feature_enabled "INSTALL_WEB_INTERFACE" && echo "  ✓ Web管理界面"
+    check_feature_enabled "INSTALL_MONITORING" && echo "  ✓ 监控告警系统"
+    check_feature_enabled "INSTALL_CLIENT_AUTO_INSTALL" && echo "  ✓ 客户端自动安装功能"
+    check_feature_enabled "INSTALL_BACKUP_RESTORE" && echo "  ✓ 配置备份恢复功能"
+    check_feature_enabled "INSTALL_UPDATE_MANAGEMENT" && echo "  ✓ 更新管理功能"
+    check_feature_enabled "INSTALL_SECURITY_ENHANCEMENTS" && echo "  ✓ 安全增强功能"
+    check_feature_enabled "INSTALL_OAUTH_AUTHENTICATION" && echo "  ✓ OAuth认证功能"
+    check_feature_enabled "INSTALL_RBAC" && echo "  ✓ RBAC权限管理"
+    check_feature_enabled "INSTALL_MFA" && echo "  ✓ 多因素认证"
+    check_feature_enabled "INSTALL_SMART_CACHING" && echo "  ✓ 智能缓存系统"
+    check_feature_enabled "INSTALL_PERFORMANCE_OPTIMIZATION" && echo "  ✓ 性能优化"
+    check_feature_enabled "INSTALL_CONFIG_HOT_RELOAD" && echo "  ✓ 配置热重载"
+    check_feature_enabled "INSTALL_DEPENDENCY_MANAGEMENT" && echo "  ✓ 依赖管理"
     
     echo
     echo "未安装的功能:"
-    [[ "$INSTALL_WIREGUARD" != "true" ]] && echo "  ✗ WireGuard VPN服务"
-    [[ "$INSTALL_BIRD" != "true" ]] && echo "  ✗ BIRD BGP路由服务"
-    [[ "$INSTALL_FIREWALL" != "true" ]] && echo "  ✗ 防火墙管理功能"
-    [[ "$INSTALL_WEB_INTERFACE" != "true" ]] && echo "  ✗ Web管理界面"
-    [[ "$INSTALL_MONITORING" != "true" ]] && echo "  ✗ 监控告警系统"
-    [[ "$INSTALL_CLIENT_AUTO_INSTALL" != "true" ]] && echo "  ✗ 客户端自动安装功能"
-    [[ "$INSTALL_BACKUP_RESTORE" != "true" ]] && echo "  ✗ 配置备份恢复功能"
-    [[ "$INSTALL_UPDATE_MANAGEMENT" != "true" ]] && echo "  ✗ 更新管理功能"
+    ! check_feature_enabled "INSTALL_WIREGUARD" && echo "  ✗ WireGuard VPN服务"
+    ! check_feature_enabled "INSTALL_BIRD" && echo "  ✗ BIRD BGP路由服务"
+    ! check_feature_enabled "INSTALL_FIREWALL" && echo "  ✗ 防火墙管理功能"
+    ! check_feature_enabled "INSTALL_WEB_INTERFACE" && echo "  ✗ Web管理界面"
+    ! check_feature_enabled "INSTALL_MONITORING" && echo "  ✗ 监控告警系统"
+    ! check_feature_enabled "INSTALL_CLIENT_AUTO_INSTALL" && echo "  ✗ 客户端自动安装功能"
+    ! check_feature_enabled "INSTALL_BACKUP_RESTORE" && echo "  ✗ 配置备份恢复功能"
+    ! check_feature_enabled "INSTALL_UPDATE_MANAGEMENT" && echo "  ✗ 更新管理功能"
     [[ "$INSTALL_SECURITY_ENHANCEMENTS" != "true" ]] && echo "  ✗ 安全增强功能"
 }
 
@@ -1949,7 +2046,7 @@ check_feature_dependencies() {
     echo "检查功能依赖关系..."
     
     # 检查WireGuard依赖
-    if [[ "$INSTALL_WIREGUARD" == "true" ]]; then
+    if check_feature_enabled "INSTALL_WIREGUARD"; then
         if command -v wg &> /dev/null; then
             echo "  ✓ WireGuard已安装"
         else
@@ -1958,7 +2055,7 @@ check_feature_dependencies() {
     fi
     
     # 检查BIRD依赖
-    if [[ "$INSTALL_BIRD" == "true" ]]; then
+    if check_feature_enabled "INSTALL_BIRD"; then
         if command -v bird &> /dev/null; then
             echo "  ✓ BIRD已安装"
         else
@@ -1967,7 +2064,7 @@ check_feature_dependencies() {
     fi
     
     # 检查防火墙依赖
-    if [[ "$INSTALL_FIREWALL" == "true" ]]; then
+    if check_feature_enabled "INSTALL_FIREWALL"; then
         if command -v ufw &> /dev/null || command -v firewall-cmd &> /dev/null || command -v nft &> /dev/null || command -v iptables &> /dev/null; then
             echo "  ✓ 防火墙工具已安装"
         else

@@ -511,12 +511,65 @@ reload_bird_config() {
     
     # 重载IPv4配置
     if command -v birdc &> /dev/null; then
-        birdc configure 2>/dev/null || log_warn "BIRD IPv4配置重载失败"
+        log_info "重载BIRD IPv4配置..."
+        if birdc configure 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "BIRD IPv4配置重载成功"
+        else
+            local exit_code=$?
+            log_error "BIRD IPv4配置重载失败 (退出码: $exit_code)"
+            
+            # 尝试回滚配置
+            if [[ -f "${IPV6WGM_BIRD_CONFIG_FILE}.backup" ]]; then
+                log_info "尝试回滚BIRD IPv4配置..."
+                if cp "${IPV6WGM_BIRD_CONFIG_FILE}.backup" "$IPV6WGM_BIRD_CONFIG_FILE"; then
+                    log_info "BIRD IPv4配置已回滚"
+                else
+                    log_error "BIRD IPv4配置回滚失败"
+                fi
+            fi
+            return 1
+        fi
+    else
+        log_warn "birdc命令不可用，跳过IPv4配置重载"
     fi
     
     # 重载IPv6配置
     if command -v birdc6 &> /dev/null; then
-        birdc6 configure 2>/dev/null || log_warn "BIRD IPv6配置重载失败"
+        log_info "重载BIRD IPv6配置..."
+        if birdc6 configure 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "BIRD IPv6配置重载成功"
+        else
+            local exit_code=$?
+            log_error "BIRD IPv6配置重载失败 (退出码: $exit_code)"
+            
+            # 尝试回滚配置
+            if [[ -f "${IPV6WGM_BIRD6_CONFIG_FILE}.backup" ]]; then
+                log_info "尝试回滚BIRD IPv6配置..."
+                if cp "${IPV6WGM_BIRD6_CONFIG_FILE}.backup" "$IPV6WGM_BIRD6_CONFIG_FILE"; then
+                    log_info "BIRD IPv6配置已回滚"
+                else
+                    log_error "BIRD IPv6配置回滚失败"
+                fi
+            fi
+            return 1
+        fi
+    else
+        log_warn "birdc6命令不可用，跳过IPv6配置重载"
+    fi
+    
+    # 验证BIRD服务状态
+    if command -v systemctl &> /dev/null; then
+        if systemctl is-active --quiet bird; then
+            log_success "BIRD服务运行正常"
+        else
+            log_warn "BIRD服务状态异常，尝试重启..."
+            if systemctl restart bird; then
+                log_success "BIRD服务重启成功"
+            else
+                log_error "BIRD服务重启失败"
+                return 1
+            fi
+        fi
     fi
     
     log_info "BIRD配置重载完成"

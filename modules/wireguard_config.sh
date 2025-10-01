@@ -495,15 +495,74 @@ remove_wireguard_client() {
     
     log_info "删除WireGuard客户端: $client_name"
     
+    # 检查客户端是否存在
+    if [[ ! -f "${IPV6WGM_WIREGUARD_KEYS_DIR}/${client_name}_public.key" ]]; then
+        log_error "客户端 $client_name 不存在"
+        return 1
+    fi
+    
     # 备份原配置
     backup_file "$IPV6WGM_WIREGUARD_CONFIG_FILE"
     
-    # 从服务器配置中删除客户端
-    local temp_config=$(create_temp_file "wireguard_config")
-    grep -v "Client: $client_name" "$IPV6WGM_WIREGUARD_CONFIG_FILE" | \
-    grep -v "PublicKey = $(cat "${IPV6WGM_WIREGUARD_KEYS_DIR}/${client_name}_public.key" 2>/dev/null)" | \
-    grep -v "AllowedIPs = " > "$temp_config"
+    # 获取客户端公钥
+    local client_public_key=$(cat "${IPV6WGM_WIREGUARD_KEYS_DIR}/${client_name}_public.key" 2>/dev/null)
+    if [[ -z "$client_public_key" ]]; then
+        log_error "无法读取客户端 $client_name 的公钥"
+        return 1
+    fi
     
+    # 从服务器配置中精确删除客户端配置
+    local temp_config=$(create_temp_file "wireguard_config")
+    local in_client_section=false
+    local client_section_start=""
+    
+    while IFS= read -r line; do
+        # 检查是否进入客户端配置段
+        if [[ "$line" =~ ^#\s*Client:\s*$client_name ]]; then
+            in_client_section=true
+            client_section_start="$line"
+            continue
+        fi
+        
+        # 如果在客户端配置段中，检查是否结束
+        if [[ "$in_client_section" == true ]]; then
+            # 如果遇到下一个客户端配置段或文件结束，则结束当前客户端段
+            if [[ "$line" =~ ^#\s*Client:\s* ]] && [[ "$line" != "$client_section_start" ]]; then
+                in_client_section=false
+                echo "$line" >> "$temp_config"
+            elif [[ "$line" =~ ^\[Interface\] ]] || [[ "$line" =~ ^\[Peer\] ]]; then
+                # 遇到新的配置段，结束客户端段
+                in_client_section=false
+                echo "$line" >> "$temp_config"
+            fi
+            # 跳过客户端段内的所有行
+            continue
+        fi
+        
+        # 检查是否包含目标客户端的公钥
+        if [[ "$line" =~ PublicKey\s*=\s*$client_public_key ]]; then
+            # 跳过包含目标客户端公钥的行
+            continue
+        fi
+        
+        # 检查是否包含目标客户端的AllowedIPs（需要更精确的匹配）
+        if [[ "$line" =~ AllowedIPs\s*=\s*.*$client_name ]]; then
+            # 跳过包含目标客户端AllowedIPs的行
+            continue
+        fi
+        
+        # 保留其他行
+        echo "$line" >> "$temp_config"
+    done < "$IPV6WGM_WIREGUARD_CONFIG_FILE"
+    
+    # 验证新配置文件
+    if ! validate_wireguard_config "$temp_config"; then
+        log_error "删除客户端后配置文件验证失败"
+        rm -f "$temp_config"
+        return 1
+    fi
+    
+    # 应用新配置
     mv "$temp_config" "$IPV6WGM_WIREGUARD_CONFIG_FILE"
     
     # 删除客户端文件
@@ -512,7 +571,10 @@ remove_wireguard_client() {
     rm -f "${IPV6WGM_WIREGUARD_CLIENT_DIR}/${client_name}.conf"
     
     # 重载配置
-    reload_wireguard_config
+    if ! reload_wireguard_config; then
+        log_error "重载WireGuard配置失败"
+        return 1
+    fi
     
     log_info "客户端 $client_name 删除成功"
 }
