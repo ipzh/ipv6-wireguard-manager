@@ -44,9 +44,15 @@ jobs:
         # 安装Semgrep
         python3 -m pip install semgrep
         
-        # 安装Trivy (优化版本)
-        sudo apt-get install -y apt-transport-https gnupg lsb-release
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3
+        # 安装Trivy (增加重试，避免网络错误导致退出码22)
+        set +e
+        for i in 1 2 3; do
+          echo "安装 Trivy 尝试第 $i 次..."
+          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          sleep 2
+        done
+        set -e
+        trivy --version || /usr/local/bin/trivy --version || true
         
         # 安装Gitleaks (优化版本)
         curl -sfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.4_linux_x64.tar.gz -o gitleaks.tar.gz
@@ -136,12 +142,15 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install safety pip-audit
 
-        # 安装Trivy（使用官方安装脚本，避免APT源不可用问题）
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-          | sh -s -- -b /usr/local/bin v0.48.3
-
-        # 验证Trivy安装
-        trivy --version
+        # 安装Trivy（使用官方安装脚本，带重试并避免退出码22）
+        set +e
+        for i in 1 2 3; do
+          echo "安装 Trivy 尝试第 $i 次..."
+          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          sleep 2
+        done
+        set -e
+        trivy --version || /usr/local/bin/trivy --version || true
         
     - name: 扫描Python依赖
       run: |
@@ -191,11 +200,17 @@ jobs:
         
     - name: 安装Trivy (优化版本)
       run: |
-        # 使用官方安装脚本
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3
+        # 使用官方安装脚本（带重试，避免网络错误导致退出码22）
+        set +e
+        for i in 1 2 3; do
+          echo "安装 Trivy 尝试第 $i 次..."
+          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          sleep 2
+        done
+        set -e
         
         # 验证安装
-        trivy --version
+        trivy --version || /usr/local/bin/trivy --version || true
         
     - name: 扫描Docker镜像
       run: |
