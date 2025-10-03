@@ -1053,18 +1053,18 @@ log_success() { log_with_level "INFO" "✓ $1"; }
 # 标准化错误处理系统
 # =============================================================================
 
-# 错误代码常量
-declare -g ERROR_CODES=(
-    "SUCCESS=0"
-    "GENERAL_ERROR=1"
-    "PERMISSION_ERROR=101"
-    "FILE_NOT_FOUND=102"
-    "CONFIG_ERROR=103"
-    "NETWORK_ERROR=104"
-    "DEPENDENCY_ERROR=105"
-    "INVALID_INPUT=106"
-    "SERVICE_ERROR=107"
-    "TIMEOUT_ERROR=108"
+# 错误代码常量（统一为关联数组）
+declare -Ag IPV6WGM_ERROR_CODES=(
+    [SUCCESS]=0
+    [GENERAL_ERROR]=1
+    [PERMISSION_ERROR]=101
+    [FILE_NOT_FOUND]=102
+    [CONFIG_ERROR]=103
+    [NETWORK_ERROR]=104
+    [DEPENDENCY_ERROR]=105
+    [INVALID_INPUT]=106
+    [SERVICE_ERROR]=107
+    [TIMEOUT_ERROR]=108
 )
 
 # 统一的错误退出函数
@@ -1111,20 +1111,60 @@ exit_with_error() {
     exit "$exit_code"
 }
 
-# 错误处理函数
+# 统一错误处理函数（兼容不同调用签名）
 handle_error() {
-    local error_code="$1"
-    local error_message="$2"
-    local context="${3:-unknown}"
-    local line_number="${4:-$LINENO}"
-    
-    # 记录错误但不退出
-    log_error "[错误码: $error_code] $error_message (上下文: $context, 行号: $line_number)"
-    
-    # 保存错误到错误日志
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] [${FUNCNAME[1]}] [Line: $line_number] $error_message" >> "$IPV6WGM_LOG_DIR/error.log" 2>/dev/null || true
-    
-    return "$error_code"
+    local a1="$1"; local a2="$2"; local a3="${3:-}"; local a4="${4:-}"
+    local exit_code
+    local error_message
+    local context
+    local line_number
+
+    # 形式A：handle_error <数字退出码> <错误消息> [行号]
+    if [[ "$a1" =~ ^[0-9]+$ ]]; then
+        exit_code="$a1"
+        error_message="$a2"
+        line_number="${a3:-$LINENO}"
+
+        log_error_enhanced "错误发生在第 $line_number 行: $error_message (退出码: $exit_code)"
+        if [[ "${SEND_ERROR_REPORTS:-false}" == "true" ]]; then
+            send_error_report "$error_message" "$line_number" "$exit_code"
+        fi
+        return "$exit_code"
+    fi
+
+    # 形式B：handle_error <错误码名称或字符串> <错误消息> [上下文] [行号]
+    local code_name="$a1"
+    error_message="$a2"
+    context="${a3:-unknown}"
+    line_number="${a4:-$LINENO}"
+
+    # 将名称映射到统一退出码
+    local mapped_exit=1
+    case "$code_name" in
+        PERMISSION_DENIED|PERMISSION_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[PERMISSION_ERROR]} ;;
+        FILE_NOT_FOUND) mapped_exit=${IPV6WGM_ERROR_CODES[FILE_NOT_FOUND]} ;;
+        NETWORK_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[NETWORK_ERROR]} ;;
+        CONFIG_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[CONFIG_ERROR]} ;;
+        DEPENDENCY_MISSING|DEPENDENCY_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[DEPENDENCY_ERROR]} ;;
+        SERVICE_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[SERVICE_ERROR]} ;;
+        TIMEOUT_ERROR|TIMEOUT) mapped_exit=${IPV6WGM_ERROR_CODES[TIMEOUT_ERROR]} ;;
+        GENERAL_ERROR) mapped_exit=${IPV6WGM_ERROR_CODES[GENERAL_ERROR]} ;;
+        SUCCESS) mapped_exit=${IPV6WGM_ERROR_CODES[SUCCESS]} ;;
+        *)
+            # 若提供的是数字字符串，直接使用
+            if [[ "$code_name" =~ ^[0-9]+$ ]]; then
+                mapped_exit="$code_name"
+            fi
+            ;;
+    esac
+
+    # 过滤敏感信息并记录
+    local sanitized_message
+    sanitized_message=$(sanitize_log_message "$error_message")
+    log_error "[错误码: $mapped_exit] $sanitized_message (上下文: $context, 行号: $line_number)"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] [${FUNCNAME[1]}] [Line: $line_number] $sanitized_message" >> "$IPV6WGM_LOG_DIR/error.log" 2>/dev/null || true
+
+    return "$mapped_exit"
 }
 
 # 设置全局错误陷阱
@@ -1339,19 +1379,7 @@ parallel_file_processing() {
     return $?
 }
 
-# 错误处理函数
-handle_error() {
-    local exit_code="$1"
-    local error_message="$2"
-    local line_number="$3"
-    
-    log_error_enhanced "错误发生在第 $line_number 行: $error_message (退出码: $exit_code)"
-    
-    # 可以在这里添加错误报告、清理等逻辑
-    if [[ "${SEND_ERROR_REPORTS:-false}" == "true" ]]; then
-        send_error_report "$error_message" "$line_number" "$exit_code"
-    fi
-}
+# 已合并到统一的 handle_error，上述重复定义移除
 
 # 清理函数
 cleanup_on_exit() {
@@ -1454,47 +1482,7 @@ secure_input() {
     echo "$value"
 }
 
-# 统一错误处理函数
-handle_error() {
-    local error_code="$1"
-    local error_message="$2"
-    local context="${3:-未知}"
-    
-    # 过滤敏感信息
-    local sanitized_message=$(sanitize_log_message "$error_message")
-    log_error "错误 [$error_code]: $sanitized_message (上下文: $context)"
-    
-    case $error_code in
-        PERMISSION_DENIED) 
-            log_error "权限不足，请检查文件权限或使用sudo"
-            return 101
-            ;;
-        FILE_NOT_FOUND) 
-            log_error "文件不存在，请检查路径是否正确"
-            return 102
-            ;;
-        NETWORK_ERROR) 
-            log_error "网络连接失败，请检查网络设置"
-            return 103
-            ;;
-        CONFIG_ERROR)
-            log_error "配置错误，请检查配置文件"
-            return 104
-            ;;
-        DEPENDENCY_MISSING)
-            log_error "缺少必要依赖，请安装相关软件包"
-            return 105
-            ;;
-        SERVICE_ERROR)
-            log_error "服务操作失败，请检查服务状态"
-            return 106
-            ;;
-        *) 
-            log_error "未知错误"
-            return 1
-            ;;
-    esac
-}
+# 已合并到统一的 handle_error，上述重复定义移除
 
 # 修复文件行尾符
 fix_line_endings() {

@@ -32,7 +32,8 @@ declare -A IPV6WGM_ERROR_SEVERITY=(
 # 错误处理函数
 # ================================================================
 
-# 统一的错误处理函数
+# 统一的错误处理函数（不覆盖已存在的全局实现）
+if ! command -v handle_error >/dev/null 2>&1; then
 handle_error() {
     local error_code="$1"
     local error_message="$2"
@@ -79,6 +80,40 @@ handle_error() {
         return 1
     fi
 }
+else
+adv_handle_error() {
+    local error_code="$1"
+    local error_message="$2"
+    local error_source="$3"
+    local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+
+    if [[ -n "${IPV6WGM_LOG_FILE:-}" ]]; then
+        mkdir -p "$(dirname "$IPV6WGM_LOG_FILE")" 2>/dev/null || true
+        echo "[$timestamp] [ERROR] [$error_code] [$error_source] $error_message" >> "$IPV6WGM_LOG_FILE" 2>/dev/null || true
+    fi
+
+    if command -v log_error >/dev/null 2>&1; then
+        log_error "$error_message (代码: $error_code, 来源: $error_source)"
+    else
+        echo "[ERROR] $error_message (代码: $error_code, 来源: $error_source)" >&2
+    fi
+
+    case "$error_code" in
+        "${IPV6WGM_ERROR_CODES[CONFIG_ERROR]}")
+            command -v log_info >/dev/null 2>&1 && log_info "尝试使用备用配置..." || echo "[INFO] 尝试使用备用配置..." >&2
+            ;;
+        "${IPV6WGM_ERROR_CODES[WINDOWS_COMPAT_ERROR]}")
+            command -v log_info >/dev/null 2>&1 && log_info "尝试Windows兼容模式..." || echo "[INFO] 尝试Windows兼容模式..." >&2
+            ;;
+    esac
+
+    if [[ "$error_code" =~ ^[0-9]+$ ]]; then
+        return "$error_code"
+    else
+        return 1
+    fi
+}
+fi
 
 # 执行错误恢复策略
 execute_error_recovery() {
@@ -400,6 +435,6 @@ EOF
 # 导出函数
 # ================================================================
 
-export -f handle_error execute_error_recovery safe_execute validate_command_result
+export -f handle_error adv_handle_error execute_error_recovery safe_execute validate_command_result
 export -f run_network_diagnosis fix_permissions install_missing_dependencies restart_services
 export -f record_error_stat generate_error_report

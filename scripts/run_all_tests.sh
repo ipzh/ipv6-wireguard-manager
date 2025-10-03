@@ -5,11 +5,13 @@
 
 # 设置错误处理
 set -euo pipefail
+set -E
 
 # 获取脚本目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 MODULES_DIR="$PROJECT_ROOT/modules"
+export IPV6WGM_ROOT_DIR="$PROJECT_ROOT"
 
 # 导入公共函数
 if [[ -f "$MODULES_DIR/common_functions.sh" ]]; then

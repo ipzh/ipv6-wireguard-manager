@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # IPv6 WireGuard Manager 自动化测试脚本
 # 版本: 1.0.0
@@ -13,9 +13,11 @@ fi
 if [[ -t 0 ]]; then
     # 交互式执行，使用严格模式
     set -euo pipefail
+    set -E
 else
     # 管道执行，使用宽松模式
     set -e
+    set -E
 fi
 
 # 安全的脚本目录检测
@@ -35,6 +37,7 @@ get_script_dir() {
 # SCRIPT_DIR 已在开头定义
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 MODULES_DIR="${MODULES_DIR:-${PROJECT_ROOT}/modules}"
+export IPV6WGM_ROOT_DIR="$PROJECT_ROOT"
 
 # 颜色变量和日志函数现在统一在 common_functions.sh 中定义
 
