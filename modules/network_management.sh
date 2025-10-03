@@ -6,24 +6,24 @@
 # 导入公共函数库
 if [[ -f "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh" ]]; then
     source "$(dirname "${BASH_SOURCE[0]}")/common_functions.sh"
+fi
 
 # 确保日志相关变量已定义
 LOG_DIR="${LOG_DIR:-/var/log/ipv6-wireguard-manager}"
 LOG_FILE="${LOG_FILE:-$LOG_DIR/manager.log}"
-fi
 
 # IPv6子网管理变量
-IPV6_SUBNET_DB="/var/lib/ipv6-wireguard-manager/subnets.db"
-IPV6_ALLOCATION_DB="/var/lib/ipv6-wireguard-manager/allocations.db"
-IPV6_PREFIXES_CONFIG="${CONFIG_DIR}/ipv6_prefixes.conf"
+declare -g IPV6WGM_IPV6_SUBNET_DB="/var/lib/ipv6-wireguard-manager/subnets.db"
+declare -g IPV6WGM_IPV6_ALLOCATION_DB="/var/lib/ipv6-wireguard-manager/allocations.db"
+declare -g IPV6WGM_IPV6_PREFIXES_CONFIG="${IPV6WGM_CONFIG_DIR}/ipv6_prefixes.conf"
 
 # 默认IPv6配置
-DEFAULT_IPV6_CONFIG=(
-    "IPV6_PREFIX=2001:db8::/56"
-    "IPV6_SUBNET_LENGTH=64"
-    "IPV6_CLIENT_PREFIX_LENGTH=128"
-    "IPV6_AUTO_ASSIGN=true"
-    "IPV6_RESERVED_SUBNETS=10"
+declare -ga IPV6WGM_DEFAULT_IPV6_CONFIG=(
+    "IPV6WGM_IPV6_PREFIX=2001:db8::/56"
+    "IPV6WGM_IPV6_SUBNET_LENGTH=64"
+    "IPV6WGM_IPV6_CLIENT_PREFIX_LENGTH=128"
+    "IPV6WGM_IPV6_AUTO_ASSIGN=true"
+    "IPV6WGM_IPV6_RESERVED_SUBNETS=10"
 )
 
 # 初始化网络管理
@@ -31,18 +31,32 @@ init_network_management() {
     log_info "初始化网络管理..."
     
     # 创建数据库目录
-    mkdir -p "$(dirname "$IPV6_SUBNET_DB")"
-    mkdir -p "$(dirname "$IPV6_ALLOCATION_DB")"
+    if ! mkdir -p "$(dirname "$IPV6WGM_IPV6_SUBNET_DB")"; then
+        log_error "无法创建子网数据库目录"
+        return 1
+    fi
+    
+    if ! mkdir -p "$(dirname "$IPV6WGM_IPV6_ALLOCATION_DB")"; then
+        log_error "无法创建分配数据库目录"
+        return 1
+    fi
     
     # 创建IPv6前缀配置文件
-    if [[ ! -f "$IPV6_PREFIXES_CONFIG" ]]; then
-        create_default_ipv6_config
+    if [[ ! -f "$IPV6WGM_IPV6_PREFIXES_CONFIG" ]]; then
+        if ! create_default_ipv6_config; then
+            log_error "创建默认IPv6配置失败"
+            return 1
+        fi
     fi
     
     # 初始化数据库
-    init_ipv6_databases
+    if ! init_ipv6_databases; then
+        log_error "初始化IPv6数据库失败"
+        return 1
+    fi
     
     log_info "网络管理初始化完成"
+    return 0
 }
 
 # 创建默认IPv6配置

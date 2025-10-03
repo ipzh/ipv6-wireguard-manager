@@ -82,8 +82,7 @@ import_module() {
     return 1
 }
 
-# 统一模块加载系统
-# 使用增强的模块加载器替代分散的import_module调用
+# 统一模块加载系统 - 优化版本
 if import_module "enhanced_module_loader"; then
     log_info "增强模块加载器已导入"
     
@@ -92,32 +91,20 @@ if import_module "enhanced_module_loader"; then
         init_module_loader
     fi
     
-    # 加载核心模块（按依赖顺序）
+    # 仅使用增强模块加载器加载所有模块
     load_module_smart_enhanced "common_functions"
     load_module_smart_enhanced "unified_config"
     load_module_smart_enhanced "unified_error_handling"
     load_module_smart_enhanced "system_detection"
+    load_module_smart_enhanced "variable_management"
+    load_module_smart_enhanced "function_management"
+    load_module_smart_enhanced "main_script_refactor"
     
     log_info "核心模块加载完成"
 else
-    log_warn "增强模块加载器导入失败，使用传统方式"
-    
-    # 回退到传统模块导入方式
-    if ! import_module "common_functions"; then
-        log_error "无法导入公共函数库，脚本无法继续执行"
-        exit 1
-    fi
-    
-    # 导入其他核心模块
-    import_module "unified_config" || log_warn "统一配置模块导入失败"
-    import_module "unified_error_handling" || log_warn "统一错误处理模块导入失败"
-    import_module "system_detection" || log_warn "系统检测模块导入失败"
+    log_error "增强模块加载器导入失败，脚本无法继续执行"
+    exit 1
 fi
-
-# 导入变量管理系统
-if import_module "variable_management"; then
-    log_info "变量管理系统已导入"
-    # 初始化变量系统
     if command -v init_variables &> /dev/null; then
         init_variables
     fi
