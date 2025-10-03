@@ -574,13 +574,67 @@ show_banner() {
     echo -e "${NC}"
 }
 
-# 检查权限
+# 增强权限检查系统
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         log_error "此脚本需要root权限运行"
         echo "请使用: sudo $0"
         exit 1
     fi
+}
+
+# 检查具体系统权限
+check_system_permissions() {
+    local required_permissions=("NET_ADMIN" "SYS_MODULE" "NET_RAW")
+    local missing_permissions=()
+    
+    for perm in "${required_permissions[@]}"; do
+        if ! capability_check "$perm"; then
+            missing_permissions+=("$perm")
+        fi
+    done
+    
+    if [[ ${#missing_permissions[@]} -gt 0 ]]; then
+        log_error "缺少必要系统权限: ${missing_permissions[*]}"
+        log_info "建议检查内核模块和网络配置"
+        return 1
+    fi
+    
+    log_success "系统权限检查通过"
+    return 0
+}
+
+# 检查内核能力
+capability_check() {
+    local capability="$1"
+    
+    # 检查网络相关能力
+    if [[ "$capability" == "NET_ADMIN" ]]; then
+        if ! ip link show &>/dev/null; then
+            log_warn "NET_ADMIN权限不足，可能影响网络配置"
+            return 1
+        fi
+    fi
+    
+    # 检查系统模块能力
+    if [[ "$capability" == "SYS_MODULE" ]]; then
+        if [[ ! -d "/sys/module" ]] || [[ ! -w "/sys/module" ]]; then
+            log_warn "SYS_MODULE权限不足，可能影响WireGuard模块加载"
+            return 1
+        fi
+    fi
+    
+    # 检查网络原始套接字
+    if [[ "$capability" == "NET_RAW" ]]; then
+        # 简单检查：尝试创建ICMP套接字
+        if ! ping -c 1 127.0.0.1 &>/dev/null; then
+            log_warn "NET_RAW权限不足，可能影响网络诊断"
+            return 1
+        fi
+    fi
+    
+    log_debug "权限检查通过: $capability"
+    return 0
 }
 
 # 初始化配置
@@ -1802,6 +1856,7 @@ main() {
     
     # 检查权限
     check_root
+    check_system_permissions
     
     # 初始化
     init_config
@@ -1862,14 +1917,27 @@ show_feature_status() {
     check_feature_enabled "INSTALL_MONITORING" && echo "  ✓ 监控告警系统"
     check_feature_enabled "INSTALL_CLIENT_AUTO_INSTALL" && echo "  ✓ 客户端自动安装功能"
     check_feature_enabled "INSTALL_BACKUP_RESTORE" && echo "  ✓ 配置备份恢复功能"
-    check_feature_enabled "INSTALL_UPDATE_MANAGEMENT" && echo "  ✓ 更新管理功能"
-    check_feature_enabled "INSTALL_SECURITY_ENHANCEMENTS" && echo "  ✓ 安全增强功能"
-    check_feature_enabled "INSTALL_OAUTH_AUTHENTICATION" && echo "  ✓ OAuth认证功能"
-    check_feature_enabled "INSTALL_RBAC" && echo "  ✓ RBAC权限管理"
-    check_feature_enabled "INSTALL_MFA" && echo "  ✓ 多因素认证"
-    check_feature_enabled "INSTALL_SMART_CACHING" && echo "  ✓ 智能缓存系统"
-    check_feature_enabled "INSTALL_PERFORMANCE_OPTIMIZATION" && echo "  ✓ 性能优化"
-    check_feature_enabled "INSTALL_CONFIG_HOT_RELOAD" && echo "  ✓ 配置热重载"
+    # 批量检查特性状态（性能优化）
+    log_debug "正在检查安装特性..."
+    local features=(
+        "INSTALL_UPDATE_MANAGEMENT:更新管理功能"
+        "INSTALL_SECURITY_ENHANCEMENTS:安全增强功能"
+        "INSTALL_OAUTH_AUTHENTICATION:OAuth认证功能"
+        "INSTALL_RBAC:RBAC权限管理"
+        "INSTALL_MFA:多因素认证"
+        "INSTALL_SMART_CACHING:智能缓存系统"
+        "INSTALL_PERFORMANCE_OPTIMIZATION:性能优化"
+        "INSTALL_CONFIG_HOT_RELOAD:配置热重载"
+    )
+    
+    for feature_info in "${features[@]}"; do
+        local feature_code="${feature_info%%:*}"
+        local feature_name="${feature_info##*:}"
+        
+        if check_feature_enabled "$feature_code"; then
+            echo "  ✓ $feature_name"
+        fi
+    done
     check_feature_enabled "INSTALL_DEPENDENCY_MANAGEMENT" && echo "  ✓ 依赖管理"
     
     echo

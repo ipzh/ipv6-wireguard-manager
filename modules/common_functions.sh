@@ -1141,6 +1141,46 @@ function trap_error() {
     fi
 }
 
+# 安全命令执行函数（避免注入攻击）
+safe_execute_command() {
+    local command="$1"
+    local timeout="${2:-300}"
+    local allow_failure="${3:-false}"
+    
+    # 移除危险字符
+    command=$(echo "$command" | sed -E 's/[;&|`$<>(){}*\[\]\\'"'"']//g')
+    
+    # 限制命令长度
+    if [[ ${#command} -gt 1000 ]]; then
+        log_error "命令过长，可能存在安全风险: ${#command} 字符"
+        return 1
+    fi
+    
+    # 检查命令是否包含危险关键词
+    local dangerous_keywords=("rm \-rf" "dd if" "mkfs" "fdisk" "format" ":(){")
+    for keyword in "${dangerous_keywords[@]}"; do
+        if echo "$command" | grep -qi "$keyword"; then
+            log_error "检测到危险命令关键词: $keyword"
+            return 1
+        fi
+    done
+    
+    # 使用bash -c的安全执行
+    if command -v timeout >/dev/null 2>&1 && [[ $timeout -gt 0 ]]; then
+        timeout "$timeout" bash -c "$command"
+    else
+        bash -c "$command"
+    fi
+    
+    local exit_code=$?
+    if [[ $exit_code -ne 0 && "$allow_failure" == "false" ]]; then
+        log_error "命令执行失败: $command (退出码: $exit_code)"
+        return $exit_code
+    fi
+    
+    return $exit_code
+}
+
 # 安全执行命令函数
 safe_execute() {
     local command="$1"
@@ -1189,12 +1229,29 @@ safe_execute() {
     fi
 }
 
+# 敏感信息过滤函数
+sanitize_log_message() {
+    local message="$1"
+    
+    # 替换敏感信息
+    message=$(echo "$message" | sed -E 's/(password|secret|key|token|cert|auth)[[:space:]]*=[[:space:]]*[^[:space:]]+/\\1=***/gi')
+    message=$(echo "$message" | sed -E 's/(passwd|pwd)[[:space:]]*:[[:space:]]*[^[:space:]]+/\\1:***/gi')
+    message=$(echo "$message" | sed -E 's/(private[_-]?key)[[:space:]]*=[[:space:]]*[^[:space:]]+/\\1=***/gi')
+    message=$(echo "$message" | sed -E 's/(api[_-]?key)[[:space:]]*=[[:space:]]*[^[:space:]]+/\\1=***/gi')
+    
+    echo "$message"
+}
+
 # 日志函数增强
 log_with_timestamp() {
     local level="$1"
     local message="$2"
     local timestamp=$(get_timestamp)
-    echo -e "[$timestamp] [$level] $message" | tee -a "$LOG_FILE"
+    
+    # 过滤敏感信息
+    local sanitized_message=$(sanitize_log_message "$message")
+    
+    echo -e "[$timestamp] [$level] $sanitized_message" | tee -a "$LOG_FILE"
 }
 
 log_debug_enhanced() {
@@ -1244,7 +1301,7 @@ exponential_backoff_retry() {
     while [[ $attempt -le $max_attempts ]]; do
         log_debug "尝试 $attempt/$max_attempts: $description"
         
-        if eval "$command" 2>/dev/null; then
+        if safe_execute_command "$command" 2>/dev/null; then
             log_success "$description 成功 (尝试 $attempt/$max_attempts)"
             return 0
         fi
@@ -1403,7 +1460,9 @@ handle_error() {
     local error_message="$2"
     local context="${3:-未知}"
     
-    log_error "错误 [$error_code]: $error_message (上下文: $context)"
+    # 过滤敏感信息
+    local sanitized_message=$(sanitize_log_message "$error_message")
+    log_error "错误 [$error_code]: $sanitized_message (上下文: $context)"
     
     case $error_code in
         PERMISSION_DENIED) 
@@ -1552,7 +1611,7 @@ cached_command() {
     local result
     local start_time=$(date +%s%3N 2>/dev/null || date +%s)
     
-    if result=$(eval "$command" 2>/dev/null); then
+    if result=$(safe_execute_command "$command" 2>/dev/null); then
         local end_time=$(date +%s%3N 2>/dev/null || date +%s)
         local execution_time=$((end_time - start_time))
         
@@ -1776,7 +1835,7 @@ execute_command() {
         fi
     else
         # 如果没有timeout命令，直接执行
-        if eval "$command"; then
+        if safe_execute_command "$command"; then
             log_success "${description}完成"
             return 0
         else
@@ -1959,3 +2018,67 @@ export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
 export -f fix_line_endings load_config cached_command smart_cached_command warm_cache cleanup_expired_cache clear_cache get_cache_stats get_cache_details validate_config_item validate_config_format
 export -f execute_command secure_permissions lazy_load install_dependency install_python_dependency detect_os
+export -f sanitize_log_message capability_check check_system_permissions safe_execute_command
+
+# 智能模块加载系统 - 懒加载增强
+declare -A MODULE_CACHE
+declare -A MODULE_TIMESTAMP
+
+# 检查模块是否需要重新加载
+module_needs_reload() {
+    local module="$1"
+    local module_file="$IPV6WGM_DIR/modules/${module}"
+    
+    if [[ ! -f "$module_file" ]]; then
+        return 1
+    fi
+    
+    local current_timestamp=$(stat -c %Y "$module_file" 2>/dev/null || stat -f %m "$module_file" 2>/dev/null || echo "0")
+    local cached_timestamp="${MODULE_TIMESTAMP[$module]:-0}"
+    
+    if [[ "$current_timestamp" -gt "$cached_timestamp" ]]; then
+        log_debug "模块 $module 文件已更新，需要重新加载"
+        return 0
+    fi
+    
+    return 1
+}
+
+# 智能模块加载
+smart_load_module() {
+    local module="$1"
+    local module_file="$IPV6WGM_DIR/modules/${module}"
+    local force_reload="${2:-false}"
+    
+    # 检查模块是否已经加载
+    if declare -f "${module}_init" >/dev/null 2>&1 && [[ "$force_reload" != "true" ]]; then
+        log_debug "模块 $module 已经加载，跳过"
+        return 0
+    fi
+    
+    # 检查是否需要重新加载
+    if ! module_needs_reload "$module" && [[ "$force_reload" != "true" ]]; then
+        log_debug "模块 $module 无需重新加载"
+        return 0
+    fi
+    
+    # 加载模块
+    if [[ -f "$module_file" ]]; then
+        source "$module_file"
+        MODULE_TIMESTAMP[$module]=$(stat -c %Y "$module_file" 2>/dev/null || stat -f %m "$module_file" 2>/dev/null || echo "0")
+        log_debug "成功加载模块: $module"
+        return 0
+    else
+        log_warn "模块文件不存在: $module_file"
+        return 1
+    fi
+}
+
+# 初始化所有核心模块
+init_core_modules() {
+    local core_modules=("wireguard_config" "bird_config" "firewall_config")
+    
+    for module in "${core_modules[@]}"; do
+        smart_load_module "$module"
+    done
+}

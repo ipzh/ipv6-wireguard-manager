@@ -166,14 +166,22 @@ open_api_ports() {
     done
 }
 
-# 检测防火墙类型
+# 检测防火墙类型（增强权限检查）
 detect_firewall_type() {
     log_info "检测防火墙类型..."
+    
+    # 检查必要权限
+    if ! check_root 2>/dev/null; then
+        log_warn "需要管理员权限来检测和管理防火墙"
+        FIREWALL_TYPE="unknown"
+        FIREWALL_STATUS="needs_root"
+        return 1
+    fi
     
     # 检查UFW
     if command -v ufw &> /dev/null; then
         FIREWALL_TYPE="ufw"
-        FIREWALL_STATUS=$(ufw status | head -1 | awk '{print $2}')
+        FIREWALL_STATUS=$(ufw status | head -1 | awk '{print $2}' || echo "unknown")
         log_info "检测到UFW防火墙，状态: $FIREWALL_STATUS"
         return 0
     fi
@@ -480,8 +488,14 @@ add_ufw_rule() {
         ufw_cmd="$ufw_cmd comment '$description'"
     fi
     
-    # 执行命令
-    eval "$ufw_cmd"
+    # 安全执行UFW命令
+    if safe_execute_command "$ufw_cmd"; then
+        log_success "UFW规则添加成功: $description"
+        return 0
+    else
+        log_error "UFW规则添加失败: $description"
+        return 1
+    fi
 }
 
 # 添加firewalld规则
@@ -525,9 +539,15 @@ add_firewalld_rule() {
         firewall_cmd="$firewall_cmd --add-rich-rule='$rich_rule'"
     fi
     
-    # 执行命令
-    eval "$firewall_cmd"
-    firewall-cmd --reload
+    # 安全执行firewalld命令
+    if safe_execute_command "$firewall_cmd"; then
+        log_success "firewalld规则添加成功: $description"
+        safe_execute_command "firewall-cmd --reload"
+        return 0
+    else
+        log_error "firewalld规则添加失败: $description"
+        return 1
+    fi
 }
 
 # 添加nftables规则

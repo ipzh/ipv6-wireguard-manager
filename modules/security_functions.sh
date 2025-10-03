@@ -7,12 +7,8 @@
 # 敏感数据处理
 # ================================================================
 
-# 输入清理函数
-sanitize_input() {
-    # 移除潜在的命令注入字符
-    local sanitized="$(echo "$1" | sed 's/[;&|`$<>(){}*\[\]\\'"'"']//g')"
-    echo "$sanitized"
-}
+# 输入清理函数（已移至common_functions.sh）
+# sanitize_input() 函数现在在common_functions.sh中定义
 
 # 验证输入格式
 validate_input_format() {
@@ -455,7 +451,7 @@ run_security_tests() {
 # 导出函数
 # ================================================================
 
-export -f sanitize_input validate_input_format validate_ip_address validate_port validate_mac_address
+export -f validate_input_format validate_ip_address validate_port validate_mac_address
 export -f secure_store_config secure_read_config set_secure_permissions
 export -f check_hardcoded_credentials check_file_permissions check_input_validation check_network_security
 export -f generate_secure_key store_secure_key
