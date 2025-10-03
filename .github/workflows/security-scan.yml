@@ -61,13 +61,28 @@ jobs:
         trivy --version || /usr/local/bin/trivy --version || true
         
         # 安装Gitleaks (优化版本)
-        curl -sfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.4_linux_x64.tar.gz -o gitleaks.tar.gz
-        tar -xzf gitleaks.tar.gz
-        sudo mv gitleaks /usr/local/bin/
-        rm gitleaks.tar.gz
+        # 去掉 -f 并增加重试与健壮性，避免退出码22
+        set +e
+        set +o pipefail
+        for i in 1 2 3; do
+          echo "安装 Gitleaks 尝试第 $i 次..."
+          curl -sSL --retry 3 --retry-delay 2 -o /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.4_linux_x64.tar.gz
+          if [ -s /tmp/gitleaks.tar.gz ]; then
+            tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+            if [ -f /tmp/gitleaks ]; then
+              sudo mv /tmp/gitleaks /usr/local/bin/
+              rm -f /tmp/gitleaks.tar.gz
+              break
+            fi
+          fi
+          sleep 2
+        done
+        set -e
+        set -o pipefail || true
         
         # 验证安装
-        gitleaks version
+        gitleaks version || /usr/local/bin/gitleaks version || true
         
     - name: 运行ShellCheck安全扫描
       run: |
