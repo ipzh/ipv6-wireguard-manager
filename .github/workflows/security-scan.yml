@@ -51,7 +51,9 @@ jobs:
           echo "安装 Trivy 尝试第 $i 次..."
           curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
             https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
-            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3
+          # 仅在检测到 trivy 可用时才跳出循环，不依赖安装脚本返回码
+          if command -v trivy >/dev/null 2>&1; then break; fi
           sleep 2
         done
         set -e
@@ -153,7 +155,8 @@ jobs:
           echo "安装 Trivy 尝试第 $i 次..."
           curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
             https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
-            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3
+          if command -v trivy >/dev/null 2>&1; then break; fi
           sleep 2
         done
         set -e
@@ -215,7 +218,8 @@ jobs:
           echo "安装 Trivy 尝试第 $i 次..."
           curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
             https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
-            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3
+          if command -v trivy >/dev/null 2>&1; then break; fi
           sleep 2
         done
         set -e
