@@ -141,13 +141,15 @@ load_module_smart() {
         done
     fi
     
-    # 查找模块文件
+    # 查找模块文件 - 优化路径查找顺序
     local module_path=""
     local search_paths=(
-        "/opt/ipv6-wireguard-manager/modules/${module_name}.sh"
-        "$IPV6WGM_MODULES_DIR/${module_name}.sh"
-        "$(pwd)/modules/${module_name}.sh"
-        "/usr/local/share/ipv6-wireguard-manager/modules/${module_name}.sh"
+        "$IPV6WGM_MODULES_DIR/${module_name}.sh"                    # 首选：环境变量定义的路径
+        "${SCRIPT_DIR}/modules/${module_name}.sh"                   # 相对于脚本目录
+        "$(pwd)/modules/${module_name}.sh"                          # 相对于当前工作目录
+        "$(dirname "${BASH_SOURCE[0]}")/${module_name}.sh"          # 相对于当前模块目录
+        "/opt/ipv6-wireguard-manager/modules/${module_name}.sh"     # 标准安装路径（仅Linux）
+        "/usr/local/share/ipv6-wireguard-manager/modules/${module_name}.sh"  # 系统级安装路径（仅Linux）
     )
     
     for path in "${search_paths[@]}"; do

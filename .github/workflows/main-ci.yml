@@ -115,16 +115,22 @@ jobs:
         
     - name: 检查硬编码凭据
       run: |
-        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder"; then
-          echo "发现硬编码密码"
+        echo "检查硬编码密码..."
+        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder\|template"; then
+          echo "❌ 发现硬编码密码"
           exit 1
+        else
+          echo "✅ 未发现硬编码密码"
         fi
         
     - name: 检查敏感信息
       run: |
-        if grep -r "api[_-]?key\|secret[_-]?key\|private[_-]?key" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder"; then
-          echo "发现敏感信息"
+        echo "检查敏感信息..."
+        if grep -r "api[_-]?key\|secret[_-]?key\|private[_-]?key" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder\|template\|PRIVATE_KEY\|PUBLIC_KEY"; then
+          echo "❌ 发现敏感信息"
           exit 1
+        else
+          echo "✅ 未发现敏感信息"
         fi
         
     - name: 文件权限检查

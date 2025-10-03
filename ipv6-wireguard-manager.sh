@@ -59,12 +59,13 @@ import_module() {
         source "$module_path"
         return 0
     else
-        # 尝试从多个位置查找模块
+        # 尝试从多个位置查找模块 - 优化路径查找顺序
         local alt_paths=(
-            "/opt/ipv6-wireguard-manager/modules/${module_name}.sh"
-            "/usr/local/share/ipv6-wireguard-manager/modules/${module_name}.sh"
-            "$(pwd)/modules/${module_name}.sh"
-            "${SCRIPT_DIR}/modules/${module_name}.sh"
+            "${SCRIPT_DIR}/modules/${module_name}.sh"                   # 相对于脚本目录
+            "$(pwd)/modules/${module_name}.sh"                          # 相对于当前工作目录
+            "$(dirname "${BASH_SOURCE[0]}")/modules/${module_name}.sh"  # 相对于主脚本目录
+            "/opt/ipv6-wireguard-manager/modules/${module_name}.sh"     # 标准安装路径（仅Linux）
+            "/usr/local/share/ipv6-wireguard-manager/modules/${module_name}.sh"  # 系统级安装路径（仅Linux）
         )
         
         for alt_path in "${alt_paths[@]}"; do

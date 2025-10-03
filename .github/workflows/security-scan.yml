@@ -32,14 +32,30 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y \
           shellcheck \
-          bandit \
-          safety \
-          semgrep \
-          trivy \
-          gitleaks
+          python3 \
+          python3-pip \
+          curl \
+          wget \
+          git
         
         # 安装Python安全工具
-        pip3 install bandit safety semgrep
+        pip3 install bandit safety
+        
+        # 安装Semgrep
+        python3 -m pip install semgrep
+        
+        # 安装Trivy (优化版本)
+        sudo apt-get install -y apt-transport-https gnupg lsb-release
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3
+        
+        # 安装Gitleaks (优化版本)
+        curl -sfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.18.4_linux_x64.tar.gz -o gitleaks.tar.gz
+        tar -xzf gitleaks.tar.gz
+        sudo mv gitleaks /usr/local/bin/
+        rm gitleaks.tar.gz
+        
+        # 验证安装
+        gitleaks version
         
     - name: 运行ShellCheck安全扫描
       run: |
@@ -167,14 +183,13 @@ jobs:
       run: |
         docker build -t ipv6-wireguard-manager:security-scan .
         
-    - name: 安装Trivy
+    - name: 安装Trivy (优化版本)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update
-        sudo apt-get install -y trivy
+        # 使用官方安装脚本
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3
+        
+        # 验证安装
+        trivy --version
         
     - name: 扫描Docker镜像
       run: |
