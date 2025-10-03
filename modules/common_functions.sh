@@ -1893,8 +1893,8 @@ lazy_load() {
     log_debug "懒加载模块: $module_name"
     source "$module_path"
     
-    # 标记模块已加载
-    eval "function module_${module_name}_loaded() { return 0; }"
+    # 标记模块已加载 - 使用安全的函数定义
+    declare -f "module_${module_name}_loaded" >/dev/null 2>&1 || eval "module_${module_name}_loaded() { return 0; }"
     return 0
 }
 

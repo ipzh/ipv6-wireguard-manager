@@ -92,10 +92,20 @@ if import_module "enhanced_module_loader"; then
         init_module_loader
     fi
     
-    # 仅使用增强模块加载器加载所有模块
+    # 优先加载核心模块（新优化的模块）
     load_module_smart_enhanced "common_functions"
+    load_module_smart_enhanced "unified_error_manager"
+    load_module_smart_enhanced "enhanced_cache_system"
+    load_module_smart_enhanced "memory_optimizer"
+    load_module_smart_enhanced "parallel_processor"
+    load_module_smart_enhanced "comprehensive_test_suite"
+    load_module_smart_enhanced "performance_benchmark"
+    load_module_smart_enhanced "api_doc_generator"
+    load_module_smart_enhanced "deployment_wizard"
+    
+    # 然后加载其他核心模块
     load_module_smart_enhanced "unified_config"
-    load_module_smart_enhanced "unified_error_handling"
+    load_module_smart_enhanced "unified_error_handling" 
     load_module_smart_enhanced "system_detection"
     load_module_smart_enhanced "variable_management"
     load_module_smart_enhanced "function_management"

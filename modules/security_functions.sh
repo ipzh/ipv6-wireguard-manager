@@ -7,8 +7,9 @@
 # 敏感数据处理
 # ================================================================
 
-# 输入清理函数（已移至common_functions.sh）
-# sanitize_input() 函数现在在common_functions.sh中定义
+# 输入清理函数（已在common_functions.sh中定义）
+# 注意：sanitize_input() 函数现在统一在common_functions.sh中定义
+# 此处不重新定义以避免重复
 
 # 验证输入格式
 validate_input_format() {

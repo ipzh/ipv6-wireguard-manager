@@ -623,7 +623,7 @@ if __name__ == '__main__':
             from werkzeug.security import generate_password_hash
             admin = User(
                 username='admin',
-                password_hash=generate_password_hash(os.environ.get('WEB_ADMIN_PASSWORD', 'admin123')),
+                password_hash=generate_password_hash(os.environ.get('WEB_ADMIN_PASSWORD', generate_secure_password())),
                 role='admin'
             )
             db.session.add(admin)

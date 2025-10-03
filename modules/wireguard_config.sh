@@ -75,13 +75,25 @@ generate_wireguard_public_key() {
 init_wireguard_config() {
     log_info "初始化WireGuard配置..."
     
+    # 检查必要权限
+    if ! check_root 2>/dev/null; then
+        log_error "WireGuard配置需要root权限"
+        unified_error_handler 101 "需要root权限初始化WireGuard配置" "PERMISSION" "init_wireguard_config"
+    fi
+    
+    # 检查系统能力
+    if ! check_system_permissions 2>/dev/null; then
+        log_error "缺少必要的系统权限"
+        unified_error_handler 103 "系统权限不足" "PERMISSION" "init_wireguard_config" 2
+    fi
+    
     # 创建必要的目录
-    mkdir -p "$IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR" "$IPV6WGM_IPV6WGM_WIREGUARD_CLIENT_DIR" "$IPV6WGM_IPV6WGM_WIREGUARD_KEYS_DIR"
+    mkdir -p "$IPV6WGM_WIREGUARD_CONFIG_DIR" "$IPV6WGM_WIREGUARD_CLIENT_DIR" "$IPV6WGM_WIREGUARD_KEYS_DIR"
     
     # 设置目录权限
-    chmod 700 "$IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR"
-    chmod 700 "$IPV6WGM_IPV6WGM_WIREGUARD_KEYS_DIR"
-    chmod 755 "$IPV6WGM_IPV6WGM_WIREGUARD_CLIENT_DIR"
+    chmod 700 "$IPV6WGM_WIREGUARD_CONFIG_DIR"
+    chmod 700 "$IPV6WGM_WIREGUARD_KEYS_DIR"
+    chmod 755 "$IPV6WGM_WIREGUARD_CLIENT_DIR"
     
     # 生成服务器密钥
     generate_server_keys
@@ -100,15 +112,15 @@ test_wireguard_config() {
     log_info "测试WireGuard配置功能..."
     
     # 设置测试环境变量
-    local original_config_dir="${IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR:-}"
-    local original_keys_dir="${IPV6WGM_IPV6WGM_WIREGUARD_KEYS_DIR:-}"
-    local original_client_dir="${IPV6WGM_IPV6WGM_WIREGUARD_CLIENT_DIR:-}"
+    local original_config_dir="${IPV6WGM_WIREGUARD_CONFIG_DIR:-}"
+    local original_keys_dir="${IPV6WGM_WIREGUARD_KEYS_DIR:-}"
+    local original_client_dir="${IPV6WGM_WIREGUARD_CLIENT_DIR:-}"
     
     # 使用临时目录进行测试
-    export IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR="/tmp/ipv6-wireguard-test/config"
-    export IPV6WGM_IPV6WGM_WIREGUARD_KEYS_DIR="/tmp/ipv6-wireguard-test/keys"
-    export IPV6WGM_IPV6WGM_WIREGUARD_CLIENT_DIR="/tmp/ipv6-wireguard-test/clients"
-    export IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_FILE="${IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR}/wg0.conf"
+    export IPV6WGM_WIREGUARD_CONFIG_DIR="/tmp/ipv6-wireguard-test/config"
+    export IPV6WGM_WIREGUARD_KEYS_DIR="/tmp/ipv6-wireguard-test/keys"
+    export IPV6WGM_WIREGUARD_CLIENT_DIR="/tmp/ipv6-wireguard-test/clients"
+    export IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_FILE="${IPV6WGM_WIREGUARD_CONFIG_DIR}/wg0.conf"
     
     # 清理测试目录
     rm -rf "/tmp/ipv6-wireguard-test" 2>/dev/null || true
@@ -147,13 +159,13 @@ test_wireguard_config() {
     
     # 恢复原始环境变量
     if [[ -n "$original_config_dir" ]]; then
-        export IPV6WGM_IPV6WGM_WIREGUARD_CONFIG_DIR="$original_config_dir"
+        export IPV6WGM_WIREGUARD_CONFIG_DIR="$original_config_dir"
     fi
     if [[ -n "$original_keys_dir" ]]; then
-        export IPV6WGM_IPV6WGM_WIREGUARD_KEYS_DIR="$original_keys_dir"
+        export IPV6WGM_WIREGUARD_KEYS_DIR="$original_keys_dir"
     fi
     if [[ -n "$original_client_dir" ]]; then
-        export IPV6WGM_IPV6WGM_WIREGUARD_CLIENT_DIR="$original_client_dir"
+        export IPV6WGM_WIREGUARD_CLIENT_DIR="$original_client_dir"
     fi
     
     log_info "WireGuard配置功能测试完成"
