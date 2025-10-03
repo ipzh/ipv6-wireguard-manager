@@ -1,0 +1,221 @@
+name: IPv6-WireGuard Manager CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每天凌晨2点运行测试
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: '测试类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+          - security
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  IPV6WGM_TEST_MODE: "true"
+  IPV6WGM_DEBUG_MODE: "false"
+  IPV6WGM_CI_MODE: "true"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 代码质量检查
+  code-quality:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          shellcheck \
+          yamllint \
+          python3 \
+          python3-pip \
+          curl \
+          wget \
+          git \
+          jq
+        
+        pip3 install yamllint
+        
+    - name: 设置执行权限
+      run: find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: ShellCheck静态分析
+      run: |
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck || true
+        
+    - name: 检查配置文件语法
+      run: |
+        yamllint .github/workflows/ || true
+        make -n all || true
+
+  # 单元测试
+  unit-tests:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: code-quality
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+        
+    - name: 安装测试依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bash curl wget git jq sqlite3
+        
+    - name: 设置执行权限
+      run: find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行单元测试
+      run: |
+        if [[ -f "tests/run_tests.sh" ]]; then
+          bash tests/run_tests.sh unit
+        fi
+        
+    - name: 运行功能测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type functionality
+        fi
+
+  # 安全扫描
+  security-scan:
+    name: 安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: code-quality
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+        
+    - name: 检查硬编码凭据
+      run: |
+        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "发现硬编码密码"
+          exit 1
+        fi
+        
+    - name: 检查敏感信息
+      run: |
+        if grep -r "api[_-]?key\|secret[_-]?key\|private[_-]?key" --include="*.sh" --include="*.yml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "发现敏感信息"
+          exit 1
+        fi
+        
+    - name: 文件权限检查
+      run: |
+        find . -name "*.sh" -perm /111 | head -10
+        echo "检查完成"
+
+  # 兼容性测试
+  compatibility-test:
+    name: 兼容性测试
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    needs: unit-tests
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+        shell: [bash, dash]
+      fail-fast: false
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ${{ matrix.shell }} curl wget git jq
+        
+    - name: 设置执行权限
+      run: find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行兼容性测试
+      shell: ${{ matrix.shell }}
+      run: |
+        if [[ -f "scripts/compatibility_test.sh" ]]; then
+          bash scripts/compatibility_test.sh
+        fi
+
+  # 部署准备（仅在main分支）
+  deployment-prep:
+    name: 部署准备
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [unit-tests, security-scan, compatibility-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 创建发布包
+      run: |
+        mkdir -p release
+        tar -czf release/ipv6-wireguard-manager-${{ github.sha }}.tar.gz \
+          --exclude='.git' \
+          --exclude='release' \
+          --exclude='reports' \
+          --exclude='logs' \
+          .
+        
+    - name: 上传发布包
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-package
+        path: release/
+        retention-days: 30
+
+  # 生成测试报告
+  test-report:
+    name: 生成测试报告
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [unit-tests, security-scan, compatibility-test]
+    if: always()
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 生成测试报告
+      run: |
+        mkdir -p reports
+        echo "# 测试报告" > reports/test-summary.md
+        echo "- 代码质量检查: ${{ needs.code-quality.result }}" >> reports/test-summary.md
+        echo "- 单元测试: ${{ needs.unit-tests.result }}" >> reports/test-summary.md
+        echo "- 安全扫描: ${{ needs.security-scan.result }}" >> reports/test-summary.md
+        echo "- 兼容性测试: ${{ needs.compatibility-test.result }}" >> reports/test-summary.md
+        
+    - name: 上传测试报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: reports/
+        retention-days: 7
