@@ -40,6 +40,7 @@ assert_true() {
     local start_time=$(date +%s%3N)
     
     if [[ "$condition" == "true" ]] || [[ "$condition" == "1" ]] || [[ -n "$condition" ]]; then
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[passed_tests]++))
         TEST_RESULTS[$test_name]="PASS"
         record_test_result "$test_name" "PASS" "$test_file" "$condition" $((end_time - start_time))
@@ -49,6 +50,7 @@ assert_true() {
         fi
         return 0
     else
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[failed_tests]++))
         TEST_RESULTS[$test_name]="FAIL"
         record_test_result "$test_name" "FAIL" "$test_file" "$condition" $((end_time - start_time))
@@ -56,8 +58,6 @@ assert_true() {
         log_error "✗ $test_name: 条件为假 ($condition)"
         return 1
     fi
-    
-    local end_time=$(date +%s%3N)
 }
 
 assert_false() {
@@ -69,6 +69,7 @@ assert_false() {
     local start_time=$(date +%s%3N)
     
     if [[ "$condition" == "false" ]] || [[ "$condition" == "0" ]] || [[ -z "$condition" ]]; then
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[passed_tests]++))
         TEST_RESULTS[$test_name]="PASS"
         record_test_result "$test_name" "PASS" "$test_file" "$condition" $((end_time - start_time))
@@ -78,6 +79,7 @@ assert_false() {
         fi
         return 0
     else
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[failed_tests]++))
         TEST_RESULTS[$test_name]="FAIL"
         record_test_result "$test_name" "FAIL" "$test_file" "$condition" $((end_time - start_time))
@@ -85,8 +87,6 @@ assert_false() {
         log_error "✗ $test_name: 期望失败，但条件为真 ($condition)"
         return 1
     fi
-    
-    local end_time=$(date +%s%3N)
 }
 
 assert_equals() {
@@ -99,6 +99,7 @@ assert_equals() {
     local start_time=$(date +%s%3N)
     
     if [[ "$expected" == "$actual" ]]; then
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[passed_tests]++))
         TEST_RESULTS[$test_name]="PASS"
         record_test_result "$test_name" "PASS" "$test_file" "期望: '$expected', 实际: '$actual'" $((end_time - start_time))
@@ -108,6 +109,7 @@ assert_equals() {
         fi
         return 0
     else
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[failed_tests]++))
         TEST_RESULTS[$test_name]="FAIL"
         record_test_result "$test_name" "FAIL" "$test_file" "期望: '$expected', 实际: '$actual'" $((end_time - start_time))
@@ -117,8 +119,6 @@ assert_equals() {
         log_error "  实际: '$actual'"
         return 1
     fi
-    
-    local end_time=$(date +%s%3N)
 }
 
 assert_command() {
@@ -130,6 +130,7 @@ assert_command() {
     local start_time=$(date +%s%3N)
     
     if safe_execute_command "$command" >/dev/null 2>&1; then
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[passed_tests]++))
         TEST_RESULTS[$test_name]="PASS"
         record_test_result "$test_name" "PASS" "$test_file" "命令执行成功: $command" $((end_time - start_time))
@@ -139,6 +140,7 @@ assert_command() {
         fi
         return 0
     else
+        local end_time=$(date +%s%3N)
         ((TEST_STATS[failed_tests]++))
         TEST_RESULTS[$test_name]="FAIL"
         record_test_result "$test_name" "FAIL" "$test_file" "命令执行失败: $command" $((end_time - start_time))
@@ -146,8 +148,6 @@ assert_command() {
         log_error "✗ $test_name: 命令失败 ($command)"
         return 1
     fi
-    
-    local end_time=$(date +%s%3N)
 }
 
 # 记录测试结果

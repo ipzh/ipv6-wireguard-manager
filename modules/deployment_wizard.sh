@@ -291,7 +291,7 @@ configure_wireguard_settings() {
     read -p "IPv6前缀 (例如: 2001:db8::/64) [自动生成]: " ipv6_prefix
     if [[ -z "$ipv6_prefix" ]]; then
         # 自动生成IPv6前缀
-        ipv6_prefix="fd$(openssl rand -hex 3 | colrm 1 2)::/64"
+        ipv6_prefix="fd$(openssl rand -hex 3 | sed 's/.//')::/64"
         echo "✓ 自动生成IPv6前缀: $ipv6_prefix"
     fi
     DEPLOYMENT_CONFIG["ipv6_prefix"]="$ipv6_prefix"

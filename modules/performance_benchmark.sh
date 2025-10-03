@@ -214,7 +214,7 @@ benchmark_cache_performance() {
     fi
     
     if [[ $cache_misses -gt 0 ]]; then
-        avg_miss_tie=$((cache_miss_time / cache_misses))
+        avg_miss_time=$((cache_miss_time / cache_misses))
     fi
     
     BENCHMARK_RESULTS["cache_hits"]=$cache_hits

@@ -253,7 +253,7 @@ generate_function_details() {
         done
         
         # 按字母顺序排序函数
-        IFS=$'\n' sorted_funcs=(\$(sort <<<\"\${module_functions[*]}\"))
+        IFS=$'\n' read -d '' -r -a sorted_funcs < <(printf '%s\n' "${module_functions[@]}" | sort)
         
         for func in "${sorted_funcs[@]}"; do
             generate_single_function_doc "$func" "$output_file"
@@ -288,7 +288,7 @@ generate_single_function_doc()` {
         if [[ -n "$params" ]]; then
             echo "**参数**:"
             echo ""
-            for param in ${params[@]}; do
+            for param in "${params[@]}"; do
                 echo "- \`$param\`: $(get_parameter_description "$function_name" "$param")"
             done
             echo ""
