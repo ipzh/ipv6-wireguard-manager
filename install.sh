@@ -269,25 +269,10 @@ else
 fi
 MODULES_DIR="${MODULES_DIR:-${SCRIPT_DIR}/modules}"
 
-# 4. 当通过管道执行时，需要先下载项目文件
-if [[ ! -f "${SCRIPT_DIR}/ipv6-wireguard-manager.sh" ]] || [[ ! -d "${SCRIPT_DIR}/modules" ]]; then
-    echo -e "${BLUE}[INFO]${NC} 检测到通过管道执行或项目文件不完整，开始下载项目文件..."
-    if ! download_project_files; then
-        echo -e "${RED}[ERROR]${NC} 项目文件下载失败，无法继续安装"
-        exit 1
-    fi
-    
-    # 验证下载后的文件
-    if [[ ! -f "${SCRIPT_DIR}/ipv6-wireguard-manager.sh" ]]; then
-        echo -e "${RED}[ERROR]${NC} 下载后仍缺少主脚本文件"
-        exit 1
-    fi
-    
-    if [[ ! -d "${SCRIPT_DIR}/modules" ]]; then
-        echo -e "${RED}[ERROR]${NC} 下载后仍缺少模块目录"
-        exit 1
-    fi
-fi
+# 4. 取消初始化阶段的自动下载，统一在主执行流程中处理
+# 原因：初始化阶段自动下载会导致后续的现有安装检查产生误判（重复安装）。
+# 修复：将项目文件的下载延后到主执行流程（quick_install/interactive_install）中，
+#      仅在确实缺失时执行下载，并与现有安装检查协调。
 
 # 5. 现在再尝试导入公共函数库
 if [[ -f "${MODULES_DIR}/common_functions.sh" ]]; then
@@ -1980,12 +1965,13 @@ main() {
     # 如果没有参数，检查是否为管道执行
     if [[ $# -eq 0 ]]; then
         if [[ -t 0 ]]; then
-            # 交互式执行，显示安装方法选择
+            # 交互式执行，显示安装方法选择后结束主流程，避免重复执行
             show_install_methods
+            return 0
         else
-            # 管道执行，使用快速安装
-            log_info "检测到管道执行，使用快速安装模式"
-            quick_install
+            # 管道执行：先完成检查与准备，再执行快速安装
+            log_info "检测到管道执行，将采用快速安装模式（延后执行）"
+            AUTO_INSTALL_MODE="quick"
         fi
     fi
     
@@ -2021,6 +2007,13 @@ main() {
         fi
         
         log_success "项目文件下载完成"
+    fi
+
+    # 在完成环境准备和文件就绪后，如为管道模式则执行快速安装
+    if [[ "${AUTO_INSTALL_MODE:-}" == "quick" ]]; then
+        log_info "开始执行快速安装（已完成环境检查与文件准备）"
+        quick_install
+        return $?
     fi
     
     # 安装文件
