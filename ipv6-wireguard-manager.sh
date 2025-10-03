@@ -398,7 +398,7 @@ FIREWALL_TYPE=auto
 # Web界面配置
 WEB_PORT=8080
 WEB_USER=admin
-WEB_PASS=admin123
+WEB_PASS=${WEB_ADMIN_PASSWORD:-$(openssl rand -base64 12)}
 
 # 日志配置
 LOG_LEVEL=INFO
@@ -511,7 +511,7 @@ DEFAULT_CONFIG=(
     "FIREWALL_TYPE=auto"
     "WEB_PORT=8080"
     "WEB_USER=admin"
-    "WEB_PASS=admin123"
+    "WEB_PASS=${WEB_ADMIN_PASSWORD:-$(openssl rand -base64 12)}"
     "LOG_LEVEL=INFO"
     "BACKUP_DIR=/var/backups/ipv6-wireguard"
     "CLIENT_CONFIG_DIR=/etc/wireguard/clients"
@@ -1254,8 +1254,8 @@ get_user_config() {
     read -rp "Web管理用户名 [默认: admin]: " web_user
     WEB_USER=${web_user:-admin}
     
-    read -s -p "Web管理密码 [默认: admin123]: " web_pass
-    WEB_PASS=${web_pass:-admin123}
+    read -s -p "Web管理密码 [默认: 随机生成]: " web_pass
+    WEB_PASS=${web_pass:-$(openssl rand -base64 12)}
     echo
     
     # 保存配置

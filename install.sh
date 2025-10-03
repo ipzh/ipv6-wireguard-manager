@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # IPv6 WireGuard Manager 安装脚本
 # 版本: 1.0.0
@@ -1536,7 +1536,7 @@ FIREWALL_TYPE=auto
 # Web管理界面
 WEB_PORT=8080
 WEB_USER=admin
-WEB_PASS=admin123
+WEB_PASS=${WEB_ADMIN_PASSWORD:-$(openssl rand -base64 12)}
 
 # 日志配置
 LOG_LEVEL=INFO
