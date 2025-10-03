@@ -42,10 +42,10 @@ cleanup_and_exit() {
 # 1. 首先定义基础颜色变量和备用函数，避免导入失败时出错
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-# YELLOW=  # unused'\033[1;33m'
+YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 # PURPLE=  # unused'\033[0;35m'
-# CYAN=  # unused'\033[0;36m'
+CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
@@ -398,13 +398,37 @@ fi
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
-# YELLOW=  # unused"${YELLOW:-'\033[1;33m'}"
+YELLOW="${YELLOW:-'\033[1;33m'}"
 BLUE="${BLUE:-'\033[0;34m'}"
 # PURPLE=  # unused"${PURPLE:-'\033[0;35m'}"
-# CYAN=  # unused"${CYAN:-'\033[0;36m'}"
+CYAN="${CYAN:-'\033[0;36m'}"
 WHITE="${WHITE:-'\033[1;37m'}"
 INFO_COLOR="${INFO_COLOR:-'\033[0;36m'}"  # 信息颜色（青色）
 NC="${NC:-'\033[0m'}"
+
+# 安全的进程等待函数，避免等待不存在或非子进程PID导致错误
+wait_for() {
+    local pid="$1"
+    local timeout="${2:-0}"
+
+    # 未提供PID则直接返回
+    if [[ -z "${pid:-}" ]]; then
+        return 0
+    fi
+
+    # 如果进程不存在或不是当前Shell的子进程，直接返回，避免报错
+    if ! kill -0 "$pid" 2>/dev/null; then
+        # 静默地忽略不存在的进程，避免 set -e 导致退出
+        return 0
+    fi
+
+    # 如果提供了超时并且存在timeout命令，则带超时等待
+    if [[ "$timeout" -gt 0 ]] && command -v timeout >/dev/null 2>&1; then
+        timeout "$timeout" bash -c "wait $pid" 2>/dev/null || true
+    else
+        wait "$pid" 2>/dev/null || true
+    fi
+}
 
 # 备用日志函数（如果公共函数库未加载）
 if ! declare -f log_info >/dev/null 2>&1; then
@@ -684,17 +708,52 @@ load_config "$MAIN_CONFIG_FILE"
 # 确保LOG_FILE变量已定义
 LOG_FILE="${LOG_FILE:-/tmp/install.log}"
 
-# 模块依赖管理
-MODULES_DIR="${MODULES_DIR:-$(dirname "${BASH_SOURCE[0]}")/modules}"
+# 注意：MODULES_DIR 已在上方根据管道执行情况初始化为 "${SCRIPT_DIR}/modules"。
+# 这里不再重新覆盖 MODULES_DIR，避免在 curl|bash 模式下误指向 /root/modules。
 
-# 导入模块加载器
+# 导入模块加载器（带回退与下载尝试）
+MODULE_LOADER_AVAILABLE=false
 if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
     # shellcheck source=modules/module_loader.sh
     source "${MODULES_DIR}/module_loader.sh"
     log_info "模块加载器已导入"
+    MODULE_LOADER_AVAILABLE=true
 else
-    log_error "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh"
-    exit 1
+    log_warn "模块加载器文件不存在: ${MODULES_DIR}/module_loader.sh，尝试下载项目文件后重试"
+    # 如存在下载函数则尝试下载项目文件
+    if command -v download_project_files >/dev/null 2>&1; then
+        if download_project_files; then
+            # 重新设置目录并重试
+            SCRIPT_DIR="$(pwd)"
+            MODULES_DIR="${SCRIPT_DIR}/modules"
+            if [[ -f "${MODULES_DIR}/module_loader.sh" ]]; then
+                source "${MODULES_DIR}/module_loader.sh"
+                log_info "模块加载器已导入（下载后）"
+                MODULE_LOADER_AVAILABLE=true
+            else
+                log_warn "下载后仍未找到模块加载器，继续使用备用导入逻辑"
+            fi
+        else
+            log_warn "项目文件下载失败，继续使用备用导入逻辑"
+        fi
+    fi
+fi
+
+# 备用导入逻辑：定义轻量级的 load_module 以便后续代码可用
+if [[ "$MODULE_LOADER_AVAILABLE" != "true" ]]; then
+    load_module() {
+        local module_name="$1"
+        local module_path="${MODULES_DIR}/${module_name}.sh"
+        if [[ -f "$module_path" ]]; then
+            # shellcheck source=/dev/null
+            source "$module_path"
+            log_warn "使用备用方式导入模块: $module_name"
+            return 0
+        else
+            log_warn "备用导入失败，模块不存在: $module_name ($module_path)"
+            return 1
+        fi
+    }
 fi
 
 # 懒加载机制
