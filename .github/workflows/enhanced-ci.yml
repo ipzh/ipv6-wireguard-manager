@@ -1,0 +1,631 @@
+name: Enhanced IPv6-WireGuard Manager CI/CD
+
+on:
+  push:
+    branches: [ main, develop, feature/*, hotfix/* ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每天凌晨3点运行完整测试
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: '测试类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+          - performance
+          - security
+          - compatibility
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  IPV6WGM_TEST_MODE: "true"
+  IPV6WGM_DEBUG_MODE: "false"
+  IPV6WGM_CI_MODE: "true"
+  DOCKER_REGISTRY: "ghcr.io"
+  IMAGE_NAME: "ipv6-wireguard-manager"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 环境检测和准备
+  environment-check:
+    name: 环境检测
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_changes: ${{ steps.changes.outputs.any_changed || 'false' }}
+      test_type: ${{ steps.test_type.outputs.type || 'all' }}
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: 检测文件变更
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          scripts:
+            - 'scripts/**'
+          modules:
+            - 'modules/**'
+          docker:
+            - 'Dockerfile'
+            - 'docker-compose.yml'
+          config:
+            - 'config/**'
+          tests:
+            - 'tests/**'
+          docs:
+            - 'docs/**'
+            - '*.md'
+            
+    - name: 确定测试类型
+      id: test_type
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "type=${{ github.event.inputs.test_type }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ steps.changes.outputs.scripts || 'false' }}" == "true" || "${{ steps.changes.outputs.modules || 'false' }}" == "true" ]]; then
+          echo "type=unit" >> $GITHUB_OUTPUT
+        elif [[ "${{ steps.changes.outputs.docker || 'false' }}" == "true" ]]; then
+          echo "type=docker" >> $GITHUB_OUTPUT
+        else
+          echo "type=all" >> $GITHUB_OUTPUT
+        fi
+
+  # 代码质量检查
+  code-quality:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: environment-check
+    if: needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          shellcheck \
+          yamllint \
+          python3 \
+          python3-pip \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3 \
+          clang-format \
+          cppcheck
+        
+        # 安装Python依赖
+        pip3 install yamllint flake8 black isort
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行ShellCheck静态分析
+      run: |
+        echo "运行ShellCheck静态分析..."
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --format=json > shellcheck-results.json || true
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --format=gcc || true
+        
+    - name: 检查配置文件语法
+      run: |
+        echo "检查YAML文件..."
+        yamllint .github/workflows/ci.yml || true
+        yamllint docker-compose.yml || true
+        yamllint tests/test_config.yml || true
+        
+        echo "检查Makefile..."
+        make -n all || true
+        
+    - name: 运行代码质量检查
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type syntax
+        fi
+        
+    - name: 上传代码质量报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-quality-report
+        path: |
+          shellcheck-results.json
+          *.log
+
+  # 单元测试
+  unit-tests:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [environment-check, code-quality]
+    if: needs.environment-check.outputs.has_changes == 'true'
+    strategy:
+      matrix:
+        shell: [bash, dash]
+        ubuntu-version: [20.04, 22.04]
+        test-mode: [normal, coverage]
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        echo "SHELL=/bin/${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_MODE=${{ matrix.test-mode }}" >> $GITHUB_ENV
+        
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ${{ matrix.shell }} \
+          shellcheck \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3 \
+          bc \
+          time
+        
+        # 安装测试覆盖率工具
+        if [[ "${{ matrix.test-mode }}" == "coverage" ]]; then
+          sudo apt-get install -y lcov
+        fi
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行单元测试
+      run: |
+        echo "运行单元测试 - Shell: ${{ matrix.shell }}, 模式: ${{ matrix.test-mode }}"
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type unit --shell ${{ matrix.shell }} --mode ${{ matrix.test-mode }}
+        else
+          echo "自动化测试脚本不存在，跳过单元测试"
+        fi
+        
+    - name: 生成测试报告
+      if: always()
+      run: |
+        echo "测试完成时间: $(date)" > test-report-${{ matrix.shell }}-${{ matrix.test-mode }}.txt
+        echo "Shell: ${{ matrix.shell }}" >> test-report-${{ matrix.shell }}-${{ matrix.test-mode }}.txt
+        echo "Ubuntu版本: ${{ matrix.ubuntu-version }}" >> test-report-${{ matrix.shell }}-${{ matrix.test-mode }}.txt
+        echo "测试模式: ${{ matrix.test-mode }}" >> test-report-${{ matrix.shell }}-${{ matrix.test-mode }}.txt
+        
+    - name: 上传测试报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-report-${{ matrix.shell }}-${{ matrix.test-mode }}
+        path: |
+          test-report-${{ matrix.shell }}-${{ matrix.test-mode }}.txt
+          test-results/
+          coverage/
+
+  # 集成测试
+  integration-tests:
+    name: 集成测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [environment-check, unit-tests]
+    if: needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          jq \
+          sqlite3 \
+          docker.io \
+          docker-compose \
+          netcat-openbsd \
+          iptables \
+          iproute2
+          
+    - name: 启动Docker服务
+      run: |
+        sudo systemctl start docker
+        sudo usermod -aG docker $USER
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行集成测试
+      run: |
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type integration
+        else
+          echo "自动化测试脚本不存在，跳过集成测试"
+        fi
+        
+    - name: 上传集成测试报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-report
+        path: |
+          test-results/
+          integration-logs/
+
+  # 安全测试
+  security-tests:
+    name: 安全测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: environment-check
+    if: needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装安全扫描工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          shellcheck \
+          curl \
+          wget \
+          git \
+          bandit \
+          safety \
+          semgrep
+        
+        # 安装Python安全工具
+        pip3 install bandit safety semgrep
+        
+    - name: 运行安全扫描
+      run: |
+        echo "运行ShellCheck安全扫描..."
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --severity=warning --format=json > security-scan-results.json || true
+        
+        echo "检查敏感信息..."
+        if grep -r "password\|secret\|key\|token" --include="*.sh" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "警告: 发现可能的敏感信息"
+          grep -r "password\|secret\|key\|token" --include="*.sh" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder" > sensitive-info-check.txt
+        fi
+        
+        echo "运行Semgrep安全扫描..."
+        semgrep --config=auto --json --output=semgrep-results.json . || true
+        
+    - name: 上传安全扫描报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-report
+        path: |
+          security-scan-results.json
+          semgrep-results.json
+          sensitive-info-check.txt
+
+  # 性能测试
+  performance-tests:
+    name: 性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: environment-check
+    if: needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Bash
+      run: echo "SHELL=/bin/bash" >> $GITHUB_ENV
+      
+    - name: 安装依赖
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bash \
+          curl \
+          wget \
+          git \
+          time \
+          htop \
+          iotop \
+          sysstat \
+          stress-ng
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行性能测试
+      run: |
+        echo "开始性能测试..."
+        
+        # 系统资源监控
+        echo "系统信息:" > performance-report.txt
+        echo "CPU: $(nproc) cores" >> performance-report.txt
+        echo "内存: $(free -h | grep Mem | awk '{print $2}')" >> performance-report.txt
+        echo "磁盘: $(df -h / | tail -1 | awk '{print $2}')" >> performance-report.txt
+        echo "" >> performance-report.txt
+        
+        # 测试构建性能
+        echo "测试构建性能:" >> performance-report.txt
+        time (make build) 2>&1 | tee -a performance-report.txt
+        echo "" >> performance-report.txt
+        
+        # 测试测试执行性能
+        echo "测试单元测试性能:" >> performance-report.txt
+        time (make test-unit) 2>&1 | tee -a performance-report.txt
+        echo "" >> performance-report.txt
+        
+        # 测试代码质量检查性能
+        echo "测试代码质量检查性能:" >> performance-report.txt
+        time (make lint) 2>&1 | tee -a performance-report.txt
+        echo "" >> performance-report.txt
+        
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          echo "测试自动化测试性能:" >> performance-report.txt
+          time (bash scripts/automated-testing.sh --test-type performance) 2>&1 | tee -a performance-report.txt
+        fi
+        
+    - name: 上传性能测试报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-test-report
+        path: |
+          performance-report.txt
+          performance-logs/
+
+  # 跨平台兼容性测试
+  compatibility-tests:
+    name: 跨平台兼容性测试
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    needs: environment-check
+    if: needs.environment-check.outputs.has_changes == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        shell: [bash, sh]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+            package-manager: apt
+          - os: ubuntu-latest
+            shell: dash
+            package-manager: apt
+          - os: windows-latest
+            shell: bash
+            package-manager: choco
+          - os: macos-latest
+            shell: bash
+            package-manager: brew
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "SHELL=/usr/bin/bash" >> $GITHUB_ENV
+        else
+          echo "SHELL=/bin/${{ matrix.shell }}" >> $GITHUB_ENV
+        fi
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_OS=${{ runner.os }}" >> $GITHUB_ENV
+        
+    - name: 安装依赖 (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ${{ matrix.shell }} \
+          curl \
+          wget \
+          git \
+          jq
+          
+    - name: 安装依赖 (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install git -y || true
+        
+    - name: 安装依赖 (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install bash curl wget git jq
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行兼容性测试
+      run: |
+        echo "运行兼容性测试 - OS: ${{ runner.os }}, Shell: ${{ matrix.shell }}"
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          bash scripts/automated-testing.sh --test-type compatibility --os ${{ runner.os }} --shell ${{ matrix.shell }}
+        else
+          echo "自动化测试脚本不存在，跳过兼容性测试"
+        fi
+        
+    - name: 生成兼容性测试报告
+      if: always()
+      run: |
+        echo "兼容性测试完成时间: $(date)" > compatibility-report-${{ runner.os }}-${{ matrix.shell }}.txt
+        echo "操作系统: ${{ runner.os }}" >> compatibility-report-${{ runner.os }}-${{ matrix.shell }}.txt
+        echo "Shell: ${{ matrix.shell }}" >> compatibility-report-${{ runner.os }}-${{ matrix.shell }}.txt
+        echo "包管理器: ${{ matrix.package-manager }}" >> compatibility-report-${{ runner.os }}-${{ matrix.shell }}.txt
+        
+    - name: 上传兼容性测试报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: compatibility-test-report-${{ runner.os }}-${{ matrix.shell }}
+        path: |
+          compatibility-report-${{ runner.os }}-${{ matrix.shell }}.txt
+          compatibility-logs/
+
+  # Docker构建和测试
+  docker-build:
+    name: Docker构建测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [environment-check, code-quality, unit-tests]
+    if: needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 登录到容器注册表
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 提取元数据
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: 构建并推送Docker镜像
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          IPV6WGM_VERSION=${{ env.IPV6WGM_VERSION }}
+          IPV6WGM_CI_MODE=${{ env.IPV6WGM_CI_MODE }}
+        
+    - name: 测试Docker镜像
+      run: |
+        echo "测试Docker镜像基本功能..."
+        docker run --rm ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest --help || true
+        
+        echo "测试Docker镜像健康检查..."
+        docker run --rm -d --name test-container ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest
+        sleep 15
+        docker exec test-container /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --version || true
+        docker stop test-container || true
+        
+    - name: 清理Docker缓存
+      run: |
+        docker system prune -f
+
+  # 测试总结和报告
+  test-summary:
+    name: 测试总结
+    runs-on: ubuntu-latest
+    needs: [environment-check, code-quality, unit-tests, integration-tests, security-tests, performance-tests, compatibility-tests, docker-build]
+    if: always() && needs.environment-check.outputs.has_changes == 'true'
+    
+    steps:
+    - name: 生成测试总结
+      run: |
+        echo "# IPv6-WireGuard Manager Enhanced CI/CD 测试总结" > test-summary.md
+        echo "" >> test-summary.md
+        echo "## 测试时间" >> test-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> test-summary.md
+        echo "- 结束时间: $(date)" >> test-summary.md
+        echo "- 测试类型: ${{ needs.environment-check.outputs.test_type }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 测试结果" >> test-summary.md
+        echo "- 环境检测: ${{ needs.environment-check.result }}" >> test-summary.md
+        echo "- 代码质量检查: ${{ needs.code-quality.result }}" >> test-summary.md
+        echo "- 单元测试: ${{ needs.unit-tests.result }}" >> test-summary.md
+        echo "- 集成测试: ${{ needs.integration-tests.result }}" >> test-summary.md
+        echo "- 安全测试: ${{ needs.security-tests.result }}" >> test-summary.md
+        echo "- 性能测试: ${{ needs.performance-tests.result }}" >> test-summary.md
+        echo "- 兼容性测试: ${{ needs.compatibility-tests.result }}" >> test-summary.md
+        echo "- Docker构建: ${{ needs.docker-build.result }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 构建产物" >> test-summary.md
+        echo "- Docker镜像: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}" >> test-summary.md
+        echo "- 版本: ${{ env.IPV6WGM_VERSION }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 提交信息" >> test-summary.md
+        echo "- 提交哈希: ${{ github.sha }}" >> test-summary.md
+        echo "- 分支: ${{ github.ref_name }}" >> test-summary.md
+        echo "- 作者: ${{ github.actor }}" >> test-summary.md
+        echo "- 事件: ${{ github.event_name }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "## 环境信息" >> test-summary.md
+        echo "- 运行器: ubuntu-latest" >> test-summary.md
+        echo "- 并发控制: 已启用" >> test-summary.md
+        echo "- 工作流: Enhanced CI/CD" >> test-summary.md
+        
+    - name: 上传测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: enhanced-ci-test-summary
+        path: test-summary.md
+        
+    - name: 发布测试总结到PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('test-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });

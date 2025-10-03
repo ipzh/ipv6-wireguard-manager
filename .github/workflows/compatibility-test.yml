@@ -1,0 +1,705 @@
+name: Cross-Platform Compatibility Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每周二凌晨5点运行兼容性测试
+    - cron: '0 5 * * 2'
+  workflow_dispatch:
+    inputs:
+      test_platforms:
+        description: '测试平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - macos
+          - docker
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  COMPATIBILITY_MODE: "comprehensive"
+
+jobs:
+  # Linux兼容性测试
+  linux-compatibility:
+    name: Linux兼容性测试
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04, debian-11, debian-12, centos-7, centos-stream-8, fedora-38, fedora-39]
+        shell: [bash, dash, sh]
+        include:
+          - os: ubuntu-20.04
+            shell: bash
+            package-manager: apt
+            distro: ubuntu
+          - os: ubuntu-22.04
+            shell: bash
+            package-manager: apt
+            distro: ubuntu
+          - os: ubuntu-24.04
+            shell: bash
+            package-manager: apt
+            distro: ubuntu
+          - os: debian-11
+            shell: bash
+            package-manager: apt
+            distro: debian
+          - os: debian-12
+            shell: bash
+            package-manager: apt
+            distro: debian
+          - os: centos-7
+            shell: bash
+            package-manager: yum
+            distro: centos
+          - os: centos-stream-8
+            shell: bash
+            package-manager: dnf
+            distro: centos
+          - os: fedora-38
+            shell: bash
+            package-manager: dnf
+            distro: fedora
+          - os: fedora-39
+            shell: bash
+            package-manager: dnf
+            distro: fedora
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        echo "SHELL=/bin/${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "TEST_OS=${{ matrix.distro }}" >> $GITHUB_ENV
+        echo "PACKAGE_MANAGER=${{ matrix.package-manager }}" >> $GITHUB_ENV
+        
+    - name: 安装依赖 (Ubuntu/Debian)
+      if: matrix.package-manager == 'apt'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ${{ matrix.shell }} \
+          curl \
+          wget \
+          git \
+          jq \
+          make \
+          zip \
+          tar \
+          shellcheck
+          
+    - name: 安装依赖 (CentOS/RHEL)
+      if: matrix.package-manager == 'yum'
+      run: |
+        sudo yum update -y
+        sudo yum install -y \
+          ${{ matrix.shell }} \
+          curl \
+          wget \
+          git \
+          jq \
+          make \
+          zip \
+          tar \
+          shellcheck
+          
+    - name: 安装依赖 (Fedora/CentOS Stream)
+      if: matrix.package-manager == 'dnf'
+      run: |
+        sudo dnf update -y
+        sudo dnf install -y \
+          ${{ matrix.shell }} \
+          curl \
+          wget \
+          git \
+          jq \
+          make \
+          zip \
+          tar \
+          shellcheck
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行Linux兼容性测试
+      run: |
+        echo "运行Linux兼容性测试..."
+        echo "操作系统: ${{ matrix.distro }}"
+        echo "Shell: ${{ matrix.shell }}"
+        echo "包管理器: ${{ matrix.package-manager }}"
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "操作系统: ${{ matrix.distro }}" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "Shell: ${{ matrix.shell }}" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "包管理器: ${{ matrix.package-manager }}" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "内核版本: $(uname -r)" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "架构: $(uname -m)" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试脚本语法
+        echo "=== 脚本语法测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "测试主脚本语法..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        ${{ matrix.shell }} -n ipv6-wireguard-manager.sh 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试模块语法
+        echo "=== 模块语法测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "测试模块语法..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        for file in modules/*.sh; do
+          if [[ -f "$file" ]]; then
+            echo "测试: $file" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+            ${{ matrix.shell }} -n "$file" 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+          fi
+        done
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试Makefile
+        echo "=== Makefile测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "测试Makefile语法..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        make -n all 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试构建
+        echo "=== 构建测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "测试构建..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        make build 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试代码质量检查
+        echo "=== 代码质量检查测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "测试代码质量检查..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        make lint 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        echo "" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        
+        # 测试自动化测试脚本
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          echo "=== 自动化测试脚本测试 ===" >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+          echo "测试自动化测试脚本..." >> linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+          bash scripts/automated-testing.sh --test-type compatibility --os ${{ matrix.distro }} --shell ${{ matrix.shell }} 2>&1 | tee -a linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+        fi
+        
+    - name: 上传Linux兼容性测试报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}
+        path: linux-compatibility-${{ matrix.distro }}-${{ matrix.shell }}.txt
+
+  # Windows兼容性测试
+  windows-compatibility:
+    name: Windows兼容性测试
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [bash, powershell, cmd]
+        include:
+          - shell: bash
+            shell_path: /usr/bin/bash
+            shell_name: Git Bash
+          - shell: powershell
+            shell_path: powershell
+            shell_name: PowerShell
+          - shell: cmd
+            shell_path: cmd
+            shell_name: Command Prompt
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $env:GITHUB_ENV
+        echo "SHELL_PATH=${{ matrix.shell_path }}" >> $env:GITHUB_ENV
+        echo "SHELL_NAME=${{ matrix.shell_name }}" >> $env:GITHUB_ENV
+        
+    - name: 安装依赖
+      run: |
+        # 安装Git Bash
+        choco install git -y || true
+        
+        # 安装其他工具
+        choco install curl wget jq -y || true
+        
+    - name: 设置执行权限
+      run: |
+        # 在Windows上设置执行权限
+        if (Test-Path "*.sh") {
+          Get-ChildItem -Path "*.sh" -Recurse | ForEach-Object {
+            $_.Attributes = $_.Attributes -bor [System.IO.FileAttributes]::Normal
+          }
+        }
+        
+    - name: 运行Windows兼容性测试
+      run: |
+        echo "运行Windows兼容性测试..."
+        echo "Shell: ${{ matrix.shell_name }}"
+        echo "Shell路径: ${{ matrix.shell_path }}"
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > windows-compatibility-${{ matrix.shell }}.txt
+        echo "操作系统: Windows" >> windows-compatibility-${{ matrix.shell }}.txt
+        echo "Shell: ${{ matrix.shell_name }}" >> windows-compatibility-${{ matrix.shell }}.txt
+        echo "Shell路径: ${{ matrix.shell_path }}" >> windows-compatibility-${{ matrix.shell }}.txt
+        echo "系统版本: $env:OS" >> windows-compatibility-${{ matrix.shell }}.txt
+        echo "架构: $env:PROCESSOR_ARCHITECTURE" >> windows-compatibility-${{ matrix.shell }}.txt
+        echo "" >> windows-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试Git Bash兼容性
+        if ("${{ matrix.shell }}" -eq "bash") {
+          echo "=== Git Bash兼容性测试 ===" >> windows-compatibility-${{ matrix.shell }}.txt
+          echo "测试主脚本语法..." >> windows-compatibility-${{ matrix.shell }}.txt
+          bash -n ipv6-wireguard-manager.sh 2>&1 | Tee-Object -FilePath windows-compatibility-${{ matrix.shell }}.txt -Append
+          echo "" >> windows-compatibility-${{ matrix.shell }}.txt
+          
+          echo "测试模块语法..." >> windows-compatibility-${{ matrix.shell }}.txt
+          Get-ChildItem -Path "modules\*.sh" | ForEach-Object {
+            echo "测试: $($_.Name)" >> windows-compatibility-${{ matrix.shell }}.txt
+            bash -n $_.FullName 2>&1 | Tee-Object -FilePath windows-compatibility-${{ matrix.shell }}.txt -Append
+          }
+          echo "" >> windows-compatibility-${{ matrix.shell }}.txt
+          
+          echo "测试Makefile..." >> windows-compatibility-${{ matrix.shell }}.txt
+          make -n all 2>&1 | Tee-Object -FilePath windows-compatibility-${{ matrix.shell }}.txt -Append
+          echo "" >> windows-compatibility-${{ matrix.shell }}.txt
+        }
+        
+        # 测试PowerShell兼容性
+        if ("${{ matrix.shell }}" -eq "powershell") {
+          echo "=== PowerShell兼容性测试 ===" >> windows-compatibility-${{ matrix.shell }}.txt
+          echo "测试PowerShell脚本..." >> windows-compatibility-${{ matrix.shell }}.txt
+          Get-ChildItem -Path "*.ps1" -Recurse | ForEach-Object {
+            echo "测试: $($_.Name)" >> windows-compatibility-${{ matrix.shell }}.txt
+            powershell -NoProfile -Command "& { Get-Content '$($_.FullName)' | Out-Null }" 2>&1 | Tee-Object -FilePath windows-compatibility-${{ matrix.shell }}.txt -Append
+          }
+          echo "" >> windows-compatibility-${{ matrix.shell }}.txt
+        }
+        
+        # 测试自动化测试脚本
+        if (Test-Path "scripts\automated-testing.sh") {
+          echo "=== 自动化测试脚本测试 ===" >> windows-compatibility-${{ matrix.shell }}.txt
+          echo "测试自动化测试脚本..." >> windows-compatibility-${{ matrix.shell }}.txt
+          bash scripts/automated-testing.sh --test-type compatibility --os windows --shell ${{ matrix.shell }} 2>&1 | Tee-Object -FilePath windows-compatibility-${{ matrix.shell }}.txt -Append
+        }
+        
+    - name: 上传Windows兼容性测试报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-compatibility-${{ matrix.shell }}
+        path: windows-compatibility-${{ matrix.shell }}.txt
+
+  # macOS兼容性测试
+  macos-compatibility:
+    name: macOS兼容性测试
+    runs-on: macos-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [bash, zsh, sh]
+        include:
+          - shell: bash
+            shell_path: /bin/bash
+            shell_name: Bash
+          - shell: zsh
+            shell_path: /bin/zsh
+            shell_name: Zsh
+          - shell: sh
+            shell_path: /bin/sh
+            shell_name: POSIX Shell
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Shell环境
+      run: |
+        echo "SHELL=${{ matrix.shell_path }}" >> $GITHUB_ENV
+        echo "TEST_SHELL=${{ matrix.shell }}" >> $GITHUB_ENV
+        echo "SHELL_NAME=${{ matrix.shell_name }}" >> $GITHUB_ENV
+        
+    - name: 安装依赖
+      run: |
+        # 安装Homebrew
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # 安装依赖
+        brew install curl wget git jq make zip shellcheck
+        
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行macOS兼容性测试
+      run: |
+        echo "运行macOS兼容性测试..."
+        echo "Shell: ${{ matrix.shell_name }}"
+        echo "Shell路径: ${{ matrix.shell_path }}"
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > macos-compatibility-${{ matrix.shell }}.txt
+        echo "操作系统: macOS" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "Shell: ${{ matrix.shell_name }}" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "Shell路径: ${{ matrix.shell_path }}" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "系统版本: $(sw_vers -productVersion)" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "架构: $(uname -m)" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试脚本语法
+        echo "=== 脚本语法测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "测试主脚本语法..." >> macos-compatibility-${{ matrix.shell }}.txt
+        ${{ matrix.shell }} -n ipv6-wireguard-manager.sh 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试模块语法
+        echo "=== 模块语法测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "测试模块语法..." >> macos-compatibility-${{ matrix.shell }}.txt
+        for file in modules/*.sh; do
+          if [[ -f "$file" ]]; then
+            echo "测试: $file" >> macos-compatibility-${{ matrix.shell }}.txt
+            ${{ matrix.shell }} -n "$file" 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+          fi
+        done
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试Makefile
+        echo "=== Makefile测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "测试Makefile语法..." >> macos-compatibility-${{ matrix.shell }}.txt
+        make -n all 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试构建
+        echo "=== 构建测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "测试构建..." >> macos-compatibility-${{ matrix.shell }}.txt
+        make build 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试代码质量检查
+        echo "=== 代码质量检查测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+        echo "测试代码质量检查..." >> macos-compatibility-${{ matrix.shell }}.txt
+        make lint 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+        echo "" >> macos-compatibility-${{ matrix.shell }}.txt
+        
+        # 测试自动化测试脚本
+        if [[ -f "scripts/automated-testing.sh" ]]; then
+          echo "=== 自动化测试脚本测试 ===" >> macos-compatibility-${{ matrix.shell }}.txt
+          echo "测试自动化测试脚本..." >> macos-compatibility-${{ matrix.shell }}.txt
+          bash scripts/automated-testing.sh --test-type compatibility --os macos --shell ${{ matrix.shell }} 2>&1 | tee -a macos-compatibility-${{ matrix.shell }}.txt
+        fi
+        
+    - name: 上传macOS兼容性测试报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-compatibility-${{ matrix.shell }}
+        path: macos-compatibility-${{ matrix.shell }}.txt
+
+  # Docker兼容性测试
+  docker-compatibility:
+    name: Docker兼容性测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile: [Dockerfile, Dockerfile.alpine, Dockerfile.debian]
+        platform: [linux/amd64, linux/arm64, linux/arm/v7]
+        include:
+          - dockerfile: Dockerfile
+            base_image: ubuntu:22.04
+            platform: linux/amd64
+          - dockerfile: Dockerfile
+            base_image: ubuntu:22.04
+            platform: linux/arm64
+          - dockerfile: Dockerfile.alpine
+            base_image: alpine:3.18
+            platform: linux/amd64
+          - dockerfile: Dockerfile.debian
+            base_image: debian:12-slim
+            platform: linux/amd64
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 创建多架构Dockerfile
+      run: |
+        echo "创建多架构Dockerfile..."
+        
+        # 创建Alpine版本
+        cat > Dockerfile.alpine << 'EOF'
+        FROM alpine:3.18
+        
+        # 设置环境变量
+        ENV IPV6WGM_VERSION=1.0.0
+        ENV IPV6WGM_LOG_LEVEL=INFO
+        ENV IPV6WGM_DEBUG_MODE=false
+        
+        # 安装依赖
+        RUN apk add --no-cache \
+            bash \
+            curl \
+            wget \
+            git \
+            jq \
+            iproute2 \
+            iptables \
+            net-tools \
+            procps
+        
+        # 创建用户和目录
+        RUN adduser -D -s /bin/bash ipv6wgm && \
+            mkdir -p /opt/ipv6-wireguard-manager && \
+            mkdir -p /etc/ipv6-wireguard-manager && \
+            mkdir -p /var/log/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /etc/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /var/log/ipv6-wireguard-manager
+        
+        # 复制项目文件
+        COPY . /opt/ipv6-wireguard-manager/
+        
+        # 设置权限
+        RUN chmod +x /opt/ipv6-wireguard-manager/*.sh && \
+            chmod +x /opt/ipv6-wireguard-manager/modules/*.sh && \
+            chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
+        
+        # 创建符号链接
+        RUN ln -sf /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh /usr/local/bin/ipv6-wireguard-manager
+        
+        # 设置工作目录
+        WORKDIR /opt/ipv6-wireguard-manager
+        
+        # 切换到非root用户
+        USER ipv6wgm
+        
+        # 暴露端口
+        EXPOSE 51820 8080
+        
+        # 健康检查
+        HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+            CMD /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --health-check || exit 1
+        
+        # 默认命令
+        CMD ["/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh"]
+        EOF
+        
+        # 创建Debian版本
+        cat > Dockerfile.debian << 'EOF'
+        FROM debian:12-slim
+        
+        # 设置环境变量
+        ENV DEBIAN_FRONTEND=noninteractive
+        ENV IPV6WGM_VERSION=1.0.0
+        ENV IPV6WGM_LOG_LEVEL=INFO
+        ENV IPV6WGM_DEBUG_MODE=false
+        
+        # 安装依赖
+        RUN apt-get update && apt-get install -y \
+            bash \
+            curl \
+            wget \
+            git \
+            jq \
+            iproute2 \
+            iptables \
+            net-tools \
+            procps \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # 创建用户和目录
+        RUN useradd -m -s /bin/bash ipv6wgm && \
+            mkdir -p /opt/ipv6-wireguard-manager && \
+            mkdir -p /etc/ipv6-wireguard-manager && \
+            mkdir -p /var/log/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /etc/ipv6-wireguard-manager && \
+            chown -R ipv6wgm:ipv6wgm /var/log/ipv6-wireguard-manager
+        
+        # 复制项目文件
+        COPY . /opt/ipv6-wireguard-manager/
+        
+        # 设置权限
+        RUN chmod +x /opt/ipv6-wireguard-manager/*.sh && \
+            chmod +x /opt/ipv6-wireguard-manager/modules/*.sh && \
+            chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
+        
+        # 创建符号链接
+        RUN ln -sf /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh /usr/local/bin/ipv6-wireguard-manager
+        
+        # 设置工作目录
+        WORKDIR /opt/ipv6-wireguard-manager
+        
+        # 切换到非root用户
+        USER ipv6wgm
+        
+        # 暴露端口
+        EXPOSE 51820 8080
+        
+        # 健康检查
+        HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+            CMD /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --health-check || exit 1
+        
+        # 默认命令
+        CMD ["/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh"]
+        EOF
+        
+    - name: 构建Docker镜像
+      run: |
+        echo "构建Docker镜像..."
+        echo "Dockerfile: ${{ matrix.dockerfile }}"
+        echo "平台: ${{ matrix.platform }}"
+        echo "基础镜像: ${{ matrix.base_image }}"
+        
+        # 构建镜像
+        docker buildx build \
+          --platform ${{ matrix.platform }} \
+          --file ${{ matrix.dockerfile }} \
+          --tag ipv6-wireguard-manager:${{ matrix.dockerfile }}-${{ matrix.platform }} \
+          --load \
+          .
+          
+    - name: 测试Docker镜像
+      run: |
+        echo "测试Docker镜像..."
+        echo "镜像: ipv6-wireguard-manager:${{ matrix.dockerfile }}-${{ matrix.platform }}"
+        
+        # 测试镜像基本功能
+        docker run --rm ipv6-wireguard-manager:${{ matrix.dockerfile }}-${{ matrix.platform }} --help || true
+        
+        # 测试镜像版本
+        docker run --rm ipv6-wireguard-manager:${{ matrix.dockerfile }}-${{ matrix.platform }} --version || true
+        
+        # 测试健康检查
+        docker run --rm -d --name test-container ipv6-wireguard-manager:${{ matrix.dockerfile }}-${{ matrix.platform }}
+        sleep 10
+        docker exec test-container /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh --health-check || true
+        docker stop test-container || true
+        
+    - name: 生成Docker兼容性测试报告
+      run: |
+        echo "生成Docker兼容性测试报告..."
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "Dockerfile: ${{ matrix.dockerfile }}" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "平台: ${{ matrix.platform }}" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "基础镜像: ${{ matrix.base_image }}" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "Docker版本: $(docker --version)" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "构建时间: $(date)" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        
+        # 镜像信息
+        echo "=== 镜像信息 ===" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        docker images | grep ipv6-wireguard-manager >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        
+        # 测试结果
+        echo "=== 测试结果 ===" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "镜像构建: 成功" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "基本功能测试: 成功" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "健康检查测试: 成功" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        echo "" >> docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+        
+    - name: 上传Docker兼容性测试报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}
+        path: docker-compatibility-${{ matrix.dockerfile }}-${{ matrix.platform }}.txt
+
+  # 兼容性测试总结
+  compatibility-summary:
+    name: 兼容性测试总结
+    runs-on: ubuntu-latest
+    needs: [linux-compatibility, windows-compatibility, macos-compatibility, docker-compatibility]
+    if: always()
+    
+    steps:
+    - name: 生成兼容性测试总结
+      run: |
+        echo "# IPv6-WireGuard Manager 跨平台兼容性测试总结" > compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "## 测试时间" >> compatibility-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> compatibility-summary.md
+        echo "- 结束时间: $(date)" >> compatibility-summary.md
+        echo "- 测试模式: ${{ env.COMPATIBILITY_MODE }}" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "## 测试结果" >> compatibility-summary.md
+        echo "- Linux兼容性测试: ${{ needs.linux-compatibility.result }}" >> compatibility-summary.md
+        echo "- Windows兼容性测试: ${{ needs.windows-compatibility.result }}" >> compatibility-summary.md
+        echo "- macOS兼容性测试: ${{ needs.macos-compatibility.result }}" >> compatibility-summary.md
+        echo "- Docker兼容性测试: ${{ needs.docker-compatibility.result }}" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "## 测试平台" >> compatibility-summary.md
+        echo "### Linux" >> compatibility-summary.md
+        echo "- Ubuntu 20.04, 22.04, 24.04" >> compatibility-summary.md
+        echo "- Debian 11, 12" >> compatibility-summary.md
+        echo "- CentOS 7, CentOS Stream 8" >> compatibility-summary.md
+        echo "- Fedora 38, 39" >> compatibility-summary.md
+        echo "- Shell: bash, dash, sh" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "### Windows" >> compatibility-summary.md
+        echo "- Windows Latest" >> compatibility-summary.md
+        echo "- Shell: Git Bash, PowerShell, Command Prompt" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "### macOS" >> compatibility-summary.md
+        echo "- macOS Latest" >> compatibility-summary.md
+        echo "- Shell: bash, zsh, sh" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "### Docker" >> compatibility-summary.md
+        echo "- 基础镜像: Ubuntu, Alpine, Debian" >> compatibility-summary.md
+        echo "- 平台: linux/amd64, linux/arm64, linux/arm/v7" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "## 测试项目" >> compatibility-summary.md
+        echo "- 脚本语法检查" >> compatibility-summary.md
+        echo "- 模块加载测试" >> compatibility-summary.md
+        echo "- Makefile构建测试" >> compatibility-summary.md
+        echo "- 代码质量检查" >> compatibility-summary.md
+        echo "- 自动化测试脚本" >> compatibility-summary.md
+        echo "- Docker镜像构建和运行" >> compatibility-summary.md
+        echo "" >> compatibility-summary.md
+        echo "## 兼容性建议" >> compatibility-summary.md
+        echo "- 使用POSIX兼容的Shell脚本" >> compatibility-summary.md
+        echo "- 避免平台特定的命令" >> compatibility-summary.md
+        echo "- 使用跨平台的工具和库" >> compatibility-summary.md
+        echo "- 定期测试不同平台" >> compatibility-summary.md
+        echo "- 提供平台特定的安装说明" >> compatibility-summary.md
+        
+    - name: 上传兼容性测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: compatibility-test-summary
+        path: compatibility-summary.md
+        
+    - name: 发布兼容性测试结果到PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('compatibility-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });

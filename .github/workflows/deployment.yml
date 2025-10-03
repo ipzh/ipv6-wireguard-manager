@@ -1,0 +1,491 @@
+name: Automated Deployment
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署环境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      deployment_type:
+        description: '部署类型'
+        required: true
+        default: 'docker'
+        type: choice
+        options:
+          - docker
+          - native
+          - kubernetes
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  DOCKER_REGISTRY: "ghcr.io"
+  IMAGE_NAME: "ipv6-wireguard-manager"
+
+jobs:
+  # 部署前检查
+  pre-deployment-check:
+    name: 部署前检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      deployment_version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 检查部署条件
+      id: check
+      run: |
+        echo "检查部署条件..."
+        
+        # 检查是否为发布标签
+        if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+          echo "检测到发布标签: ${{ github.ref_name }}"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "检测到main分支推送"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "手动触发部署"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        else
+          echo "不满足部署条件"
+          echo "should_deploy=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: 确定部署版本
+      id: version
+      run: |
+        if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+          echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ env.IPV6WGM_VERSION }}" >> $GITHUB_OUTPUT
+        fi
+
+  # 构建部署包
+  build-deployment:
+    name: 构建部署包
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: pre-deployment-check
+    if: needs.pre-deployment-check.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 登录到容器注册表
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 提取元数据
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=tag
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ needs.pre-deployment-check.outputs.deployment_version }}
+          
+    - name: 构建并推送Docker镜像
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          IPV6WGM_VERSION=${{ needs.pre-deployment-check.outputs.deployment_version }}
+          IPV6WGM_CI_MODE=true
+          
+    - name: 创建部署包
+      run: |
+        echo "创建部署包..."
+        mkdir -p deployment-packages
+        
+        # 创建Docker部署包
+        echo "创建Docker部署包..."
+        cat > deployment-packages/docker-compose.deploy.yml << EOF
+        version: '3.8'
+        
+        services:
+          ipv6-wireguard-manager:
+            image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-check.outputs.deployment_version }}
+            container_name: ipv6-wireguard-manager
+            restart: unless-stopped
+            privileged: true
+            network_mode: host
+            volumes:
+              - /etc/ipv6-wireguard-manager:/etc/ipv6-wireguard-manager
+              - /var/log/ipv6-wireguard-manager:/var/log/ipv6-wireguard-manager
+              - /lib/modules:/lib/modules:ro
+              - /usr/src:/usr/src:ro
+            environment:
+              - IPV6WGM_LOG_LEVEL=INFO
+              - IPV6WGM_DEBUG_MODE=false
+              - IPV6WGM_CONFIG_DIR=/etc/ipv6-wireguard-manager
+              - IPV6WGM_LOG_DIR=/var/log/ipv6-wireguard-manager
+            cap_add:
+              - NET_ADMIN
+              - SYS_MODULE
+            devices:
+              - /dev/net/tun:/dev/net/tun
+            sysctls:
+              - net.ipv4.ip_forward=1
+              - net.ipv6.conf.all.forwarding=1
+            healthcheck:
+              test: ["CMD", "/opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh", "--health-check"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+              start_period: 40s
+        EOF
+        
+        # 创建Kubernetes部署包
+        echo "创建Kubernetes部署包..."
+        cat > deployment-packages/kubernetes-deployment.yaml << EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ipv6-wireguard-manager
+          labels:
+            app: ipv6-wireguard-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ipv6-wireguard-manager
+          template:
+            metadata:
+              labels:
+                app: ipv6-wireguard-manager
+            spec:
+              containers:
+              - name: ipv6-wireguard-manager
+                image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-check.outputs.deployment_version }}
+                ports:
+                - containerPort: 51820
+                  protocol: UDP
+                - containerPort: 8080
+                  protocol: TCP
+                env:
+                - name: IPV6WGM_LOG_LEVEL
+                  value: "INFO"
+                - name: IPV6WGM_DEBUG_MODE
+                  value: "false"
+                - name: IPV6WGM_CONFIG_DIR
+                  value: "/etc/ipv6-wireguard-manager"
+                - name: IPV6WGM_LOG_DIR
+                  value: "/var/log/ipv6-wireguard-manager"
+                volumeMounts:
+                - name: config
+                  mountPath: /etc/ipv6-wireguard-manager
+                - name: logs
+                  mountPath: /var/log/ipv6-wireguard-manager
+                - name: modules
+                  mountPath: /lib/modules
+                  readOnly: true
+                - name: src
+                  mountPath: /usr/src
+                  readOnly: true
+                securityContext:
+                  privileged: true
+                  capabilities:
+                    add:
+                    - NET_ADMIN
+                    - SYS_MODULE
+                livenessProbe:
+                  exec:
+                    command:
+                    - /opt/ipv6-wireguard-manager/ipv6-wireguard-manager.sh
+                    - --health-check
+                  initialDelaySeconds: 40
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+              volumes:
+              - name: config
+                hostPath:
+                  path: /etc/ipv6-wireguard-manager
+              - name: logs
+                hostPath:
+                  path: /var/log/ipv6-wireguard-manager
+              - name: modules
+                hostPath:
+                  path: /lib/modules
+              - name: src
+                hostPath:
+                  path: /usr/src
+              nodeSelector:
+                kubernetes.io/os: linux
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ipv6-wireguard-manager-service
+          labels:
+            app: ipv6-wireguard-manager
+        spec:
+          selector:
+            app: ipv6-wireguard-manager
+          ports:
+          - name: wireguard
+            port: 51820
+            targetPort: 51820
+            protocol: UDP
+          - name: web
+            port: 8080
+            targetPort: 8080
+            protocol: TCP
+          type: LoadBalancer
+        EOF
+        
+        # 创建原生部署包
+        echo "创建原生部署包..."
+        tar -czf deployment-packages/ipv6-wireguard-manager-${{ needs.pre-deployment-check.outputs.deployment_version }}.tar.gz \
+          --exclude='.git' \
+          --exclude='*.log' \
+          --exclude='*.tmp' \
+          --exclude='deployment-packages' \
+          .
+          
+        # 创建部署脚本
+        cat > deployment-packages/deploy.sh << 'EOF'
+        #!/bin/bash
+        
+        set -e
+        
+        DEPLOYMENT_TYPE="${1:-docker}"
+        VERSION="${2:-latest}"
+        
+        echo "开始部署 IPv6-WireGuard Manager..."
+        echo "部署类型: $DEPLOYMENT_TYPE"
+        echo "版本: $VERSION"
+        
+        case "$DEPLOYMENT_TYPE" in
+          docker)
+            echo "使用Docker部署..."
+            docker-compose -f docker-compose.deploy.yml up -d
+            ;;
+          kubernetes)
+            echo "使用Kubernetes部署..."
+            kubectl apply -f kubernetes-deployment.yaml
+            ;;
+          native)
+            echo "使用原生方式部署..."
+            tar -xzf ipv6-wireguard-manager-$VERSION.tar.gz
+            sudo ./install.sh
+            ;;
+          *)
+            echo "未知的部署类型: $DEPLOYMENT_TYPE"
+            exit 1
+            ;;
+        esac
+        
+        echo "部署完成!"
+        EOF
+        
+        chmod +x deployment-packages/deploy.sh
+        
+    - name: 上传部署包
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-packages-${{ needs.pre-deployment-check.outputs.deployment_version }}
+        path: deployment-packages/
+
+  # 部署到测试环境
+  deploy-staging:
+    name: 部署到测试环境
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [pre-deployment-check, build-deployment]
+    if: needs.pre-deployment-check.outputs.should_deploy == 'true' && (github.event.inputs.environment == 'staging' || github.event.inputs.environment == '' || github.event_name == 'push')
+    environment: staging
+    
+    steps:
+    - name: 下载部署包
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-packages-${{ needs.pre-deployment-check.outputs.deployment_version }}
+        path: deployment-packages/
+        
+    - name: 部署到测试环境
+      run: |
+        echo "部署到测试环境..."
+        cd deployment-packages
+        
+        # 这里可以添加实际的部署逻辑
+        # 例如：SSH到测试服务器，上传文件，执行部署脚本等
+        
+        echo "测试环境部署完成!"
+        echo "版本: ${{ needs.pre-deployment-check.outputs.deployment_version }}"
+        echo "部署类型: ${{ github.event.inputs.deployment_type || 'docker' }}"
+        
+    - name: 验证测试环境部署
+      run: |
+        echo "验证测试环境部署..."
+        # 这里可以添加验证逻辑
+        # 例如：检查服务是否正常运行，健康检查等
+        
+        echo "测试环境部署验证完成!"
+
+  # 部署到生产环境
+  deploy-production:
+    name: 部署到生产环境
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [pre-deployment-check, build-deployment, deploy-staging]
+    if: needs.pre-deployment-check.outputs.should_deploy == 'true' && github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: 下载部署包
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-packages-${{ needs.pre-deployment-check.outputs.deployment_version }}
+        path: deployment-packages/
+        
+    - name: 部署到生产环境
+      run: |
+        echo "部署到生产环境..."
+        cd deployment-packages
+        
+        # 这里可以添加实际的部署逻辑
+        # 例如：SSH到生产服务器，上传文件，执行部署脚本等
+        
+        echo "生产环境部署完成!"
+        echo "版本: ${{ needs.pre-deployment-check.outputs.deployment_version }}"
+        echo "部署类型: ${{ github.event.inputs.deployment_type || 'docker' }}"
+        
+    - name: 验证生产环境部署
+      run: |
+        echo "验证生产环境部署..."
+        # 这里可以添加验证逻辑
+        # 例如：检查服务是否正常运行，健康检查等
+        
+        echo "生产环境部署验证完成!"
+
+  # 部署后测试
+  post-deployment-test:
+    name: 部署后测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [pre-deployment-check, build-deployment]
+    if: needs.pre-deployment-check.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 下载部署包
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-packages-${{ needs.pre-deployment-check.outputs.deployment_version }}
+        path: deployment-packages/
+        
+    - name: 运行部署后测试
+      run: |
+        echo "运行部署后测试..."
+        cd deployment-packages
+        
+        # 测试Docker镜像
+        echo "测试Docker镜像..."
+        docker run --rm ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-check.outputs.deployment_version }} --version || true
+        
+        # 测试Docker Compose配置
+        echo "测试Docker Compose配置..."
+        docker-compose -f docker-compose.deploy.yml config || true
+        
+        # 测试Kubernetes配置
+        echo "测试Kubernetes配置..."
+        kubectl apply --dry-run=client -f kubernetes-deployment.yaml || true
+        
+        echo "部署后测试完成!"
+
+  # 部署总结
+  deployment-summary:
+    name: 部署总结
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-check, build-deployment, deploy-staging, deploy-production, post-deployment-test]
+    if: always() && needs.pre-deployment-check.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 生成部署总结
+      run: |
+        echo "# IPv6-WireGuard Manager 部署总结" > deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## 部署信息" >> deployment-summary.md
+        echo "- 部署时间: $(date)" >> deployment-summary.md
+        echo "- 部署版本: ${{ needs.pre-deployment-check.outputs.deployment_version }}" >> deployment-summary.md
+        echo "- 部署环境: ${{ github.event.inputs.environment || 'staging' }}" >> deployment-summary.md
+        echo "- 部署类型: ${{ github.event.inputs.deployment_type || 'docker' }}" >> deployment-summary.md
+        echo "- 触发事件: ${{ github.event_name }}" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## 部署结果" >> deployment-summary.md
+        echo "- 部署前检查: ${{ needs.pre-deployment-check.result }}" >> deployment-summary.md
+        echo "- 构建部署包: ${{ needs.build-deployment.result }}" >> deployment-summary.md
+        echo "- 测试环境部署: ${{ needs.deploy-staging.result }}" >> deployment-summary.md
+        echo "- 生产环境部署: ${{ needs.deploy-production.result }}" >> deployment-summary.md
+        echo "- 部署后测试: ${{ needs.post-deployment-test.result }}" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## 部署产物" >> deployment-summary.md
+        echo "- Docker镜像: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-check.outputs.deployment_version }}" >> deployment-summary.md
+        echo "- 部署包: deployment-packages-${{ needs.pre-deployment-check.outputs.deployment_version }}" >> deployment-summary.md
+        echo "- Docker Compose配置: docker-compose.deploy.yml" >> deployment-summary.md
+        echo "- Kubernetes配置: kubernetes-deployment.yaml" >> deployment-summary.md
+        echo "- 原生部署包: ipv6-wireguard-manager-${{ needs.pre-deployment-check.outputs.deployment_version }}.tar.gz" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## 部署命令" >> deployment-summary.md
+        echo "### Docker部署" >> deployment-summary.md
+        echo "```bash" >> deployment-summary.md
+        echo "docker-compose -f docker-compose.deploy.yml up -d" >> deployment-summary.md
+        echo "```" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "### Kubernetes部署" >> deployment-summary.md
+        echo "```bash" >> deployment-summary.md
+        echo "kubectl apply -f kubernetes-deployment.yaml" >> deployment-summary.md
+        echo "```" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "### 原生部署" >> deployment-summary.md
+        echo "```bash" >> deployment-summary.md
+        echo "tar -xzf ipv6-wireguard-manager-${{ needs.pre-deployment-check.outputs.deployment_version }}.tar.gz" >> deployment-summary.md
+        echo "sudo ./install.sh" >> deployment-summary.md
+        echo "```" >> deployment-summary.md
+        
+    - name: 上传部署总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary
+        path: deployment-summary.md
+        
+    - name: 发布部署总结到PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('deployment-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });

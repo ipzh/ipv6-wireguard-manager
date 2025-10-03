@@ -1,0 +1,299 @@
+name: Security Scanning & Vulnerability Assessment
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每周日凌晨2点运行安全扫描
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  SCAN_MODE: "comprehensive"
+
+jobs:
+  # 代码安全扫描
+  code-security-scan:
+    name: 代码安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: 安装安全扫描工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          shellcheck \
+          bandit \
+          safety \
+          semgrep \
+          trivy \
+          gitleaks
+        
+        # 安装Python安全工具
+        pip3 install bandit safety semgrep
+        
+    - name: 运行ShellCheck安全扫描
+      run: |
+        echo "运行ShellCheck安全扫描..."
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --severity=warning --format=json > shellcheck-security.json || true
+        find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck --severity=warning || true
+        
+    - name: 运行Semgrep安全扫描
+      run: |
+        echo "运行Semgrep安全扫描..."
+        semgrep --config=auto --json --output=semgrep-security.json . || true
+        semgrep --config=auto . || true
+        
+    - name: 运行Bandit安全扫描
+      run: |
+        echo "运行Bandit安全扫描..."
+        bandit -r . -f json -o bandit-security.json || true
+        bandit -r . || true
+        
+    - name: 运行Gitleaks扫描
+      run: |
+        echo "运行Gitleaks扫描..."
+        gitleaks detect --source . --report-format json --report-path gitleaks-security.json || true
+        gitleaks detect --source . || true
+        
+    - name: 检查敏感信息
+      run: |
+        echo "检查敏感信息..."
+        # 检查硬编码密码
+        if grep -r "password\s*=\s*['\"][^'\"]*['\"]" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "警告: 发现可能的硬编码密码"
+          grep -r "password\s*=\s*['\"][^'\"]*['\"]" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder" > hardcoded-passwords.txt
+        fi
+        
+        # 检查API密钥
+        if grep -r "api[_-]?key\|secret[_-]?key\|private[_-]?key" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "警告: 发现可能的API密钥"
+          grep -r "api[_-]?key\|secret[_-]?key\|private[_-]?key" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder" > api-keys.txt
+        fi
+        
+        # 检查数据库连接字符串
+        if grep -r "mysql://\|postgres://\|mongodb://" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder"; then
+          echo "警告: 发现可能的数据库连接字符串"
+          grep -r "mysql://\|postgres://\|mongodb://" --include="*.sh" --include="*.py" --include="*.yml" --include="*.yaml" . | grep -v "example\|test\|demo\|placeholder" > database-connections.txt
+        fi
+        
+    - name: 上传安全扫描报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-security-scan-report
+        path: |
+          shellcheck-security.json
+          semgrep-security.json
+          bandit-security.json
+          gitleaks-security.json
+          hardcoded-passwords.txt
+          api-keys.txt
+          database-connections.txt
+
+  # 依赖安全扫描
+  dependency-scan:
+    name: 依赖安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装依赖扫描工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          safety \
+          trivy \
+          pip-audit
+        
+        # 安装Python依赖扫描工具
+        pip3 install safety pip-audit
+        
+    - name: 扫描Python依赖
+      run: |
+        echo "扫描Python依赖..."
+        if [[ -f "requirements.txt" ]]; then
+          safety check --json --output safety-dependencies.json || true
+          safety check || true
+        fi
+        
+        if [[ -f "requirements.txt" ]]; then
+          pip-audit --format=json --output=pip-audit-dependencies.json || true
+          pip-audit || true
+        fi
+        
+    - name: 扫描系统包
+      run: |
+        echo "扫描系统包漏洞..."
+        trivy fs --format json --output trivy-fs.json . || true
+        trivy fs . || true
+        
+    - name: 上传依赖扫描报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: dependency-scan-report
+        path: |
+          safety-dependencies.json
+          pip-audit-dependencies.json
+          trivy-fs.json
+
+  # Docker镜像安全扫描
+  docker-security-scan:
+    name: Docker镜像安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 构建Docker镜像
+      run: |
+        docker build -t ipv6-wireguard-manager:security-scan .
+        
+    - name: 安装Trivy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install -y trivy
+        
+    - name: 扫描Docker镜像
+      run: |
+        echo "扫描Docker镜像漏洞..."
+        trivy image --format json --output trivy-image.json ipv6-wireguard-manager:security-scan || true
+        trivy image --severity HIGH,CRITICAL ipv6-wireguard-manager:security-scan || true
+        
+    - name: 扫描Dockerfile
+      run: |
+        echo "扫描Dockerfile..."
+        trivy config --format json --output trivy-dockerfile.json . || true
+        trivy config . || true
+        
+    - name: 上传Docker安全扫描报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: docker-security-scan-report
+        path: |
+          trivy-image.json
+          trivy-dockerfile.json
+
+  # 网络安全扫描
+  network-security-scan:
+    name: 网络安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装网络扫描工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          nmap \
+          nikto \
+          curl \
+          wget
+          
+    - name: 检查开放端口
+      run: |
+        echo "检查开放端口..."
+        nmap -sS -O localhost > nmap-scan.txt || true
+        
+    - name: 检查HTTP服务
+      run: |
+        echo "检查HTTP服务..."
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 | grep -q "200\|404"; then
+          echo "HTTP服务响应正常" >> network-scan.txt
+        else
+          echo "HTTP服务无响应" >> network-scan.txt
+        fi
+        
+    - name: 上传网络安全扫描报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: network-security-scan-report
+        path: |
+          nmap-scan.txt
+          network-scan.txt
+
+  # 安全测试总结
+  security-summary:
+    name: 安全测试总结
+    runs-on: ubuntu-latest
+    needs: [code-security-scan, dependency-scan, docker-security-scan, network-security-scan]
+    if: always()
+    
+    steps:
+    - name: 生成安全测试总结
+      run: |
+        echo "# IPv6-WireGuard Manager 安全扫描总结" > security-summary.md
+        echo "" >> security-summary.md
+        echo "## 扫描时间" >> security-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> security-summary.md
+        echo "- 结束时间: $(date)" >> security-summary.md
+        echo "- 扫描模式: ${{ env.SCAN_MODE }}" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "## 扫描结果" >> security-summary.md
+        echo "- 代码安全扫描: ${{ needs.code-security-scan.result }}" >> security-summary.md
+        echo "- 依赖安全扫描: ${{ needs.dependency-scan.result }}" >> security-summary.md
+        echo "- Docker镜像安全扫描: ${{ needs.docker-security-scan.result }}" >> security-summary.md
+        echo "- 网络安全扫描: ${{ needs.network-security-scan.result }}" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "## 安全工具" >> security-summary.md
+        echo "- ShellCheck: Shell脚本安全分析" >> security-summary.md
+        echo "- Semgrep: 代码安全模式检测" >> security-summary.md
+        echo "- Bandit: Python代码安全分析" >> security-summary.md
+        echo "- Gitleaks: 敏感信息泄露检测" >> security-summary.md
+        echo "- Trivy: 容器镜像漏洞扫描" >> security-summary.md
+        echo "- Safety: Python依赖安全扫描" >> security-summary.md
+        echo "- Nmap: 网络端口扫描" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "## 建议" >> security-summary.md
+        echo "- 定期更新依赖包" >> security-summary.md
+        echo "- 使用最新版本的Docker基础镜像" >> security-summary.md
+        echo "- 定期进行安全扫描" >> security-summary.md
+        echo "- 及时修复发现的安全漏洞" >> security-summary.md
+        
+    - name: 上传安全测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-summary
+        path: security-summary.md
+        
+    - name: 发布安全扫描结果到PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('security-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });

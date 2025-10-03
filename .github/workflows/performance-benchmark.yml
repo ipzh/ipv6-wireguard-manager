@@ -1,0 +1,401 @@
+name: Performance Benchmark & Load Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 每周一凌晨4点运行性能基准测试
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      benchmark_type:
+        description: '基准测试类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - build
+          - test
+          - memory
+          - cpu
+          - network
+
+env:
+  IPV6WGM_VERSION: "1.0.0"
+  BENCHMARK_MODE: "comprehensive"
+
+jobs:
+  # 构建性能基准测试
+  build-performance:
+    name: 构建性能基准测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装性能监控工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          time \
+          htop \
+          iotop \
+          sysstat \
+          stress-ng \
+          perf-tools-unstable \
+          valgrind
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行构建性能测试
+      run: |
+        echo "开始构建性能基准测试..."
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > build-performance-report.txt
+        echo "CPU: $(nproc) cores" >> build-performance-report.txt
+        echo "内存: $(free -h | grep Mem | awk '{print $2}')" >> build-performance-report.txt
+        echo "磁盘: $(df -h / | tail -1 | awk '{print $2}')" >> build-performance-report.txt
+        echo "内核: $(uname -r)" >> build-performance-report.txt
+        echo "" >> build-performance-report.txt
+        
+        # 测试Makefile构建性能
+        echo "=== Makefile构建性能测试 ===" >> build-performance-report.txt
+        echo "测试构建时间..." >> build-performance-report.txt
+        /usr/bin/time -v make build 2>&1 | tee -a build-performance-report.txt
+        echo "" >> build-performance-report.txt
+        
+        # 测试清理性能
+        echo "=== 清理性能测试 ===" >> build-performance-report.txt
+        echo "测试清理时间..." >> build-performance-report.txt
+        /usr/bin/time -v make clean 2>&1 | tee -a build-performance-report.txt
+        echo "" >> build-performance-report.txt
+        
+        # 测试发布包创建性能
+        echo "=== 发布包创建性能测试 ===" >> build-performance-report.txt
+        echo "测试发布包创建时间..." >> build-performance-report.txt
+        /usr/bin/time -v make release 2>&1 | tee -a build-performance-report.txt
+        echo "" >> build-performance-report.txt
+        
+    - name: 上传构建性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-performance-report
+        path: build-performance-report.txt
+
+  # 测试执行性能基准测试
+  test-performance:
+    name: 测试执行性能基准测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装性能监控工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          time \
+          htop \
+          iotop \
+          sysstat \
+          stress-ng
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行测试性能基准测试
+      run: |
+        echo "开始测试执行性能基准测试..."
+        
+        # 系统信息
+        echo "=== 系统信息 ===" > test-performance-report.txt
+        echo "CPU: $(nproc) cores" >> test-performance-report.txt
+        echo "内存: $(free -h | grep Mem | awk '{print $2}')" >> test-performance-report.txt
+        echo "磁盘: $(df -h / | tail -1 | awk '{print $2}')" >> test-performance-report.txt
+        echo "" >> test-performance-report.txt
+        
+        # 测试单元测试性能
+        echo "=== 单元测试性能测试 ===" >> test-performance-report.txt
+        echo "测试单元测试执行时间..." >> test-performance-report.txt
+        /usr/bin/time -v make test-unit 2>&1 | tee -a test-performance-report.txt
+        echo "" >> test-performance-report.txt
+        
+        # 测试集成测试性能
+        echo "=== 集成测试性能测试 ===" >> test-performance-report.txt
+        echo "测试集成测试执行时间..." >> test-performance-report.txt
+        /usr/bin/time -v make test-integration 2>&1 | tee -a test-performance-report.txt
+        echo "" >> test-performance-report.txt
+        
+        # 测试代码质量检查性能
+        echo "=== 代码质量检查性能测试 ===" >> test-performance-report.txt
+        echo "测试代码质量检查执行时间..." >> test-performance-report.txt
+        /usr/bin/time -v make lint 2>&1 | tee -a test-performance-report.txt
+        echo "" >> test-performance-report.txt
+        
+        # 测试完整测试套件性能
+        echo "=== 完整测试套件性能测试 ===" >> test-performance-report.txt
+        echo "测试完整测试套件执行时间..." >> test-performance-report.txt
+        /usr/bin/time -v make test-full 2>&1 | tee -a test-performance-report.txt
+        echo "" >> test-performance-report.txt
+        
+    - name: 上传测试性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-performance-report
+        path: test-performance-report.txt
+
+  # 内存使用性能测试
+  memory-performance:
+    name: 内存使用性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装内存监控工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          valgrind \
+          massif-visualizer \
+          time \
+          htop \
+          sysstat
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行内存性能测试
+      run: |
+        echo "开始内存使用性能测试..."
+        
+        # 系统内存信息
+        echo "=== 系统内存信息 ===" > memory-performance-report.txt
+        echo "总内存: $(free -h | grep Mem | awk '{print $2}')" >> memory-performance-report.txt
+        echo "可用内存: $(free -h | grep Mem | awk '{print $7}')" >> memory-performance-report.txt
+        echo "内存使用率: $(free | grep Mem | awk '{printf("%.2f%%", $3/$2 * 100.0)}')" >> memory-performance-report.txt
+        echo "" >> memory-performance-report.txt
+        
+        # 测试构建过程内存使用
+        echo "=== 构建过程内存使用测试 ===" >> memory-performance-report.txt
+        echo "监控构建过程内存使用..." >> memory-performance-report.txt
+        /usr/bin/time -v make build 2>&1 | tee -a memory-performance-report.txt
+        echo "" >> memory-performance-report.txt
+        
+        # 测试测试执行内存使用
+        echo "=== 测试执行内存使用测试 ===" >> memory-performance-report.txt
+        echo "监控测试执行内存使用..." >> memory-performance-report.txt
+        /usr/bin/time -v make test-unit 2>&1 | tee -a memory-performance-report.txt
+        echo "" >> memory-performance-report.txt
+        
+        # 测试脚本内存使用
+        echo "=== 脚本内存使用测试 ===" >> memory-performance-report.txt
+        echo "监控主脚本内存使用..." >> memory-performance-report.txt
+        /usr/bin/time -v bash ipv6-wireguard-manager.sh --help 2>&1 | tee -a memory-performance-report.txt
+        echo "" >> memory-performance-report.txt
+        
+    - name: 上传内存性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: memory-performance-report
+        path: memory-performance-report.txt
+
+  # CPU使用性能测试
+  cpu-performance:
+    name: CPU使用性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装CPU监控工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          time \
+          htop \
+          sysstat \
+          stress-ng \
+          perf-tools-unstable
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行CPU性能测试
+      run: |
+        echo "开始CPU使用性能测试..."
+        
+        # 系统CPU信息
+        echo "=== 系统CPU信息 ===" > cpu-performance-report.txt
+        echo "CPU核心数: $(nproc)" >> cpu-performance-report.txt
+        echo "CPU型号: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)" >> cpu-performance-report.txt
+        echo "CPU频率: $(lscpu | grep 'CPU MHz' | cut -d: -f2 | xargs) MHz" >> cpu-performance-report.txt
+        echo "" >> cpu-performance-report.txt
+        
+        # 测试构建过程CPU使用
+        echo "=== 构建过程CPU使用测试 ===" >> cpu-performance-report.txt
+        echo "监控构建过程CPU使用..." >> cpu-performance-report.txt
+        /usr/bin/time -v make build 2>&1 | tee -a cpu-performance-report.txt
+        echo "" >> cpu-performance-report.txt
+        
+        # 测试测试执行CPU使用
+        echo "=== 测试执行CPU使用测试 ===" >> cpu-performance-report.txt
+        echo "监控测试执行CPU使用..." >> cpu-performance-report.txt
+        /usr/bin/time -v make test-unit 2>&1 | tee -a cpu-performance-report.txt
+        echo "" >> cpu-performance-report.txt
+        
+        # 测试脚本CPU使用
+        echo "=== 脚本CPU使用测试 ===" >> cpu-performance-report.txt
+        echo "监控主脚本CPU使用..." >> cpu-performance-report.txt
+        /usr/bin/time -v bash ipv6-wireguard-manager.sh --help 2>&1 | tee -a cpu-performance-report.txt
+        echo "" >> cpu-performance-report.txt
+        
+        # 测试并行处理性能
+        echo "=== 并行处理性能测试 ===" >> cpu-performance-report.txt
+        echo "测试并行处理能力..." >> cpu-performance-report.txt
+        /usr/bin/time -v bash -c 'for i in {1..4}; do make build & done; wait' 2>&1 | tee -a cpu-performance-report.txt
+        echo "" >> cpu-performance-report.txt
+        
+    - name: 上传CPU性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: cpu-performance-report
+        path: cpu-performance-report.txt
+
+  # 网络性能测试
+  network-performance:
+    name: 网络性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 安装网络监控工具
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          curl \
+          wget \
+          iperf3 \
+          netstat-nat \
+          tcpdump
+          
+    - name: 设置执行权限
+      run: |
+        find . -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: 运行网络性能测试
+      run: |
+        echo "开始网络性能测试..."
+        
+        # 网络接口信息
+        echo "=== 网络接口信息 ===" > network-performance-report.txt
+        echo "网络接口:" >> network-performance-report.txt
+        ip addr show >> network-performance-report.txt
+        echo "" >> network-performance-report.txt
+        
+        # 测试网络连接性能
+        echo "=== 网络连接性能测试 ===" >> network-performance-report.txt
+        echo "测试GitHub连接..." >> network-performance-report.txt
+        time curl -s -o /dev/null https://github.com 2>&1 | tee -a network-performance-report.txt
+        echo "" >> network-performance-report.txt
+        
+        echo "测试Docker Hub连接..." >> network-performance-report.txt
+        time curl -s -o /dev/null https://hub.docker.com 2>&1 | tee -a network-performance-report.txt
+        echo "" >> network-performance-report.txt
+        
+        # 测试下载性能
+        echo "=== 下载性能测试 ===" >> network-performance-report.txt
+        echo "测试小文件下载..." >> network-performance-report.txt
+        time wget -q -O /dev/null https://github.com/ipzh/ipv6-wireguard-manager/archive/main.zip 2>&1 | tee -a network-performance-report.txt
+        echo "" >> network-performance-report.txt
+        
+        # 测试网络延迟
+        echo "=== 网络延迟测试 ===" >> network-performance-report.txt
+        echo "测试GitHub延迟..." >> network-performance-report.txt
+        ping -c 5 github.com >> network-performance-report.txt
+        echo "" >> network-performance-report.txt
+        
+    - name: 上传网络性能报告
+      uses: actions/upload-artifact@v4
+      with:
+        name: network-performance-report
+        path: network-performance-report.txt
+
+  # 性能基准测试总结
+  performance-summary:
+    name: 性能基准测试总结
+    runs-on: ubuntu-latest
+    needs: [build-performance, test-performance, memory-performance, cpu-performance, network-performance]
+    if: always()
+    
+    steps:
+    - name: 生成性能基准测试总结
+      run: |
+        echo "# IPv6-WireGuard Manager 性能基准测试总结" > performance-summary.md
+        echo "" >> performance-summary.md
+        echo "## 测试时间" >> performance-summary.md
+        echo "- 开始时间: ${{ github.event.head_commit.timestamp }}" >> performance-summary.md
+        echo "- 结束时间: $(date)" >> performance-summary.md
+        echo "- 测试模式: ${{ env.BENCHMARK_MODE }}" >> performance-summary.md
+        echo "" >> performance-summary.md
+        echo "## 测试结果" >> performance-summary.md
+        echo "- 构建性能测试: ${{ needs.build-performance.result }}" >> performance-summary.md
+        echo "- 测试执行性能测试: ${{ needs.test-performance.result }}" >> performance-summary.md
+        echo "- 内存使用性能测试: ${{ needs.memory-performance.result }}" >> performance-summary.md
+        echo "- CPU使用性能测试: ${{ needs.cpu-performance.result }}" >> performance-summary.md
+        echo "- 网络性能测试: ${{ needs.network-performance.result }}" >> performance-summary.md
+        echo "" >> performance-summary.md
+        echo "## 性能指标" >> performance-summary.md
+        echo "- 构建时间: 监控Makefile构建过程" >> performance-summary.md
+        echo "- 测试时间: 监控测试执行过程" >> performance-summary.md
+        echo "- 内存使用: 监控内存消耗" >> performance-summary.md
+        echo "- CPU使用: 监控CPU利用率" >> performance-summary.md
+        echo "- 网络性能: 监控网络连接和下载速度" >> performance-summary.md
+        echo "" >> performance-summary.md
+        echo "## 优化建议" >> performance-summary.md
+        echo "- 根据性能测试结果优化构建过程" >> performance-summary.md
+        echo "- 优化测试执行效率" >> performance-summary.md
+        echo "- 减少内存使用" >> performance-summary.md
+        echo "- 优化CPU使用" >> performance-summary.md
+        echo "- 改善网络性能" >> performance-summary.md
+        
+    - name: 上传性能基准测试总结
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-benchmark-summary
+        path: performance-summary.md
+        
+    - name: 发布性能基准测试结果到PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('performance-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
