@@ -3,6 +3,15 @@
 # IPv6 WireGuard Manager 更新脚本
 # 用于更新管理器到最新版本
 
+# 设置错误处理，根据执行环境调整严格程度
+if [[ -t 0 ]]; then
+    # 交互式执行，使用严格模式（ERR trap在函数中也继承）
+    set -Eeuo pipefail
+else
+    # 非交互执行，启用 ERR 继承与基本错误退出
+    set -E -e
+fi
+
 # 获取脚本目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit
 PROJECT_ROOT="$SCRIPT_DIR"

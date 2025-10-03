@@ -33,6 +33,10 @@ detect_windows_environment() {
        ([[ -f /proc/version ]] && grep -qi microsoft /proc/version); then
         IPV6WGM_WINDOWS_ENV_TYPE="wsl"
         log_info "检测到WSL环境"
+    # 先精准检测 Git Bash（MSYSTEM=MINGW*），避免被 MSYS 分支抢占
+    elif [[ -n "${MSYSTEM:-}" ]] && [[ "$MSYSTEM" =~ ^MINGW ]]; then
+        IPV6WGM_WINDOWS_ENV_TYPE="gitbash"
+        log_info "检测到Git Bash环境"
     # 检测MSYS
     elif [[ "$OSTYPE" == "msys" ]]; then
         IPV6WGM_WINDOWS_ENV_TYPE="msys"
@@ -41,10 +45,6 @@ detect_windows_environment() {
     elif [[ "$OSTYPE" == "cygwin" ]]; then
         IPV6WGM_WINDOWS_ENV_TYPE="cygwin"
         log_info "检测到Cygwin环境"
-    # 检测Git Bash
-    elif [[ -n "${MSYSTEM:-}" ]] && [[ "$MSYSTEM" =~ ^MINGW ]]; then
-        IPV6WGM_WINDOWS_ENV_TYPE="gitbash"
-        log_info "检测到Git Bash环境"
     # 检测PowerShell
     elif [[ -n "${PSModulePath:-}" ]] && [[ "$PSModulePath" =~ Windows ]]; then
         IPV6WGM_WINDOWS_ENV_TYPE="powershell"
@@ -417,3 +417,9 @@ export -f create_windows_directory
 export -f check_windows_compatibility
 export -f test_path_conversion
 export -f test_windows_permissions
+export -f setup_windows_paths
+export -f setup_windows_aliases
+export -f setup_wsl_aliases
+export -f setup_msys_aliases
+export -f setup_powershell_aliases
+export -f setup_compatibility_mode

@@ -6,11 +6,11 @@
 
 # 设置错误处理，根据执行环境调整严格程度
 if [[ -t 0 ]]; then
-    # 交互式执行，使用严格模式
-    set -euo pipefail
+    # 交互式执行，使用严格模式（ERR trap在函数中也继承）
+    set -Eeuo pipefail
 else
-    # 管道执行，使用宽松模式
-    set -e
+    # 非交互执行，启用 ERR 继承与基本错误退出
+    set -E -e
 fi
 
 # 安全的脚本目录检测
