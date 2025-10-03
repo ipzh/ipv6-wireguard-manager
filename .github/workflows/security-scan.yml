@@ -44,14 +44,18 @@ jobs:
         # 安装Semgrep
         python3 -m pip install semgrep
         
-        # 安装Trivy (增加重试，避免网络错误导致退出码22)
+        # 安装Trivy（去掉管道，添加重试，规避 pipefail 导致的退出码22）
         set +e
+        set +o pipefail
         for i in 1 2 3; do
           echo "安装 Trivy 尝试第 $i 次..."
-          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
           sleep 2
         done
         set -e
+        set -o pipefail || true
         trivy --version || /usr/local/bin/trivy --version || true
         
         # 安装Gitleaks (优化版本)
@@ -142,14 +146,18 @@ jobs:
         python3 -m pip install --upgrade pip
         pip3 install safety pip-audit
 
-        # 安装Trivy（使用官方安装脚本，带重试并避免退出码22）
+        # 安装Trivy（去掉管道，添加重试，规避 pipefail 导致的退出码22）
         set +e
+        set +o pipefail
         for i in 1 2 3; do
           echo "安装 Trivy 尝试第 $i 次..."
-          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
           sleep 2
         done
         set -e
+        set -o pipefail || true
         trivy --version || /usr/local/bin/trivy --version || true
         
     - name: 扫描Python依赖
@@ -198,16 +206,20 @@ jobs:
       run: |
         docker build -t ipv6-wireguard-manager:security-scan .
         
-    - name: 安装Trivy (优化版本)
+    - name: 安装Trivy (优化版本，去管道+重试)
       run: |
-        # 使用官方安装脚本（带重试，避免网络错误导致退出码22）
+        # 使用官方安装脚本（去掉管道并增加重试，避免退出码22）
         set +e
+        set +o pipefail
         for i in 1 2 3; do
           echo "安装 Trivy 尝试第 $i 次..."
-          curl -sL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3 && break
+          curl -fsSL --retry 3 --retry-delay 2 -o /tmp/trivy-install.sh \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh && \
+            sh /tmp/trivy-install.sh -b /usr/local/bin v0.48.3 && break
           sleep 2
         done
         set -e
+        set -o pipefail || true
         
         # 验证安装
         trivy --version || /usr/local/bin/trivy --version || true
