@@ -1,0 +1,34 @@
+# Normalize line endings across the project
+
+# Default: treat text files and enforce LF endings
+* text=auto eol=lf
+
+# Scripts and configs
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.ps1     text eol=lf
+*.cmd     text eol=lf
+*.bat     text eol=lf
+Dockerfile text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.conf    text eol=lf
+*.ini     text eol=lf
+*.env     text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+
+# Make sure known binaries are not modified
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary
+*.zip     binary
+*.gz      binary
+*.tar     binary
+*.tgz     binary
+*.7z      binary
+*.exe     binary
+*.dll     binary
