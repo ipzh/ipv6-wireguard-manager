@@ -735,11 +735,62 @@ detect_system() {
     log_info "系统信息: $OS_TYPE $OS_VERSION ($ARCH), 包管理器: $PACKAGE_MANAGER"
 }
 
-# 加载所有模块
+# 并行加载模块（提高启动速度）
+load_modules_parallel() {
+    local modules=("$@")
+    local pids=()
+    local failed_modules=()
+
+    log_info "并行加载功能模块 (${#modules[@]} 个模块)..."
+
+    # 分批加载，每批最多5个模块
+    local batch_size=5
+    local total_batches=$(( (${#modules[@]} + batch_size - 1) / batch_size ))
+
+    for ((batch=0; batch<total_batches; batch++)); do
+        local start=$((batch * batch_size))
+        local end=$((start + batch_size))
+        if [[ $end -gt ${#modules[@]} ]]; then
+            end=${#modules[@]}
+        fi
+
+        log_debug "加载第 $((batch + 1))/$total_batches 批模块 (${start}-${end})"
+
+        # 并行加载当前批次的模块
+        for ((i=start; i<end; i++)); do
+            local module="${modules[$i]}"
+            (
+                if load_module "$module"; then
+                    log_debug "模块 $module 加载成功"
+                else
+                    log_warn "无法加载模块: $module"
+                    echo "FAILED:$module" >&2
+                fi
+            ) &
+            pids+=($!)
+        done
+
+        # 等待当前批次完成
+        for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+                # 从stderr获取失败的模块名
+                failed_modules+=("$(wait "$pid" 2>&1 | grep "FAILED:" | cut -d: -f2)")
+            fi
+        done
+
+        pids=()  # 清空PID数组
+    done
+
+    # 报告加载结果
+    if [[ ${#failed_modules[@]} -eq 0 ]]; then
+        log_success "所有模块加载完成"
+    else
+        log_warn "模块加载完成，但以下模块加载失败: ${failed_modules[*]}"
+    fi
+}
+
+# 加载所有模块（使用并行加载）
 load_modules() {
-    log_info "加载功能模块..."
-    
-    # 按依赖顺序加载模块
     local modules=(
         "common_functions"
         "module_loader"
@@ -781,10 +832,16 @@ load_modules() {
         "performance_optimization"
         "performance_enhancements"
     )
-    
-    for module in "${modules[@]}"; do
-        load_module "$module" || log_warn "无法加载模块: $module"
-    done
+
+    # 使用并行加载（如果启用）
+    if [[ "${IPV6WGM_PARALLEL_LOADING:-true}" == "true" ]]; then
+        load_modules_parallel "${modules[@]}"
+    else
+        # 回退到串行加载
+        for module in "${modules[@]}"; do
+            load_module "$module" || log_warn "无法加载模块: $module"
+        done
+    fi
 }
 
 # 主菜单
@@ -1130,7 +1187,17 @@ quick_install() {
     
     # 启动服务
     start_services
-    
+
+    # 启动WebSocket服务（如果启用）
+    if [[ "$INSTALL_WEBSOCKET_REALTIME" == "true" ]]; then
+        log_info "启动WebSocket实时通信服务..."
+        if command -v start_websocket_service &> /dev/null; then
+            start_websocket_service
+        else
+            log_warn "WebSocket服务启动函数不可用"
+        fi
+    fi
+
     log_info "快速安装完成!"
     read -rp "按回车键继续..."
 }
@@ -2773,6 +2840,152 @@ system_self_check_menu() {
         
         read -rp "按回车键继续..."
     done
+}
+
+# 网络配置菜单处理
+handle_network_menu_selection() {
+    local choice="$1"
+    case $choice in
+        1)
+            show_info "当前网络配置:"
+            echo "IPv6前缀: $(get_config "ipv6.prefix" "未配置")"
+            echo "BGP AS号: $(get_config "bgp.as" "未配置")"
+            echo "BGP邻居: $(get_config "bgp.neighbors" "未配置")"
+            ;;
+        2)
+            read -rp "请输入IPv6前缀 (如: 2001:db8::/56): " ipv6_prefix
+            if [[ -n "$ipv6_prefix" ]]; then
+                set_config "ipv6.prefix" "$ipv6_prefix"
+                show_success "IPv6前缀已设置为: $ipv6_prefix"
+            fi
+            ;;
+        3)
+            show_info "BGP邻居管理功能开发中..."
+            ;;
+        4)
+            show_info "路由表:"
+            ip route show | head -20
+            ;;
+        5)
+            show_info "网络连通性测试:"
+            ping -c 3 8.8.8.8 && echo "IPv4连通正常" || echo "IPv4连接失败"
+            ping6 -c 3 2001:4860:4860::8888 && echo "IPv6连通正常" || echo "IPv6连接失败"
+            ;;
+        6)
+            show_info "DNS配置:"
+            cat /etc/resolv.conf 2>/dev/null || echo "无法读取DNS配置"
+            ;;
+        7)
+            show_info "网络接口:"
+            ip addr show | grep -E "^[0-9]+:" | head -10
+            ;;
+        8)
+            show_info "IPv6隧道配置功能开发中..."
+            ;;
+        *)
+            show_error "无效选择"
+            ;;
+    esac
+}
+
+# API文档菜单处理
+handle_api_docs_menu_selection() {
+    local choice="$1"
+    case $choice in
+        1)
+            if command -v generate_api_docs &> /dev/null; then
+                generate_api_docs
+                show_success "API文档生成完成"
+            else
+                show_error "API文档生成功能不可用"
+            fi
+            ;;
+        2)
+            show_info "API接口概览:"
+            echo "可用API接口:"
+            echo "- /api/clients - 客户端管理"
+            echo "- /api/network - 网络配置"
+            echo "- /api/monitoring - 系统监控"
+            echo "- /api/health - 健康检查"
+            ;;
+        3)
+            show_info "API接口测试功能开发中..."
+            ;;
+        4)
+            show_info "API文档导出功能开发中..."
+            ;;
+        5)
+            show_info "API使用示例:"
+            echo "curl -X GET http://localhost:8080/api/health"
+            echo "curl -X GET http://localhost:8080/api/clients"
+            ;;
+        6)
+            show_info "API版本管理功能开发中..."
+            ;;
+        7)
+            show_info "API安全配置功能开发中..."
+            ;;
+        8)
+            show_info "API性能监控功能开发中..."
+            ;;
+        *)
+            show_error "无效选择"
+            ;;
+    esac
+}
+
+# 用户界面菜单处理
+handle_user_interface_menu_selection() {
+    local choice="$1"
+    case $choice in
+        1)
+            show_info "界面主题设置功能开发中..."
+            ;;
+        2)
+            show_info "颜色配置功能开发中..."
+            ;;
+        3)
+            show_info "语言设置功能开发中..."
+            ;;
+        4)
+            show_info "字体大小调整功能开发中..."
+            ;;
+        5)
+            show_info "界面布局定制功能开发中..."
+            ;;
+        *)
+            show_error "无效选择"
+            ;;
+    esac
+}
+
+# 安全增强菜单处理
+handle_security_menu_selection() {
+    local choice="$1"
+    case $choice in
+        1)
+            if command -v run_security_scan &> /dev/null; then
+                run_security_scan
+            else
+                show_error "安全扫描功能不可用"
+            fi
+            ;;
+        2)
+            show_info "安全配置检查功能开发中..."
+            ;;
+        3)
+            show_info "漏洞检测功能开发中..."
+            ;;
+        4)
+            show_info "安全日志分析功能开发中..."
+            ;;
+        5)
+            show_info "入侵检测功能开发中..."
+            ;;
+        *)
+            show_error "无效选择"
+            ;;
+    esac
 }
 
 # 错误处理已在开头统一设置

@@ -61,7 +61,9 @@ init_config_system() {
         local key=$(echo "$default_config" | cut -d'=' -f1)
         local value=$(echo "$default_config" | cut -d'=' -f2-)
         if [[ -z "${!key:-}" ]]; then
-            eval "export $key=\"$value\""
+            # 使用安全的变量设置方式，避免eval
+            declare "$key=$value"
+            export "$key"
         fi
     done
     
@@ -317,8 +319,9 @@ set_config_value() {
             ;;
     esac
     
-    # 更新配置值
-    eval "export $key=\"$value\""
+    # 更新配置值，使用安全的变量设置方式
+    declare "$key=$value"
+    export "$key"
     
     # 更新配置文件
     if [[ -f "$config_file" ]]; then

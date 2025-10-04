@@ -418,11 +418,11 @@ start_parallel_task() {
     
     log_debug "启动并行任务 $task_id: $task"
     
-    # 设置超时
+    # 设置超时，使用安全的命令执行
     if command -v timeout &> /dev/null; then
-        timeout "$IPV6WGM_JOB_TIMEOUT" bash -c "$task"
+        timeout "$IPV6WGM_JOB_TIMEOUT" bash -c "$(echo "$task" | sed 's/eval/safe_execute/')"
     else
-        eval "$task"
+        safe_execute "$task"
     fi
 }
 

@@ -647,9 +647,42 @@ export -f batch_management_menu network_config_menu bgp_config_menu
 export -f firewall_management_menu system_maintenance_menu backup_restore_menu
 export -f update_check_menu security_enhancements_menu user_interface_menu
 export -f monitoring_alerting_menu handle_main_menu_selection handle_server_menu_selection
+# 网络配置菜单
+network_configuration_menu() {
+    local options=(
+        "查看当前网络配置 - 显示IPv6前缀、BGP配置等"
+        "配置IPv6前缀 - 设置IPv6子网分配"
+        "配置BGP邻居 - 添加/删除BGP邻居"
+        "查看路由表 - 显示系统路由表"
+        "测试网络连通性 - 测试到外部网络的连接"
+        "配置DNS设置 - 设置DNS服务器和解析"
+        "网络接口管理 - 查看和管理网络接口"
+        "IPv6隧道配置 - 配置IPv6隧道连接"
+    )
+
+    show_menu "network_config" "网络配置管理" "${options[@]}"
+}
+
+# API文档菜单
+api_documentation_menu() {
+    local options=(
+        "生成API文档 - 自动生成所有API接口文档"
+        "查看API概览 - 显示所有可用的API接口"
+        "测试API接口 - 对API接口进行测试"
+        "导出API文档 - 导出为不同格式的文档"
+        "查看API使用示例 - 显示API调用示例"
+        "API版本管理 - 管理不同版本的API"
+        "API安全配置 - 配置API访问控制"
+        "API性能监控 - 监控API调用性能"
+    )
+
+    show_menu "api_docs" "API文档管理" "${options[@]}"
+}
+
 export -f handle_client_menu_selection handle_network_menu_selection
 export -f handle_firewall_menu_selection handle_system_menu_selection
 export -f quick_install interactive_install get_user_config download_required_files
 export -f show_service_status start_services stop_services restart_services
 export -f reload_configurations show_service_logs show_system_resources
 export -f show_network_connections run_bird_diagnostics run_wireguard_diagnostics
+export -f network_configuration_menu api_documentation_menu

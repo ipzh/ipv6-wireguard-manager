@@ -17,6 +17,20 @@ ORGANIZATIONS_DB="${CONFIG_DIR}/organizations.db"
 PROJECTS_DB="${CONFIG_DIR}/projects.db"
 TENANT_ISOLATION_DIR="${CONFIG_DIR}/tenant_isolation"
 
+# 当前租户上下文
+CURRENT_ORGANIZATION=""
+CURRENT_PROJECT=""
+CURRENT_TENANT_CONTEXT=""
+
+# 租户数据隔离路径映射
+declare -A TENANT_PATHS=(
+    ["clients"]="${TENANT_ISOLATION_DIR}/clients"
+    ["configs"]="${TENANT_ISOLATION_DIR}/configs"
+    ["backups"]="${TENANT_ISOLATION_DIR}/backups"
+    ["logs"]="${TENANT_ISOLATION_DIR}/logs"
+    ["keys"]="${TENANT_ISOLATION_DIR}/keys"
+)
+
 # 初始化多租户模块
 init_multi_tenant() {
     log_info "初始化多租户模块..."
@@ -33,7 +47,99 @@ init_multi_tenant() {
     # 创建租户隔离配置
     create_tenant_isolation_config
     
+    # 初始化租户上下文
+    init_tenant_context
+
     log_info "多租户模块初始化完成"
+}
+
+# 初始化租户上下文
+init_tenant_context() {
+    # 检查当前用户所属的组织和项目
+    if [[ -n "${IPV6WGM_CURRENT_USER:-}" ]]; then
+        CURRENT_ORGANIZATION=$(sqlite3 "$USERS_DB" "SELECT organization_id FROM users WHERE username = '$IPV6WGM_CURRENT_USER'" 2>/dev/null)
+        CURRENT_PROJECT=$(sqlite3 "$USERS_DB" "SELECT project_id FROM users WHERE username = '$IPV6WGM_CURRENT_USER'" 2>/dev/null)
+        CURRENT_TENANT_CONTEXT="${CURRENT_ORGANIZATION}:${CURRENT_PROJECT}"
+    fi
+
+    # 创建租户隔离目录结构
+    for path_type in "${!TENANT_PATHS[@]}"; do
+        local base_path="${TENANT_PATHS[$path_type]}"
+        mkdir -p "$base_path" 2>/dev/null || true
+
+        # 为每个组织创建隔离目录
+        if [[ -n "$CURRENT_ORGANIZATION" ]]; then
+            mkdir -p "$base_path/$CURRENT_ORGANIZATION" 2>/dev/null || true
+        fi
+    done
+}
+
+# 设置租户上下文
+set_tenant_context() {
+    local organization_id="$1"
+    local project_id="${2:-}"
+
+    # 验证组织和项目存在且用户有权限访问
+    if ! validate_tenant_access "$organization_id" "$project_id"; then
+        log_error "无法访问指定的租户上下文"
+        return 1
+    fi
+
+    CURRENT_ORGANIZATION="$organization_id"
+    CURRENT_PROJECT="$project_id"
+    CURRENT_TENANT_CONTEXT="${organization_id}:${project_id}"
+
+    # 更新环境变量供其他模块使用
+    export IPV6WGM_TENANT_ORG="$organization_id"
+    export IPV6WGM_TENANT_PROJECT="$project_id"
+    export IPV6WGM_TENANT_CONTEXT="$CURRENT_TENANT_CONTEXT"
+
+    log_info "租户上下文已设置为: $CURRENT_TENANT_CONTEXT"
+    return 0
+}
+
+# 获取租户隔离路径
+get_tenant_path() {
+    local path_type="$1"  # clients, configs, backups, logs, keys
+    local organization_id="${2:-$CURRENT_ORGANIZATION}"
+
+    if [[ -z "${TENANT_PATHS[$path_type]}" ]]; then
+        log_error "未知的路径类型: $path_type"
+        return 1
+    fi
+
+    local base_path="${TENANT_PATHS[$path_type]}"
+    local tenant_path="$base_path/$organization_id"
+
+    # 确保路径存在
+    mkdir -p "$tenant_path" 2>/dev/null || true
+
+    echo "$tenant_path"
+    return 0
+}
+
+# 验证租户访问权限
+validate_tenant_access() {
+    local organization_id="$1"
+    local project_id="$2"
+
+    # 检查组织是否存在
+    local org_exists=$(sqlite3 "$ORGANIZATIONS_DB" "SELECT COUNT(*) FROM organizations WHERE id = '$organization_id'" 2>/dev/null)
+    if [[ "$org_exists" -eq 0 ]]; then
+        log_error "组织不存在: $organization_id"
+        return 1
+    fi
+
+    # 如果指定了项目，检查项目是否存在且属于该组织
+    if [[ -n "$project_id" ]]; then
+        local project_exists=$(sqlite3 "$PROJECTS_DB" "SELECT COUNT(*) FROM projects WHERE id = '$project_id' AND organization_id = '$organization_id'" 2>/dev/null)
+        if [[ "$project_exists" -eq 0 ]]; then
+            log_error "项目不存在或不属于指定组织: $project_id"
+            return 1
+        fi
+    fi
+
+    return 0
 }
 
 # 初始化多租户数据库

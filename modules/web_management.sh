@@ -483,7 +483,7 @@ from datetime import datetime
 app = Flask(__name__)
 
 # 配置
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///web.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 

@@ -108,7 +108,10 @@ load_repository_config() {
 # 加载默认仓库配置
 load_default_repository_config() {
     for config in "${DEFAULT_REPOSITORY_CONFIG[@]}"; do
-        eval "$config"
+        local key=$(echo "$config" | cut -d'=' -f1)
+        local value=$(echo "$config" | cut -d'=' -f2-)
+        declare "$key=$value"
+        export "$key"
     done
     log_info "默认仓库配置已加载"
 }

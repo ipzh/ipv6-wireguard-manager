@@ -397,7 +397,7 @@ assert_command_success() {
     local command="$1"
     local message="${2:-Assertion failed}"
     
-    if eval "$command" >/dev/null 2>&1; then
+    if safe_execute "$command" >/dev/null 2>&1; then
         test_success "✓ $message - Command succeeded: $command"
         return 0
     else
@@ -411,7 +411,7 @@ assert_command_failure() {
     local command="$1"
     local message="${2:-Assertion failed}"
     
-    if ! eval "$command" >/dev/null 2>&1; then
+    if ! safe_execute "$command" >/dev/null 2>&1; then
         test_success "✓ $message - Command failed as expected: $command"
         return 0
     else

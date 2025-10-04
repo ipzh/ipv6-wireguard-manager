@@ -262,7 +262,7 @@ BGP_ROUTER_ID=192.168.1.1
 # OAuth认证配置
 OAUTH_ENABLED=true
 OAUTH_CLIENT_ID=web-manager
-OAUTH_CLIENT_SECRET=your-secret-key
+OAUTH_CLIENT_SECRET=your-encrypted-secret-key-here
 OAUTH_REDIRECT_URI=http://localhost:8080/callback
 
 # MFA配置

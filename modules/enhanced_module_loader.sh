@@ -26,8 +26,6 @@ declare -A MODULE_DEPENDENCIES=(
     
     # 增强功能模块 - 依赖基础模块
     ["enhanced_security_functions"]="common_functions security_functions"
-    ["enhanced_error_handling"]="common_functions error_handling"
-    ["unified_error_handling"]="common_functions error_handling"
     ["enhanced_module_loader"]="common_functions function_management"
     ["unified_config_manager"]="common_functions unified_config"
     ["function_optimizer"]="common_functions function_management"

@@ -11,6 +11,31 @@ PERFORMANCE_CONFIG=(
     "DISK_THRESHOLD=90"
     "NETWORK_THRESHOLD=1000000"
     "CHECK_INTERVAL=60"
+    "AUTO_OPTIMIZE=true"
+    "OPTIMIZATION_LEVEL=moderate"
+    "PERFORMANCE_LOG_FILE=${LOG_DIR}/performance.log"
+    "OPTIMIZATION_HISTORY_FILE=${CONFIG_DIR}/optimization_history.json"
+)
+
+# 性能统计数据
+declare -A PERFORMANCE_STATS=(
+    ["cpu_usage"]=0
+    ["memory_usage"]=0
+    ["disk_usage"]=0
+    ["network_rx"]=0
+    ["network_tx"]=0
+    ["cache_hits"]=0
+    ["cache_misses"]=0
+    ["module_load_time"]=0
+    ["optimization_count"]=0
+)
+
+# 自动优化规则
+declare -A OPTIMIZATION_RULES=(
+    ["high_cpu"]="clear_cache restart_lazy_loading"
+    ["high_memory"]="gc_collect clear_cache optimize_memory"
+    ["high_disk"]="cleanup_temp_files compress_logs"
+    ["low_performance"]="enable_performance_mode disable_debug_logging"
 )
 
 # 加载性能配置
@@ -20,6 +45,153 @@ load_performance_config() {
         local value="${config_line##*=}"
         export "$key"="$value"
     done
+
+    # 创建性能日志目录
+    mkdir -p "$(dirname "$PERFORMANCE_LOG_FILE")" 2>/dev/null || true
+    mkdir -p "$(dirname "$OPTIMIZATION_HISTORY_FILE")" 2>/dev/null || true
+}
+
+# 自动性能优化
+auto_optimize_performance() {
+    log_info "开始自动性能优化..."
+
+    local optimizations_performed=0
+    local optimization_log=""
+
+    # 检查各项性能指标并应用优化
+    if ! monitor_cpu_usage; then
+        optimization_log+="CPU优化已应用; "
+        ((optimizations_performed++))
+    fi
+
+    if ! monitor_memory_usage; then
+        optimization_log+="内存优化已应用; "
+        ((optimizations_performed++))
+    fi
+
+    if ! monitor_disk_usage; then
+        optimization_log+="磁盘优化已应用; "
+        ((optimizations_performed++))
+    fi
+
+    if ! monitor_network_usage; then
+        optimization_log+="网络优化已应用; "
+        ((optimizations_performed++))
+    fi
+
+    # 记录优化历史
+    if [[ $optimizations_performed -gt 0 ]]; then
+        record_optimization "$optimizations_performed" "$optimization_log"
+        log_success "自动性能优化完成: $optimizations_performed 项优化"
+    else
+        log_info "系统性能正常，无需优化"
+    fi
+
+    return $optimizations_performed
+}
+
+# 执行特定优化操作
+execute_optimization() {
+    local optimization_type="$1"
+    local actions="${OPTIMIZATION_RULES[$optimization_type]}"
+
+    if [[ -z "$actions" ]]; then
+        log_warn "未知的优化类型: $optimization_type"
+        return 1
+    fi
+
+    log_info "执行优化: $optimization_type"
+
+    for action in $actions; do
+        case "$action" in
+            "clear_cache")
+                if command -v clear_all_cache >/dev/null 2>&1; then
+                    clear_all_cache
+                    log_debug "清除缓存完成"
+                elif command -v cache_clear >/dev/null 2>&1; then
+                    cache_clear
+                    log_debug "清除缓存完成"
+                fi
+                ;;
+            "restart_lazy_loading")
+                # 重启懒加载机制
+                if command -v restart_lazy_loading >/dev/null 2>&1; then
+                    restart_lazy_loading
+                fi
+                ;;
+            "gc_collect")
+                # 垃圾回收
+                if command -v garbage_collect >/dev/null 2>&1; then
+                    garbage_collect
+                fi
+                ;;
+            "optimize_memory")
+                if command -v optimize_memory_usage >/dev/null 2>&1; then
+                    optimize_memory_usage
+                fi
+                ;;
+            "cleanup_temp_files")
+                # 清理临时文件
+                find /tmp -type f -name "ipv6wgm_*" -mtime +1 -delete 2>/dev/null || true
+                ;;
+            "compress_logs")
+                # 压缩旧日志
+                find "$LOG_DIR" -name "*.log" -mtime +7 -exec gzip {} \; 2>/dev/null || true
+                ;;
+            "enable_performance_mode")
+                export IPV6WGM_PERFORMANCE_MODE=true
+                ;;
+            "disable_debug_logging")
+                export LOG_LEVEL=WARN
+                ;;
+            *)
+                log_warn "未知的优化操作: $action"
+                ;;
+        esac
+    done
+
+    return 0
+}
+
+# 记录优化历史
+record_optimization() {
+    local optimizations_count="$1"
+    local optimization_details="$2"
+
+    local history_entry=$(cat << EOF
+{
+    "timestamp": "$(date -Iseconds)",
+    "optimizations_count": $optimizations_count,
+    "details": "$optimization_details",
+    "system_metrics": {
+        "cpu_usage": "${PERFORMANCE_STATS[cpu_usage]}",
+        "memory_usage": "${PERFORMANCE_STATS[memory_usage]}",
+        "cache_hits": "${PERFORMANCE_STATS[cache_hits]}",
+        "cache_misses": "${PERFORMANCE_STATS[cache_misses]}"
+    }
+}
+EOF
+    )
+
+    # 追加到历史文件
+    if [[ -f "$OPTIMIZATION_HISTORY_FILE" ]]; then
+        # 使用jq追加记录（如果可用）
+        if command -v jq >/dev/null 2>&1; then
+            jq --argjson entry "$history_entry" '.optimizations += [$entry]' "$OPTIMIZATION_HISTORY_FILE" > "${OPTIMIZATION_HISTORY_FILE}.tmp" && mv "${OPTIMIZATION_HISTORY_FILE}.tmp" "$OPTIMIZATION_HISTORY_FILE"
+        else
+            # 简单追加
+            echo "$history_entry" >> "$OPTIMIZATION_HISTORY_FILE"
+        fi
+    else
+        # 创建新文件
+        echo '{
+    "optimizations": [
+        '"$history_entry"'
+    ]
+}' > "$OPTIMIZATION_HISTORY_FILE"
+    fi
+
+    PERFORMANCE_STATS[optimization_count]=$((PERFORMANCE_STATS[optimization_count] + optimizations_performed))
 }
 
 # CPU使用率监控

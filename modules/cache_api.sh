@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Module: cache_api
-# Version: 1.0.0
+# Version: 1.1.0
 # Depends: common_functions, enhanced_cache_system, smart_caching, config_cache
 
 set -euo pipefail
@@ -14,10 +14,16 @@ unalias cache_get 2>/dev/null || true
 unalias cache_exec 2>/dev/null || true
 unalias cache_stats 2>/dev/null || true
 unalias cache_clear 2>/dev/null || true
+unalias cache_invalidate 2>/dev/null || true
 
 cache_api_log_debug() { echo "[DEBUG][cache_api] $*"; }
 cache_api_log_warn()  { echo "[WARN][cache_api] $*"; }
 cache_api_log_error() { echo "[ERROR][cache_api] $*"; }
+
+# 全局缓存统计
+declare -g IPV6WGM_CACHE_API_HITS=0
+declare -g IPV6WGM_CACHE_API_MISSES=0
+declare -g IPV6WGM_CACHE_API_INVALIDATIONS=0
 
 # 检测底层缓存实现可用性
 _cache_impl() {
@@ -33,11 +39,33 @@ _cache_impl() {
 cache_get() {
   local key="$1"
   local impl=$(_cache_impl)
+
+  # 更新统计信息
   case "$impl" in
-    enhanced) enhanced_cache_get "$key" ;;
-    smart)    smart_cache_get "$key" ;;
-    config)   config_cache_get "$key" ;;
-    none)     cache_api_log_warn "No cache backend available for get: $key"; return 1 ;;
+    enhanced|smart|config)
+      local result
+      case "$impl" in
+        enhanced) result=$(enhanced_cache_get "$key" 2>/dev/null) ;;
+        smart)    result=$(smart_cache_get "$key" 2>/dev/null) ;;
+        config)   result=$(config_cache_get "$key" 2>/dev/null) ;;
+      esac
+
+      if [[ -n "$result" ]]; then
+        IPV6WGM_CACHE_API_HITS=$((IPV6WGM_CACHE_API_HITS + 1))
+        cache_api_log_debug "Cache HIT for key: $key"
+        echo "$result"
+        return 0
+      else
+        IPV6WGM_CACHE_API_MISSES=$((IPV6WGM_CACHE_API_MISSES + 1))
+        cache_api_log_debug "Cache MISS for key: $key"
+        return 1
+      fi
+      ;;
+    none)
+      cache_api_log_warn "No cache backend available for get: $key"
+      IPV6WGM_CACHE_API_MISSES=$((IPV6WGM_CACHE_API_MISSES + 1))
+      return 1
+      ;;
   esac
 }
 
@@ -190,4 +218,50 @@ cache_clear() {
       ;;
   esac
   cache_api_log_warn "No cache backend available for clear"; return 1
+}
+
+# 统一缓存失效入口
+cache_invalidate() {
+  local key="$1"
+  local impl=$(_cache_impl)
+
+  IPV6WGM_CACHE_API_INVALIDATIONS=$((IPV6WGM_CACHE_API_INVALIDATIONS + 1))
+
+  case "$impl" in
+    enhanced)
+      declare -F enhanced_cache_invalidate >/dev/null 2>&1 && enhanced_cache_invalidate "$key" && return 0
+      declare -F remove_cache >/dev/null 2>&1 && remove_cache "$key" && return 0
+      ;;
+    smart)
+      declare -F smart_cache_invalidate >/dev/null 2>&1 && smart_cache_invalidate "$key" && return 0
+      declare -F remove_cache >/dev/null 2>&1 && remove_cache "$key" && return 0
+      ;;
+    config)
+      declare -F config_cache_invalidate >/dev/null 2>&1 && config_cache_invalidate "$key" && return 0
+      ;;
+  esac
+  cache_api_log_warn "Cache invalidation not supported for key: $key (backend: $impl)"
+  return 1
+}
+
+# 获取缓存统计信息
+cache_stats() {
+  local impl=$(_cache_impl)
+  local hits=$IPV6WGM_CACHE_API_HITS
+  local misses=$IPV6WGM_CACHE_API_MISSES
+  local invalidations=$IPV6WGM_CACHE_API_INVALIDATIONS
+  local total_requests=$((hits + misses))
+  local hit_rate=0
+
+  if [[ $total_requests -gt 0 ]]; then
+    hit_rate=$((hits * 100 / total_requests))
+  fi
+
+  echo "Cache API Statistics:"
+  echo "  Backend: $impl"
+  echo "  Total Requests: $total_requests"
+  echo "  Hits: $hits"
+  echo "  Misses: $misses"
+  echo "  Invalidations: $invalidations"
+  echo "  Hit Rate: $hit_rate%"
 }
