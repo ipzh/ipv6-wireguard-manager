@@ -23,6 +23,13 @@ LOG_FILE="$IPV6WGM_LOG_FILE"
 SCRIPT_DIR="$IPV6WGM_SCRIPT_DIR"
 MODULES_DIR="$IPV6WGM_MODULES_DIR"
 
+# 统一缓存API入口（若存在则加载）
+if [ -f "${IPV6WGM_MODULES_DIR}/cache_api.sh" ]; then
+    source "${IPV6WGM_MODULES_DIR}/cache_api.sh"
+elif [ -f "./modules/cache_api.sh" ]; then
+    source "./modules/cache_api.sh"
+fi
+
 # 系统变量
 declare -g IPV6WGM_USER="${USER:-$(whoami)}"
 declare -g IPV6WGM_HOME="${HOME:-/root}"
@@ -1619,6 +1626,21 @@ cached_command() {
     local ttl="${3:-300}"  # 默认5分钟缓存
     local force_refresh="${4:-false}"
     
+    # 优先使用统一缓存API
+    if command -v cache_get >/dev/null 2>&1; then
+        if [[ "$force_refresh" == "true" ]]; then
+            command -v cache_invalidate >/dev/null 2>&1 && cache_invalidate "$cache_key" || true
+        fi
+        local backend_result
+        if backend_result=$(cache_get "$cache_key" 2>/dev/null); then
+            IPV6WGM_TOTAL_CACHE_HITS=$((IPV6WGM_TOTAL_CACHE_HITS + 1))
+            TOTAL_CACHE_HITS=$((TOTAL_CACHE_HITS + 1))
+            log_debug "使用统一API缓存结果: $cache_key"
+            echo "$backend_result"
+            return 0
+        fi
+    fi
+
     # 检查是否强制刷新
     if [[ "$force_refresh" == "true" ]]; then
         unset CACHE[$cache_key]
@@ -1651,6 +1673,11 @@ cached_command() {
         local end_time=$(date +%s%3N 2>/dev/null || date +%s)
         local execution_time=$((end_time - start_time))
         
+        # 统一缓存API写入
+        if command -v cache_set >/dev/null 2>&1; then
+            cache_set "$cache_key" "$result" "$ttl" || true
+        fi
+
         CACHE[$cache_key]="$result"
         CACHE_TIMES[$cache_key]=$(date +%s)
         CACHE_MISSES[$cache_key]=$((${CACHE_MISSES[$cache_key]:-0} + 1))
@@ -1731,6 +1758,8 @@ clear_cache() {
     TOTAL_CACHE_HITS=0
     TOTAL_CACHE_MISSES=0
     TOTAL_CACHE_SIZE=0
+    # 统一API的全局清理（如果可用）
+    command -v cache_clear >/dev/null 2>&1 && cache_clear || true
     
     log_info "所有缓存已清理"
 }

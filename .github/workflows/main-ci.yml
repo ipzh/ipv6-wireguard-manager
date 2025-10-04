@@ -65,6 +65,16 @@ jobs:
     - name: ShellCheck静态分析
       run: |
         find . -name "*.sh" -not -path "./.git/*" | xargs shellcheck || true
+    
+    - name: 模块元数据校验
+      run: |
+        echo "开始校验模块元数据头..."
+        if bash modules/module_metadata_checker.sh; then
+          echo "✅ 元数据头完整"
+        else
+          echo "❌ 检测到缺失的元数据头"
+          exit 1
+        fi
         
     - name: 检查配置文件语法
       run: |

@@ -196,3 +196,21 @@ grep -r "password\|secret\|key" --include="*.sh" .
 - [安装指南](INSTALLATION.md)
 - [API文档](API.md)
 - [使用指南](USAGE.md)
+## 统一缓存 API 测试
+
+- 运行：`bash tests/run_tests.sh`
+- 单测明细：
+  - `tests/cache_api_tests.sh`：覆盖 `cache_set`、`cache_get`、`cache_invalidate`，以及 TTL 过期行为。
+  - `tests/cache_stats_tests.sh`：校验 `cache_stats` 输出是否合理（关键字匹配）。
+  - `tests/metadata_validation_tests.sh`：对模块目录执行元数据校验，并对缺失头部的错误示例进行反向校验。
+
+## 本地快速验证
+
+```bash
+source modules/cache_api.sh
+cache_set "demo_key" "demo_value" 2
+cache_get "demo_key"
+sleep 3 && ! cache_get "demo_key" && echo "expired"
+cache_exec "echo hi" "hi_key" 60 false
+cache_stats && cache_clear
+```

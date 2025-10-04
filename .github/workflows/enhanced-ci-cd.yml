@@ -35,6 +35,16 @@ jobs:
           echo "Checking: $file"
           shellcheck -x "$file" || true
         done
+    
+    - name: Module metadata validation
+      run: |
+        echo "Validating module metadata headers..."
+        if bash modules/module_metadata_checker.sh; then
+          echo "✅ Metadata headers present"
+        else
+          echo "❌ Missing metadata headers detected"
+          exit 1
+        fi
         
     - name: Security Scan
       run: |

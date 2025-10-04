@@ -3,6 +3,13 @@
 # 智能缓存策略模块
 # 提供智能缓存管理、性能优化和缓存策略配置功能
 
+# 统一缓存API入口（若存在则加载）
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/cache_api.sh" ]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/cache_api.sh"
+elif [ -f "./modules/cache_api.sh" ]; then
+    source "./modules/cache_api.sh"
+fi
+
 # =============================================================================
 # 智能缓存配置
 # =============================================================================
@@ -191,7 +198,12 @@ set_cache() {
         evict_cache_entry
     fi
     
-    # 设置缓存条目
+    # 优先调用统一缓存API
+    if command -v cache_set >/dev/null 2>&1; then
+        cache_set "$key" "$value" "$ttl" || true
+    fi
+
+    # 设置本地缓存条目（兼容模块内部统计与持久化）
     IPV6WGM_CACHE_DATA["$key"]="$value"
     IPV6WGM_CACHE_TIMESTAMPS["$key"]=$(date +%s)
     IPV6WGM_CACHE_TTL["$key"]="$ttl"
@@ -215,7 +227,18 @@ get_cache() {
         return 1
     fi
     
-    # 检查缓存是否存在
+    # 优先从统一缓存API读取
+    if command -v cache_get >/dev/null 2>&1; then
+        local api_val
+        if api_val=$(cache_get "$key" 2>/dev/null); then
+            ((IPV6WGM_CACHE_HITS++))
+            echo "$api_val"
+            log_debug "统一API缓存命中: $key"
+            return 0
+        fi
+    fi
+
+    # 检查本地缓存是否存在
     if [[ -z "${IPV6WGM_CACHE_DATA[$key]}" ]]; then
         ((IPV6WGM_CACHE_MISSES++))
         log_debug "缓存未命中: $key"
@@ -259,6 +282,9 @@ delete_cache() {
         return 1
     fi
     
+    # 统一API失效
+    command -v cache_invalidate >/dev/null 2>&1 && cache_invalidate "$key" || true
+
     if [[ -n "${IPV6WGM_CACHE_DATA[$key]}" ]]; then
         unset IPV6WGM_CACHE_DATA["$key"]
         unset IPV6WGM_CACHE_TIMESTAMPS["$key"]
@@ -281,6 +307,9 @@ delete_cache() {
 # 清空所有缓存
 clear_cache() {
     log_info "清空所有缓存..."
+
+    # 统一API清空
+    command -v cache_clear >/dev/null 2>&1 && cache_clear || true
     
     IPV6WGM_CACHE_DATA=()
     IPV6WGM_CACHE_TIMESTAMPS=()

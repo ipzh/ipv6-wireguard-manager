@@ -298,6 +298,14 @@ execute_with_cache() {
     local description="${2:-执行命令}"
     local ttl="${3:-$IPV6WGM_CACHE_TTL}"
     local args=("${@:4}")
+
+    # 若统一缓存API提供 cache_exec，则优先使用
+    if command -v cache_exec >/dev/null 2>&1; then
+        local cache_key
+        cache_key=$(generate_cache_key "$command" "${args[@]}")
+        cache_exec "$command" "$cache_key" "$ttl" "false"
+        return $?
+    fi
     
     # 生成缓存键
     local cache_key=$(generate_cache_key "$command" "${args[@]}")

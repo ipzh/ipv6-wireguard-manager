@@ -492,3 +492,22 @@ class IPv6WireGuardManager {
     }
 }
 ```
+## Cache API（统一缓存接口）
+
+统一入口位于 `modules/cache_api.sh`，提供跨模块一致的缓存调用方式，避免绕过底层实现。
+
+可用函数：
+
+- `cache_set key value [ttl]`：写入缓存。
+- `cache_get key`：读取缓存，命中则输出值并返回 0，未命中返回非 0。
+- `cache_invalidate key`：失效指定键。
+- `cache_exists key`：判断是否存在（返回码表示结果）。
+- `cache_exec command cache_key [ttl] [force_refresh]`：执行命令并根据键进行缓存；优先委托增强缓存后端。
+- `cache_stats`：输出“结构化JSON”统计信息，字段包含：`backend`、`entries`、`hits`、`misses`、`evictions`、`total_size`、`hit_rate`。某些字段在特定后端可能为 `null`。
+- `cache_clear`：清空后端缓存。
+
+说明：
+
+- 后端优先级：`enhanced_cache_system` > `smart_caching` > `config_cache`，缺失后端时回退到直接执行。
+- 为保持兼容性，`smart_caching` 与其他模块内部统计/持久化逻辑仍保留，但统一入口会优先使用后端的原生能力。
+- `cache_stats` 的输出不强制统一；若需要统一格式，可在各后端实现中约定标准化输出。

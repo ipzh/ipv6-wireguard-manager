@@ -279,8 +279,9 @@ export -f execute_with_cache warmup_cache get_cache_stats clear_all_cache
 export -f cache_maintenance monitor_cache_memory
 
 # 别名
-alias cache_set=smart_cache_set
-alias cache_get=smart_cache_get
-alias cache_exec=execute_with_cache
-alias cache_stats=get_cache_stats
-alias cache_clear=clear_all_cache
+# 仅在未提供统一API实现时设置别名，避免覆盖
+command -v cache_set >/dev/null 2>&1 || alias cache_set=smart_cache_set
+command -v cache_get >/dev/null 2>&1 || alias cache_get=smart_cache_get
+command -v cache_exec >/dev/null 2>&1 || alias cache_exec=execute_with_cache
+command -v cache_stats >/dev/null 2>&1 || alias cache_stats=get_cache_stats
+command -v cache_clear >/dev/null 2>&1 || alias cache_clear=clear_all_cache

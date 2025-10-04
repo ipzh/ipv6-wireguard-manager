@@ -28,6 +28,7 @@ MODULE_LOAD_ORDER=(
     "repository_config"
     "firewall_ports"
     "config_management"
+    "cache_api"
     "web_interface_enhanced"
     "oauth_authentication"
     "security_audit_monitoring"
@@ -52,6 +53,7 @@ MODULE_DEPENDENCIES=(
     ["user_interface"]="common_functions"
     ["repository_config"]="common_functions"
     ["config_management"]="common_functions"
+    ["cache_api"]="common_functions"
     ["lazy_loading"]="common_functions"
     ["performance_optimization"]="common_functions"
     

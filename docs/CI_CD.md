@@ -222,3 +222,23 @@ bash tests/run_tests.sh all
 - [ ] 文档已更新
 - [ ] 版本号已更新
 - [ ] 变更日志已记录
+## 模块元数据校验与缓存API测试集成
+
+CI 已在以下工作流中集成模块元数据校验：
+
+- `.github/workflows/enhanced-ci-cd.yml`
+- `.github/workflows/main-ci.yml`
+
+构建阶段会调用 `modules/module_metadata_checker.sh` 对模块文件的前 30 行进行扫描，若缺失 `# Module:`、`# Version:` 或 `# Depends:` 头部，构建将失败。
+
+此外，统一缓存 API 的基础单元测试已纳入 `tests/run_tests.sh`：
+
+- `tests/cache_api_tests.sh`：验证缓存读写与 TTL 过期。
+- `tests/cache_stats_tests.sh`：验证缓存统计输出。
+- `tests/metadata_validation_tests.sh`：验证模块元数据校验在正常与异常场景下的行为。
+
+本地验证可执行：
+
+```bash
+bash tests/run_tests.sh
+```

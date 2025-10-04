@@ -666,4 +666,20 @@ source modules/cache_api.sh
 cache_set "wg_status" "running" 300
 cache_get "wg_status"
 cache_invalidate "wg_status"
+
+# 执行并缓存命令（统一入口）
+cache_exec "echo hello" "hello_key" 60 false
+
+# 查看缓存统计并清理
+cache_stats
+cache_clear
 ```
+
+### 测试与CI集成
+
+- 单元测试入口：`bash tests/run_tests.sh`
+- 新增测试用例：
+  - `tests/cache_api_tests.sh`：验证 `cache_set/get/invalidate` 与 TTL 过期。
+  - `tests/cache_stats_tests.sh`：基本校验 `cache_stats` 输出。
+  - `tests/metadata_validation_tests.sh`：对模块目录与错误示例进行元数据校验。
+- CI 已集成模块元数据校验（`modules/module_metadata_checker.sh`），构建时缺失 `# Module:`、`# Version:`、`# Depends:` 将失败。

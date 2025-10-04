@@ -160,12 +160,23 @@ get_module_load_time() {
 # 配置缓存函数
 # =============================================================================
 
+# 统一缓存API入口（若存在则加载）
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/cache_api.sh" ]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/cache_api.sh"
+elif [ -f "./modules/cache_api.sh" ]; then
+    source "./modules/cache_api.sh"
+fi
+
 # 缓存配置文件内容
 cache_config_file() {
     local config_file="$1"
     local cache_key="config_${config_file//\//_}"
     
-    # 检查缓存
+    # 检查缓存（优先统一入口）
+    if command -v cache_get >/dev/null 2>&1; then
+        cache_get "$cache_key" && return 0
+    fi
+    # 回退本地实现
     if get_cache "$cache_key"; then
         return 0
     fi
@@ -173,7 +184,11 @@ cache_config_file() {
     # 读取配置文件
     if [[ -f "$config_file" ]]; then
         local config_content=$(cat "$config_file")
-        set_cache "$cache_key" "$config_content"
+        if command -v cache_set >/dev/null 2>&1; then
+            cache_set "$cache_key" "$config_content"
+        else
+            set_cache "$cache_key" "$config_content"
+        fi
         echo "$config_content"
     else
         log_warn "配置文件不存在: $config_file"
@@ -186,7 +201,11 @@ cache_parsed_config() {
     local config_file="$1"
     local cache_key="parsed_${config_file//\//_}"
     
-    # 检查缓存
+    # 检查缓存（优先统一入口）
+    if command -v cache_get >/dev/null 2>&1; then
+        cache_get "$cache_key" && return 0
+    fi
+    # 回退本地实现
     if get_cache "$cache_key"; then
         return 0
     fi
@@ -194,7 +213,11 @@ cache_parsed_config() {
     # 解析配置
     local parsed_config=$(parse_config_file "$config_file")
     if [[ $? -eq 0 ]]; then
-        set_cache "$cache_key" "$parsed_config"
+        if command -v cache_set >/dev/null 2>&1; then
+            cache_set "$cache_key" "$parsed_config"
+        else
+            set_cache "$cache_key" "$parsed_config"
+        fi
         echo "$parsed_config"
     else
         return 1
@@ -206,7 +229,11 @@ parse_config_file() {
     local config_file="$1"
     local cache_key="parsed_${config_file//\//_}"
     
-    # 检查缓存
+    # 检查缓存（优先统一入口）
+    if command -v cache_get >/dev/null 2>&1; then
+        cache_get "$cache_key" && return 0
+    fi
+    # 回退本地实现
     if get_cache "$cache_key"; then
         return 0
     fi

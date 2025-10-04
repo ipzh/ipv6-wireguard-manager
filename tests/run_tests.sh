@@ -139,6 +139,9 @@ run_unit_tests() {
         "bash -c 'source \"$PROJECT_ROOT/modules/enhanced_config_management.sh\" && validate_ipv4 192.168.1.1'"
         "bash -c 'source \"$PROJECT_ROOT/modules/common_functions.sh\" && log_info \"测试日志功能\"'"
         "bash -c 'source \"$PROJECT_ROOT/modules/resource_monitoring.sh\" && get_memory_usage'"
+        "bash -c 'bash \"$PROJECT_ROOT/tests/cache_api_tests.sh\"'"
+        "bash -c 'bash \"$PROJECT_ROOT/tests/cache_stats_tests.sh\"'"
+        "bash -c 'bash \"$PROJECT_ROOT/tests/metadata_validation_tests.sh\"'"
     )
     
     run_test_group "单元测试" "${unit_tests[@]}"
