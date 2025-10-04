@@ -350,10 +350,7 @@ fi
 # 颜色定义（如果公共函数库未加载则定义）
 RED="${RED:-'\033[0;31m'}"
 GREEN="${GREEN:-'\033[0;32m'}"
-# YELLOW=  # unused"${YELLOW:-'\033[1;33m'}"
 BLUE="${BLUE:-'\033[0;34m'}"
-# PURPLE=  # unused"${PURPLE:-'\033[0;35m'}"
-# CYAN=  # unused"${CYAN:-'\033[0;36m'}"
 WHITE="${WHITE:-'\033[1;37m'}"
 NC="${NC:-'\033[0m'}"
 

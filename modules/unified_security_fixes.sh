@@ -124,6 +124,144 @@ safe_rm() {
     fi
 }
 
+# 安全的文件删除函数 - 替代rm -rf
+safe_rm() {
+    local target="$1"
+    local force="${2:-false}"
+
+    # 检查目标是否存在
+    if [[ ! -e "$target" ]]; then
+        log_debug "目标不存在，跳过删除: $target"
+        return 0
+    fi
+
+    # 安全检查：禁止删除根目录、系统目录
+    local dangerous_paths=("/" "/etc" "/usr" "/bin" "/sbin" "/lib" "/lib64" "/var" "/tmp" "/home" "/root")
+    for dangerous_path in "${dangerous_paths[@]}"; do
+        if [[ "$target" == "$dangerous_path" ]] || [[ "$target" == "$dangerous_path/"* ]]; then
+            log_error "禁止删除危险路径: $target"
+            return 1
+        fi
+    done
+
+    # 检查是否为相对路径且不包含..
+    if [[ "$target" != /* ]] && [[ "$target" != ~* ]] && [[ "$target" != "$(pwd)"* ]]; then
+        if [[ "$target" == *".."* ]]; then
+            log_error "禁止使用包含..的相对路径: $target"
+            return 1
+        fi
+    fi
+
+    # 确认删除（除非强制删除）
+    if [[ "$force" != "true" ]]; then
+        echo "警告: 将要删除 $target"
+        read -rp "确认删除? [y/N]: " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            echo "取消删除"
+            return 0
+        fi
+    fi
+
+    # 执行安全删除
+    if [[ -d "$target" ]]; then
+        # 对于目录，先检查权限和内容
+        if [[ ! -w "$target" ]]; then
+            log_error "没有权限删除目录: $target"
+            return 1
+        fi
+
+        # 递归删除目录
+        find "$target" -type f -exec chmod +w {} \; 2>/dev/null
+        if rm -rf "$target" 2>/dev/null; then
+            log_info "成功删除目录: $target"
+            return 0
+        else
+            log_error "删除目录失败: $target"
+            return 1
+        fi
+    else
+        # 对于文件，直接删除
+        if rm -f "$target" 2>/dev/null; then
+            log_debug "成功删除文件: $target"
+            return 0
+        else
+            log_error "删除文件失败: $target"
+            return 1
+        fi
+    fi
+}
+
+# 加密敏感配置值
+encrypt_sensitive_config() {
+    local key="$1"
+    local value="$2"
+    local config_file="$3"
+
+    # 检查是否为敏感配置项
+    local sensitive_patterns=("password" "secret" "key" "token" "cert" "private")
+    local is_sensitive=false
+
+    for pattern in "${sensitive_patterns[@]}"; do
+        if [[ "$key" == *"$pattern"* ]]; then
+            is_sensitive=true
+            break
+        fi
+    done
+
+    if [[ "$is_sensitive" == "true" ]]; then
+        # 生成加密密钥（如果不存在）
+        local encryption_key_file="$CONFIG_DIR/.encryption_key"
+        if [[ ! -f "$encryption_key_file" ]]; then
+            openssl rand -base64 32 > "$encryption_key_file"
+            chmod 600 "$encryption_key_file"
+        fi
+
+        # 加密敏感值
+        local encryption_key=$(cat "$encryption_key_file")
+        local encrypted_value=$(echo -n "$value" | openssl enc -aes-256-cbc -a -salt -pbkdf2 -pass pass:"$encryption_key")
+
+        # 在配置文件中替换为加密值
+        if [[ -f "$config_file" ]]; then
+            sed -i "s|^${key}=.*|${key}=encrypted:${encrypted_value}|" "$config_file"
+        fi
+
+        log_info "敏感配置已加密: $key"
+        return 0
+    fi
+
+    return 1
+}
+
+# 解密敏感配置值
+decrypt_sensitive_config() {
+    local key="$1"
+    local encrypted_value="$2"
+
+    # 检查是否为加密值
+    if [[ "$encrypted_value" == "encrypted:"* ]]; then
+        local encryption_key_file="$CONFIG_DIR/.encryption_key"
+        if [[ ! -f "$encryption_key_file" ]]; then
+            log_error "加密密钥文件不存在，无法解密配置"
+            return 1
+        fi
+
+        local encryption_key=$(cat "$encryption_key_file")
+        local actual_encrypted="${encrypted_value#encrypted:}"
+
+        # 解密值
+        local decrypted_value=$(echo -n "$actual_encrypted" | base64 -d | openssl enc -aes-256-cbc -d -salt -pbkdf2 -pass pass:"$encryption_key" 2>/dev/null)
+
+        if [[ -n "$decrypted_value" ]]; then
+            echo "$decrypted_value"
+            return 0
+        fi
+    fi
+
+    # 如果不是加密值，直接返回原值
+    echo "$encrypted_value"
+    return 0
+}
+
 # =============================================================================
 # 安全命令执行
 # =============================================================================

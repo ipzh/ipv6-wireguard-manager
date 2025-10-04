@@ -231,10 +231,7 @@ declare -g IPV6WGM_COLOR_NC='\033[0m' # No Color
 # 兼容性变量
 RED="$IPV6WGM_COLOR_RED"
 GREEN="$IPV6WGM_COLOR_GREEN"
-# YELLOW=  # unused"$IPV6WGM_COLOR_YELLOW"
 BLUE="$IPV6WGM_COLOR_BLUE"
-# CYAN=  # unused"$IPV6WGM_COLOR_CYAN"
-# PURPLE=  # unused"$IPV6WGM_COLOR_PURPLE"
 SECONDARY_COLOR="$IPV6WGM_COLOR_SECONDARY"
 NC="$IPV6WGM_COLOR_NC"
 
@@ -450,6 +447,18 @@ validate_interface() {
 
 # 网络工具函数
 get_public_ipv4() {
+    local cache_key="public_ipv4"
+    local cache_ttl=300  # 5分钟缓存
+
+    # 检查缓存
+    if cached_command "$cache_key" "$cache_ttl" >/dev/null 2>&1; then
+        local cached_ip=$(get_cache_value "$cache_key")
+        if [[ -n "$cached_ip" ]] && validate_ipv4 "$cached_ip"; then
+            echo "$cached_ip"
+            return 0
+        fi
+    fi
+
     local ip=""
     local services=(
         "https://ipv4.icanhazip.com"
@@ -457,44 +466,60 @@ get_public_ipv4() {
         "https://ifconfig.me/ip"
         "https://checkip.amazonaws.com"
     )
-    
+
     for service in "${services[@]}"; do
         if command -v curl &> /dev/null; then
             ip=$(curl -s --connect-timeout 5 --max-time 10 "$service" 2>/dev/null | tr -d '\n\r')
         elif command -v wget &> /dev/null; then
             ip=$(wget -qO- --timeout=10 "$service" 2>/dev/null | tr -d '\n\r')
         fi
-        
+
         if validate_ipv4 "$ip"; then
+            # 缓存结果
+            set_cache_value "$cache_key" "$ip"
             echo "$ip"
             return 0
         fi
     done
-    
+
     return 1
 }
 
 get_public_ipv6() {
+    local cache_key="public_ipv6"
+    local cache_ttl=300  # 5分钟缓存
+
+    # 检查缓存
+    if cached_command "$cache_key" "$cache_ttl" >/dev/null 2>&1; then
+        local cached_ip=$(get_cache_value "$cache_key")
+        if [[ -n "$cached_ip" ]] && validate_ipv6 "$cached_ip"; then
+            echo "$cached_ip"
+            return 0
+        fi
+    fi
+
     local ip=""
     local services=(
         "https://ipv6.icanhazip.com"
         "https://api64.ipify.org"
         "https://ifconfig.me/ipv6"
     )
-    
+
     for service in "${services[@]}"; do
         if command -v curl &> /dev/null; then
             ip=$(curl -s --connect-timeout 5 --max-time 10 "$service" 2>/dev/null | tr -d '\n\r')
         elif command -v wget &> /dev/null; then
             ip=$(wget -qO- --timeout=10 "$service" 2>/dev/null | tr -d '\n\r')
         fi
-        
+
         if validate_ipv6 "$ip"; then
+            # 缓存结果
+            set_cache_value "$cache_key" "$ip"
             echo "$ip"
             return 0
         fi
     done
-    
+
     return 1
 }
 
@@ -2148,7 +2173,7 @@ export -f handle_error cleanup_on_exit add_temp_file
 export -f sanitize_input validate_username validate_password secure_input
 export -f fix_line_endings load_config cached_command smart_cached_command warm_cache cleanup_expired_cache clear_cache get_cache_stats get_cache_details validate_config_item validate_config_format
 export -f execute_command secure_permissions lazy_load install_dependency install_python_dependency detect_os
-export -f sanitize_log_message capability_check check_system_permissions safe_execute_command
+export -f sanitize_log_message capability_check check_system_permissions safe_execute_command safe_rm
 
 # 智能模块加载系统 - 懒加载增强
 declare -A MODULE_CACHE

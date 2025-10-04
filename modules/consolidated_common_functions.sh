@@ -145,7 +145,7 @@ unified_execute_command() {
     log_debug "命令: $command"
     
     # 执行命令
-    if eval "$command"; then
+    if safe_execute "$command"; then
         log_success "$description 完成"
         return 0
     else

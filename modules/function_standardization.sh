@@ -93,7 +93,7 @@ ensure_error_handling_functions() {
             log_debug "执行: $description"
             log_debug "命令: $command"
             
-            if eval "$command"; then
+            if safe_execute "$command"; then
                 log_success "$description 完成"
                 return 0
             else
