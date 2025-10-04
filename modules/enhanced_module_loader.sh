@@ -206,6 +206,17 @@ fi
 
 # 使用统一的模块加载函数
 load_module_smart() {
+    # 在任何加载动作前执行模块元数据校验（提示但不阻断）
+    local checker_path="$(dirname "${BASH_SOURCE[0]}")/module_metadata_checker.sh"
+    if [[ -f "$checker_path" ]]; then
+        if bash "$checker_path"; then
+            log_debug "模块元数据校验通过"
+        else
+            log_warn "模块元数据存在缺失，请根据提示补全（不影响加载）"
+        fi
+    else
+        log_debug "未检测到模块元数据检查脚本：$checker_path"
+    fi
     load_module_unified "$@"
 }
 

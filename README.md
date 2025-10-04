@@ -647,3 +647,23 @@ sudo ./ipv6-wireguard-manager.sh --cache-stats
 ---
 
 **注意**: 请在生产环境中使用前仔细测试所有功能，并确保遵循最佳安全实践。建议在测试环境中充分验证后再部署到生产环境。
+
+## 📄 文档更新与清理
+
+- 新增 `docs/FEATURES_VALIDATION_REPORT.md`，用于快速验证模块化、缓存与安全框架的实现状态与检查方法。
+- 引入 `modules/module_metadata_checker.sh` 以在加载前提示补齐模块头（`# Module:`、`# Version:`、`# Depends:`）。
+- 提供统一缓存 API：`modules/cache_api.sh`，在模块中使用 `cache_get`、`cache_set`、`cache_invalidate` 统一调用底层缓存实现。
+- 清理冗余里程碑与重复报告文档以简化仓库结构（详见提交记录）。
+
+### 运行校验与使用缓存 API
+
+```bash
+# 模块元数据校验（提示缺失但不阻断加载）
+bash modules/module_metadata_checker.sh || true
+
+# 统一缓存API示例
+source modules/cache_api.sh
+cache_set "wg_status" "running" 300
+cache_get "wg_status"
+cache_invalidate "wg_status"
+```

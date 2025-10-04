@@ -160,6 +160,18 @@ check_module_dependencies() {
 # 加载所有模块
 load_all_modules() {
     log_info "开始加载所有模块..."
+
+    # 在加载前进行模块元数据头检查（不阻断，仅提示）
+    local checker_path="${MODULES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}/module_metadata_checker.sh"
+    if [[ -f "$checker_path" ]]; then
+        if bash "$checker_path"; then
+            log_debug "模块元数据校验通过"
+        else
+            log_warn "模块元数据存在缺失，请根据提示补全（不影响加载）"
+        fi
+    else
+        log_debug "未检测到模块元数据检查脚本：$checker_path"
+    fi
     
     local loaded_count=0
     local total_count=${#MODULE_LOAD_ORDER[@]}
