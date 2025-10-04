@@ -72,6 +72,7 @@
 
 ## 📚 文档导航
 
+- `docs/COMBINED_GUIDE.md` — 综合指南（快速开始 + 功能总览）
 - `FEATURES_OVERVIEW.md` — 功能特性总览（模块级详细说明）
 - `QUICK_START_GUIDE.md` — 快速开始与常用操作
 - `docs/INSTALLATION.md` — 安装与环境依赖
