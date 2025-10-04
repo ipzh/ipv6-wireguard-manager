@@ -11,14 +11,17 @@ if [[ -f "${SCRIPT_DIR}/modules/common_functions.sh" ]]; then
     source "${SCRIPT_DIR}/modules/common_functions.sh"
 fi
 
-# 设置错误处理，根据执行环境调整严格程度
-if [[ -t 0 ]]; then
-    # 交互式执行，使用严格模式（ERR trap在函数中也继承）
-    set -Eeuo pipefail
-else
-    # 非交互执行，仍启用 ERR 继承与基本错误退出
-    set -E -e
+# 统一错误处理设置
+set -Eeuo pipefail
+
+# 导入统一安全修复模块
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/unified_security_fixes.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/modules/unified_security_fixes.sh"
 fi
+
+# 设置统一的错误处理
+trap 'handle_error $? "脚本执行错误" "ipv6-wireguard-manager.sh" $LINENO' ERR
+trap 'cleanup_on_error; exit 0' EXIT
 
 # 安全的脚本目录检测
 get_script_dir() {
@@ -2754,8 +2757,7 @@ system_self_check_menu() {
     done
 }
 
-# 错误处理
-trap 'handle_error $? "脚本在行 $LINENO 发生错误: $BASH_COMMAND" "main_script" "$LINENO"' ERR
+# 错误处理已在开头统一设置
 
 # 健康检查功能
 health_check() {

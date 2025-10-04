@@ -4,17 +4,17 @@
 # 版本: 1.0.0
 # 作者: IPv6 WireGuard Manager Team
 
-# 设置错误处理，但在管道执行时使用更宽松的模式
-if [[ -t 0 ]]; then
-    # 交互式执行，使用严格模式（ERR trap在函数中也继承）
-    set -Eeuo pipefail
-else
-    # 非交互执行，启用 ERR 继承与基本错误退出
-    set -E -e
+# 统一错误处理设置
+set -Eeuo pipefail
+
+# 导入统一安全修复模块
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/modules/unified_security_fixes.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/modules/unified_security_fixes.sh"
 fi
 
-# 初始化基本错误处理
-trap 'cleanup_and_exit $?' EXIT
+# 设置统一的错误处理
+trap 'handle_error $? "安装过程中发生错误" "install.sh" $LINENO' ERR
+trap 'cleanup_on_error; exit 0' EXIT
 
 # 清理和退出函数
 cleanup_and_exit() {
@@ -23,7 +23,7 @@ cleanup_and_exit() {
     # 清理所有临时目录
     if [[ -n "${temp_dir:-}" && -d "$temp_dir" ]]; then
         echo -e "${BLUE}[INFO]${NC} 清理临时目录: $temp_dir"
-        rm -rf "$temp_dir" 2>/dev/null || true
+        safe_rm "$temp_dir" true false
     fi
     
     # 清理其他可能的临时文件
@@ -31,7 +31,7 @@ cleanup_and_exit() {
         for temp_file in $TEMP_FILES; do
             if [[ -f "$temp_file" ]]; then
                 echo -e "${BLUE}[INFO]${NC} 清理临时文件: $temp_file"
-                rm -f "$temp_file" 2>/dev/null || true
+                safe_rm "$temp_file" true false
             fi
         done
     fi
@@ -58,7 +58,8 @@ basic_execute() {
     
     echo -e "${BLUE}[INFO]${NC} ${description}..."
     
-    if eval "$command"; then
+    # 使用安全的命令执行，避免eval
+    if safe_execute "$description" "$allow_failure" "$command"; then
         echo -e "${GREEN}[SUCCESS]${NC} ${description}完成"
         return 0
     else
@@ -115,7 +116,7 @@ download_project_files() {
     
     if command -v curl &> /dev/null; then
         echo -e "${BLUE}[INFO]${NC} 使用curl下载..."
-        if curl -fsSL --connect-timeout 30 --max-time 300 -o master.tar.gz "$download_url"; then
+        if safe_download "$download_url" "master.tar.gz"; then
             download_success=true
         else
             echo -e "${YELLOW}[WARN]${NC} curl下载失败，尝试其他方法"
@@ -124,7 +125,7 @@ download_project_files() {
     
     if [[ "$download_success" == "false" ]] && command -v wget &> /dev/null; then
         echo -e "${BLUE}[INFO]${NC} 使用wget下载..."
-        if wget --timeout=30 --tries=3 -q -O master.tar.gz "$download_url"; then
+        if safe_download "$download_url" "master.tar.gz"; then
             download_success=true
         else
             echo -e "${YELLOW}[WARN]${NC} wget下载失败"
@@ -197,7 +198,8 @@ download_project_files() {
             fi
             
             # 清理解压后的目录和文件
-            rm -rf "$extracted_dir" "master.tar.gz"
+            safe_rm "$extracted_dir" true false
+            safe_rm "master.tar.gz" true false
         else
             echo -e "${RED}[ERROR]${NC} 解压后的目录结构不正确"
             echo -e "${RED}[ERROR]${NC} 当前目录内容:"
@@ -293,12 +295,9 @@ fi
 if [[ -f "${MODULES_DIR}/error_handling.sh" ]]; then
     # shellcheck source=modules/error_handling.sh
     source "${MODULES_DIR}/error_handling.sh"
-    # 简化版的错误处理初始化，避免循环依赖
-    trap 'log_error "安装过程中发生错误，行号: $LINENO"' ERR
     log_info "错误处理系统已初始化"
 else
-    log_warn "错误处理模块不存在，使用基础错误处理"
-    trap 'echo "安装过程中发生错误，行号: $LINENO" >&2' ERR
+    log_warn "错误处理模块不存在，使用统一错误处理"
 fi
 
 # 7. 标准化模块导入机制
@@ -492,8 +491,8 @@ execute_command() {
             fi
         fi
     else
-        # 如果没有timeout命令，直接执行
-        if eval "$command"; then
+        # 如果没有timeout命令，使用安全执行
+        if safe_execute "$description" "$allow_failure" bash -c "$command"; then
             log_success "${description}完成"
             return 0
         else
@@ -766,8 +765,8 @@ lazy_load() {
         return 1
     fi
     
-    # 检查模块是否已加载
-    if declare -f "module_${module_name}_loaded" >/dev/null 2>&1 && "module_${module_name}_loaded"; then
+    # 检查模块是否已加载 - 使用布尔标记而不是动态函数
+    if [[ "${LOADED_MODULES[$module_name]:-}" == "true" ]]; then
         return 0
     fi
     
@@ -775,8 +774,8 @@ lazy_load() {
     # shellcheck source=/dev/null
     source "$module_path"
     
-    # 标记模块已加载
-    eval "function module_${module_name}_loaded() { return 0; }"
+    # 标记模块已加载 - 使用布尔标记
+    LOADED_MODULES[$module_name]=true
     return 0
 }
 
@@ -3123,14 +3122,7 @@ install_performance_optimization() {
     log_info "性能优化功能安装完成"
 }
 
-# 错误处理
-if [[ -t 0 ]]; then
-    # 交互式执行，使用严格错误处理
-    trap 'log_error "安装过程中发生错误，行号: $LINENO"; exit 1' ERR
-else
-    # 管道执行，使用宽松错误处理
-    trap 'log_error "安装过程中发生错误，行号: $LINENO"; return 1' ERR
-fi
+# 错误处理已在开头统一设置
 
 # 执行主函数
 if main "$@"; then

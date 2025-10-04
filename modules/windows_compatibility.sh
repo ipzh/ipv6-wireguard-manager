@@ -9,25 +9,13 @@
 
 # 检测Windows环境
 check_windows_environment() {
-    # 检测WSL环境
-    if [[ -n "${WSL_DISTRO_NAME:-}" ]] || [[ -n "${WSLENV:-}" ]] || \
-       [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || \
-       ([[ -f /proc/version ]] && grep -qi microsoft /proc/version); then
-        log_info "检测到Windows/WSL环境"
-        export IPV6WGM_WINDOWS_ENV=true
-        
-        # Windows路径适配 - 使用统一的convert_path函数
-        
-        # 替换Linux特有命令
-        if ! command -v ip &> /dev/null && command -v ipconfig &> /dev/null; then
-            alias ip='ipconfig'
-        fi
-        
-        if ! command -v free &> /dev/null && command -v wmic &> /dev/null; then
-            alias free='wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value'
-        fi
+    # 使用统一的Windows环境检测
+    if detect_unified_windows_env; then
+        log_info "检测到Windows环境: $IPV6WGM_WINDOWS_ENV_TYPE"
+        return 0
     else
-        export IPV6WGM_WINDOWS_ENV=false
+        log_info "检测到Linux环境"
+        return 1
     fi
 }
 
@@ -35,33 +23,13 @@ check_windows_environment() {
 convert_path() {
     local path="$1"
     
-    case "$IPV6WGM_WINDOWS_ENV" in
-        "msys"|"cygwin")
-            # 在MSYS/Cygwin中转换路径
-            if command -v cygpath &> /dev/null; then
-                echo "$(cygpath -w "$path")"
-            else
-                echo "$path"
-            fi
-            ;;
-        "wsl")
-            # WSL中保持原样，但可能需要转换
-            echo "$path"
-            ;;
-        "windows")
-            # Windows CMD/PowerShell环境
-            echo "$path" | sed 's|/|\\|g'
-            ;;
-        *)
-            # Linux环境
-            echo "$path"
-            ;;
-    esac
+    # 使用统一的路径转换函数
+    convert_unified_path "$path"
 }
 
 # 命令别名设置
 setup_windows_aliases() {
-    case "$IPV6WGM_WINDOWS_ENV" in
+    case "${IPV6WGM_WINDOWS_ENV_TYPE:-linux}" in
         "windows")
             # Windows CMD/PowerShell环境
             if ! command -v ip &> /dev/null && command -v ipconfig &> /dev/null; then
@@ -76,7 +44,7 @@ setup_windows_aliases() {
                 alias ps='tasklist'
             fi
             ;;
-        "msys"|"cygwin")
+        "msys"|"cygwin"|"gitbash")
             # MSYS/Cygwin环境
             if ! command -v ip &> /dev/null && command -v ipconfig &> /dev/null; then
                 alias ip='ipconfig'
@@ -250,7 +218,7 @@ validate_ip_address() {
 
 # 获取系统信息（Windows兼容）
 get_system_info() {
-    case "$IPV6WGM_WINDOWS_ENV" in
+    case "${IPV6WGM_WINDOWS_ENV_TYPE:-linux}" in
         "windows")
             echo "操作系统: Windows"
             if command -v systeminfo &> /dev/null; then
@@ -262,7 +230,7 @@ get_system_info() {
             echo "操作系统: WSL ($(uname -s))"
             uname -a
             ;;
-        "msys"|"cygwin")
+        "msys"|"cygwin"|"gitbash")
             echo "操作系统: $OSTYPE"
             uname -a
             ;;
@@ -275,7 +243,7 @@ get_system_info() {
 
 # 获取网络信息（Windows兼容）
 get_network_info() {
-    case "$IPV6WGM_WINDOWS_ENV" in
+    case "${IPV6WGM_WINDOWS_ENV_TYPE:-linux}" in
         "windows")
             if command -v ipconfig &> /dev/null; then
                 ipconfig
@@ -297,7 +265,7 @@ get_network_info() {
 
 # 获取内存信息（Windows兼容）
 get_memory_info() {
-    case "$IPV6WGM_WINDOWS_ENV" in
+    case "${IPV6WGM_WINDOWS_ENV_TYPE:-linux}" in
         "windows")
             if command -v wmic &> /dev/null; then
                 wmic OS get TotalVisibleMemorySize,FreePhysicalMemory /Value
@@ -317,7 +285,7 @@ get_memory_info() {
 
 # 获取进程信息（Windows兼容）
 get_process_info() {
-    case "$IPV6WGM_WINDOWS_ENV" in
+    case "${IPV6WGM_WINDOWS_ENV_TYPE:-linux}" in
         "windows")
             if command -v tasklist &> /dev/null; then
                 tasklist
@@ -347,7 +315,7 @@ test_windows_compatibility() {
     if check_windows_environment; then
         log_success "✓ Windows环境检测成功"
     else
-        log_info "当前环境: $IPV6WGM_WINDOWS_ENV"
+        log_info "当前环境: ${IPV6WGM_WINDOWS_ENV_TYPE:-linux}"
     fi
     
     # 测试路径转换

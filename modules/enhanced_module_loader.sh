@@ -199,87 +199,14 @@ declare -g TOTAL_MODULE_LOAD_TIME=0
 # 核心模块加载函数
 # =============================================================================
 
-# 智能模块加载函数
+# 导入统一安全修复模块
+if [[ -f "$(dirname "${BASH_SOURCE[0]}")/unified_security_fixes.sh" ]]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/unified_security_fixes.sh"
+fi
+
+# 使用统一的模块加载函数
 load_module_smart() {
-    local module_name="$1"
-    local force_reload="${2:-false}"
-    local start_time=$(date +%s%3N 2>/dev/null || date +%s)
-    
-    # 检查模块是否已加载
-    if [[ -n "${LOADED_MODULES[$module_name]}" && "$force_reload" != "true" ]]; then
-        log_debug "模块 '$module_name' 已加载，跳过"
-        return 0
-    fi
-    
-    # 检查模块版本兼容性
-    if ! check_module_version_compatibility "$module_name"; then
-        log_error "模块 '$module_name' 版本不兼容"
-        return 1
-    fi
-    
-    # 检查模块依赖
-    if [[ -n "${MODULE_DEPENDENCIES[$module_name]}" ]]; then
-        for dep in ${MODULE_DEPENDENCIES[$module_name]}; do
-            if [[ -n "$dep" ]]; then
-                log_debug "加载模块 '$module_name' 的依赖: '$dep'"
-                if ! load_module_smart "$dep" "$force_reload"; then
-                    log_error "无法加载模块 '$module_name' 的依赖 '$dep'"
-                    return 1
-                fi
-            fi
-        done
-    fi
-    
-    # 查找模块文件 - 优化路径查找顺序
-    local module_path=""
-    local search_paths=(
-        "$IPV6WGM_MODULES_DIR/${module_name}.sh"                    # 首选：环境变量定义的路径
-        "${SCRIPT_DIR}/modules/${module_name}.sh"                   # 相对于脚本目录
-        "$(pwd)/modules/${module_name}.sh"                          # 相对于当前工作目录
-        "$(dirname "${BASH_SOURCE[0]}")/${module_name}.sh"          # 相对于当前模块目录
-        "/opt/ipv6-wireguard-manager/modules/${module_name}.sh"     # 标准安装路径（仅Linux）
-        "/usr/local/share/ipv6-wireguard-manager/modules/${module_name}.sh"  # 系统级安装路径（仅Linux）
-    )
-    
-    for path in "${search_paths[@]}"; do
-        if [[ -f "$path" ]]; then
-            module_path="$path"
-            break
-        fi
-    done
-    
-    if [[ -z "$module_path" ]]; then
-        log_error "无法找到模块文件: $module_name"
-        return 1
-    fi
-    
-    # 加载模块
-    log_debug "加载模块: $module_name (文件: $module_path, 版本: ${MODULE_VERSIONS[$module_name]})"
-    
-    # 记录加载前状态
-    local functions_before=$(declare -F | wc -l)
-    
-    if source "$module_path"; then
-        # 记录加载后状态
-        local functions_after=$(declare -F | wc -l)
-        local functions_added=$((functions_after - functions_before))
-        
-        # 更新加载记录
-        LOADED_MODULES[$module_name]=1
-        MODULE_LOAD_TIMES[$module_name]=$(date +%s%3N 2>/dev/null || date +%s)
-        MODULE_LOAD_COUNTS[$module_name]=$((${MODULE_LOAD_COUNTS[$module_name]:-0} + 1))
-        
-        # 更新统计
-        TOTAL_MODULE_LOADS=$((TOTAL_MODULE_LOADS + 1))
-        local load_time=$(($(date +%s%3N 2>/dev/null || date +%s) - start_time))
-        TOTAL_MODULE_LOAD_TIME=$((TOTAL_MODULE_LOAD_TIME + load_time))
-        
-        log_success "模块 '$module_name' 加载成功 (版本: ${MODULE_VERSIONS[$module_name]}, 新增函数: $functions_added, 耗时: ${load_time}ms)"
-        return 0
-    else
-        log_error "模块 '$module_name' 加载失败"
-        return 1
-    fi
+    load_module_unified "$@"
 }
 
 # 检查模块版本兼容性
