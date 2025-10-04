@@ -23,14 +23,185 @@ declare -g IPV6WGM_MEMORY_LIMIT="${IPV6WGM_MEMORY_LIMIT:-1073741824}"  # 1GB
 declare -g IPV6WGM_CPU_LIMIT="${IPV6WGM_CPU_LIMIT:-80}"  # 80%
 declare -g IPV6WGM_DISK_LIMIT="${IPV6WGM_DISK_LIMIT:-5368709120}"  # 5GB
 
-# 性能监控
-declare -A IPV6WGM_PERFORMANCE_METRICS=()
-declare -A IPV6WGM_CACHE_STATS=(
-    ["hits"]=0
-    ["misses"]=0
-    ["size"]=0
-    ["cleanups"]=0
-)
+# 智能缓存系统 - 优化版本
+declare -A IPV6WGM_SMART_CACHE=()
+declare -A IPV6WGM_CACHE_TIMESTAMPS=()
+declare -A IPV6WGM_CACHE_ACCESS_COUNT=()
+
+# 智能缓存函数
+smart_cache_get() {
+    local key="$1"
+    local current_time=$(date +%s)
+    
+    # 检查缓存是否存在且未过期
+    if [[ -n "${IPV6WGM_SMART_CACHE[$key]}" ]]; then
+        local cache_time="${IPV6WGM_CACHE_TIMESTAMPS[$key]}"
+        local age=$((current_time - cache_time))
+        
+        if [[ $age -lt $IPV6WGM_CACHE_TTL ]]; then
+            # 更新访问计数
+            IPV6WGM_CACHE_ACCESS_COUNT[$key]=$((${IPV6WGM_CACHE_ACCESS_COUNT[$key]} + 1))
+            IPV6WGM_CACHE_STATS["hits"]=$((${IPV6WGM_CACHE_STATS["hits"]} + 1))
+            echo "${IPV6WGM_SMART_CACHE[$key]}"
+            return 0
+        else
+            # 缓存过期，删除
+            unset IPV6WGM_SMART_CACHE[$key]
+            unset IPV6WGM_CACHE_TIMESTAMPS[$key]
+            unset IPV6WGM_CACHE_ACCESS_COUNT[$key]
+        fi
+    fi
+    
+    IPV6WGM_CACHE_STATS["misses"]=$((${IPV6WGM_CACHE_STATS["misses"]} + 1))
+    return 1
+}
+
+# 智能缓存设置
+smart_cache_set() {
+    local key="$1"
+    local value="$2"
+    local current_time=$(date +%s)
+    
+    # 检查缓存大小限制
+    if [[ ${#IPV6WGM_SMART_CACHE[@]} -ge $IPV6WGM_CACHE_MAX_SIZE ]]; then
+        cleanup_old_cache_entries
+    fi
+    
+    IPV6WGM_SMART_CACHE[$key]="$value"
+    IPV6WGM_CACHE_TIMESTAMPS[$key]="$current_time"
+    IPV6WGM_CACHE_ACCESS_COUNT[$key]=1
+}
+
+# 清理旧的缓存条目
+cleanup_old_cache_entries() {
+    local current_time=$(date +%s)
+    local keys_to_remove=()
+    
+    # 找到最久未访问的条目
+    for key in "${!IPV6WGM_SMART_CACHE[@]}"; do
+        local cache_time="${IPV6WGM_CACHE_TIMESTAMPS[$key]}"
+        local age=$((current_time - cache_time))
+        
+        if [[ $age -gt $IPV6WGM_CACHE_TTL ]]; then
+            keys_to_remove+=("$key")
+        fi
+    done
+    
+    # 删除过期条目
+    for key in "${keys_to_remove[@]}"; do
+        unset IPV6WGM_SMART_CACHE[$key]
+        unset IPV6WGM_CACHE_TIMESTAMPS[$key]
+        unset IPV6WGM_CACHE_ACCESS_COUNT[$key]
+    done
+    
+    # 如果仍然超过限制，删除访问次数最少的条目
+    if [[ ${#IPV6WGM_SMART_CACHE[@]} -ge $IPV6WGM_CACHE_MAX_SIZE ]]; then
+        local min_access_key=""
+        local min_access_count=999999
+        
+        for key in "${!IPV6WGM_CACHE_ACCESS_COUNT[@]}"; do
+            local access_count="${IPV6WGM_CACHE_ACCESS_COUNT[$key]}"
+            if [[ $access_count -lt $min_access_count ]]; then
+                min_access_count=$access_count
+                min_access_key="$key"
+            fi
+        done
+        
+        if [[ -n "$min_access_key" ]]; then
+            unset IPV6WGM_SMART_CACHE[$min_access_key]
+            unset IPV6WGM_CACHE_TIMESTAMPS[$min_access_key]
+            unset IPV6WGM_CACHE_ACCESS_COUNT[$min_access_key]
+        fi
+    fi
+}
+# 并行处理优化
+parallel_execute() {
+    local commands=("$@")
+    local max_jobs=$IPV6WGM_MAX_PARALLEL_JOBS
+    local pids=()
+    local results=()
+    
+    # 限制并行作业数量
+    for i in "${!commands[@]}"; do
+        local cmd="${commands[$i]}"
+        
+        # 如果达到最大并行数，等待一个作业完成
+        if [[ ${#pids[@]} -ge $max_jobs ]]; then
+            wait_for_job_completion
+        fi
+        
+        # 启动后台作业
+        (
+            eval "$cmd"
+            echo $? > "/tmp/ipv6wgm_job_$$_$i.result"
+        ) &
+        
+        local pid=$!
+        pids+=("$pid")
+        
+        # 记录作业信息
+        echo "$i:$pid:$cmd" >> "/tmp/ipv6wgm_jobs_$$.log"
+    done
+    
+    # 等待所有作业完成
+    wait_for_all_jobs
+    
+    # 收集结果
+    collect_job_results "${#commands[@]}"
+    
+    # 清理临时文件
+    cleanup_job_files
+}
+
+# 等待作业完成
+wait_for_job_completion() {
+    local completed=false
+    
+    while [[ $completed == false ]]; do
+        for i in "${!pids[@]}"; do
+            local pid="${pids[$i]}"
+            if ! kill -0 "$pid" 2>/dev/null; then
+                # 作业完成，移除PID
+                unset pids[$i]
+                pids=("${pids[@]}")  # 重新索引数组
+                completed=true
+                break
+            fi
+        done
+        
+        if [[ $completed == false ]]; then
+            sleep 0.1
+        fi
+    done
+}
+
+# 等待所有作业完成
+wait_for_all_jobs() {
+    for pid in "${pids[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
+}
+
+# 收集作业结果
+collect_job_results() {
+    local total_jobs="$1"
+    
+    for ((i=0; i<total_jobs; i++)); do
+        local result_file="/tmp/ipv6wgm_job_$$_$i.result"
+        if [[ -f "$result_file" ]]; then
+            local result=$(cat "$result_file")
+            results+=("$result")
+        else
+            results+=("1")  # 默认失败
+        fi
+    done
+}
+
+# 清理作业文件
+cleanup_job_files() {
+    rm -f "/tmp/ipv6wgm_jobs_$$.log"
+    rm -f "/tmp/ipv6wgm_job_$$_"*.result
+}
 
 # =============================================================================
 # 高级缓存系统

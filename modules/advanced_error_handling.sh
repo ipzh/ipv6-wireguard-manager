@@ -215,7 +215,8 @@ validate_command_result() {
     local description="${3:-验证命令结果}"
     
     local actual_output
-    if actual_output=$(eval "$command" 2>&1); then
+    # 使用更安全的方式执行命令，避免eval
+    if actual_output=$(bash -c "$command" 2>&1); then
         if [[ "$actual_output" == "$expected_output" ]]; then
             log_debug "✓ 命令结果验证通过: $description"
             return 0

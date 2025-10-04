@@ -7,50 +7,69 @@
 # 模块依赖关系管理
 # =============================================================================
 
-# 模块依赖关系图 - 完善版本
+# 简化的模块依赖关系图 - 减少复杂度
 declare -A MODULE_DEPENDENCIES=(
+    # 核心基础模块 - 无依赖
     ["common_functions"]=""
+    
+    # 基础功能模块 - 只依赖common_functions
     ["variable_management"]="common_functions"
-    ["function_management"]="common_functions variable_management"
-    ["main_script_refactor"]="common_functions variable_management function_management"
-    ["unified_config"]="common_functions variable_management"
-    ["unified_config_manager"]="common_functions enhanced_security_functions"
-    ["error_handling"]="common_functions variable_management"
-    ["enhanced_error_handling"]="common_functions error_handling"
-    ["unified_error_handling"]="common_functions error_handling enhanced_error_handling"
-    ["system_detection"]="common_functions variable_management"
-    ["function_optimizer"]="common_functions function_management"
-    ["wireguard_config"]="common_functions unified_config system_detection enhanced_security_functions"
-    ["bird_config"]="common_functions unified_config system_detection"
-    ["web_management"]="common_functions unified_config error_handling enhanced_security_functions"
-    ["firewall_management"]="common_functions unified_config system_detection"
-    ["client_management"]="common_functions unified_config wireguard_config enhanced_security_functions"
-    ["backup_restore"]="common_functions unified_config enhanced_security_functions"
-    ["system_monitoring"]="common_functions unified_config"
-    ["resource_monitoring"]="common_functions system_monitoring"
-    ["self_diagnosis"]="common_functions unified_config system_monitoring"
+    ["function_management"]="common_functions"
+    ["unified_config"]="common_functions"
+    ["error_handling"]="common_functions"
+    ["system_detection"]="common_functions"
+    ["security_functions"]="common_functions"
+    ["smart_caching"]="common_functions"
     ["lazy_loading"]="common_functions"
     ["version_control"]="common_functions"
-    ["enhanced_module_loader"]="common_functions function_management"
-    ["oauth_authentication"]="common_functions unified_config error_handling enhanced_security_functions"
-    ["security_functions"]="common_functions unified_config"
-    ["enhanced_security_functions"]="common_functions"
-    ["security_audit_monitoring"]="common_functions security_functions enhanced_security_functions"
-    ["smart_caching"]="common_functions"
-    ["unified_test_framework"]="common_functions"
-    ["advanced_performance_optimization"]="common_functions smart_caching"
-    ["config_hot_reload"]="common_functions unified_config unified_config_manager"
     ["user_interface"]="common_functions"
-    ["update_management"]="common_functions unified_config enhanced_security_functions"
-    ["network_management"]="common_functions unified_config system_detection enhanced_security_functions"
-    ["network_topology"]="common_functions network_management"
-    ["multi_tenant"]="common_functions unified_config enhanced_security_functions oauth_authentication"
+    
+    # 增强功能模块 - 依赖基础模块
+    ["enhanced_security_functions"]="common_functions security_functions"
+    ["enhanced_error_handling"]="common_functions error_handling"
+    ["unified_error_handling"]="common_functions error_handling"
+    ["enhanced_module_loader"]="common_functions function_management"
+    ["unified_config_manager"]="common_functions unified_config"
+    ["function_optimizer"]="common_functions function_management"
+    ["advanced_performance_optimization"]="common_functions smart_caching"
+    
+    # 核心业务模块 - 依赖基础功能
+    ["wireguard_config"]="common_functions unified_config system_detection"
+    ["bird_config"]="common_functions unified_config system_detection"
+    ["firewall_management"]="common_functions unified_config system_detection"
+    ["client_management"]="common_functions unified_config wireguard_config"
+    ["backup_restore"]="common_functions unified_config"
+    ["system_monitoring"]="common_functions unified_config"
+    ["resource_monitoring"]="common_functions system_monitoring"
+    ["self_diagnosis"]="common_functions unified_config"
+    ["network_management"]="common_functions unified_config system_detection"
+    ["update_management"]="common_functions unified_config"
+    
+    # Web和认证模块 - 依赖核心业务模块
+    ["web_management"]="common_functions unified_config error_handling"
+    ["oauth_authentication"]="common_functions unified_config error_handling"
     ["websocket_realtime"]="common_functions web_management"
-    ["web_interface_enhanced"]="common_functions web_management enhanced_security_functions"
-    ["monitoring_alerting"]="common_functions system_monitoring enhanced_security_functions"
+    ["web_interface_enhanced"]="common_functions web_management"
+    
+    # 高级功能模块 - 依赖多个模块
+    ["security_audit_monitoring"]="common_functions security_functions"
+    ["monitoring_alerting"]="common_functions system_monitoring"
+    ["network_topology"]="common_functions network_management"
+    ["multi_tenant"]="common_functions unified_config oauth_authentication"
+    ["config_hot_reload"]="common_functions unified_config"
+    
+    # 兼容性和测试模块 - 独立模块
     ["hardware_compatibility"]="common_functions system_detection"
     ["windows_compatibility"]="common_functions system_detection"
     ["unified_windows_compatibility"]="common_functions windows_compatibility"
+    ["unified_test_framework"]="common_functions"
+    ["comprehensive_test_suite"]="common_functions"
+    ["performance_benchmark"]="common_functions"
+    ["api_doc_generator"]="common_functions"
+    ["deployment_wizard"]="common_functions"
+    
+    # 主脚本重构 - 依赖核心模块
+    ["main_script_refactor"]="common_functions variable_management function_management"
 )
 
 # 模块版本信息
@@ -97,10 +116,80 @@ declare -A MODULE_LOAD_STATES=(
     ["deprecated"]="已废弃"
 )
 
-# 已加载模块记录
-declare -A LOADED_MODULES
-declare -A MODULE_LOAD_TIMES
-declare -A MODULE_LOAD_COUNTS
+# 循环依赖检测函数
+check_circular_dependencies() {
+    local module_name="$1"
+    local visited=()
+    local recursion_stack=()
+    
+    # 深度优先搜索检测循环依赖
+    local dfs_check() {
+        local current_module="$1"
+        
+        # 检查是否在递归栈中（发现循环）
+        for stack_module in "${recursion_stack[@]}"; do
+            if [[ "$stack_module" == "$current_module" ]]; then
+                log_error "发现循环依赖: ${recursion_stack[*]} -> $current_module"
+                return 1
+            fi
+        done
+        
+        # 检查是否已访问过
+        for visited_module in "${visited[@]}"; do
+            if [[ "$visited_module" == "$current_module" ]]; then
+                return 0
+            fi
+        done
+        
+        # 标记为已访问并加入递归栈
+        visited+=("$current_module")
+        recursion_stack+=("$current_module")
+        
+        # 检查依赖
+        if [[ -n "${MODULE_DEPENDENCIES[$current_module]}" ]]; then
+            for dep in ${MODULE_DEPENDENCIES[$current_module]}; do
+                if [[ -n "$dep" ]]; then
+                    if ! dfs_check "$dep"; then
+                        return 1
+                    fi
+                fi
+            done
+        fi
+        
+        # 从递归栈中移除
+        recursion_stack=("${recursion_stack[@]:0:${#recursion_stack[@]}-1}")
+        return 0
+    }
+    
+    if dfs_check "$module_name"; then
+        log_debug "模块 '$module_name' 无循环依赖"
+        return 0
+    else
+        log_error "模块 '$module_name' 存在循环依赖"
+        return 1
+    fi
+}
+
+# 验证所有模块的依赖关系
+validate_all_dependencies() {
+    local error_count=0
+    
+    log_info "开始验证所有模块依赖关系..."
+    
+    for module in "${!MODULE_DEPENDENCIES[@]}"; do
+        if ! check_circular_dependencies "$module"; then
+            ((error_count++))
+        fi
+    done
+    
+    if [[ $error_count -eq 0 ]]; then
+        log_success "所有模块依赖关系验证通过"
+        return 0
+    else
+        log_error "发现 $error_count 个模块存在循环依赖"
+        return 1
+    fi
+}
 
 # 模块加载统计
 declare -g TOTAL_MODULE_LOADS=0

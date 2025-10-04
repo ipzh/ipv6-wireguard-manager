@@ -37,6 +37,126 @@ declare -A IPV6WGM_ERROR_CODES=(
     ["UNKNOWN_ERROR"]=99
 )
 
+# 错误恢复策略
+declare -A ERROR_RECOVERY_STRATEGIES=(
+    ["PERMISSION_DENIED"]="retry_with_sudo"
+    ["FILE_NOT_FOUND"]="create_missing_file"
+    ["DIRECTORY_NOT_FOUND"]="create_missing_directory"
+    ["CONFIGURATION_ERROR"]="reset_to_default"
+    ["NETWORK_ERROR"]="retry_with_backoff"
+    ["DEPENDENCY_MISSING"]="install_dependency"
+    ["VALIDATION_FAILED"]="show_help"
+    ["OPERATION_FAILED"]="retry_once"
+    ["TIMEOUT"]="retry_with_longer_timeout"
+    ["RESOURCE_EXHAUSTED"]="cleanup_and_retry"
+)
+
+# 错误恢复函数
+attempt_error_recovery() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="${3:-}"
+    
+    log_info "尝试错误恢复: $error_code"
+    
+    case "$error_code" in
+        "PERMISSION_DENIED")
+            log_info "尝试使用sudo权限重试..."
+            if command -v sudo &> /dev/null; then
+                return 0  # 提示用户使用sudo
+            else
+                log_error "系统不支持sudo，无法自动恢复"
+                return 1
+            fi
+            ;;
+        "FILE_NOT_FOUND")
+            log_info "尝试创建缺失的文件..."
+            if [[ -n "$context" && -d "$(dirname "$context")" ]]; then
+                touch "$context" 2>/dev/null && return 0
+            fi
+            return 1
+            ;;
+        "DIRECTORY_NOT_FOUND")
+            log_info "尝试创建缺失的目录..."
+            if [[ -n "$context" ]]; then
+                mkdir -p "$context" 2>/dev/null && return 0
+            fi
+            return 1
+            ;;
+        "CONFIGURATION_ERROR")
+            log_info "尝试重置为默认配置..."
+            if command -v create_default_config &> /dev/null; then
+                create_default_config "$context" 2>/dev/null && return 0
+            fi
+            return 1
+            ;;
+        "NETWORK_ERROR")
+            log_info "等待网络恢复..."
+            sleep 5
+            return 0  # 允许重试
+            ;;
+        "DEPENDENCY_MISSING")
+            log_info "尝试安装缺失的依赖..."
+            if command -v install_dependency &> /dev/null; then
+                install_dependency "$context" 2>/dev/null && return 0
+            fi
+            return 1
+            ;;
+        "VALIDATION_FAILED")
+            log_info "显示帮助信息..."
+            if command -v show_help &> /dev/null; then
+                show_help
+            fi
+            return 1
+            ;;
+        "OPERATION_FAILED")
+            log_info "重试一次..."
+            return 0  # 允许重试
+            ;;
+        "TIMEOUT")
+            log_info "使用更长的超时时间重试..."
+            return 0  # 允许重试
+            ;;
+        "RESOURCE_EXHAUSTED")
+            log_info "清理资源并重试..."
+            if command -v cleanup_resources &> /dev/null; then
+                cleanup_resources
+            fi
+            return 0  # 允许重试
+            ;;
+        *)
+            log_warn "未知错误代码，无法自动恢复: $error_code"
+            return 1
+            ;;
+    esac
+}
+
+# 增强的错误处理函数
+handle_error_with_recovery() {
+    local error_code="$1"
+    local error_message="$2"
+    local context="${3:-}"
+    local max_retries="${4:-3}"
+    local retry_count="${5:-0}"
+    
+    # 记录错误
+    log_error_event "ERROR" "$error_code" "$error_message" "$context"
+    
+    # 尝试恢复
+    if [[ $retry_count -lt $max_retries ]]; then
+        if attempt_error_recovery "$error_code" "$error_message" "$context"; then
+            log_info "错误恢复成功，重试操作 (第 $((retry_count + 1)) 次)"
+            return 2  # 返回特殊代码表示可以重试
+        else
+            log_warn "错误恢复失败，继续重试..."
+            return 1
+        fi
+    else
+        log_error "达到最大重试次数 ($max_retries)，放弃恢复"
+        return 1
+    fi
+}
+
 # 错误统计
 declare -A IPV6WGM_ERROR_STATS=(
     ["total_errors"]=0
@@ -45,11 +165,98 @@ declare -A IPV6WGM_ERROR_STATS=(
     ["warning_count"]=0
     ["error_count"]=0
     ["fatal_count"]=0
-)
-
+    ["recovered_errors"]=0
+    ["unrecoverable_errors"]=0
+    ["retry_attempts"]=0
+    ["successful_retries"]=0
 # 错误日志文件
 declare -g IPV6WGM_ERROR_LOG_FILE="${IPV6WGM_LOG_DIR}/error.log"
 declare -g IPV6WGM_ERROR_STATS_FILE="${IPV6WGM_LOG_DIR}/error_stats.json"
+
+# 保存错误统计到文件
+save_error_stats() {
+    local stats_file="$IPV6WGM_ERROR_STATS_FILE"
+    
+    # 确保目录存在
+    mkdir -p "$(dirname "$stats_file")" 2>/dev/null || true
+    
+    # 生成JSON格式的统计信息
+    cat > "$stats_file" << EOF
+{
+    "timestamp": "$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')",
+    "total_errors": ${IPV6WGM_ERROR_STATS["total_errors"]},
+    "debug_count": ${IPV6WGM_ERROR_STATS["debug_count"]},
+    "info_count": ${IPV6WGM_ERROR_STATS["info_count"]},
+    "warning_count": ${IPV6WGM_ERROR_STATS["warning_count"]},
+    "error_count": ${IPV6WGM_ERROR_STATS["error_count"]},
+    "fatal_count": ${IPV6WGM_ERROR_STATS["fatal_count"]},
+    "recovered_errors": ${IPV6WGM_ERROR_STATS["recovered_errors"]},
+    "unrecoverable_errors": ${IPV6WGM_ERROR_STATS["unrecoverable_errors"]},
+    "retry_attempts": ${IPV6WGM_ERROR_STATS["retry_attempts"]},
+    "successful_retries": ${IPV6WGM_ERROR_STATS["successful_retries"]},
+    "recovery_rate": "$(calculate_recovery_rate)%"
+}
+EOF
+    
+    log_debug "错误统计已保存到: $stats_file"
+}
+
+# 加载错误统计从文件
+load_error_stats() {
+    local stats_file="$IPV6WGM_ERROR_STATS_FILE"
+    
+    if [[ -f "$stats_file" ]]; then
+        # 使用jq解析JSON（如果可用）
+        if command -v jq &> /dev/null; then
+            IPV6WGM_ERROR_STATS["total_errors"]=$(jq -r '.total_errors // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["debug_count"]=$(jq -r '.debug_count // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["info_count"]=$(jq -r '.info_count // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["warning_count"]=$(jq -r '.warning_count // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["error_count"]=$(jq -r '.error_count // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["fatal_count"]=$(jq -r '.fatal_count // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["recovered_errors"]=$(jq -r '.recovered_errors // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["unrecoverable_errors"]=$(jq -r '.unrecoverable_errors // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["retry_attempts"]=$(jq -r '.retry_attempts // 0' "$stats_file")
+            IPV6WGM_ERROR_STATS["successful_retries"]=$(jq -r '.successful_retries // 0' "$stats_file")
+        else
+            # 简单的文本解析（备用方案）
+            log_warn "jq不可用，使用简单的统计加载"
+        fi
+        
+        log_debug "错误统计已从文件加载: $stats_file"
+    else
+        log_debug "错误统计文件不存在，使用默认值: $stats_file"
+    fi
+}
+
+# 计算恢复率
+calculate_recovery_rate() {
+    local total_errors=${IPV6WGM_ERROR_STATS["total_errors"]}
+    local recovered_errors=${IPV6WGM_ERROR_STATS["recovered_errors"]}
+    
+    if [[ $total_errors -gt 0 ]]; then
+        echo "scale=2; $recovered_errors * 100 / $total_errors" | bc 2>/dev/null || echo "0"
+    else
+        echo "0"
+    fi
+}
+
+# 显示错误统计报告
+show_error_stats() {
+    echo "=== 错误统计报告 ==="
+    echo "总错误数: ${IPV6WGM_ERROR_STATS["total_errors"]}"
+    echo "调试信息: ${IPV6WGM_ERROR_STATS["debug_count"]}"
+    echo "信息: ${IPV6WGM_ERROR_STATS["info_count"]}"
+    echo "警告: ${IPV6WGM_ERROR_STATS["warning_count"]}"
+    echo "错误: ${IPV6WGM_ERROR_STATS["error_count"]}"
+    echo "致命错误: ${IPV6WGM_ERROR_STATS["fatal_count"]}"
+    echo "已恢复错误: ${IPV6WGM_ERROR_STATS["recovered_errors"]}"
+    echo "未恢复错误: ${IPV6WGM_ERROR_STATS["unrecoverable_errors"]}"
+    echo "重试次数: ${IPV6WGM_ERROR_STATS["retry_attempts"]}"
+    echo "成功重试: ${IPV6WGM_ERROR_STATS["successful_retries"]}"
+    echo "恢复率: $(calculate_recovery_rate)%"
+    echo "=================="
+}
 
 # =============================================================================
 # 错误处理函数

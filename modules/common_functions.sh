@@ -1882,7 +1882,126 @@ lazy_load() {
     source "$module_path"
     
     # 标记模块已加载 - 使用安全的函数定义
-    declare -f "module_${module_name}_loaded" >/dev/null 2>&1 || eval "module_${module_name}_loaded() { return 0; }"
+    if ! declare -f "module_${module_name}_loaded" >/dev/null 2>&1; then
+        # 使用安全的函数定义方式
+        case "$module_name" in
+            "common_functions")
+                module_common_functions_loaded() { return 0; }
+                ;;
+            "variable_management")
+                module_variable_management_loaded() { return 0; }
+                ;;
+            "function_management")
+                module_function_management_loaded() { return 0; }
+                ;;
+            "unified_config")
+                module_unified_config_loaded() { return 0; }
+                ;;
+            "error_handling")
+                module_error_handling_loaded() { return 0; }
+                ;;
+            "system_detection")
+                module_system_detection_loaded() { return 0; }
+                ;;
+            "wireguard_config")
+                module_wireguard_config_loaded() { return 0; }
+                ;;
+            "bird_config")
+                module_bird_config_loaded() { return 0; }
+                ;;
+            "web_management")
+                module_web_management_loaded() { return 0; }
+                ;;
+            "firewall_management")
+                module_firewall_management_loaded() { return 0; }
+                ;;
+            "client_management")
+                module_client_management_loaded() { return 0; }
+                ;;
+            "backup_restore")
+                module_backup_restore_loaded() { return 0; }
+                ;;
+            "system_monitoring")
+                module_system_monitoring_loaded() { return 0; }
+                ;;
+            "resource_monitoring")
+                module_resource_monitoring_loaded() { return 0; }
+                ;;
+            "self_diagnosis")
+                module_self_diagnosis_loaded() { return 0; }
+                ;;
+            "lazy_loading")
+                module_lazy_loading_loaded() { return 0; }
+                ;;
+            "version_control")
+                module_version_control_loaded() { return 0; }
+                ;;
+            "enhanced_module_loader")
+                module_enhanced_module_loader_loaded() { return 0; }
+                ;;
+            "oauth_authentication")
+                module_oauth_authentication_loaded() { return 0; }
+                ;;
+            "security_functions")
+                module_security_functions_loaded() { return 0; }
+                ;;
+            "enhanced_security_functions")
+                module_enhanced_security_functions_loaded() { return 0; }
+                ;;
+            "security_audit_monitoring")
+                module_security_audit_monitoring_loaded() { return 0; }
+                ;;
+            "smart_caching")
+                module_smart_caching_loaded() { return 0; }
+                ;;
+            "unified_test_framework")
+                module_unified_test_framework_loaded() { return 0; }
+                ;;
+            "advanced_performance_optimization")
+                module_advanced_performance_optimization_loaded() { return 0; }
+                ;;
+            "config_hot_reload")
+                module_config_hot_reload_loaded() { return 0; }
+                ;;
+            "user_interface")
+                module_user_interface_loaded() { return 0; }
+                ;;
+            "update_management")
+                module_update_management_loaded() { return 0; }
+                ;;
+            "network_management")
+                module_network_management_loaded() { return 0; }
+                ;;
+            "network_topology")
+                module_network_topology_loaded() { return 0; }
+                ;;
+            "multi_tenant")
+                module_multi_tenant_loaded() { return 0; }
+                ;;
+            "websocket_realtime")
+                module_websocket_realtime_loaded() { return 0; }
+                ;;
+            "web_interface_enhanced")
+                module_web_interface_enhanced_loaded() { return 0; }
+                ;;
+            "monitoring_alerting")
+                module_monitoring_alerting_loaded() { return 0; }
+                ;;
+            "hardware_compatibility")
+                module_hardware_compatibility_loaded() { return 0; }
+                ;;
+            "windows_compatibility")
+                module_windows_compatibility_loaded() { return 0; }
+                ;;
+            "unified_windows_compatibility")
+                module_unified_windows_compatibility_loaded() { return 0; }
+                ;;
+            *)
+                # 对于未知模块，使用通用函数名
+                module_unknown_loaded() { return 0; }
+                ;;
+        esac
+    fi
     return 0
 }
 

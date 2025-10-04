@@ -116,6 +116,10 @@ else
     log_error "增强模块加载器导入失败，脚本无法继续执行"
     exit 1
 fi
+
+# 导入变量管理系统
+if import_module "variable_management"; then
+    log_info "变量管理系统已导入"
     if command -v init_variables &> /dev/null; then
         init_variables
     fi
