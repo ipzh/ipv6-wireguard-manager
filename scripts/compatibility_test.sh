@@ -42,13 +42,10 @@ BLUE='\033[0;34m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-# 基础日志函数的备选实现
-if ! command -v log_info &> /dev/null; then
-    log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-    log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
-    # log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }  # 不可达代码
-    log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-    # log_debug() { echo -e "${PURPLE}[DEBUG]${NC} $*"; }  # 不可达代码
+# 引入统一公共函数库（包含颜色与日志函数），移除本地日志函数
+if [[ -f "$PROJECT_ROOT/modules/common_functions.sh" ]]; then
+    # shellcheck source=modules/common_functions.sh
+    source "$PROJECT_ROOT/modules/common_functions.sh"
 fi
 
 # 测试结果统计

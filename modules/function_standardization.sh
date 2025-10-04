@@ -49,43 +49,17 @@ ensure_core_functions() {
     log_success "核心函数统一完成"
 }
 
-# 确保日志函数统一
+# 确保日志函数统一（改为依赖公共库，不再本地定义）
 ensure_log_functions() {
-    # 定义标准日志函数
+    # 日志函数由 modules/common_functions.sh 提供，这里仅校验存在
     if ! command -v log_info >/dev/null 2>&1; then
-        log_info() {
-            echo -e "${BLUE}[INFO]${NC} $1"
-        }
+        if [ -f "${IPV6WGM_ROOT_DIR}/modules/common_functions.sh" ]; then
+            source "${IPV6WGM_ROOT_DIR}/modules/common_functions.sh"
+        elif [ -f "./modules/common_functions.sh" ]; then
+            source "./modules/common_functions.sh"
+        fi
     fi
-    
-    if ! command -v log_error >/dev/null 2>&1; then
-        log_error() {
-            echo -e "${RED}[ERROR]${NC} $1" >&2
-        }
-    fi
-    
-    if ! command -v log_warn >/dev/null 2>&1; then
-        log_warn() {
-            echo -e "${YELLOW}[WARN]${NC} $1"
-        }
-    fi
-    
-    if ! command -v log_success >/dev/null 2>&1; then
-        log_success() {
-            echo -e "${GREEN}[SUCCESS]${NC} $1"
-        }
-    fi
-    
-    if ! command -v log_debug >/dev/null 2>&1; then
-        log_debug() {
-            if [[ "${IPV6WGM_DEBUG_MODE:-false}" == "true" ]]; then
-                echo -e "${PURPLE}[DEBUG]${NC} $1"
-            fi
-        }
-    fi
-    
-    # 导出日志函数
-    export -f log_info log_error log_warn log_success log_debug
+    return 0
 }
 
 # 确保错误处理函数统一

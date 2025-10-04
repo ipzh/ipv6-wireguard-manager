@@ -36,6 +36,29 @@ declare -g IPV6WGM_BUILD_DATE="$(date '+%Y-%m-%d')"
 declare -g IPV6WGM_DEBUG_MODE="${DEBUG:-false}"
 declare -g IPV6WGM_VERBOSE_MODE="${VERBOSE:-false}"
 
+# 日志级别控制（默认根据环境与配置）
+declare -ag IPV6WGM_LOG_LEVELS=("DEBUG" "INFO" "WARN" "ERROR" "FATAL")
+# 默认日志级别：生产环境降为WARN，其它环境为INFO（可被环境变量LOG_LEVEL覆盖）
+declare -g IPV6WGM_LOG_LEVEL
+if [[ "${ENVIRONMENT:-${ENV:-}}" =~ ^[Pp]rod(uction)?$ ]]; then
+    IPV6WGM_LOG_LEVEL="${LOG_LEVEL:-WARN}"
+else
+    IPV6WGM_LOG_LEVEL="${LOG_LEVEL:-INFO}"
+fi
+
+# 如统一配置管理可用，则从配置文件读取 LOG_LEVEL 进行覆盖
+if [[ -n "${CONFIG_FILE:-}" ]] && command -v read_config &> /dev/null; then
+    IPV6WGM_LOG_LEVEL="$(read_config "${CONFIG_FILE}" "LOG_LEVEL" "${IPV6WGM_LOG_LEVEL}")"
+fi
+
+# 统一日志级别设置函数
+set_log_level() {
+    local level="${1:-INFO}"
+    # 规范化为大写
+    level="$(echo "$level" | tr '[:lower:]' '[:upper:]')"
+    IPV6WGM_LOG_LEVEL="$level"
+}
+
 # 性能配置变量
 declare -g IPV6WGM_SLEEP_SHORT="${SLEEP_SHORT:-0.1}"      # 短等待时间
 declare -g IPV6WGM_SLEEP_MEDIUM="${SLEEP_MEDIUM:-1}"      # 中等等待时间
@@ -945,11 +968,11 @@ log_with_level() {
     # 根据级别选择颜色
     local color=""
     case "$level" in
-        "DEBUG") color="$PURPLE" ;;
-        "INFO")  color="$BLUE" ;;
-        "WARN")  color="$YELLOW" ;;
-        "ERROR") color="$RED" ;;
-        "FATAL") color="$RED" ;;
+        "DEBUG") color="${PURPLE:-$BLUE}" ;;
+        "INFO")  color="${BLUE:-$NC}" ;;
+        "WARN")  color="${YELLOW:-$BLUE}" ;;
+        "ERROR") color="${RED:-$NC}" ;;
+        "FATAL") color="${RED:-$NC}" ;;
     esac
     
     # 输出到控制台（带颜色）

@@ -14,45 +14,7 @@ else
     exit 1
 fi
 
-# ================================================================
-# 统一的日志函数
-# ================================================================
-
-# 确保日志函数存在
-ensure_log_functions() {
-    # 如果log_info不存在，定义它
-    if ! command -v log_info >/dev/null 2>&1; then
-        log_info() {
-            echo -e "${BLUE}[INFO]${NC} $1"
-        }
-    fi
-    
-    if ! command -v log_error >/dev/null 2>&1; then
-        log_error() {
-            echo -e "${RED}[ERROR]${NC} $1" >&2
-        }
-    fi
-    
-    if ! command -v log_warn >/dev/null 2>&1; then
-        log_warn() {
-            echo -e "${YELLOW}[WARN]${NC} $1"
-        }
-    fi
-    
-    if ! command -v log_success >/dev/null 2>&1; then
-        log_success() {
-            echo -e "${GREEN}[SUCCESS]${NC} $1"
-        }
-    fi
-    
-    if ! command -v log_debug >/dev/null 2>&1; then
-        log_debug() {
-            if [[ "${IPV6WGM_DEBUG_MODE:-false}" == "true" ]]; then
-                echo -e "${PURPLE}[DEBUG]${NC} $1"
-            fi
-        }
-    fi
-}
+# 日志函数统一由 modules/common_functions.sh 提供
 
 # ================================================================
 # 统一的错误处理函数
@@ -64,9 +26,6 @@ unified_handle_error() {
     local error_message="$2"
     local context="${3:-unknown}"
     local line_number="${4:-$LINENO}"
-    
-    # 确保日志函数存在
-    ensure_log_functions
     
     # 记录错误
     log_error "[错误码: $error_code] $error_message (上下文: $context, 行号: $line_number)"
@@ -182,9 +141,6 @@ unified_execute_command() {
     local description="$2"
     local ignore_errors="${3:-false}"
     
-    # 确保日志函数存在
-    ensure_log_functions
-    
     log_info "执行: $description"
     log_debug "命令: $command"
     
@@ -209,7 +165,6 @@ unified_execute_command() {
 # ================================================================
 
 # 导出所有函数
-export -f ensure_log_functions
 export -f unified_handle_error
 export -f unified_convert_path
 export -f unified_set_permissions

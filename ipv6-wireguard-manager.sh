@@ -631,6 +631,12 @@ capability_check() {
             log_warn "NET_ADMIN权限不足，可能影响网络配置"
             return 1
         fi
+        # 进一步检查cap_net_admin能力（如capsh可用）
+        if command -v capsh &> /dev/null; then
+            if ! capsh --print 2>/dev/null | grep -qi "cap_net_admin"; then
+                log_debug "cap_net_admin未显式授予，继续基于功能检测"
+            fi
+        fi
     fi
     
     # 检查系统模块能力
@@ -638,6 +644,15 @@ capability_check() {
         if [[ ! -d "/sys/module" ]] || [[ ! -w "/sys/module" ]]; then
             log_warn "SYS_MODULE权限不足，可能影响WireGuard模块加载"
             return 1
+        fi
+        # 检查是否禁用模块加载
+        if [[ -r "/proc/sys/kernel/modules_disabled" ]] && [[ "$(cat /proc/sys/kernel/modules_disabled 2>/dev/null)" == "1" ]]; then
+            log_warn "内核已禁用模块加载 (modules_disabled=1)"
+            return 1
+        fi
+        # 检查modprobe是否可用
+        if command -v modprobe &> /dev/null; then
+            modprobe -n -v wireguard &>/dev/null || true
         fi
     fi
     
@@ -647,6 +662,12 @@ capability_check() {
         if ! ping -c 1 127.0.0.1 &>/dev/null; then
             log_warn "NET_RAW权限不足，可能影响网络诊断"
             return 1
+        fi
+        # 检查cap_net_raw能力（如capsh可用）
+        if command -v capsh &> /dev/null; then
+            if ! capsh --print 2>/dev/null | grep -qi "cap_net_raw"; then
+                log_debug "cap_net_raw未显式授予，仍可通过root权限工作"
+            fi
         fi
     fi
     

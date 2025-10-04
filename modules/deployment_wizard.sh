@@ -396,7 +396,20 @@ configure_firewall_settings() {
 # 配置BGP设置
 configure_bgp_settings() {
     read -p "BGP AS号: " bgp_as
-    read -p "BGP路由器ID: " bgp_router_id
+
+    # 从配置或环境获取默认的BGP路由器ID
+    local default_bgp_router_id=""
+    if [[ -n "${CONFIG_FILE:-}" ]] && command -v read_config &> /dev/null; then
+        default_bgp_router_id="$(read_config "${CONFIG_FILE}" "BGP_ROUTER_ID" "")"
+    fi
+    if [[ -z "$default_bgp_router_id" ]]; then
+        default_bgp_router_id="${BGP_ROUTER_ID:-$(hostname -I 2>/dev/null | awk '{print $1}') }"
+    fi
+
+    read -p "BGP路由器ID [默认: $default_bgp_router_id]: " bgp_router_id
+    if [[ -z "$bgp_router_id" ]]; then
+        bgp_router_id="$default_bgp_router_id"
+    fi
     
     DEPLOYMENT_CONFIG[BGP_AS_NUMBER]="$bgp_as"
     DEPLOYMENT_CONFIG[BGP_ROUTER_ID]="$bgp_router_id"

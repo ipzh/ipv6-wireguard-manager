@@ -17,21 +17,17 @@ DEPLOY_TARGET="${DEPLOY_TARGET:-local}"
 BACKUP_ENABLED="${BACKUP_ENABLED:-true}"
 ROLLBACK_ENABLED="${ROLLBACK_ENABLED:-true}"
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-# YELLOW=  # unused'\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# 引入统一公共函数库（包含颜色与日志函数）
+if [[ -f "${PROJECT_DIR}/modules/common_functions.sh" ]]; then
+    # shellcheck source=modules/common_functions.sh
+    source "${PROJECT_DIR}/modules/common_functions.sh"
+fi
 
 # =============================================================================
 # 日志函数
 # =============================================================================
 
-log_info() { echo -e "${BLUE}[DEPLOY INFO]${NC} $*"; }
-log_success() { echo -e "${GREEN}[DEPLOY SUCCESS]${NC} $*"; }
-log_warn() { echo -e "${YELLOW}[DEPLOY WARN]${NC} $*"; }
-log_error() { echo -e "${RED}[DEPLOY ERROR]${NC} $*"; }
+# 统一日志函数已在 common_functions.sh 中定义
 
 # =============================================================================
 # 部署前检查

@@ -4,29 +4,13 @@
 
 echo "=== 修复WireGuard安装卡住问题 ==="
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-# YELLOW=  # unused'\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# 引入统一公共函数库（包含颜色与日志函数）
+if [[ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/modules/common_functions.sh" ]]; then
+    # shellcheck source=modules/common_functions.sh
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/modules/common_functions.sh"
+fi
 
-# 日志函数
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# 统一日志函数已在 common_functions.sh 中定义
 
 # 检查当前状态
 check_current_status() {

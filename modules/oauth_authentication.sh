@@ -280,13 +280,14 @@ create_default_oauth_clients() {
     # 创建Web管理界面客户端
     local web_client_id="web-manager"
     local web_client_secret=$(generate_client_secret)
+    local web_client_secret_hash=$(hash_client_secret "$web_client_secret")
     
     sqlite3 "$OAUTH_CLIENTS_DB" << EOF
 INSERT OR IGNORE INTO oauth_clients (
     client_id, client_secret, name, description, 
     redirect_uris, scopes, grant_types, response_types
 ) VALUES (
-    '$web_client_id', '$web_client_secret', 'Web管理界面', 'Web管理界面OAuth客户端',
+    '$web_client_id', '$web_client_secret_hash', 'Web管理界面', 'Web管理界面OAuth客户端',
     'http://localhost:8080/callback,https://localhost:8443/callback', 
     'read write user:read user:write client:read client:write config:read config:write monitor:read',
     'authorization_code,refresh_token', 'code'
@@ -296,13 +297,14 @@ EOF
     # 创建API客户端
     local api_client_id="api-client"
     local api_client_secret=$(generate_client_secret)
+    local api_client_secret_hash=$(hash_client_secret "$api_client_secret")
     
     sqlite3 "$OAUTH_CLIENTS_DB" << EOF
 INSERT OR IGNORE INTO oauth_clients (
     client_id, client_secret, name, description,
     redirect_uris, scopes, grant_types, response_types
 ) VALUES (
-    '$api_client_id', '$api_client_secret', 'API客户端', 'API访问OAuth客户端',
+    '$api_client_id', '$api_client_secret_hash', 'API客户端', 'API访问OAuth客户端',
     'urn:ietf:wg:oauth:2.0:oob', 
     'read write user:read client:read client:write config:read monitor:read',
     'client_credentials,authorization_code', 'code'
@@ -488,20 +490,26 @@ add_oauth_client() {
     local client_id=$(show_input "客户端ID" "")
     local name=$(show_input "客户端名称" "")
     local description=$(show_input "客户端描述" "")
-    local redirect_uris=$(show_input "重定向URI (多个用逗号分隔)" "")
+    # 默认重定向URI从配置或环境读取
+    local default_redirect_uri="${OAUTH_REDIRECT_URI:-http://127.0.0.1:8080/callback}"
+    if [[ -n "${CONFIG_FILE:-}" ]] && command -v read_config &> /dev/null; then
+        default_redirect_uri="$(read_config "${CONFIG_FILE}" "OAUTH_REDIRECT_URI" "$default_redirect_uri")"
+    fi
+    local redirect_uris=$(show_input "重定向URI (多个用逗号分隔)" "$default_redirect_uri")
     local scopes=$(show_selection "作用域" "read" "write" "admin" "user:read" "user:write" "client:read" "client:write" "config:read" "config:write" "monitor:read")
     local grant_types=$(show_selection "授权类型" "authorization_code" "client_credentials" "refresh_token" "password")
     local response_types=$(show_selection "响应类型" "code" "token" "id_token")
     
     if [[ -n "$client_id" && -n "$name" && -n "$redirect_uris" ]]; then
         local client_secret=$(generate_client_secret)
+        local client_secret_hash=$(hash_client_secret "$client_secret")
         
         sqlite3 "$OAUTH_CLIENTS_DB" << EOF
 INSERT INTO oauth_clients (
     client_id, client_secret, name, description, 
     redirect_uris, scopes, grant_types, response_types
 ) VALUES (
-    '$client_id', '$client_secret', '$name', '$description',
+    '$client_id', '$client_secret_hash', '$name', '$description',
     '$redirect_uris', '$scopes', '$grant_types', '$response_types'
 );
 EOF
@@ -1014,6 +1022,26 @@ generate_client_secret() {
     openssl rand -base64 32
 }
 
+# 计算客户端密钥加盐哈希（SHA-512-crypt）
+hash_client_secret() {
+    local secret="$1"
+    local salt=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9./' | cut -c1-16)
+    local hash=$(openssl passwd -6 -salt "$salt" "$secret")
+    echo "$hash"
+}
+
+# 校验客户端密钥与已存储哈希（SHA-512-crypt）
+verify_client_secret_hash() {
+    local stored_hash="$1"
+    local candidate_secret="$2"
+    local salt=$(echo "$stored_hash" | awk -F'$' '{print $3}')
+    if [[ -z "$salt" ]]; then
+        return 1
+    fi
+    local recomputed=$(openssl passwd -6 -salt "$salt" "$candidate_secret")
+    [[ "$recomputed" == "$stored_hash" ]]
+}
+
 # OAuth 2.0 授权码流程
 oauth_authorization_code_flow() {
     local client_id="$1"
@@ -1072,6 +1100,12 @@ exchange_access_token() {
     local client_id="$2"
     local client_secret="$3"
     local redirect_uri="$4"
+    
+    # 验证客户端凭据（使用哈希校验）
+    if ! validate_client_credentials "$client_id" "$client_secret"; then
+        log_error "客户端凭据验证失败"
+        return 1
+    fi
     
     # 验证授权码
     local auth_data=$(sqlite3 "$OAUTH_TOKENS_DB" << EOF
@@ -1268,15 +1302,16 @@ validate_client_credentials() {
     local client_id="$1"
     local client_secret="$2"
     
-    local valid_client=$(sqlite3 "$OAUTH_CLIENTS_DB" << EOF
-SELECT COUNT(*) FROM oauth_clients 
-WHERE client_id = '$client_id' 
-AND client_secret = '$client_secret' 
-AND status = 'active';
-EOF
-)
-    
-    [[ "$valid_client" -gt 0 ]]
+    # 读取存储的哈希并进行校验
+    local stored_hash=$(sqlite3 "$OAUTH_CLIENTS_DB" "SELECT client_secret FROM oauth_clients WHERE client_id = '$client_id' AND status = 'active' LIMIT 1")
+    if [[ -z "$stored_hash" ]]; then
+        return 1
+    fi
+    if verify_client_secret_hash "$stored_hash" "$client_secret"; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # 验证MFA令牌

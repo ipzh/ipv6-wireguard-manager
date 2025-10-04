@@ -5,10 +5,7 @@
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-# YELLOW=  # unused'\033[1;33m'
 BLUE='\033[0;34m'
-# PURPLE=  # unused'\033[0;35m'
-# CYAN='\033[0;36m'  # 未使用的变量
 NC='\033[0m'
 
 # 日志函数
@@ -21,7 +18,7 @@ log_success() {
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    echo -e "${YELLOW:-$BLUE}[WARN]${NC} $1"
 }
 
 log_error() {
@@ -30,7 +27,7 @@ log_error() {
 
 # shellcheck disable=SC2317
 log_debug() {
-    echo -e "${PURPLE}[DEBUG]${NC} $1"
+    echo -e "${PURPLE:-$BLUE}[DEBUG]${NC} $1"
 }
 
 # 测试用例1: 验证权限检测功能
