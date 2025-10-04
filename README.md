@@ -55,6 +55,30 @@
 - **自动更新**: 支持自动检查和更新
 - **备份恢复**: 配置备份和恢复功能
 
+## 🗺️ 功能地图（快速总览）
+
+- **WireGuard 管理**: `modules/wireguard_config.sh`（服务器与客户端配置）
+- **客户端管理**: `modules/client_management.sh`（添加/删除/生成配置）
+- **BGP 路由**: `modules/bird_config.sh`（BIRD 配置与邻居管理）
+- **防火墙管理**: `modules/firewall_management.sh`（iptables/nftables/ufw 规则）
+- **Web 管理界面**: `modules/web_management.sh` 与 `modules/web_interface_enhanced.sh`
+- **认证与权限**: `modules/oauth_authentication.sh` 与 `modules/security_functions.sh`
+- **系统监控与告警**: `modules/system_monitoring.sh`、`modules/monitoring_alerting.sh`
+- **错误处理与恢复**: `modules/unified_error_handling.sh`、`modules/advanced_error_handling.sh`
+- **性能与缓存优化**: `modules/performance_optimizer.sh`、`modules/smart_caching.sh`、`modules/lazy_loading.sh`
+- **备份与更新**: `modules/backup_restore.sh`、`modules/update_management.sh`
+
+> 完整功能明细请参考 `FEATURES_OVERVIEW.md`。
+
+## 📚 文档导航
+
+- `FEATURES_OVERVIEW.md` — 功能特性总览（模块级详细说明）
+- `QUICK_START_GUIDE.md` — 快速开始与常用操作
+- `docs/INSTALLATION.md` — 安装与环境依赖
+- `docs/USAGE.md` — 使用与配置指南
+- `docs/API.md` — API 文档与示例
+- `docs/TESTING.md` — 测试指南与测试套件说明
+
 ## 🏗️ 架构特性
 
 ### 模块化设计
@@ -80,6 +104,14 @@
 - **兼容性测试**: Windows环境兼容性测试
 - **自动化测试**: 持续集成和自动化测试
 - **质量保证**: 代码质量检查和验证
+
+## 🪟 Windows 环境注意事项
+
+- 建议在 **WSL (Ubuntu/Debian)** 中运行，以获得与 Linux 环境一致的兼容性。
+- 如果在原生 PowerShell 中操作：
+  - 确保 `git.exe` 已加入系统 `PATH`（常见路径如 `D:\Program Files\Git\cmd\git.exe`）。
+  - 使用 `Git Bash` 或 `WSL` 执行 Shell 脚本，以避免路径与权限差异导致的问题。
+  - 如遇 "git 不是可识别的命令"，请将 Git 安装目录添加到系统环境变量 `PATH`，然后重新打开终端。
 
 ## 🚀 快速开始
 

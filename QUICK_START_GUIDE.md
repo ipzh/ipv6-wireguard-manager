@@ -135,7 +135,7 @@ sudo ipv6-wireguard-manager
 - [安装指南](docs/INSTALLATION.md) - 详细安装说明
 - [使用手册](docs/USAGE.md) - 完整使用指南
 - [API文档](docs/API.md) - API接口文档
-- [测试指南](docs/TESTING_GUIDE.md) - 测试说明
+ - [测试指南](docs/TESTING.md) - 测试说明
 
 ## 🆘 获取帮助
 
