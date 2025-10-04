@@ -607,7 +607,7 @@ add_iptables_rule() {
     fi
     
     # 执行命令
-    eval "$iptables_cmd"
+    bash -c "$iptables_cmd"
 }
 
 # 删除防火墙规则

@@ -53,7 +53,7 @@ init_config_system() {
     
     # 设置配置路径
     for config_path in "${CONFIG_PATHS[@]}"; do
-        eval "export $config_path"
+        export "$config_path"
     done
     
     # 设置默认配置值

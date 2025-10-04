@@ -331,7 +331,7 @@ optimized_command_execution() {
     fi
     
     # 执行命令
-    local result=$(eval "$command" 2>/dev/null)
+    local result=$(bash -c "$command" 2>/dev/null)
     local exit_code=$?
     
     if [[ $exit_code -eq 0 ]]; then

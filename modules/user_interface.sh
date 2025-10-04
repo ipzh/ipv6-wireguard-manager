@@ -329,7 +329,7 @@ show_input() {
         fi
         
         if [[ -n "$validation" ]]; then
-            if eval "$validation '$input'"; then
+            if bash -c "$validation '$input'"; then
                 echo "$input"
                 return 0
             else

@@ -132,7 +132,7 @@ parallel_execute() {
         
         # 启动后台作业
         (
-            eval "$cmd"
+            bash -c "$cmd"
             echo $? > "/tmp/ipv6wgm_job_$$_$i.result"
         ) &
         
@@ -343,7 +343,7 @@ execute_parallel() {
     if [[ "$IPV6WGM_PARALLEL_ENABLED" != "true" ]]; then
         # 串行执行
         for task in "${tasks[@]}"; do
-            eval "$task"
+            bash -c "$task"
         done
         return 0
     fi

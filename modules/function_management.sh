@@ -106,8 +106,8 @@ safe_define_function() {
         return 0
     fi
     
-    # 定义函数
-    eval "$func_body"
+    # 定义函数 - 使用更安全的方式
+    bash -c "$func_body"
     
     # 注册函数
     register_function "$func_name" "$source_file" "$version"
