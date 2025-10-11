@@ -29,9 +29,10 @@ fi
 echo "   Node.js版本: $(node --version)"
 echo "   npm版本: $(npm --version)"
 
-# 安装依赖
+# 安装依赖（抑制废弃警告）
 echo "📦 安装依赖..."
-npm install
+echo "   抑制npm废弃警告..."
+npm install --silent 2>/dev/null || npm install
 
 # 检查TypeScript是否可用
 if ! npx tsc --version >/dev/null 2>&1; then
