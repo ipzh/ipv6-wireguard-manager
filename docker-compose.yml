@@ -54,7 +54,7 @@ services:
       - ipv6wgm-network
     restart: unless-stopped
 
-  # 前端服务
+  # 前端服务 (包含Nginx)
   frontend:
     build:
       context: ./frontend
@@ -64,26 +64,9 @@ services:
       - REACT_APP_API_URL=http://localhost:8000
       - REACT_APP_WS_URL=ws://localhost:8000/ws
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - backend
-    networks:
-      - ipv6wgm-network
-    restart: unless-stopped
-
-  # Nginx反向代理
-  nginx:
-    image: nginx:alpine
-    container_name: ipv6wgm-nginx
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - backend
-      - frontend
     networks:
       - ipv6wgm-network
     restart: unless-stopped
