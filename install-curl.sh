@@ -14,6 +14,101 @@ echo ""
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
 INSTALL_DIR="ipv6-wireguard-manager"
 
+# 检测服务器IP地址
+get_server_ip() {
+    echo "🌐 检测服务器IP地址..."
+    
+    # 检测IPv4地址
+    PUBLIC_IPV4=""
+    LOCAL_IPV4=""
+    
+    # 方法1: 使用curl获取公网IPv4
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV4=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv4.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api.ipify.org 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://ifconfig.me/ip 2>/dev/null)
+    fi
+    
+    # 方法2: 使用wget获取公网IPv4
+    if [ -z "$PUBLIC_IPV4" ] && command -v wget >/dev/null 2>&1; then
+        PUBLIC_IPV4=$(wget -qO- --timeout=10 \
+            https://ipv4.icanhazip.com 2>/dev/null || \
+            wget -qO- --timeout=10 \
+            https://api.ipify.org 2>/dev/null)
+    fi
+    
+    # 检测IPv6地址
+    PUBLIC_IPV6=""
+    LOCAL_IPV6=""
+    
+    # 使用curl获取公网IPv6
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV6=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv6.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api64.ipify.org 2>/dev/null)
+    fi
+    
+    # 使用wget获取公网IPv6
+    if [ -z "$PUBLIC_IPV6" ] && command -v wget >/dev/null 2>&1; then
+        PUBLIC_IPV6=$(wget -qO- --timeout=10 \
+            https://ipv6.icanhazip.com 2>/dev/null || \
+            wget -qO- --timeout=10 \
+            https://api64.ipify.org 2>/dev/null)
+    fi
+    
+    # 获取本地IPv4地址
+    if command -v ip >/dev/null 2>&1; then
+        LOCAL_IPV4=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+        # 获取本地IPv6地址
+        LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    elif command -v hostname >/dev/null 2>&1; then
+        LOCAL_IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
+        # 尝试获取IPv6地址
+        LOCAL_IPV6=$(ip -6 addr show 2>/dev/null | grep -oP 'inet6 \K[^/]+' | grep -v '^::1$' | head -1)
+    fi
+    
+    # 显示检测结果
+    echo "   IPv4地址:"
+    if [ -n "$PUBLIC_IPV4" ]; then
+        echo "     公网: $PUBLIC_IPV4"
+        SERVER_IPV4="$PUBLIC_IPV4"
+    elif [ -n "$LOCAL_IPV4" ]; then
+        echo "     内网: $LOCAL_IPV4"
+        SERVER_IPV4="$LOCAL_IPV4"
+    else
+        echo "     未检测到"
+        SERVER_IPV4="localhost"
+    fi
+    
+    echo "   IPv6地址:"
+    if [ -n "$PUBLIC_IPV6" ]; then
+        echo "     公网: $PUBLIC_IPV6"
+        SERVER_IPV6="$PUBLIC_IPV6"
+    elif [ -n "$LOCAL_IPV6" ]; then
+        echo "     内网: $LOCAL_IPV6"
+        SERVER_IPV6="$LOCAL_IPV6"
+    else
+        echo "     未检测到"
+        SERVER_IPV6=""
+    fi
+    
+    # 设置主要访问地址（优先IPv4）
+    if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
+        SERVER_IP="$SERVER_IPV4"
+    elif [ -n "$SERVER_IPV6" ]; then
+        SERVER_IP="[$SERVER_IPV6]"
+    else
+        SERVER_IP="localhost"
+    fi
+    
+    echo "   主要访问地址: $SERVER_IP"
+    echo ""
+}
+
 # 检测操作系统
 detect_os() {
     if [ -f /etc/os-release ]; then
@@ -327,9 +422,23 @@ install_project() {
     echo "=================================="
     echo ""
     echo "📋 访问信息："
-    echo "   - 前端界面: http://localhost:3000"
-    echo "   - 后端API: http://localhost:8000"
-    echo "   - API文档: http://localhost:8000/docs"
+    echo "   IPv4访问地址："
+    if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
+        echo "     - 前端界面: http://$SERVER_IPV4:3000"
+        echo "     - 后端API: http://$SERVER_IPV4:8000"
+        echo "     - API文档: http://$SERVER_IPV4:8000/docs"
+    else
+        echo "     - 前端界面: http://localhost:3000"
+        echo "     - 后端API: http://localhost:8000"
+        echo "     - API文档: http://localhost:8000/docs"
+    fi
+    
+    if [ -n "$SERVER_IPV6" ]; then
+        echo "   IPv6访问地址："
+        echo "     - 前端界面: http://[$SERVER_IPV6]:3000"
+        echo "     - 后端API: http://[$SERVER_IPV6]:8000"
+        echo "     - API文档: http://[$SERVER_IPV6]:8000/docs"
+    fi
     echo ""
     echo "🔑 默认登录信息："
     echo "   用户名: admin"
@@ -352,6 +461,9 @@ install_project() {
 
 # 主函数
 main() {
+    # 检测服务器IP地址
+    get_server_ip
+    
     # 检查并安装依赖
     check_and_install_dependencies
     
