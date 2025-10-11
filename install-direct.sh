@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 一键安装脚本 (curl版本)
-# 完全内联，不依赖外部脚本
+# IPv6 WireGuard Manager 直接安装脚本
+# 不依赖外部脚本，直接执行安装
 
 set -e
 

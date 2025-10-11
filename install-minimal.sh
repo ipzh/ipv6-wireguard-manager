@@ -1,18 +1,19 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 一键安装脚本 (curl版本)
-# 完全内联，不依赖外部脚本
+# IPv6 WireGuard Manager 最小化安装脚本
+# 专为curl管道执行设计，最大兼容性
 
 set -e
+
+# 项目信息
+PROJECT_NAME="IPv6 WireGuard Manager"
+REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
+INSTALL_DIR="ipv6-wireguard-manager"
 
 echo "=================================="
 echo "IPv6 WireGuard Manager 一键安装"
 echo "=================================="
 echo ""
-
-# 项目信息
-REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
-INSTALL_DIR="ipv6-wireguard-manager"
 
 # 检查系统要求
 echo "🔍 检查系统要求..."
@@ -89,6 +90,10 @@ fi
 # 等待服务启动
 echo "⏳ 等待服务启动..."
 sleep 30
+
+# 初始化数据库
+echo "🗄️  初始化数据库..."
+sleep 10
 
 # 验证安装
 echo "🔍 验证安装..."
