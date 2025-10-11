@@ -23,6 +23,12 @@
 
 ### 快速开始
 
+**方法一：curl 一键安装（推荐）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash
+```
+
+**方法二：Git 克隆安装**
 ```bash
 # 克隆项目
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
@@ -34,6 +40,11 @@ chmod +x scripts/*.sh
 
 # 一键启动（Windows）
 scripts\start.bat
+```
+
+**方法三：调试安装（如果遇到问题）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-debug.sh | bash
 ```
 
 ### 访问系统
