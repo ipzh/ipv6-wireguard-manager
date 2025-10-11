@@ -364,9 +364,20 @@ install_frontend() {
             npm install vite --save-dev
         fi
         
-        # 构建生产版本
+        # 构建生产版本（增加内存限制）
         echo "🏗️  构建生产版本..."
-        npm run build
+        echo "   增加Node.js内存限制..."
+        if NODE_OPTIONS="--max-old-space-size=4096" npm run build; then
+            echo "✅ 构建成功"
+        else
+            echo "⚠️  使用4GB内存构建失败，尝试2GB..."
+            if NODE_OPTIONS="--max-old-space-size=2048" npm run build; then
+                echo "✅ 构建成功（使用2GB内存）"
+            else
+                echo "❌ 构建失败"
+                exit 1
+            fi
+        fi
     fi
     
     echo "✅ 前端安装完成"

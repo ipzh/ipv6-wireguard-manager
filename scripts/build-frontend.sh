@@ -48,13 +48,26 @@ fi
 # 跳过TypeScript编译检查（因为有一些未修复的类型错误）
 echo "⚠️  跳过TypeScript编译检查，直接进行构建..."
 
-# 运行Vite构建
-echo "🏗️  运行Vite构建..."
-if npx vite build; then
-    echo "✅ Vite构建成功"
+# 优先使用内存优化构建脚本
+if [ -f "../../scripts/build-frontend-memory-optimized.sh" ]; then
+    echo "🔨 使用内存优化构建脚本..."
+    bash ../../scripts/build-frontend-memory-optimized.sh
 else
-    echo "❌ Vite构建失败"
-    exit 1
+    # 备用构建方法
+    echo "🏗️  运行Vite构建..."
+    echo "   增加Node.js内存限制到4GB..."
+    if NODE_OPTIONS="--max-old-space-size=4096" npx vite build; then
+        echo "✅ Vite构建成功"
+    else
+        echo "❌ Vite构建失败，尝试减少内存使用..."
+        # 尝试使用更少的内存
+        if NODE_OPTIONS="--max-old-space-size=2048" npx vite build; then
+            echo "✅ Vite构建成功（使用2GB内存）"
+        else
+            echo "❌ Vite构建失败"
+            exit 1
+        fi
+    fi
 fi
 
 # 检查构建结果
