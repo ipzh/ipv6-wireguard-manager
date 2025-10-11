@@ -1,13 +1,36 @@
 #!/bin/bash
 
 # IPv6 WireGuard Manager 健壮安装脚本
-# 解决目录结构和路径问题
+# 支持 Docker 和原生安装
 
 set -e
+
+# 解析参数
+INSTALL_TYPE=""
+if [ $# -gt 0 ]; then
+    case $1 in
+        "docker")
+            INSTALL_TYPE="docker"
+            ;;
+        "native")
+            INSTALL_TYPE="native"
+            ;;
+        *)
+            echo "用法: $0 [docker|native]"
+            echo "  docker  - Docker 安装"
+            echo "  native  - 原生安装"
+            echo "  无参数  - 自动选择"
+            exit 1
+            ;;
+    esac
+fi
 
 echo "=================================="
 echo "IPv6 WireGuard Manager 健壮安装"
 echo "=================================="
+if [ -n "$INSTALL_TYPE" ]; then
+    echo "安装类型: $INSTALL_TYPE"
+fi
 echo ""
 
 # 项目信息

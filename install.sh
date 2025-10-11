@@ -243,8 +243,8 @@ execute_installation() {
     case $INSTALL_METHOD in
         "docker")
             log_info "使用 Docker 安装..."
-            if [ -f "install-smart.sh" ]; then
-                bash install-smart.sh
+            if [ -f "install-robust.sh" ]; then
+                bash install-robust.sh docker
             else
                 log_error "Docker 安装脚本不存在"
                 exit 1
@@ -253,7 +253,7 @@ execute_installation() {
         "native")
             log_info "使用原生安装..."
             if [ -f "install-robust.sh" ]; then
-                bash install-robust.sh
+                bash install-robust.sh native
             else
                 log_error "原生安装脚本不存在"
                 exit 1
