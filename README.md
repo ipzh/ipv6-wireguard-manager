@@ -44,6 +44,12 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 ```
 > 自动检测系统并选择最佳安装方式，无需用户交互
 
+**🛡️ 健壮安装（解决目录问题）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-robust.sh | bash
+```
+> 解决目录结构和路径问题，多次重试下载，更稳定的安装过程
+
 **强制Docker安装**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash -s -- --docker
