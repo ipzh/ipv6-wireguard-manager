@@ -116,7 +116,27 @@ download_project() {
 check_backend() {
     echo "🔍 检查后端目录..."
     
-    cd "$INSTALL_DIR/backend"
+    # 确保在项目根目录
+    if [ ! -d "backend" ]; then
+        echo "❌ 不在项目根目录，尝试查找项目目录..."
+        if [ -d "$INSTALL_DIR" ]; then
+            cd "$INSTALL_DIR"
+            echo "✅ 切换到项目目录: $(pwd)"
+        else
+            echo "❌ 找不到项目目录"
+            exit 1
+        fi
+    fi
+    
+    # 检查后端目录
+    if [ ! -d "backend" ]; then
+        echo "❌ 后端目录不存在"
+        echo "📁 当前目录内容:"
+        ls -la
+        exit 1
+    fi
+    
+    cd backend
     echo "   当前目录: $(pwd)"
     echo "   目录内容:"
     ls -la
@@ -142,7 +162,27 @@ check_backend() {
 check_frontend() {
     echo "🔍 检查前端目录..."
     
-    cd "$INSTALL_DIR/frontend"
+    # 确保在项目根目录
+    if [ ! -d "frontend" ]; then
+        echo "❌ 不在项目根目录，尝试查找项目目录..."
+        if [ -d "$INSTALL_DIR" ]; then
+            cd "$INSTALL_DIR"
+            echo "✅ 切换到项目目录: $(pwd)"
+        else
+            echo "❌ 找不到项目目录"
+            exit 1
+        fi
+    fi
+    
+    # 检查前端目录
+    if [ ! -d "frontend" ]; then
+        echo "❌ 前端目录不存在"
+        echo "📁 当前目录内容:"
+        ls -la
+        exit 1
+    fi
+    
+    cd frontend
     echo "   当前目录: $(pwd)"
     echo "   目录内容:"
     ls -la
