@@ -16,17 +16,22 @@
 
 ### 系统要求
 
-- Docker 20.10+
-- Docker Compose 2.0+
-- 2GB+ RAM
-- 5GB+ 磁盘空间
+- **自动安装版本**：无需预装任何软件，脚本会自动安装所有依赖
+- **手动安装版本**：
+  - Docker 20.10+
+  - Docker Compose 2.0+
+  - Git
+- **硬件要求**：
+  - 2GB+ RAM
+  - 5GB+ 磁盘空间
 
 ### 快速开始
 
-**方法一：curl 一键安装（推荐）**
+**方法一：完全自动安装（推荐）**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash
 ```
+> 此脚本会自动检测操作系统并安装所有必要的依赖（Git、Docker、Docker Compose）
 
 **方法二：Git 克隆安装**
 ```bash
