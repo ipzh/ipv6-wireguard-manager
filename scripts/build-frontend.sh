@@ -49,10 +49,16 @@ fi
 # 跳过TypeScript编译检查（因为有一些未修复的类型错误）
 echo "⚠️  跳过TypeScript编译检查，直接进行构建..."
 
-# 优先使用内存优化构建脚本
-if [ -f "../../scripts/build-frontend-memory-optimized.sh" ]; then
+# 优先使用分块优化构建脚本
+if [ -f "../../scripts/build-frontend-chunk-optimized.sh" ]; then
+    echo "🔨 使用分块优化构建脚本..."
+    bash ../../scripts/build-frontend-chunk-optimized.sh
+elif [ -f "../../scripts/build-frontend-memory-optimized.sh" ]; then
     echo "🔨 使用内存优化构建脚本..."
     bash ../../scripts/build-frontend-memory-optimized.sh
+elif [ -f "../../scripts/fix-chunk-rendering.sh" ]; then
+    echo "🔨 使用修复构建脚本..."
+    bash ../../scripts/fix-chunk-rendering.sh
 else
     # 备用构建方法
     echo "🏗️  运行Vite构建..."

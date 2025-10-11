@@ -69,24 +69,30 @@ if ! npx vite --version >/dev/null 2>&1; then
     npm install vite --save-dev
 fi
 
-# 设置Node.js内存限制并运行构建
-echo "🏗️  运行内存优化构建..."
-echo "   Node.js内存限制: ${NODE_MEMORY}MB"
+# 优先尝试分块优化构建
+if [ -f "../../scripts/build-frontend-chunk-optimized.sh" ]; then
+    echo "🔨 使用分块优化构建脚本..."
+    bash ../../scripts/build-frontend-chunk-optimized.sh
+else
+    # 设置Node.js内存限制并运行构建
+    echo "🏗️  运行内存优化构建..."
+    echo "   Node.js内存限制: ${NODE_MEMORY}MB"
 
-# 尝试构建，如果失败则降低内存要求
-for memory in $NODE_MEMORY 2048 1024 512; do
-    echo "   尝试使用 ${memory}MB 内存..."
-    if NODE_OPTIONS="--max-old-space-size=$memory" npx vite build; then
-        echo "✅ Vite构建成功（使用${memory}MB内存）"
-        break
-    else
-        echo "❌ 使用${memory}MB内存构建失败"
-        if [ "$memory" = "512" ]; then
-            echo "❌ 所有内存限制都失败"
-            exit 1
+    # 尝试构建，如果失败则降低内存要求
+    for memory in $NODE_MEMORY 2048 1024 512; do
+        echo "   尝试使用 ${memory}MB 内存..."
+        if NODE_OPTIONS="--max-old-space-size=$memory" npx vite build; then
+            echo "✅ Vite构建成功（使用${memory}MB内存）"
+            break
+        else
+            echo "❌ 使用${memory}MB内存构建失败"
+            if [ "$memory" = "512" ]; then
+                echo "❌ 所有内存限制都失败"
+                exit 1
+            fi
         fi
-    fi
-done
+    done
+fi
 
 # 检查构建结果
 if [ -d "dist" ]; then
