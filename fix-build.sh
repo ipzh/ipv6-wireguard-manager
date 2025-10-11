@@ -33,9 +33,13 @@ $COMPOSE_CMD down
 echo "🧹 清理Docker缓存..."
 docker system prune -f
 
+# 清理构建缓存
+echo "🧹 清理构建缓存..."
+docker builder prune -f
+
 # 重新构建镜像
 echo "🔨 重新构建镜像..."
-$COMPOSE_CMD build --no-cache
+$COMPOSE_CMD build --no-cache --pull
 
 # 启动服务
 echo "🚀 启动服务..."
