@@ -284,10 +284,21 @@ install_project() {
     
     # 启动服务
     echo "🚀 启动服务..."
-    if ! docker-compose up -d; then
+    # 尝试使用新版本的docker compose命令
+    if command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version >/dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "❌ Docker Compose 未找到"
+        exit 1
+    fi
+    
+    echo "   使用命令: $COMPOSE_CMD"
+    if ! $COMPOSE_CMD up -d; then
         echo "❌ 启动服务失败"
         echo "查看详细错误信息:"
-        docker-compose logs
+        $COMPOSE_CMD logs
         exit 1
     fi
     
