@@ -216,14 +216,51 @@ download_project() {
         exit 1
     fi
     
+    # 检查下载是否成功
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "❌ 项目目录未创建"
+        exit 1
+    fi
+    
+    # 检查关键目录是否存在
+    if [ ! -d "$INSTALL_DIR/backend" ]; then
+        echo "❌ 后端目录不存在"
+        echo "📁 项目目录内容:"
+        ls -la "$INSTALL_DIR"
+        exit 1
+    fi
+    
+    if [ ! -d "$INSTALL_DIR/frontend" ]; then
+        echo "❌ 前端目录不存在"
+        echo "📁 项目目录内容:"
+        ls -la "$INSTALL_DIR"
+        exit 1
+    fi
+    
     echo "✅ 项目下载成功"
+    echo "📁 项目结构:"
+    ls -la "$INSTALL_DIR"
 }
 
 # 安装后端
 install_backend() {
     echo "🐍 安装Python后端..."
     
+    # 检查后端目录是否存在
+    if [ ! -d "$INSTALL_DIR/backend" ]; then
+        echo "❌ 后端目录不存在: $INSTALL_DIR/backend"
+        exit 1
+    fi
+    
     cd "$INSTALL_DIR/backend"
+    
+    # 检查requirements文件是否存在
+    if [ ! -f "requirements.txt" ] && [ ! -f "requirements-compatible.txt" ]; then
+        echo "❌ requirements文件不存在"
+        echo "📁 后端目录内容:"
+        ls -la
+        exit 1
+    fi
     
     # 创建虚拟环境
     python3 -m venv venv
@@ -234,8 +271,10 @@ install_backend() {
     
     # 安装依赖
     if [ -f "requirements-compatible.txt" ]; then
+        echo "📦 使用兼容版本requirements文件..."
         pip install -r requirements-compatible.txt
     else
+        echo "📦 使用标准requirements文件..."
         pip install -r requirements.txt
     fi
     
@@ -260,7 +299,21 @@ EOF
 install_frontend() {
     echo "⚛️  安装React前端..."
     
+    # 检查前端目录是否存在
+    if [ ! -d "$INSTALL_DIR/frontend" ]; then
+        echo "❌ 前端目录不存在: $INSTALL_DIR/frontend"
+        exit 1
+    fi
+    
     cd "$INSTALL_DIR/frontend"
+    
+    # 检查package.json是否存在
+    if [ ! -f "package.json" ]; then
+        echo "❌ package.json 不存在"
+        echo "📁 前端目录内容:"
+        ls -la
+        exit 1
+    fi
     
     # 安装依赖
     npm install

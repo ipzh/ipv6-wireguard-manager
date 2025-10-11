@@ -393,8 +393,31 @@ install_project() {
         exit 1
     fi
     
+    # 检查下载是否成功
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "❌ 项目目录未创建"
+        exit 1
+    fi
+    
+    # 检查关键目录是否存在
+    if [ ! -d "$INSTALL_DIR/backend" ]; then
+        echo "❌ 后端目录不存在"
+        echo "📁 项目目录内容:"
+        ls -la "$INSTALL_DIR"
+        exit 1
+    fi
+    
+    if [ ! -d "$INSTALL_DIR/frontend" ]; then
+        echo "❌ 前端目录不存在"
+        echo "📁 项目目录内容:"
+        ls -la "$INSTALL_DIR"
+        exit 1
+    fi
+    
     cd "$INSTALL_DIR"
     echo "✅ 项目下载成功"
+    echo "📁 项目结构:"
+    ls -la
     
     # 设置权限
     echo "🔐 设置权限..."
