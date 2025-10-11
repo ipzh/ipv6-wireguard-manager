@@ -246,13 +246,27 @@ download_project() {
 install_backend() {
     echo "🐍 安装Python后端..."
     
+    # 确保在项目根目录
+    if [ ! -d "backend" ]; then
+        echo "❌ 不在项目根目录，尝试查找项目目录..."
+        if [ -d "$INSTALL_DIR" ]; then
+            cd "$INSTALL_DIR"
+            echo "✅ 切换到项目目录: $(pwd)"
+        else
+            echo "❌ 找不到项目目录"
+            exit 1
+        fi
+    fi
+    
     # 检查后端目录是否存在
-    if [ ! -d "$INSTALL_DIR/backend" ]; then
-        echo "❌ 后端目录不存在: $INSTALL_DIR/backend"
+    if [ ! -d "backend" ]; then
+        echo "❌ 后端目录不存在"
+        echo "📁 当前目录内容:"
+        ls -la
         exit 1
     fi
     
-    cd "$INSTALL_DIR/backend"
+    cd backend
     
     # 检查requirements文件是否存在
     if [ ! -f "requirements.txt" ] && [ ! -f "requirements-compatible.txt" ]; then
@@ -299,13 +313,27 @@ EOF
 install_frontend() {
     echo "⚛️  安装React前端..."
     
+    # 确保在项目根目录
+    if [ ! -d "frontend" ]; then
+        echo "❌ 不在项目根目录，尝试查找项目目录..."
+        if [ -d "$INSTALL_DIR" ]; then
+            cd "$INSTALL_DIR"
+            echo "✅ 切换到项目目录: $(pwd)"
+        else
+            echo "❌ 找不到项目目录"
+            exit 1
+        fi
+    fi
+    
     # 检查前端目录是否存在
-    if [ ! -d "$INSTALL_DIR/frontend" ]; then
-        echo "❌ 前端目录不存在: $INSTALL_DIR/frontend"
+    if [ ! -d "frontend" ]; then
+        echo "❌ 前端目录不存在"
+        echo "📁 当前目录内容:"
+        ls -la
         exit 1
     fi
     
-    cd "$INSTALL_DIR/frontend"
+    cd frontend
     
     # 检查package.json是否存在
     if [ ! -f "package.json" ]; then
