@@ -141,16 +141,16 @@ install_docker() {
     clean_docker_repo
     
     # 获取仓库URL
-    REPO_URL=$(get_docker_repo_url)
-    GPG_URL=$(get_docker_gpg_url)
+    DOCKER_REPO_URL=$(get_docker_repo_url)
+    DOCKER_GPG_URL=$(get_docker_gpg_url)
     
-    if [ -z "$REPO_URL" ]; then
+    if [ -z "$DOCKER_REPO_URL" ]; then
         echo "❌ 不支持的操作系统: $OS"
         exit 1
     fi
     
-    echo "   使用仓库: $REPO_URL"
-    echo "   使用GPG: $GPG_URL"
+    echo "   使用仓库: $DOCKER_REPO_URL"
+    echo "   使用GPG: $DOCKER_GPG_URL"
     
     case $OS in
         ubuntu|debian)
@@ -159,10 +159,10 @@ install_docker() {
             sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
             
             # 添加Docker官方GPG密钥
-            curl -fsSL "$GPG_URL" | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            curl -fsSL "$DOCKER_GPG_URL" | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
             
             # 添加Docker仓库
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] $REPO_URL $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] $DOCKER_REPO_URL $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
             
             # 安装Docker
             sudo apt update
@@ -176,11 +176,11 @@ install_docker() {
             # 安装依赖
             if command -v dnf >/dev/null 2>&1; then
                 sudo dnf install -y dnf-plugins-core
-                sudo dnf config-manager --add-repo "$REPO_URL/docker-ce.repo"
+                sudo dnf config-manager --add-repo "$DOCKER_REPO_URL/docker-ce.repo"
                 sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
             else
                 sudo yum install -y yum-utils
-                sudo yum-config-manager --add-repo "$REPO_URL/docker-ce.repo"
+                sudo yum-config-manager --add-repo "$DOCKER_REPO_URL/docker-ce.repo"
                 sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
             fi
             
@@ -193,7 +193,7 @@ install_docker() {
             sudo dnf install -y dnf-plugins-core
             
             # 添加Docker仓库
-            sudo dnf config-manager --add-repo "$REPO_URL/docker-ce.repo"
+            sudo dnf config-manager --add-repo "$DOCKER_REPO_URL/docker-ce.repo"
             
             # 安装Docker
             sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
