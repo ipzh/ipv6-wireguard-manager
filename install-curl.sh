@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # 项目信息
 PROJECT_NAME="IPv6 WireGuard Manager"
-INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-online.sh"
+INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh"
 
 # 打印带颜色的消息
 print_message() {
@@ -75,8 +75,8 @@ main() {
     # 检查curl
     check_curl
     
-    echo ""
-    read -p "按 Enter 键开始安装，或 Ctrl+C 取消..."
+    # 直接开始安装，不需要用户确认
+    print_message $YELLOW "🚀 开始自动安装..."
     echo ""
     
     # 下载并执行
