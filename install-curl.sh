@@ -62,9 +62,23 @@ install_git() {
     echo "✅ Git 安装完成"
 }
 
+# 清理Docker仓库配置
+clean_docker_repo() {
+    echo "🧹 清理现有Docker仓库配置..."
+    sudo rm -f /etc/apt/sources.list.d/docker.list
+    sudo rm -f /usr/share/keyrings/docker-archive-keyring.gpg
+    sudo apt clean
+    sudo apt autoclean
+    echo "✅ Docker仓库配置已清理"
+}
+
 # 安装Docker
 install_docker() {
     echo "📦 安装 Docker..."
+    
+    # 先清理现有配置
+    clean_docker_repo
+    
     case $OS in
         ubuntu)
             echo "   使用Ubuntu Docker仓库..."
