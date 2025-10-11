@@ -213,11 +213,15 @@ download_project() {
                 rm -rf ipv6-wireguard-manager
             else
                 log_info "使用现有项目目录"
+                cd ipv6-wireguard-manager || exit 1
+                log_info "进入项目目录: $(pwd)"
                 return 0
             fi
         else
             # 非交互式模式，自动使用现有目录
             log_info "项目目录已存在，使用现有目录"
+            cd ipv6-wireguard-manager || exit 1
+            log_info "进入项目目录: $(pwd)"
             return 0
         fi
     fi
@@ -239,6 +243,18 @@ download_project() {
 # 执行安装
 execute_installation() {
     log_step "执行安装..."
+    
+    # 调试信息
+    log_info "当前目录: $(pwd)"
+    log_info "安装方式: $INSTALL_METHOD"
+    log_info "检查文件: install-robust.sh"
+    if [ -f "install-robust.sh" ]; then
+        log_info "✅ install-robust.sh 存在"
+    else
+        log_info "❌ install-robust.sh 不存在"
+        log_info "当前目录文件列表:"
+        ls -la
+    fi
     
     case $INSTALL_METHOD in
         "docker")
