@@ -1,315 +1,335 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 一键安装脚本
-# 支持从GitHub克隆并自动安装
+# IPv6 WireGuard Manager 统一安装脚本
+# 支持Docker和原生两种安装方式
 
 set -e
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+echo "=================================="
+echo "IPv6 WireGuard Manager 一键安装"
+echo "=================================="
+echo ""
 
 # 项目信息
-PROJECT_NAME="IPv6 WireGuard Manager"
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
 INSTALL_DIR="ipv6-wireguard-manager"
 
-# 打印带颜色的消息
-print_message() {
-    local color=$1
-    local message=$2
-    echo -e "${color}${message}${NC}"
-}
-
-print_header() {
-    echo "=================================="
-    print_message $BLUE "$PROJECT_NAME 一键安装脚本"
-    echo "=================================="
-}
-
-# 检查系统要求
-check_requirements() {
-    print_message $YELLOW "🔍 检查系统要求..."
+# 检测服务器IP地址
+get_server_ip() {
+    echo "🌐 检测服务器IP地址..."
     
-    # 检查操作系统
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        OS="linux"
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        OS="macos"
-    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-        OS="windows"
+    # 检测IPv4地址
+    PUBLIC_IPV4=""
+    LOCAL_IPV4=""
+    
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV4=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv4.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api.ipify.org 2>/dev/null)
+    fi
+    
+    if command -v ip >/dev/null 2>&1; then
+        LOCAL_IPV4=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    elif command -v hostname >/dev/null 2>&1; then
+        LOCAL_IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+    
+    # 检测IPv6地址
+    PUBLIC_IPV6=""
+    LOCAL_IPV6=""
+    
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV6=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv6.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api64.ipify.org 2>/dev/null)
+    fi
+    
+    if command -v ip >/dev/null 2>&1; then
+        LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    fi
+    
+    # 设置IP地址
+    if [ -n "$PUBLIC_IPV4" ]; then
+        SERVER_IPV4="$PUBLIC_IPV4"
+    elif [ -n "$LOCAL_IPV4" ]; then
+        SERVER_IPV4="$LOCAL_IPV4"
     else
-        print_message $RED "❌ 不支持的操作系统: $OSTYPE"
-        exit 1
+        SERVER_IPV4="localhost"
     fi
     
-    print_message $GREEN "✅ 操作系统: $OS"
-    
-    # 检查Docker
-    if ! command -v docker &> /dev/null; then
-        print_message $RED "❌ Docker 未安装"
-        print_message $YELLOW "请先安装 Docker: https://docs.docker.com/get-docker/"
-        exit 1
+    if [ -n "$PUBLIC_IPV6" ]; then
+        SERVER_IPV6="$PUBLIC_IPV6"
+    elif [ -n "$LOCAL_IPV6" ]; then
+        SERVER_IPV6="$LOCAL_IPV6"
     fi
     
-    # 检查Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        print_message $RED "❌ Docker Compose 未安装"
-        print_message $YELLOW "请先安装 Docker Compose: https://docs.docker.com/compose/install/"
-        exit 1
+    echo "   IPv4: $SERVER_IPV4"
+    if [ -n "$SERVER_IPV6" ]; then
+        echo "   IPv6: $SERVER_IPV6"
     fi
-    
-    # 检查Docker服务状态
-    if ! docker info &> /dev/null; then
-        print_message $RED "❌ Docker 服务未运行"
-        print_message $YELLOW "请启动 Docker 服务"
-        exit 1
-    fi
-    
-    print_message $GREEN "✅ Docker 环境检查通过"
-    
-    # 检查端口占用
-    check_port() {
-        local port=$1
-        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-            print_message $YELLOW "⚠️  端口 $port 已被占用"
-            return 1
-        fi
-        return 0
-    }
-    
-    if ! check_port 3000; then
-        print_message $YELLOW "⚠️  前端端口 3000 被占用，将使用其他端口"
-    fi
-    
-    if ! check_port 8000; then
-        print_message $YELLOW "⚠️  后端端口 8000 被占用，将使用其他端口"
-    fi
-    
-    if ! check_port 5432; then
-        print_message $YELLOW "⚠️  数据库端口 5432 被占用，将使用其他端口"
-    fi
-    
-    if ! check_port 6379; then
-        print_message $YELLOW "⚠️  Redis端口 6379 被占用，将使用其他端口"
-    fi
+    echo ""
 }
 
-# 克隆项目
-clone_project() {
-    print_message $YELLOW "📥 克隆项目..."
-    
-    if [ -d "$INSTALL_DIR" ]; then
-        print_message $YELLOW "⚠️  目录 $INSTALL_DIR 已存在"
-        read -p "是否删除现有目录并重新安装? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$INSTALL_DIR"
-        else
-            print_message $YELLOW "使用现有目录"
-            return
-        fi
-    fi
-    
-    if ! git clone "$REPO_URL" "$INSTALL_DIR"; then
-        print_message $RED "❌ 克隆项目失败"
-        exit 1
-    fi
-    
-    cd "$INSTALL_DIR"
-    print_message $GREEN "✅ 项目克隆成功"
+# 显示安装方式选择菜单
+show_installation_menu() {
+    echo "请选择安装方式："
+    echo ""
+    echo "🐳 1. Docker安装（推荐新手）"
+    echo "   - 优点: 环境隔离，易于管理，支持一键部署"
+    echo "   - 缺点: 资源占用较高，性能略有损失"
+    echo "   - 适用: 测试环境、开发环境、对性能要求不高的场景"
+    echo "   - 内存需求: 2GB+"
+    echo ""
+    echo "⚡ 2. 原生安装（推荐VPS）"
+    echo "   - 优点: 性能最优，资源占用最小，启动速度快"
+    echo "   - 缺点: 需要手动管理依赖，环境配置相对复杂"
+    echo "   - 适用: 生产环境、VPS部署、对性能要求高的场景"
+    echo "   - 内存需求: 1GB+"
+    echo ""
+    echo "📊 性能对比："
+    echo "   - 内存占用: Docker 2GB+ vs 原生 1GB+"
+    echo "   - 启动速度: Docker 较慢 vs 原生 快速"
+    echo "   - 性能: Docker 良好 vs 原生 最优"
+    echo ""
 }
 
-# 设置权限
-setup_permissions() {
-    print_message $YELLOW "🔐 设置文件权限..."
-    
-    # 给脚本执行权限
-    chmod +x scripts/*.sh
-    
-    # 创建必要的目录
-    mkdir -p data/postgres
-    mkdir -p data/redis
-    mkdir -p logs
-    mkdir -p uploads
-    mkdir -p backups
-    
-    # 设置目录权限
-    chmod 755 data/
-    chmod 755 logs/
-    chmod 755 uploads/
-    chmod 755 backups/
-    
-    print_message $GREEN "✅ 权限设置完成"
-}
-
-# 配置环境
-setup_environment() {
-    print_message $YELLOW "⚙️  配置环境..."
-    
-    # 检查环境配置文件
-    if [ ! -f "backend/.env" ]; then
-        if [ -f "backend/env.example" ]; then
-            cp backend/env.example backend/.env
-            print_message $GREEN "✅ 环境配置文件已创建"
-        else
-            print_message $YELLOW "⚠️  未找到环境配置文件模板"
-        fi
-    fi
-    
-    # 生成随机密码
-    generate_password() {
-        openssl rand -base64 32 | tr -d "=+/" | cut -c1-25
-    }
-    
-    # 更新环境配置
-    if [ -f "backend/.env" ]; then
-        # 生成随机密钥
-        SECRET_KEY=$(generate_password)
-        DB_PASSWORD=$(generate_password)
+# 获取用户选择
+get_user_choice() {
+    while true; do
+        echo -n "请输入选择 (1 或 2): "
+        read -r choice
         
-        # 更新配置文件
-        sed -i.bak "s/your-super-secret-key-for-jwt/$SECRET_KEY/" backend/.env
-        sed -i.bak "s/ipv6wgm/$DB_PASSWORD/" backend/.env
-        
-        print_message $GREEN "✅ 环境配置已更新"
-        print_message $YELLOW "🔑 数据库密码: $DB_PASSWORD"
-        print_message $YELLOW "🔑 JWT密钥: $SECRET_KEY"
-    fi
-}
-
-# 启动服务
-start_services() {
-    print_message $YELLOW "🚀 启动服务..."
-    
-    # 启动Docker服务
-    if ! docker-compose up -d; then
-        print_message $RED "❌ 启动服务失败"
-        exit 1
-    fi
-    
-    # 等待服务启动
-    print_message $YELLOW "⏳ 等待服务启动..."
-    sleep 15
-    
-    # 检查服务状态
-    if ! docker-compose ps | grep -q "Up"; then
-        print_message $RED "❌ 服务启动失败"
-        print_message $YELLOW "查看日志: docker-compose logs"
-        exit 1
-    fi
-    
-    print_message $GREEN "✅ 服务启动成功"
-}
-
-# 初始化数据
-init_database() {
-    print_message $YELLOW "🗄️  初始化数据库..."
-    
-    # 等待数据库启动
-    sleep 10
-    
-    # 初始化数据库
-    if docker-compose exec -T backend python -c "
-import asyncio
-from app.core.init_db import init_db
-asyncio.run(init_db())
-" 2>/dev/null; then
-        print_message $GREEN "✅ 数据库初始化成功"
-    else
-        print_message $YELLOW "⚠️  数据库初始化可能失败，请手动检查"
-    fi
-}
-
-# 验证安装
-verify_installation() {
-    print_message $YELLOW "🔍 验证安装..."
-    
-    # 检查服务健康状态
-    local services=("backend:8000" "frontend:3000")
-    local all_healthy=true
-    
-    for service in "${services[@]}"; do
-        local name=$(echo $service | cut -d: -f1)
-        local port=$(echo $service | cut -d: -f2)
-        
-        if curl -s "http://localhost:$port" > /dev/null 2>&1; then
-            print_message $GREEN "✅ $name 服务正常"
-        else
-            print_message $RED "❌ $name 服务异常"
-            all_healthy=false
-        fi
+        case $choice in
+            1)
+                INSTALL_TYPE="docker"
+                echo ""
+                echo "✅ 您选择了 Docker 安装方式"
+                echo ""
+                break
+                ;;
+            2)
+                INSTALL_TYPE="native"
+                echo ""
+                echo "✅ 您选择了 原生 安装方式"
+                echo ""
+                break
+                ;;
+            *)
+                echo "❌ 无效选择，请输入 1 或 2"
+                echo ""
+                ;;
+        esac
     done
+}
+
+# 自动选择安装方式
+auto_select_installation() {
+    echo "🤖 自动检测最佳安装方式..."
     
-    if [ "$all_healthy" = true ]; then
-        print_message $GREEN "✅ 所有服务运行正常"
+    # 检测系统资源
+    TOTAL_MEM=$(free -m | awk 'NR==2{printf "%.0f", $2}')
+    CPU_CORES=$(nproc)
+    
+    echo "   系统内存: ${TOTAL_MEM}MB"
+    echo "   CPU核心: ${CPU_CORES}"
+    
+    # 检测是否为VPS环境
+    IS_VPS=false
+    if [ -f /proc/user_beancounters ] || [ -f /proc/vz/version ]; then
+        IS_VPS=true
+        echo "   环境类型: VPS/容器"
     else
-        print_message $YELLOW "⚠️  部分服务可能存在问题"
+        echo "   环境类型: 物理机/虚拟机"
+    fi
+    
+    # 自动选择逻辑
+    if [ "$TOTAL_MEM" -lt 2048 ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: 内存不足2GB，选择原生安装"
+    elif [ "$IS_VPS" = true ] && [ "$TOTAL_MEM" -lt 4096 ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: VPS环境且内存小于4GB，选择原生安装"
+    else
+        INSTALL_TYPE="docker"
+        echo "   选择原因: 资源充足，选择Docker安装"
+    fi
+    
+    echo "   自动选择: $INSTALL_TYPE 安装方式"
+    echo ""
+}
+
+# 执行Docker安装
+install_docker() {
+    echo "🐳 开始Docker安装..."
+    echo ""
+    
+    # 检查是否有Docker安装脚本
+    if [ -f "install-curl.sh" ]; then
+        echo "使用Docker安装脚本..."
+        chmod +x install-curl.sh
+        ./install-curl.sh --docker-only
+    else
+        echo "下载Docker安装脚本..."
+        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash -s -- --docker-only
+    fi
+}
+
+# 执行原生安装
+install_native() {
+    echo "⚡ 开始原生安装..."
+    echo ""
+    
+    # 检查是否有原生安装脚本
+    if [ -f "install-vps.sh" ]; then
+        echo "使用VPS优化原生安装脚本..."
+        chmod +x install-vps.sh
+        ./install-vps.sh --native-only
+    else
+        echo "下载VPS优化原生安装脚本..."
+        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-vps.sh | bash -s -- --native-only
     fi
 }
 
 # 显示安装结果
-show_result() {
+show_installation_result() {
     echo ""
     echo "=================================="
-    print_message $GREEN "🎉 安装完成！"
+    echo "🎉 安装完成！"
     echo "=================================="
     echo ""
-    print_message $BLUE "📋 访问信息："
-    echo "   - 前端界面: http://localhost:3000"
-    echo "   - 后端API: http://localhost:8000"
-    echo "   - API文档: http://localhost:8000/docs"
+    echo "📋 访问信息："
+    echo "   IPv4访问地址："
+    if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://$SERVER_IPV4:3000"
+            echo "     - 后端API: http://$SERVER_IPV4:8000"
+            echo "     - API文档: http://$SERVER_IPV4:8000/docs"
+        else
+            echo "     - 前端界面: http://$SERVER_IPV4"
+            echo "     - 后端API: http://$SERVER_IPV4/api"
+            echo "     - API文档: http://$SERVER_IPV4/api/docs"
+        fi
+    else
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://localhost:3000"
+            echo "     - 后端API: http://localhost:8000"
+            echo "     - API文档: http://localhost:8000/docs"
+        else
+            echo "     - 前端界面: http://localhost"
+            echo "     - 后端API: http://localhost/api"
+            echo "     - API文档: http://localhost/api/docs"
+        fi
+    fi
+    
+    if [ -n "$SERVER_IPV6" ]; then
+        echo "   IPv6访问地址："
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://[$SERVER_IPV6]:3000"
+            echo "     - 后端API: http://[$SERVER_IPV6]:8000"
+            echo "     - API文档: http://[$SERVER_IPV6]:8000/docs"
+        else
+            echo "     - 前端界面: http://[$SERVER_IPV6]"
+            echo "     - 后端API: http://[$SERVER_IPV6]/api"
+            echo "     - API文档: http://[$SERVER_IPV6]/api/docs"
+        fi
+    fi
     echo ""
-    print_message $BLUE "🔑 默认登录信息："
+    echo "🔑 默认登录信息："
     echo "   用户名: admin"
     echo "   密码: admin123"
     echo ""
-    print_message $BLUE "🛠️  管理命令："
-    echo "   查看状态: ./scripts/status.sh"
-    echo "   查看日志: ./scripts/logs.sh"
-    echo "   停止服务: ./scripts/stop.sh"
-    echo "   重启服务: ./scripts/stop.sh && ./scripts/start.sh"
+    
+    if [ "$INSTALL_TYPE" = "docker" ]; then
+        echo "🛠️  Docker管理命令："
+        echo "   查看状态: docker-compose ps"
+        echo "   查看日志: docker-compose logs -f"
+        echo "   停止服务: docker-compose down"
+        echo "   重启服务: docker-compose restart"
+    else
+        echo "🛠️  原生服务管理命令："
+        echo "   查看状态: sudo systemctl status ipv6-wireguard-manager"
+        echo "   查看日志: sudo journalctl -u ipv6-wireguard-manager -f"
+        echo "   重启服务: sudo systemctl restart ipv6-wireguard-manager"
+    fi
     echo ""
-    print_message $YELLOW "⚠️  安全提醒："
+    echo "⚠️  安全提醒："
     echo "   请在生产环境中修改默认密码"
-    echo "   配置文件位置: backend/.env"
     echo ""
 }
 
 # 主函数
 main() {
-    print_header
+    # 检测IP地址
+    get_server_ip
     
-    # 检查系统要求
-    check_requirements
+    # 检查命令行参数
+    if [ "$1" = "--auto" ] || [ "$1" = "-a" ]; then
+        # 自动选择安装方式
+        auto_select_installation
+    elif [ "$1" = "--docker" ] || [ "$1" = "-d" ]; then
+        # 强制Docker安装
+        INSTALL_TYPE="docker"
+        echo "🐳 强制使用Docker安装方式"
+        echo ""
+    elif [ "$1" = "--native" ] || [ "$1" = "-n" ]; then
+        # 强制原生安装
+        INSTALL_TYPE="native"
+        echo "⚡ 强制使用原生安装方式"
+        echo ""
+    else
+        # 显示菜单让用户选择
+        show_installation_menu
+        get_user_choice
+    fi
     
-    # 克隆项目
-    clone_project
-    
-    # 设置权限
-    setup_permissions
-    
-    # 配置环境
-    setup_environment
-    
-    # 启动服务
-    start_services
-    
-    # 初始化数据
-    init_database
-    
-    # 验证安装
-    verify_installation
+    # 执行安装
+    case $INSTALL_TYPE in
+        docker)
+            install_docker
+            ;;
+        native)
+            install_native
+            ;;
+        *)
+            echo "❌ 无效的安装类型: $INSTALL_TYPE"
+            exit 1
+            ;;
+    esac
     
     # 显示结果
-    show_result
+    show_installation_result
 }
 
-# 错误处理
-trap 'print_message $RED "❌ 安装过程中发生错误，请检查日志"; exit 1' ERR
+# 显示帮助信息
+show_help() {
+    echo "IPv6 WireGuard Manager 统一安装脚本"
+    echo ""
+    echo "用法:"
+    echo "  $0                    # 交互式选择安装方式"
+    echo "  $0 --auto            # 自动选择最佳安装方式"
+    echo "  $0 --docker          # 强制使用Docker安装"
+    echo "  $0 --native          # 强制使用原生安装"
+    echo "  $0 --help            # 显示此帮助信息"
+    echo ""
+    echo "选项:"
+    echo "  --auto, -a           自动检测系统资源并选择最佳安装方式"
+    echo "  --docker, -d         强制使用Docker安装方式"
+    echo "  --native, -n         强制使用原生安装方式"
+    echo "  --help, -h           显示帮助信息"
+    echo ""
+    echo "示例:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --auto"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --native"
+}
+
+# 检查帮助参数
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_help
+    exit 0
+fi
 
 # 运行主函数
 main "$@"

@@ -38,26 +38,37 @@
 
 ### 快速开始
 
-**方法一：完全自动安装（推荐）**
+**🎯 统一安装脚本（推荐）**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
-> 此脚本会自动检测操作系统并安装所有必要的依赖（Git、Docker、Docker Compose）
+> 智能选择最佳安装方式，支持交互式选择或自动检测
 
-**方法二：智能安装**
+**自动选择安装方式**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-smart.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --auto
+```
+> 自动检测系统资源并选择最佳安装方式
+
+**强制Docker安装**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --docker
 ```
 
-**方法三：Git 克隆安装**
+**强制原生安装**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --native
+```
+
+**Git 克隆安装**
 ```bash
 # 克隆项目
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
-# 运行Docker安装脚本
-chmod +x install-smart.sh
-./install-smart.sh
+# 运行统一安装脚本
+chmod +x install.sh
+./install.sh
 ```
 
 ### ⚡ 原生安装（VPS优化）
@@ -89,14 +100,24 @@ chmod +x install-vps.sh
 
 ### 📊 安装方式对比
 
-| 特性 | Docker安装 | 原生安装 |
-|------|------------|----------|
-| **内存占用** | 2GB+ | 1GB+ |
-| **启动速度** | 较慢 | 快速 |
-| **性能** | 良好 | 最优 |
-| **管理复杂度** | 简单 | 中等 |
-| **适用场景** | 测试/开发 | 生产/VPS |
-| **资源隔离** | 完全隔离 | 系统级 |
+| 特性 | 统一安装脚本 | Docker安装 | 原生安装 |
+|------|-------------|------------|----------|
+| **智能选择** | ✅ 自动检测 | ❌ 固定方式 | ❌ 固定方式 |
+| **交互选择** | ✅ 支持 | ❌ 不支持 | ❌ 不支持 |
+| **内存占用** | 自动优化 | 2GB+ | 1GB+ |
+| **启动速度** | 自动优化 | 较慢 | 快速 |
+| **性能** | 自动优化 | 良好 | 最优 |
+| **管理复杂度** | 简单 | 简单 | 中等 |
+| **适用场景** | 通用 | 测试/开发 | 生产/VPS |
+| **资源隔离** | 自动选择 | 完全隔离 | 系统级 |
+
+### 🎯 统一安装脚本特性
+
+- **智能检测**: 自动检测系统资源（内存、CPU、环境类型）
+- **交互选择**: 提供友好的选择菜单，详细说明各方式优缺点
+- **自动优化**: 根据系统配置自动选择最佳安装方式
+- **灵活参数**: 支持命令行参数强制指定安装方式
+- **完整功能**: 包含IPv4/IPv6地址检测、访问信息显示
 
 ### 🔧 手动安装
 

@@ -10,6 +10,16 @@ echo "IPv6 WireGuard Manager VPS安装"
 echo "=================================="
 echo ""
 
+# 检查是否通过统一安装脚本调用
+if [ "$1" = "--native-only" ]; then
+    echo "⚡ 原生安装模式"
+    echo ""
+else
+    echo "💡 提示: 推荐使用统一安装脚本选择安装方式"
+    echo "   curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash"
+    echo ""
+fi
+
 # 项目信息
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
 INSTALL_DIR="ipv6-wireguard-manager"
