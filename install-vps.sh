@@ -232,7 +232,11 @@ install_backend() {
     pip install --upgrade pip
     
     # 安装依赖
-    pip install -r requirements.txt
+    if [ -f "requirements-compatible.txt" ]; then
+        pip install -r requirements-compatible.txt
+    else
+        pip install -r requirements.txt
+    fi
     
     # 创建环境配置文件
     if [ ! -f .env ]; then
