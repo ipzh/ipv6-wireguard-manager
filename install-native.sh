@@ -312,23 +312,33 @@ EOF
 # 安装前端
 install_frontend() {
     echo "⚛️  安装React前端..."
+    echo "   当前目录: $(pwd)"
     
-    # 确保在项目根目录
-    if [ ! -d "frontend" ]; then
-        echo "❌ 不在项目根目录，尝试查找项目目录..."
-        if [ -d "$INSTALL_DIR" ]; then
-            cd "$INSTALL_DIR"
-            echo "✅ 切换到项目目录: $(pwd)"
-        else
-            echo "❌ 找不到项目目录"
-            exit 1
-        fi
+    # 获取项目根目录的绝对路径
+    PROJECT_ROOT=""
+    if [ -d "$INSTALL_DIR" ]; then
+        PROJECT_ROOT=$(realpath "$INSTALL_DIR")
+    elif [ -d "../$INSTALL_DIR" ]; then
+        PROJECT_ROOT=$(realpath "../$INSTALL_DIR")
+    elif [ -d "../../$INSTALL_DIR" ]; then
+        PROJECT_ROOT=$(realpath "../../$INSTALL_DIR")
+    else
+        echo "❌ 找不到项目目录"
+        echo "📁 当前目录内容:"
+        ls -la
+        echo "📁 上级目录内容:"
+        ls -la .. 2>/dev/null || echo "无法访问上级目录"
+        exit 1
     fi
+    
+    echo "   项目根目录: $PROJECT_ROOT"
+    cd "$PROJECT_ROOT"
+    echo "   切换到项目目录: $(pwd)"
     
     # 检查前端目录是否存在
     if [ ! -d "frontend" ]; then
         echo "❌ 前端目录不存在"
-        echo "📁 当前目录内容:"
+        echo "📁 项目目录内容:"
         ls -la
         exit 1
     fi
