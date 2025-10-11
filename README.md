@@ -60,6 +60,12 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --native
 ```
 
+**VPS快速安装（无需交互）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-vps-quick.sh | bash
+```
+> 专为VPS设计，无需用户交互，自动选择原生安装
+
 **Git 克隆安装**
 ```bash
 # 克隆项目

@@ -97,31 +97,43 @@ show_installation_menu() {
 
 # 获取用户选择
 get_user_choice() {
-    while true; do
+    echo "⏰ 30秒后自动选择原生安装（推荐VPS）"
+    echo ""
+    
+    # 使用timeout命令设置30秒超时
+    if command -v timeout >/dev/null 2>&1; then
+        choice=$(timeout 30 bash -c 'read -p "请输入选择 (1 或 2): " choice && echo $choice' 2>/dev/null || echo "")
+    else
+        # 如果没有timeout命令，使用简单的read
         echo -n "请输入选择 (1 或 2): "
-        read -r choice
-        
+        read -t 30 -r choice || choice=""
+    fi
+    
+    if [ -z "$choice" ]; then
+        echo ""
+        echo "⏰ 超时，自动选择原生安装（推荐VPS环境）"
+        INSTALL_TYPE="native"
+    else
         case $choice in
             1)
                 INSTALL_TYPE="docker"
                 echo ""
                 echo "✅ 您选择了 Docker 安装方式"
                 echo ""
-                break
                 ;;
             2)
                 INSTALL_TYPE="native"
                 echo ""
                 echo "✅ 您选择了 原生 安装方式"
                 echo ""
-                break
                 ;;
             *)
-                echo "❌ 无效选择，请输入 1 或 2"
                 echo ""
+                echo "❌ 无效选择，自动选择原生安装"
+                INSTALL_TYPE="native"
                 ;;
         esac
-    done
+    fi
 }
 
 # 自动选择安装方式
@@ -148,9 +160,12 @@ auto_select_installation() {
     if [ "$TOTAL_MEM" -lt 2048 ]; then
         INSTALL_TYPE="native"
         echo "   选择原因: 内存不足2GB，选择原生安装"
-    elif [ "$IS_VPS" = true ] && [ "$TOTAL_MEM" -lt 4096 ]; then
+    elif [ "$IS_VPS" = true ]; then
         INSTALL_TYPE="native"
-        echo "   选择原因: VPS环境且内存小于4GB，选择原生安装"
+        echo "   选择原因: VPS环境，选择原生安装以获得最佳性能"
+    elif [ "$TOTAL_MEM" -lt 4096 ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: 内存小于4GB，选择原生安装"
     else
         INSTALL_TYPE="docker"
         echo "   选择原因: 资源充足，选择Docker安装"
