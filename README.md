@@ -25,6 +25,17 @@
   - 2GB+ RAM
   - 5GB+ 磁盘空间
 
+### 支持的操作系统
+
+- **Ubuntu** (18.04+)
+- **Debian** (9+)
+- **CentOS** (7+)
+- **RHEL** (7+)
+- **Fedora** (30+)
+- **Alpine Linux** (3.10+)
+
+> 脚本会自动检测系统并使用正确的Docker仓库
+
 ### 快速开始
 
 **方法一：完全自动安装（推荐）**
@@ -47,7 +58,12 @@ chmod +x scripts/*.sh
 scripts\start.bat
 ```
 
-**方法三：调试安装（如果遇到问题）**
+**方法三：智能安装（推荐用于复杂环境）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-smart.sh | bash
+```
+
+**方法四：调试安装（如果遇到问题）**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-debug.sh | bash
 ```
