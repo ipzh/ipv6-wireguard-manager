@@ -38,26 +38,20 @@
 
 ### 快速开始
 
-**🎯 统一安装脚本（推荐）**
+**🚀 一键安装（推荐）**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash
 ```
-> 智能选择最佳安装方式，支持交互式选择或自动检测
-
-**自动选择安装方式**
-```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --auto
-```
-> 自动检测系统资源并选择最佳安装方式
+> 自动检测系统并选择最佳安装方式，无需用户交互
 
 **强制Docker安装**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --docker
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash -s -- --docker
 ```
 
 **强制原生安装**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --native
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash -s -- --native
 ```
 
 **VPS快速安装（无需交互）**
@@ -65,6 +59,12 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-vps-quick.sh | bash
 ```
 > 专为VPS设计，无需用户交互，自动选择原生安装
+
+**交互式安装（高级用户）**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+```
+> 支持用户选择安装方式，适合需要自定义配置的用户
 
 **Git 克隆安装**
 ```bash

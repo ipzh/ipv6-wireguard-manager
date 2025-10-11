@@ -1,207 +1,265 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 简化一键安装脚本
-# 专为curl管道执行设计，无需用户交互
+# IPv6 WireGuard Manager 简化安装脚本
+# 专为管道执行优化，避免交互问题
 
 set -e
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+echo "=================================="
+echo "IPv6 WireGuard Manager 简化安装"
+echo "=================================="
+echo ""
 
 # 项目信息
-PROJECT_NAME="IPv6 WireGuard Manager"
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
 INSTALL_DIR="ipv6-wireguard-manager"
 
-# 打印消息
-print_message() {
-    local color=$1
-    local message=$2
-    echo -e "${color}${message}${NC}"
-}
-
-print_header() {
-    echo "=================================="
-    print_message $BLUE "$PROJECT_NAME 一键安装"
-    echo "=================================="
+# 检测服务器IP地址
+get_server_ip() {
+    echo "🌐 检测服务器IP地址..."
+    
+    # 检测IPv4地址
+    PUBLIC_IPV4=""
+    LOCAL_IPV4=""
+    
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV4=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv4.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api.ipify.org 2>/dev/null)
+    fi
+    
+    if command -v ip >/dev/null 2>&1; then
+        LOCAL_IPV4=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    elif command -v hostname >/dev/null 2>&1; then
+        LOCAL_IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+    
+    # 检测IPv6地址
+    PUBLIC_IPV6=""
+    LOCAL_IPV6=""
+    
+    if command -v curl >/dev/null 2>&1; then
+        PUBLIC_IPV6=$(curl -s --connect-timeout 5 --max-time 10 \
+            https://ipv6.icanhazip.com 2>/dev/null || \
+            curl -s --connect-timeout 5 --max-time 10 \
+            https://api64.ipify.org 2>/dev/null)
+    fi
+    
+    if command -v ip >/dev/null 2>&1; then
+        LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep -oP 'src \K\S+' | head -1)
+    fi
+    
+    # 设置IP地址
+    if [ -n "$PUBLIC_IPV4" ]; then
+        SERVER_IPV4="$PUBLIC_IPV4"
+    elif [ -n "$LOCAL_IPV4" ]; then
+        SERVER_IPV4="$LOCAL_IPV4"
+    else
+        SERVER_IPV4="localhost"
+    fi
+    
+    if [ -n "$PUBLIC_IPV6" ]; then
+        SERVER_IPV6="$PUBLIC_IPV6"
+    elif [ -n "$LOCAL_IPV6" ]; then
+        SERVER_IPV6="$LOCAL_IPV6"
+    fi
+    
+    echo "   IPv4: $SERVER_IPV4"
+    if [ -n "$SERVER_IPV6" ]; then
+        echo "   IPv6: $SERVER_IPV6"
+    fi
     echo ""
 }
 
-# 检查系统要求
-check_requirements() {
-    print_message $YELLOW "🔍 检查系统要求..."
+# 自动选择安装方式
+auto_select_installation() {
+    echo "🤖 自动检测最佳安装方式..."
     
-    # 检查Git
-    if ! command -v git &> /dev/null; then
-        print_message $RED "❌ Git 未安装"
-        print_message $YELLOW "请先安装 Git: https://git-scm.com/downloads"
-        exit 1
-    fi
-    print_message $GREEN "✅ Git 已安装"
+    # 检测系统资源
+    TOTAL_MEM=$(free -m | awk 'NR==2{printf "%.0f", $2}')
+    CPU_CORES=$(nproc)
     
-    # 检查Docker
-    if ! command -v docker &> /dev/null; then
-        print_message $RED "❌ Docker 未安装"
-        print_message $YELLOW "请先安装 Docker: https://docs.docker.com/get-docker/"
-        exit 1
-    fi
-    print_message $GREEN "✅ Docker 已安装"
+    echo "   系统内存: ${TOTAL_MEM}MB"
+    echo "   CPU核心: ${CPU_CORES}"
     
-    # 检查Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        print_message $RED "❌ Docker Compose 未安装"
-        print_message $YELLOW "请先安装 Docker Compose: https://docs.docker.com/compose/install/"
-        exit 1
+    # 检测是否为VPS环境
+    IS_VPS=false
+    if [ -f /proc/user_beancounters ] || [ -f /proc/vz/version ]; then
+        IS_VPS=true
+        echo "   环境类型: VPS/容器"
+    else
+        echo "   环境类型: 物理机/虚拟机"
     fi
-    print_message $GREEN "✅ Docker Compose 已安装"
     
-    # 检查Docker服务
-    if ! docker info &> /dev/null; then
-        print_message $RED "❌ Docker 服务未运行"
-        print_message $YELLOW "请启动 Docker 服务"
-        exit 1
+    # 自动选择逻辑
+    if [ "$TOTAL_MEM" -lt 2048 ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: 内存不足2GB，选择原生安装"
+    elif [ "$IS_VPS" = true ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: VPS环境，选择原生安装以获得最佳性能"
+    elif [ "$TOTAL_MEM" -lt 4096 ]; then
+        INSTALL_TYPE="native"
+        echo "   选择原因: 内存小于4GB，选择原生安装"
+    else
+        INSTALL_TYPE="docker"
+        echo "   选择原因: 资源充足，选择Docker安装"
     fi
-    print_message $GREEN "✅ Docker 服务运行正常"
+    
+    echo "   自动选择: $INSTALL_TYPE 安装方式"
+    echo ""
 }
 
-# 下载并安装
-install_project() {
-    print_message $YELLOW "📥 下载项目..."
+# 执行Docker安装
+install_docker() {
+    echo "🐳 开始Docker安装..."
+    echo ""
     
-    # 删除现有目录
-    if [ -d "$INSTALL_DIR" ]; then
-        print_message $YELLOW "⚠️  删除现有目录..."
-        rm -rf "$INSTALL_DIR"
-    fi
+    # 直接调用Docker安装脚本
+    curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash
+}
+
+# 执行原生安装
+install_native() {
+    echo "⚡ 开始原生安装..."
+    echo ""
     
-    # 克隆项目
-    if ! git clone "$REPO_URL" "$INSTALL_DIR"; then
-        print_message $RED "❌ 下载项目失败"
-        exit 1
-    fi
-    
-    cd "$INSTALL_DIR"
-    print_message $GREEN "✅ 项目下载成功"
-    
-    # 设置权限
-    print_message $YELLOW "🔐 设置权限..."
-    chmod +x scripts/*.sh 2>/dev/null || true
-    mkdir -p data/postgres data/redis logs uploads backups
-    
-    # 配置环境
-    print_message $YELLOW "⚙️  配置环境..."
-    if [ -f "backend/env.example" ] && [ ! -f "backend/.env" ]; then
-        cp backend/env.example backend/.env
-        
-        # 生成随机密码
-        SECRET_KEY=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25 2>/dev/null || head /dev/urandom | tr -dc A-Za-z0-9 | head -c 25)
-        DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25 2>/dev/null || head /dev/urandom | tr -dc A-Za-z0-9 | head -c 25)
-        
-        # 更新配置
-        sed -i.bak "s/your-super-secret-key-for-jwt/$SECRET_KEY/" backend/.env 2>/dev/null || \
-        sed -i "" "s/your-super-secret-key-for-jwt/$SECRET_KEY/" backend/.env 2>/dev/null || true
-        
-        sed -i.bak "s/ipv6wgm/$DB_PASSWORD/" backend/.env 2>/dev/null || \
-        sed -i "" "s/ipv6wgm/$DB_PASSWORD/" backend/.env 2>/dev/null || true
-        
-        print_message $GREEN "✅ 环境配置完成"
-    fi
-    
-    # 启动服务
-    print_message $YELLOW "🚀 启动服务..."
-    if ! docker-compose up -d; then
-        print_message $RED "❌ 启动服务失败"
-        exit 1
-    fi
-    
-    # 等待服务启动
-    print_message $YELLOW "⏳ 等待服务启动..."
-    sleep 30
-    
-    # 初始化数据库
-    print_message $YELLOW "🗄️  初始化数据库..."
-    sleep 10
-    
-    if docker-compose exec -T backend python -c "
-import asyncio
-from app.core.init_db import init_db
-asyncio.run(init_db())
-" 2>/dev/null; then
-        print_message $GREEN "✅ 数据库初始化成功"
-    else
-        print_message $YELLOW "⚠️  数据库初始化可能失败，请手动检查"
-    fi
-    
-    # 验证安装
-    print_message $YELLOW "🔍 验证安装..."
-    local all_healthy=true
-    
-    if curl -s "http://localhost:8000" > /dev/null 2>&1; then
-        print_message $GREEN "✅ 后端服务正常"
-    else
-        print_message $RED "❌ 后端服务异常"
-        all_healthy=false
-    fi
-    
-    if curl -s "http://localhost:3000" > /dev/null 2>&1; then
-        print_message $GREEN "✅ 前端服务正常"
-    else
-        print_message $RED "❌ 前端服务异常"
-        all_healthy=false
-    fi
-    
-    # 显示结果
+    # 直接调用原生安装脚本
+    curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-vps-quick.sh | bash
+}
+
+# 显示安装结果
+show_installation_result() {
     echo ""
     echo "=================================="
-    if [ "$all_healthy" = true ]; then
-        print_message $GREEN "🎉 安装完成！"
-    else
-        print_message $YELLOW "⚠️  安装完成，但部分服务可能存在问题"
-    fi
+    echo "🎉 安装完成！"
     echo "=================================="
     echo ""
+    echo "📋 访问信息："
+    echo "   IPv4访问地址："
+    if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://$SERVER_IPV4:3000"
+            echo "     - 后端API: http://$SERVER_IPV4:8000"
+            echo "     - API文档: http://$SERVER_IPV4:8000/docs"
+        else
+            echo "     - 前端界面: http://$SERVER_IPV4"
+            echo "     - 后端API: http://$SERVER_IPV4/api"
+            echo "     - API文档: http://$SERVER_IPV4/api/docs"
+        fi
+    else
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://localhost:3000"
+            echo "     - 后端API: http://localhost:8000"
+            echo "     - API文档: http://localhost:8000/docs"
+        else
+            echo "     - 前端界面: http://localhost"
+            echo "     - 后端API: http://localhost/api"
+            echo "     - API文档: http://localhost/api/docs"
+        fi
+    fi
     
-    print_message $BLUE "📋 访问信息："
-    echo "   - 前端界面: http://localhost:3000"
-    echo "   - 后端API: http://localhost:8000"
-    echo "   - API文档: http://localhost:8000/docs"
+    if [ -n "$SERVER_IPV6" ]; then
+        echo "   IPv6访问地址："
+        if [ "$INSTALL_TYPE" = "docker" ]; then
+            echo "     - 前端界面: http://[$SERVER_IPV6]:3000"
+            echo "     - 后端API: http://[$SERVER_IPV6]:8000"
+            echo "     - API文档: http://[$SERVER_IPV6]:8000/docs"
+        else
+            echo "     - 前端界面: http://[$SERVER_IPV6]"
+            echo "     - 后端API: http://[$SERVER_IPV6]/api"
+            echo "     - API文档: http://[$SERVER_IPV6]/api/docs"
+        fi
+    fi
     echo ""
-    
-    print_message $BLUE "🔑 默认登录信息："
+    echo "🔑 默认登录信息："
     echo "   用户名: admin"
     echo "   密码: admin123"
     echo ""
     
-    print_message $BLUE "🛠️  管理命令："
-    echo "   查看状态: docker-compose ps"
-    echo "   查看日志: docker-compose logs -f"
-    echo "   停止服务: docker-compose down"
-    echo "   重启服务: docker-compose restart"
+    if [ "$INSTALL_TYPE" = "docker" ]; then
+        echo "🛠️  Docker管理命令："
+        echo "   查看状态: docker-compose ps"
+        echo "   查看日志: docker-compose logs -f"
+        echo "   停止服务: docker-compose down"
+        echo "   重启服务: docker-compose restart"
+    else
+        echo "🛠️  原生服务管理命令："
+        echo "   查看状态: sudo systemctl status ipv6-wireguard-manager"
+        echo "   查看日志: sudo journalctl -u ipv6-wireguard-manager -f"
+        echo "   重启服务: sudo systemctl restart ipv6-wireguard-manager"
+    fi
     echo ""
-    
-    print_message $YELLOW "⚠️  安全提醒："
+    echo "⚠️  安全提醒："
     echo "   请在生产环境中修改默认密码"
-    echo "   配置文件位置: backend/.env"
-    echo ""
-    
-    print_message $BLUE "📁 项目位置："
-    echo "   $(pwd)"
     echo ""
 }
 
 # 主函数
 main() {
-    print_header
-    check_requirements
-    install_project
+    # 检测IP地址
+    get_server_ip
+    
+    # 检查命令行参数
+    if [ "$1" = "--docker" ] || [ "$1" = "-d" ]; then
+        # 强制Docker安装
+        INSTALL_TYPE="docker"
+        echo "🐳 强制使用Docker安装方式"
+        echo ""
+    elif [ "$1" = "--native" ] || [ "$1" = "-n" ]; then
+        # 强制原生安装
+        INSTALL_TYPE="native"
+        echo "⚡ 强制使用原生安装方式"
+        echo ""
+    else
+        # 自动选择安装方式
+        auto_select_installation
+    fi
+    
+    # 执行安装
+    case $INSTALL_TYPE in
+        docker)
+            install_docker
+            ;;
+        native)
+            install_native
+            ;;
+        *)
+            echo "❌ 无效的安装类型: $INSTALL_TYPE"
+            exit 1
+            ;;
+    esac
+    
+    # 显示结果
+    show_installation_result
 }
 
-# 错误处理
-trap 'print_message $RED "❌ 安装过程中发生错误"; exit 1' ERR
+# 显示帮助信息
+show_help() {
+    echo "IPv6 WireGuard Manager 简化安装脚本"
+    echo ""
+    echo "用法:"
+    echo "  $0                    # 自动选择最佳安装方式"
+    echo "  $0 --docker          # 强制使用Docker安装"
+    echo "  $0 --native          # 强制使用原生安装"
+    echo "  $0 --help            # 显示此帮助信息"
+    echo ""
+    echo "选项:"
+    echo "  --docker, -d         强制使用Docker安装方式"
+    echo "  --native, -n         强制使用原生安装方式"
+    echo "  --help, -h           显示帮助信息"
+    echo ""
+    echo "示例:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-simple.sh | bash -s -- --native"
+}
+
+# 检查帮助参数
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    show_help
+    exit 0
+fi
 
 # 运行主函数
 main "$@"
