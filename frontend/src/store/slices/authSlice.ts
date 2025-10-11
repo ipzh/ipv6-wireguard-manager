@@ -1,18 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import { authApi } from '@services/auth'
+import { User, LoginCredentials, AuthResponse } from '../../types/auth'
+import api from '../../services/api'
 
-export interface User {
-  id: string
-  username: string
-  email: string
-  is_active: boolean
-  is_superuser: boolean
-  last_login?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface AuthState {
+interface AuthState {
   user: User | null
   token: string | null
   isAuthenticated: boolean
@@ -28,28 +18,18 @@ const initialState: AuthState = {
   error: null,
 }
 
-// 异步thunk
+// 异步操作
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: { username: string; password: string }, { rejectWithValue }) => {
+  async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      const response = await authApi.login(credentials)
-      localStorage.setItem('token', response.access_token)
-      return response
+      const response = await api.post<AuthResponse>('/auth/login', credentials)
+      const { access_token, user } = response.data
+      
+      localStorage.setItem('token', access_token)
+      return { access_token, user }
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || '登录失败')
-    }
-  }
-)
-
-export const logout = createAsyncThunk(
-  'auth/logout',
-  async (_, { rejectWithValue }) => {
-    try {
-      await authApi.logout()
-      localStorage.removeItem('token')
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.detail || '登出失败')
     }
   }
 )
@@ -58,10 +38,24 @@ export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await authApi.getCurrentUser()
-      return response
+      const response = await api.get<User>('/auth/me')
+      return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || '获取用户信息失败')
+    }
+  }
+)
+
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (_, { rejectWithValue }) => {
+    try {
+      await api.post('/auth/logout')
+      localStorage.removeItem('token')
+      return null
+    } catch (error: any) {
+      localStorage.removeItem('token')
+      return rejectWithValue(error.response?.data?.detail || '登出失败')
     }
   }
 )
@@ -77,24 +71,18 @@ const authSlice = createSlice({
       state.token = action.payload
       state.isAuthenticated = true
     },
-    clearAuth: (state) => {
-      state.user = null
-      state.token = null
-      state.isAuthenticated = false
-      state.error = null
-    },
   },
   extraReducers: (builder) => {
     builder
-      // Login
+      // 登录
       .addCase(login.pending, (state) => {
         state.loading = true
         state.error = null
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false
-        state.user = action.payload.user
         state.token = action.payload.access_token
+        state.user = action.payload.user
         state.isAuthenticated = true
         state.error = null
       })
@@ -103,25 +91,31 @@ const authSlice = createSlice({
         state.error = action.payload as string
         state.isAuthenticated = false
       })
-      // Logout
+      // 获取当前用户
+      .addCase(getCurrentUser.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(getCurrentUser.fulfilled, (state, action) => {
+        state.loading = false
+        state.user = action.payload
+        state.isAuthenticated = true
+      })
+      .addCase(getCurrentUser.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+        state.isAuthenticated = false
+        state.token = null
+        localStorage.removeItem('token')
+      })
+      // 登出
       .addCase(logout.fulfilled, (state) => {
         state.user = null
         state.token = null
         state.isAuthenticated = false
         state.error = null
       })
-      // Get current user
-      .addCase(getCurrentUser.fulfilled, (state, action) => {
-        state.user = action.payload
-        state.isAuthenticated = true
-      })
-      .addCase(getCurrentUser.rejected, (state) => {
-        state.user = null
-        state.token = null
-        state.isAuthenticated = false
-      })
   },
 })
 
-export const { clearError, setToken, clearAuth } = authSlice.actions
+export const { clearError, setToken } = authSlice.actions
 export default authSlice.reducer

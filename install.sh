@@ -1,350 +1,342 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 统一安装脚本
-# 支持Docker和原生两种安装方式
+# IPv6 WireGuard Manager - 智能安装器
+# 自动检测系统环境并选择最佳安装方式
 
 set -e
 
-echo "=================================="
-echo "IPv6 WireGuard Manager 一键安装"
-echo "=================================="
-echo ""
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
 # 项目信息
+PROJECT_NAME="IPv6 WireGuard Manager"
+PROJECT_VERSION="3.0.0"
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
-INSTALL_DIR="ipv6-wireguard-manager"
 
-# 检测服务器IP地址
-get_server_ip() {
-    echo "🌐 检测服务器IP地址..."
-    
-    # 检测IPv4地址
-    PUBLIC_IPV4=""
-    LOCAL_IPV4=""
-    
-    if command -v curl >/dev/null 2>&1; then
-        PUBLIC_IPV4=$(curl -s --connect-timeout 5 --max-time 10 \
-            https://ipv4.icanhazip.com 2>/dev/null || \
-            curl -s --connect-timeout 5 --max-time 10 \
-            https://api.ipify.org 2>/dev/null)
-    fi
-    
-    if command -v ip >/dev/null 2>&1; then
-        LOCAL_IPV4=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' | head -1)
-    elif command -v hostname >/dev/null 2>&1; then
-        LOCAL_IPV4=$(hostname -I 2>/dev/null | awk '{print $1}')
-    fi
-    
-    # 检测IPv6地址
-    PUBLIC_IPV6=""
-    LOCAL_IPV6=""
-    
-    if command -v curl >/dev/null 2>&1; then
-        PUBLIC_IPV6=$(curl -s --connect-timeout 5 --max-time 10 \
-            https://ipv6.icanhazip.com 2>/dev/null || \
-            curl -s --connect-timeout 5 --max-time 10 \
-            https://api64.ipify.org 2>/dev/null)
-    fi
-    
-    if command -v ip >/dev/null 2>&1; then
-        LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep -oP 'src \K\S+' | head -1)
-    fi
-    
-    # 设置IP地址
-    if [ -n "$PUBLIC_IPV4" ]; then
-        SERVER_IPV4="$PUBLIC_IPV4"
-    elif [ -n "$LOCAL_IPV4" ]; then
-        SERVER_IPV4="$LOCAL_IPV4"
-    else
-        SERVER_IPV4="localhost"
-    fi
-    
-    if [ -n "$PUBLIC_IPV6" ]; then
-        SERVER_IPV6="$PUBLIC_IPV6"
-    elif [ -n "$LOCAL_IPV6" ]; then
-        SERVER_IPV6="$LOCAL_IPV6"
-    fi
-    
-    echo "   IPv4: $SERVER_IPV4"
-    if [ -n "$SERVER_IPV6" ]; then
-        echo "   IPv6: $SERVER_IPV6"
-    fi
+# 日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${PURPLE}[STEP]${NC} $1"
+}
+
+# 显示欢迎信息
+show_welcome() {
+    clear
+    echo -e "${CYAN}"
+    echo "=========================================="
+    echo "  $PROJECT_NAME v$PROJECT_VERSION"
+    echo "  智能安装器"
+    echo "=========================================="
+    echo -e "${NC}"
+    echo "🎯 自动检测系统环境并选择最佳安装方式"
+    echo "📦 支持 Docker 和原生安装"
+    echo "⚡ 优化构建过程，提升安装体验"
     echo ""
 }
 
-# 显示安装方式选择菜单
-show_installation_menu() {
-    echo "请选择安装方式："
-    echo ""
-    echo "🐳 1. Docker安装（推荐新手）"
-    echo "   - 优点: 环境隔离，易于管理，支持一键部署"
-    echo "   - 缺点: 资源占用较高，性能略有损失"
-    echo "   - 适用: 测试环境、开发环境、对性能要求不高的场景"
-    echo "   - 内存需求: 2GB+"
-    echo ""
-    echo "⚡ 2. 原生安装（推荐VPS）"
-    echo "   - 优点: 性能最优，资源占用最小，启动速度快"
-    echo "   - 缺点: 需要手动管理依赖，环境配置相对复杂"
-    echo "   - 适用: 生产环境、VPS部署、对性能要求高的场景"
-    echo "   - 内存需求: 1GB+"
-    echo ""
-    echo "📊 性能对比："
-    echo "   - 内存占用: Docker 2GB+ vs 原生 1GB+"
-    echo "   - 启动速度: Docker 较慢 vs 原生 快速"
-    echo "   - 性能: Docker 良好 vs 原生 最优"
-    echo ""
-}
-
-# 获取用户选择
-get_user_choice() {
-    echo "⏰ 30秒后自动选择原生安装（推荐VPS）"
-    echo ""
+# 系统检测
+detect_system() {
+    log_step "检测系统环境..."
     
-    # 使用timeout命令设置30秒超时
-    if command -v timeout >/dev/null 2>&1; then
-        choice=$(timeout 30 bash -c 'read -p "请输入选择 (1 或 2): " choice && echo $choice' 2>/dev/null || echo "")
+    # 检测操作系统
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS_NAME="$NAME"
+        OS_VERSION="$VERSION_ID"
+        OS_ID="$ID"
     else
-        # 如果没有timeout命令，使用简单的read
-        echo -n "请输入选择 (1 或 2): "
-        read -t 30 -r choice || choice=""
+        log_error "无法检测操作系统"
+        exit 1
     fi
     
-    if [ -z "$choice" ]; then
-        echo ""
-        echo "⏰ 超时，自动选择原生安装（推荐VPS环境）"
-        INSTALL_TYPE="native"
-    else
-        case $choice in
-            1)
-                INSTALL_TYPE="docker"
-                echo ""
-                echo "✅ 您选择了 Docker 安装方式"
-                echo ""
-                ;;
-            2)
-                INSTALL_TYPE="native"
-                echo ""
-                echo "✅ 您选择了 原生 安装方式"
-                echo ""
-                ;;
-            *)
-                echo ""
-                echo "❌ 无效选择，自动选择原生安装"
-                INSTALL_TYPE="native"
-                ;;
-        esac
-    fi
-}
-
-# 自动选择安装方式
-auto_select_installation() {
-    echo "🤖 自动检测最佳安装方式..."
+    # 检测系统架构
+    ARCH=$(uname -m)
     
     # 检测系统资源
     TOTAL_MEM=$(free -m | awk 'NR==2{printf "%.0f", $2}')
     CPU_CORES=$(nproc)
+    DISK_AVAIL=$(df -h . | awk 'NR==2 {print $4}')
     
-    echo "   系统内存: ${TOTAL_MEM}MB"
-    echo "   CPU核心: ${CPU_CORES}"
-    
-    # 检测是否为VPS环境
-    IS_VPS=false
-    if [ -f /proc/user_beancounters ] || [ -f /proc/vz/version ]; then
-        IS_VPS=true
-        echo "   环境类型: VPS/容器"
+    # 检测网络连接
+    if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+        NETWORK_STATUS="connected"
     else
-        echo "   环境类型: 物理机/虚拟机"
+        NETWORK_STATUS="disconnected"
     fi
     
-    # 自动选择逻辑
-    if [ "$TOTAL_MEM" -lt 2048 ]; then
-        INSTALL_TYPE="native"
-        echo "   选择原因: 内存不足2GB，选择原生安装"
-    elif [ "$IS_VPS" = true ]; then
-        INSTALL_TYPE="native"
-        echo "   选择原因: VPS环境，选择原生安装以获得最佳性能"
-    elif [ "$TOTAL_MEM" -lt 4096 ]; then
-        INSTALL_TYPE="native"
-        echo "   选择原因: 内存小于4GB，选择原生安装"
-    else
-        INSTALL_TYPE="docker"
-        echo "   选择原因: 资源充足，选择Docker安装"
+    # 检测已安装的软件
+    DOCKER_INSTALLED=false
+    DOCKER_COMPOSE_INSTALLED=false
+    PYTHON_INSTALLED=false
+    NODE_INSTALLED=false
+    
+    if command -v docker >/dev/null 2>&1; then
+        DOCKER_INSTALLED=true
+        DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | cut -d',' -f1)
     fi
     
-    echo "   自动选择: $INSTALL_TYPE 安装方式"
+    if command -v docker-compose >/dev/null 2>&1 || docker compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE_INSTALLED=true
+    fi
+    
+    if command -v python3 >/dev/null 2>&1; then
+        PYTHON_INSTALLED=true
+        PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+    fi
+    
+    if command -v node >/dev/null 2>&1; then
+        NODE_INSTALLED=true
+        NODE_VERSION=$(node --version)
+    fi
+    
+    # 显示系统信息
+    echo "🖥️  系统信息:"
+    echo "   操作系统: $OS_NAME $OS_VERSION"
+    echo "   架构: $ARCH"
+    echo "   内存: ${TOTAL_MEM}MB"
+    echo "   CPU核心: $CPU_CORES"
+    echo "   可用磁盘: $DISK_AVAIL"
+    echo "   网络状态: $NETWORK_STATUS"
+    echo ""
+    
+    echo "📦 已安装软件:"
+    echo "   Docker: $([ "$DOCKER_INSTALLED" = true ] && echo "✅ $DOCKER_VERSION" || echo "❌ 未安装")"
+    echo "   Docker Compose: $([ "$DOCKER_COMPOSE_INSTALLED" = true ] && echo "✅ 已安装" || echo "❌ 未安装")"
+    echo "   Python3: $([ "$PYTHON_INSTALLED" = true ] && echo "✅ $PYTHON_VERSION" || echo "❌ 未安装")"
+    echo "   Node.js: $([ "$NODE_INSTALLED" = true ] && echo "✅ $NODE_VERSION" || echo "❌ 未安装")"
     echo ""
 }
 
-# 执行Docker安装
-install_docker() {
-    echo "🐳 开始Docker安装..."
+# 智能选择安装方式
+choose_installation_method() {
+    log_step "智能选择安装方式..."
+    
+    # 检查网络连接
+    if [ "$NETWORK_STATUS" != "connected" ]; then
+        log_error "网络连接异常，无法下载项目"
+        exit 1
+    fi
+    
+    # 检查磁盘空间
+    DISK_USAGE=$(df -h . | awk 'NR==2 {print $5}' | sed 's/%//')
+    if [ "$DISK_USAGE" -gt 90 ]; then
+        log_error "磁盘空间不足，请清理磁盘后重试"
+        exit 1
+    fi
+    
+    # 智能选择逻辑
+    if [ "$DOCKER_INSTALLED" = true ] && [ "$DOCKER_COMPOSE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 2048 ]; then
+        INSTALL_METHOD="docker"
+        log_success "推荐使用 Docker 安装（环境完整，内存充足）"
+    elif [ "$PYTHON_INSTALLED" = true ] && [ "$NODE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 1024 ]; then
+        INSTALL_METHOD="native"
+        log_success "推荐使用原生安装（依赖完整，性能更优）"
+    elif [ "$TOTAL_MEM" -gt 2048 ]; then
+        INSTALL_METHOD="docker"
+        log_warning "推荐使用 Docker 安装（需要安装 Docker）"
+    else
+        INSTALL_METHOD="native"
+        log_warning "推荐使用原生安装（内存较少，性能更优）"
+    fi
+    
+    echo ""
+    echo "🎯 安装方式选择:"
+    echo "   1. Docker 安装 - 环境隔离，易于管理"
+    echo "   2. 原生安装 - 性能最优，资源占用少"
+    echo "   3. 自动选择 - 根据系统环境智能选择"
     echo ""
     
-    # 检查是否有Docker安装脚本
-    if [ -f "install-curl.sh" ]; then
-        echo "使用Docker安装脚本..."
-        chmod +x install-curl.sh
-        ./install-curl.sh --docker-only
-    else
-        echo "下载Docker安装脚本..."
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-curl.sh | bash -s -- --docker-only
-    fi
+    # 用户选择
+    read -p "请选择安装方式 (1/2/3) [默认: 3]: " choice
+    choice=${choice:-3}
+    
+    case $choice in
+        1)
+            INSTALL_METHOD="docker"
+            log_info "用户选择: Docker 安装"
+            ;;
+        2)
+            INSTALL_METHOD="native"
+            log_info "用户选择: 原生安装"
+            ;;
+        3)
+            log_info "用户选择: 自动选择 ($INSTALL_METHOD)"
+            ;;
+        *)
+            log_warning "无效选择，使用自动选择 ($INSTALL_METHOD)"
+            ;;
+    esac
+    
+    echo ""
 }
 
-# 执行原生安装
-install_native() {
-    echo "⚡ 开始原生安装..."
-    echo ""
+# 下载项目
+download_project() {
+    log_step "下载项目..."
     
-    # 检查是否有原生安装脚本
-    if [ -f "install-vps.sh" ]; then
-        echo "使用VPS优化原生安装脚本..."
-        chmod +x install-vps.sh
-        ./install-vps.sh --native-only
-    else
-        echo "下载VPS优化原生安装脚本..."
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-vps.sh | bash -s -- --native-only
+    # 检查是否已存在项目目录
+    if [ -d "ipv6-wireguard-manager" ]; then
+        log_warning "项目目录已存在，是否重新下载？"
+        read -p "输入 y 重新下载，其他键跳过: " reinstall
+        if [ "$reinstall" = "y" ] || [ "$reinstall" = "Y" ]; then
+            log_info "删除现有项目目录..."
+            rm -rf ipv6-wireguard-manager
+        else
+            log_info "使用现有项目目录"
+            return 0
+        fi
     fi
+    
+    # 下载项目
+    log_info "从 GitHub 下载项目..."
+    if git clone "$REPO_URL" ipv6-wireguard-manager; then
+        log_success "项目下载成功"
+    else
+        log_error "项目下载失败"
+        exit 1
+    fi
+    
+    # 进入项目目录
+    cd ipv6-wireguard-manager || exit 1
+    log_info "进入项目目录: $(pwd)"
 }
 
-# 显示安装结果
-show_installation_result() {
-    echo ""
-    echo "=================================="
-    echo "🎉 安装完成！"
-    echo "=================================="
-    echo ""
-    echo "📋 访问信息："
-    echo "   IPv4访问地址："
-    if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
-        if [ "$INSTALL_TYPE" = "docker" ]; then
-            echo "     - 前端界面: http://$SERVER_IPV4:3000"
-            echo "     - 后端API: http://$SERVER_IPV4:8000"
-            echo "     - API文档: http://$SERVER_IPV4:8000/docs"
+# 执行安装
+execute_installation() {
+    log_step "执行安装..."
+    
+    case $INSTALL_METHOD in
+        "docker")
+            log_info "使用 Docker 安装..."
+            if [ -f "install-smart.sh" ]; then
+                bash install-smart.sh
+            else
+                log_error "Docker 安装脚本不存在"
+                exit 1
+            fi
+            ;;
+        "native")
+            log_info "使用原生安装..."
+            if [ -f "install-robust.sh" ]; then
+                bash install-robust.sh
+            else
+                log_error "原生安装脚本不存在"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "未知的安装方式: $INSTALL_METHOD"
+            exit 1
+            ;;
+    esac
+}
+
+# 验证安装
+verify_installation() {
+    log_step "验证安装..."
+    
+    # 检查服务状态
+    if [ "$INSTALL_METHOD" = "docker" ]; then
+        if docker ps | grep -q "ipv6-wireguard"; then
+            log_success "Docker 服务运行正常"
         else
-            echo "     - 前端界面: http://$SERVER_IPV4"
-            echo "     - 后端API: http://$SERVER_IPV4/api"
-            echo "     - API文档: http://$SERVER_IPV4/api/docs"
+            log_warning "Docker 服务可能未正常启动"
         fi
     else
-        if [ "$INSTALL_TYPE" = "docker" ]; then
-            echo "     - 前端界面: http://localhost:3000"
-            echo "     - 后端API: http://localhost:8000"
-            echo "     - API文档: http://localhost:8000/docs"
+        # 检查原生服务
+        if systemctl is-active --quiet ipv6-wireguard-backend; then
+            log_success "后端服务运行正常"
         else
-            echo "     - 前端界面: http://localhost"
-            echo "     - 后端API: http://localhost/api"
-            echo "     - API文档: http://localhost/api/docs"
+            log_warning "后端服务可能未正常启动"
+        fi
+        
+        if systemctl is-active --quiet ipv6-wireguard-frontend; then
+            log_success "前端服务运行正常"
+        else
+            log_warning "前端服务可能未正常启动"
         fi
     fi
     
-    if [ -n "$SERVER_IPV6" ]; then
-        echo "   IPv6访问地址："
-        if [ "$INSTALL_TYPE" = "docker" ]; then
-            echo "     - 前端界面: http://[$SERVER_IPV6]:3000"
-            echo "     - 后端API: http://[$SERVER_IPV6]:8000"
-            echo "     - API文档: http://[$SERVER_IPV6]:8000/docs"
-        else
-            echo "     - 前端界面: http://[$SERVER_IPV6]"
-            echo "     - 后端API: http://[$SERVER_IPV6]/api"
-            echo "     - API文档: http://[$SERVER_IPV6]/api/docs"
-        fi
+    # 获取访问地址
+    get_access_urls
+}
+
+# 获取访问地址
+get_access_urls() {
+    log_step "获取访问地址..."
+    
+    # 获取公网IP
+    PUBLIC_IPV4=$(curl -s -4 ifconfig.me 2>/dev/null || echo "localhost")
+    PUBLIC_IPV6=$(curl -s -6 ifconfig.me 2>/dev/null || echo "")
+    
+    # 获取内网IP
+    LOCAL_IPV4=$(ip route get 1.1.1.1 | awk '{print $7; exit}' 2>/dev/null || echo "localhost")
+    LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 | awk '{print $7; exit}' 2>/dev/null || echo "")
+    
+    echo ""
+    echo -e "${GREEN}🎉 安装完成！${NC}"
+    echo ""
+    echo "🌐 访问地址:"
+    echo "   前端界面:"
+    echo "     IPv4: http://$PUBLIC_IPV4:3000"
+    echo "     IPv4 (本地): http://$LOCAL_IPV4:3000"
+    if [ -n "$PUBLIC_IPV6" ] && [ "$PUBLIC_IPV6" != "localhost" ]; then
+        echo "     IPv6: http://[$PUBLIC_IPV6]:3000"
+    fi
+    if [ -n "$LOCAL_IPV6" ] && [ "$LOCAL_IPV6" != "localhost" ]; then
+        echo "     IPv6 (本地): http://[$LOCAL_IPV6]:3000"
     fi
     echo ""
-    echo "🔑 默认登录信息："
-    echo "   用户名: admin"
-    echo "   密码: admin123"
-    echo ""
-    
-    if [ "$INSTALL_TYPE" = "docker" ]; then
-        echo "🛠️  Docker管理命令："
-        echo "   查看状态: docker-compose ps"
+    echo "🔧 管理命令:"
+    if [ "$INSTALL_METHOD" = "docker" ]; then
         echo "   查看日志: docker-compose logs -f"
-        echo "   停止服务: docker-compose down"
         echo "   重启服务: docker-compose restart"
+        echo "   停止服务: docker-compose down"
     else
-        echo "🛠️  原生服务管理命令："
-        echo "   查看状态: sudo systemctl status ipv6-wireguard-manager"
-        echo "   查看日志: sudo journalctl -u ipv6-wireguard-manager -f"
-        echo "   重启服务: sudo systemctl restart ipv6-wireguard-manager"
+        echo "   查看后端日志: journalctl -u ipv6-wireguard-backend -f"
+        echo "   查看前端日志: journalctl -u ipv6-wireguard-frontend -f"
+        echo "   重启服务: systemctl restart ipv6-wireguard-backend ipv6-wireguard-frontend"
     fi
     echo ""
-    echo "⚠️  安全提醒："
-    echo "   请在生产环境中修改默认密码"
+    echo "📚 更多信息:"
+    echo "   项目文档: https://github.com/ipzh/ipv6-wireguard-manager"
+    echo "   问题反馈: https://github.com/ipzh/ipv6-wireguard-manager/issues"
     echo ""
 }
 
 # 主函数
 main() {
-    # 检测IP地址
-    get_server_ip
-    
-    # 检查命令行参数
-    if [ "$1" = "--auto" ] || [ "$1" = "-a" ]; then
-        # 自动选择安装方式
-        auto_select_installation
-    elif [ "$1" = "--docker" ] || [ "$1" = "-d" ]; then
-        # 强制Docker安装
-        INSTALL_TYPE="docker"
-        echo "🐳 强制使用Docker安装方式"
-        echo ""
-    elif [ "$1" = "--native" ] || [ "$1" = "-n" ]; then
-        # 强制原生安装
-        INSTALL_TYPE="native"
-        echo "⚡ 强制使用原生安装方式"
-        echo ""
-    else
-        # 显示菜单让用户选择
-        show_installation_menu
-        get_user_choice
-    fi
-    
-    # 执行安装
-    case $INSTALL_TYPE in
-        docker)
-            install_docker
-            ;;
-        native)
-            install_native
-            ;;
-        *)
-            echo "❌ 无效的安装类型: $INSTALL_TYPE"
-            exit 1
-            ;;
-    esac
-    
-    # 显示结果
-    show_installation_result
+    show_welcome
+    detect_system
+    choose_installation_method
+    download_project
+    execute_installation
+    verify_installation
 }
 
-# 显示帮助信息
-show_help() {
-    echo "IPv6 WireGuard Manager 统一安装脚本"
-    echo ""
-    echo "用法:"
-    echo "  $0                    # 交互式选择安装方式"
-    echo "  $0 --auto            # 自动选择最佳安装方式"
-    echo "  $0 --docker          # 强制使用Docker安装"
-    echo "  $0 --native          # 强制使用原生安装"
-    echo "  $0 --help            # 显示此帮助信息"
-    echo ""
-    echo "选项:"
-    echo "  --auto, -a           自动检测系统资源并选择最佳安装方式"
-    echo "  --docker, -d         强制使用Docker安装方式"
-    echo "  --native, -n         强制使用原生安装方式"
-    echo "  --help, -h           显示帮助信息"
-    echo ""
-    echo "示例:"
-    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash"
-    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --auto"
-    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --native"
-}
+# 错误处理
+trap 'log_error "安装过程中发生错误，请检查日志"; exit 1' ERR
 
-# 检查帮助参数
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    show_help
-    exit 0
-fi
-
-# 运行主函数
+# 执行主函数
 main "$@"

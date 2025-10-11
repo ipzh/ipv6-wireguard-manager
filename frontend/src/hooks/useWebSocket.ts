@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketService, WebSocketConfig, WebSocketMessage } from '../services/websocket';
+import { getWebSocketService, WebSocketConfig, WebSocketMessage } from '../services/websocket';
 import { useAppSelector } from '../store/hooks';
 
 export interface UseWebSocketOptions {
@@ -31,7 +31,7 @@ export const useWebSocket = (
   } = options;
 
   const user = useAppSelector((state) => state.auth.user);
-  const wsServiceRef = useRef<WebSocketService | null>(null);
+  const wsServiceRef = useRef<ReturnType<typeof getWebSocketService> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState('CLOSED');
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
@@ -50,37 +50,48 @@ export const useWebSocket = (
         connectionType: 'dashboard',
       };
 
-      wsServiceRef.current = new WebSocketService(config);
+      wsServiceRef.current = getWebSocketService();
+      if (wsServiceRef.current) {
+        wsServiceRef.current.connect(config);
 
-      // 设置事件监听器
-      wsServiceRef.current.on('connected', () => {
-        setIsConnected(true);
-        setConnectionState('OPEN');
-        setError(null);
-        console.log('WebSocket连接已建立');
-      });
+        // 设置事件监听器
+        wsServiceRef.current.on('connected', () => {
+          setIsConnected(true);
+          setConnectionState('OPEN');
+          setError(null);
+          console.log('WebSocket连接已建立');
+        });
 
-      wsServiceRef.current.on('disconnected', () => {
-        setIsConnected(false);
-        setConnectionState('CLOSED');
-        console.log('WebSocket连接已断开');
-      });
+        wsServiceRef.current.on('disconnected', () => {
+          setIsConnected(false);
+          setConnectionState('CLOSED');
+          console.log('WebSocket连接已断开');
+        });
 
-      wsServiceRef.current.on('error', (err) => {
-        setError(err);
-        console.error('WebSocket错误:', err);
-      });
+        wsServiceRef.current.on('error', (err: Error) => {
+          setError(err);
+          setIsConnected(false);
+          setConnectionState('ERROR');
+          console.error('WebSocket错误:', err);
+        });
 
-      wsServiceRef.current.on('message', (message) => {
-        setLastMessage(message);
-      });
+        wsServiceRef.current.on('message', (message: WebSocketMessage) => {
+          setLastMessage(message);
+        });
 
-      await wsServiceRef.current.connect();
+        // 订阅指定的消息类型
+        subscriptions.forEach(subscription => {
+          wsServiceRef.current?.subscribe(subscription);
+        });
+      }
     } catch (err) {
-      setError(err as Error);
-      console.error('WebSocket连接失败:', err);
+      const error = err instanceof Error ? err : new Error('WebSocket连接失败');
+      setError(error);
+      setIsConnected(false);
+      setConnectionState('ERROR');
+      console.error('WebSocket连接失败:', error);
     }
-  }, [user?.id]);
+  }, [user?.id, subscriptions]);
 
   const disconnect = useCallback(() => {
     if (wsServiceRef.current) {
@@ -92,10 +103,12 @@ export const useWebSocket = (
   }, []);
 
   const send = useCallback((message: WebSocketMessage) => {
-    if (wsServiceRef.current) {
+    if (wsServiceRef.current && isConnected) {
       wsServiceRef.current.send(message);
+    } else {
+      console.warn('WebSocket未连接，无法发送消息');
     }
-  }, []);
+  }, [isConnected]);
 
   const subscribe = useCallback((subscriptionType: string) => {
     if (wsServiceRef.current) {
@@ -110,10 +123,10 @@ export const useWebSocket = (
   }, []);
 
   const ping = useCallback(() => {
-    if (wsServiceRef.current) {
+    if (wsServiceRef.current && isConnected) {
       wsServiceRef.current.ping();
     }
-  }, []);
+  }, [isConnected]);
 
   // 自动连接
   useEffect(() => {
@@ -122,41 +135,19 @@ export const useWebSocket = (
     }
 
     return () => {
-      if (wsServiceRef.current) {
-        wsServiceRef.current.disconnect();
-      }
+      disconnect();
     };
-  }, [autoConnect, user?.id, connect]);
+  }, [autoConnect, user?.id, connect, disconnect]);
 
-  // 自动订阅
+  // 重新连接
   useEffect(() => {
-    if (isConnected && subscriptions.length > 0) {
-      subscriptions.forEach((subscription) => {
-        subscribe(subscription);
-      });
+    if (reconnectOnMount && user?.id && !isConnected) {
+      const timer = setTimeout(() => {
+        connect();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      if (isConnected && subscriptions.length > 0) {
-        subscriptions.forEach((subscription) => {
-          unsubscribe(subscription);
-        });
-      }
-    };
-  }, [isConnected, subscriptions, subscribe, unsubscribe]);
-
-  // 定期发送心跳
-  useEffect(() => {
-    if (!isConnected) return;
-
-    const interval = setInterval(() => {
-      ping();
-    }, 30000); // 每30秒发送一次心跳
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isConnected, ping]);
+  }, [reconnectOnMount, user?.id, isConnected, connect]);
 
   return {
     isConnected,
@@ -172,98 +163,54 @@ export const useWebSocket = (
   };
 };
 
-// 专门用于系统指标的Hook
-export const useSystemMetrics = () => {
-  const [metrics, setMetrics] = useState<any>(null);
+// 预定义的WebSocket hooks
+export const useMetricsWebSocket = () => {
   const { subscribe, unsubscribe, isConnected } = useWebSocket({
-    subscriptions: ['system_metrics'],
+    subscriptions: ['metrics'],
   });
 
-  useEffect(() => {
-    if (isConnected) {
-      const handleMetrics = (data: any) => {
-        setMetrics(data);
-      };
+  const handleMetrics = (data: any) => {
+    console.log('收到指标数据:', data);
+  };
 
-      // 这里需要从WebSocket服务获取事件监听器
-      // 简化实现
-      return () => {
-        // 清理逻辑
-      };
-    }
-  }, [isConnected]);
-
-  return metrics;
+  return {
+    subscribe,
+    unsubscribe,
+    isConnected,
+    handleMetrics,
+  };
 };
 
-// 专门用于WireGuard状态的Hook
-export const useWireGuardStatus = () => {
-  const [status, setStatus] = useState<any>(null);
+export const useStatusWebSocket = () => {
   const { subscribe, unsubscribe, isConnected } = useWebSocket({
-    subscriptions: ['wireguard_status'],
+    subscriptions: ['status'],
   });
 
-  useEffect(() => {
-    if (isConnected) {
-      const handleStatus = (data: any) => {
-        setStatus(data);
-      };
+  const handleStatus = (data: any) => {
+    console.log('收到状态数据:', data);
+  };
 
-      // 这里需要从WebSocket服务获取事件监听器
-      // 简化实现
-      return () => {
-        // 清理逻辑
-      };
-    }
-  }, [isConnected]);
-
-  return status;
+  return {
+    subscribe,
+    unsubscribe,
+    isConnected,
+    handleStatus,
+  };
 };
 
-// 专门用于网络状态的Hook
-export const useNetworkStatus = () => {
-  const [status, setStatus] = useState<any>(null);
-  const { subscribe, unsubscribe, isConnected } = useWebSocket({
-    subscriptions: ['network_status'],
-  });
-
-  useEffect(() => {
-    if (isConnected) {
-      const handleStatus = (data: any) => {
-        setStatus(data);
-      };
-
-      // 这里需要从WebSocket服务获取事件监听器
-      // 简化实现
-      return () => {
-        // 清理逻辑
-      };
-    }
-  }, [isConnected]);
-
-  return status;
-};
-
-// 专门用于告警的Hook
-export const useAlerts = () => {
-  const [alerts, setAlerts] = useState<any[]>([]);
+export const useAlertsWebSocket = () => {
   const { subscribe, unsubscribe, isConnected } = useWebSocket({
     subscriptions: ['alerts'],
   });
 
-  useEffect(() => {
-    if (isConnected) {
-      const handleAlerts = (data: any) => {
-        setAlerts(data.alerts || []);
-      };
+  const handleAlerts = (data: any) => {
+    console.log('收到告警数据:', data);
+  };
 
-      // 这里需要从WebSocket服务获取事件监听器
-      // 简化实现
-      return () => {
-        // 清理逻辑
-      };
-    }
-  }, [isConnected]);
-
-  return alerts;
+  return {
+    subscribe,
+    unsubscribe,
+    isConnected,
+    handleAlerts,
+  };
 };
