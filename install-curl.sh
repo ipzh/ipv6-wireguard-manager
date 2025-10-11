@@ -66,7 +66,8 @@ install_git() {
 install_docker() {
     echo "📦 安装 Docker..."
     case $OS in
-        ubuntu|debian)
+        ubuntu)
+            echo "   使用Ubuntu Docker仓库..."
             # 更新包索引
             sudo apt update
             sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
@@ -85,7 +86,28 @@ install_docker() {
             sudo systemctl start docker
             sudo systemctl enable docker
             ;;
-        centos|rhel)
+        debian)
+            echo "   使用Debian Docker仓库..."
+            # 更新包索引
+            sudo apt update
+            sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            
+            # 添加Docker官方GPG密钥
+            curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            
+            # 添加Docker仓库
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            # 安装Docker
+            sudo apt update
+            sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            
+            # 启动Docker服务
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
+        centos)
+            echo "   使用CentOS Docker仓库..."
             # 安装依赖
             sudo yum install -y yum-utils
             
@@ -99,7 +121,23 @@ install_docker() {
             sudo systemctl start docker
             sudo systemctl enable docker
             ;;
+        rhel)
+            echo "   使用RHEL Docker仓库..."
+            # 安装依赖
+            sudo yum install -y yum-utils
+            
+            # 添加Docker仓库
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+            
+            # 安装Docker
+            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            
+            # 启动Docker服务
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            ;;
         fedora)
+            echo "   使用Fedora Docker仓库..."
             # 安装依赖
             sudo dnf install -y dnf-plugins-core
             
@@ -114,6 +152,7 @@ install_docker() {
             sudo systemctl enable docker
             ;;
         alpine)
+            echo "   使用Alpine Docker仓库..."
             sudo apk add docker docker-compose
             sudo rc-update add docker boot
             sudo service docker start

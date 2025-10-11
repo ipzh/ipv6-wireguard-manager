@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager 完全自动安装脚本
-# 自动安装所有必要的依赖
+# IPv6 WireGuard Manager 智能安装脚本
+# 更准确的系统检测和仓库配置
 
 set -e
 
 echo "=================================="
-echo "IPv6 WireGuard Manager 完全自动安装"
+echo "IPv6 WireGuard Manager 智能安装"
 echo "=================================="
 echo ""
 
@@ -14,25 +14,87 @@ echo ""
 REPO_URL="https://github.com/ipzh/ipv6-wireguard-manager.git"
 INSTALL_DIR="ipv6-wireguard-manager"
 
-# 检测操作系统
-detect_os() {
+# 智能检测操作系统
+detect_os_smart() {
+    echo "🔍 智能检测操作系统..."
+    
+    # 检测发行版
     if [ -f /etc/os-release ]; then
         . /etc/os-release
-        OS=$ID
-        OS_VERSION=$VERSION_ID
-    elif type lsb_release >/dev/null 2>&1; then
-        OS=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
-    elif [ -f /etc/lsb-release ]; then
-        . /etc/lsb-release
-        OS=$DISTRIB_ID
-    elif [ -f /etc/debian_version ]; then
-        OS=debian
+        DISTRO=$ID
+        VERSION=$VERSION_ID
+        CODENAME=$VERSION_CODENAME
     elif [ -f /etc/redhat-release ]; then
-        OS=rhel
+        if grep -q "CentOS" /etc/redhat-release; then
+            DISTRO="centos"
+            VERSION=$(grep -oE '[0-9]+\.[0-9]+' /etc/redhat-release)
+        elif grep -q "Red Hat" /etc/redhat-release; then
+            DISTRO="rhel"
+            VERSION=$(grep -oE '[0-9]+\.[0-9]+' /etc/redhat-release)
+        elif grep -q "Fedora" /etc/redhat-release; then
+            DISTRO="fedora"
+            VERSION=$(grep -oE '[0-9]+' /etc/redhat-release)
+        fi
+    elif [ -f /etc/debian_version ]; then
+        DISTRO="debian"
+        VERSION=$(cat /etc/debian_version)
+    elif [ -f /etc/alpine-release ]; then
+        DISTRO="alpine"
+        VERSION=$(cat /etc/alpine-release)
     else
-        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        DISTRO=$(uname -s | tr '[:upper:]' '[:lower:]')
     fi
-    echo "检测到操作系统: $OS"
+    
+    echo "   发行版: $DISTRO"
+    echo "   版本: $VERSION"
+    if [ -n "$CODENAME" ]; then
+        echo "   代号: $CODENAME"
+    fi
+    
+    # 设置OS变量
+    OS=$DISTRO
+}
+
+# 获取正确的Docker仓库URL
+get_docker_repo_url() {
+    case $OS in
+        ubuntu)
+            echo "https://download.docker.com/linux/ubuntu"
+            ;;
+        debian)
+            echo "https://download.docker.com/linux/debian"
+            ;;
+        centos)
+            echo "https://download.docker.com/linux/centos"
+            ;;
+        rhel)
+            echo "https://download.docker.com/linux/rhel"
+            ;;
+        fedora)
+            echo "https://download.docker.com/linux/fedora"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+# 获取正确的GPG密钥URL
+get_docker_gpg_url() {
+    case $OS in
+        ubuntu)
+            echo "https://download.docker.com/linux/ubuntu/gpg"
+            ;;
+        debian)
+            echo "https://download.docker.com/linux/debian/gpg"
+            ;;
+        centos|rhel|fedora)
+            echo "https://download.docker.com/linux/centos/gpg"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
 }
 
 # 安装Git
@@ -55,7 +117,6 @@ install_git() {
             ;;
         *)
             echo "❌ 不支持的操作系统: $OS"
-            echo "请手动安装 Git: https://git-scm.com/downloads"
             exit 1
             ;;
     esac
@@ -65,17 +126,30 @@ install_git() {
 # 安装Docker
 install_docker() {
     echo "📦 安装 Docker..."
+    
+    # 获取仓库URL
+    REPO_URL=$(get_docker_repo_url)
+    GPG_URL=$(get_docker_gpg_url)
+    
+    if [ -z "$REPO_URL" ]; then
+        echo "❌ 不支持的操作系统: $OS"
+        exit 1
+    fi
+    
+    echo "   使用仓库: $REPO_URL"
+    echo "   使用GPG: $GPG_URL"
+    
     case $OS in
-        ubuntu)
+        ubuntu|debian)
             # 更新包索引
             sudo apt update
             sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
             
             # 添加Docker官方GPG密钥
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            curl -fsSL "$GPG_URL" | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
             
             # 添加Docker仓库
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] $REPO_URL $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
             
             # 安装Docker
             sudo apt update
@@ -85,50 +159,17 @@ install_docker() {
             sudo systemctl start docker
             sudo systemctl enable docker
             ;;
-        debian)
-            # 更新包索引
-            sudo apt update
-            sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
-            
-            # 添加Docker官方GPG密钥
-            curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-            
-            # 添加Docker仓库
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-            
-            # 安装Docker
-            sudo apt update
-            sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-            
-            # 启动Docker服务
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            ;;
-        centos)
-            echo "   使用CentOS Docker仓库..."
+        centos|rhel)
             # 安装依赖
-            sudo yum install -y yum-utils
-            
-            # 添加Docker仓库
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            
-            # 安装Docker
-            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-            
-            # 启动Docker服务
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            ;;
-        rhel)
-            echo "   使用RHEL Docker仓库..."
-            # 安装依赖
-            sudo yum install -y yum-utils
-            
-            # 添加Docker仓库
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
-            
-            # 安装Docker
-            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            if command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y dnf-plugins-core
+                sudo dnf config-manager --add-repo "$REPO_URL/docker-ce.repo"
+                sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            else
+                sudo yum install -y yum-utils
+                sudo yum-config-manager --add-repo "$REPO_URL/docker-ce.repo"
+                sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            fi
             
             # 启动Docker服务
             sudo systemctl start docker
@@ -139,7 +180,7 @@ install_docker() {
             sudo dnf install -y dnf-plugins-core
             
             # 添加Docker仓库
-            sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            sudo dnf config-manager --add-repo "$REPO_URL/docker-ce.repo"
             
             # 安装Docker
             sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -152,11 +193,6 @@ install_docker() {
             sudo apk add docker docker-compose
             sudo rc-update add docker boot
             sudo service docker start
-            ;;
-        *)
-            echo "❌ 不支持的操作系统: $OS"
-            echo "请手动安装 Docker: https://docs.docker.com/get-docker/"
-            exit 1
             ;;
     esac
     echo "✅ Docker 安装完成"
@@ -184,8 +220,8 @@ install_docker_compose() {
 check_and_install_dependencies() {
     echo "🔍 检查系统依赖..."
     
-    # 检测操作系统
-    detect_os
+    # 智能检测操作系统
+    detect_os_smart
     
     # 检查Git
     if ! command -v git >/dev/null 2>&1; then
