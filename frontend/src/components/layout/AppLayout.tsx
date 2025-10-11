@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { Layout } from 'antd'
-import { Outlet } from 'react-router-dom'
 
 import Header from './Header'
 import Sidebar from './Sidebar'

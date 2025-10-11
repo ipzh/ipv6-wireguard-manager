@@ -3,8 +3,8 @@ import { Card, Row, Col, Statistic, Typography } from 'antd'
 import { 
   CheckCircleOutlined, 
   UserOutlined, 
-  CpuOutlined, 
-  MemoryOutlined 
+  DesktopOutlined, 
+  DatabaseOutlined 
 } from '@ant-design/icons'
 
 const { Title } = Typography
@@ -46,7 +46,7 @@ const DashboardPage: React.FC = () => {
               title="CPU使用率"
               value={45}
               suffix="%"
-              prefix={<CpuOutlined />}
+              prefix={<DesktopOutlined />}
             />
           </Card>
         </Col>
@@ -57,7 +57,7 @@ const DashboardPage: React.FC = () => {
               title="内存使用率"
               value={68}
               suffix="%"
-              prefix={<MemoryOutlined />}
+              prefix={<DatabaseOutlined />}
             />
           </Card>
         </Col>

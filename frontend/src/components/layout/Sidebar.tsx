@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   DashboardOutlined,
   UserOutlined,
-  ServerOutlined,
+  CloudServerOutlined,
   GlobalOutlined,
   MonitorOutlined,
   FileTextOutlined,
@@ -19,7 +19,7 @@ interface SidebarProps {
   onCollapse: (collapsed: boolean) => void
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
+const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onCollapse }) => {
     },
     {
       key: '/servers',
-      icon: <ServerOutlined />,
+      icon: <CloudServerOutlined />,
       label: '服务器管理',
     },
     {
