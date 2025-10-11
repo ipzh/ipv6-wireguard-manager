@@ -287,10 +287,10 @@ execute_installation() {
             ;;
         "low-memory")
             log_info "使用低内存优化安装..."
-            if [ -f "install-low-memory.sh" ]; then
-                bash install-low-memory.sh
+            if [ -f "install-robust.sh" ]; then
+                bash install-robust.sh low-memory
             else
-                log_error "低内存安装脚本不存在"
+                log_error "安装脚本不存在"
                 exit 1
             fi
             ;;

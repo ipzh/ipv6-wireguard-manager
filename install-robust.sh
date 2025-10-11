@@ -15,11 +15,15 @@ if [ $# -gt 0 ]; then
         "native")
             INSTALL_TYPE="native"
             ;;
+        "low-memory")
+            INSTALL_TYPE="low-memory"
+            ;;
         *)
-            echo "用法: $0 [docker|native]"
-            echo "  docker  - Docker 安装"
-            echo "  native  - 原生安装"
-            echo "  无参数  - 自动选择"
+            echo "用法: $0 [docker|native|low-memory]"
+            echo "  docker      - Docker 安装"
+            echo "  native      - 原生安装"
+            echo "  low-memory  - 低内存优化安装"
+            echo "  无参数      - 自动选择"
             exit 1
             ;;
     esac
@@ -703,6 +707,37 @@ show_result() {
     echo ""
 }
 
+# 低内存优化函数
+optimize_for_low_memory() {
+    echo "🔧 低内存系统优化..."
+    
+    # 创建swap文件
+    if [ ! -f /swapfile ]; then
+        echo "💾 创建2GB swap文件..."
+        sudo fallocate -l 2G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+        echo "✅ Swap文件创建完成"
+    else
+        echo "✅ Swap文件已存在"
+    fi
+    
+    # 优化系统参数
+    echo "⚙️  优化系统参数..."
+    echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+    echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+    
+    # 清理系统缓存
+    echo "🧹 清理系统缓存..."
+    sudo sync
+    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
+    
+    echo "✅ 低内存优化完成"
+}
+
 # 主函数
 main() {
     # 显示调试信息
@@ -713,6 +748,11 @@ main() {
     
     # 检测操作系统
     detect_os
+    
+    # 低内存优化
+    if [ "$INSTALL_TYPE" = "low-memory" ]; then
+        optimize_for_low_memory
+    fi
     
     # 安装系统依赖
     install_system_dependencies
