@@ -146,7 +146,12 @@ choose_installation_method() {
     fi
     
     # 智能选择逻辑
-    if [ "$DOCKER_INSTALLED" = true ] && [ "$DOCKER_COMPOSE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 2048 ]; then
+    if [ "$TOTAL_MEM" -lt 1024 ]; then
+        INSTALL_METHOD="low-memory"
+        log_warning "⚠️  内存不足1GB，推荐使用低内存优化安装"
+        echo "   预计安装时间: 20-50分钟"
+        echo "   将自动创建swap空间和优化构建"
+    elif [ "$DOCKER_INSTALLED" = true ] && [ "$DOCKER_COMPOSE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 2048 ]; then
         INSTALL_METHOD="docker"
         log_success "推荐使用 Docker 安装（环境完整，内存充足）"
     elif [ "$PYTHON_INSTALLED" = true ] && [ "$NODE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 1024 ]; then
@@ -164,18 +169,19 @@ choose_installation_method() {
     echo "🎯 安装方式选择:"
     echo "   1. Docker 安装 - 环境隔离，易于管理"
     echo "   2. 原生安装 - 性能最优，资源占用少"
-    echo "   3. 自动选择 - 根据系统环境智能选择"
+    echo "   3. 低内存安装 - 专为1GB内存优化"
+    echo "   4. 自动选择 - 根据系统环境智能选择"
     echo ""
     
     # 用户选择（支持非交互式模式）
     if [ -t 0 ]; then
         # 交互式模式
-        read -p "请选择安装方式 (1/2/3) [默认: 3]: " choice
-        choice=${choice:-3}
+        read -p "请选择安装方式 (1/2/3/4) [默认: 4]: " choice
+        choice=${choice:-4}
     else
         # 非交互式模式（管道执行）
         log_info "检测到非交互式模式，使用自动选择: $INSTALL_METHOD"
-        choice=3
+        choice=4
     fi
     
     case $choice in
@@ -188,6 +194,10 @@ choose_installation_method() {
             log_info "用户选择: 原生安装"
             ;;
         3)
+            INSTALL_METHOD="low-memory"
+            log_info "用户选择: 低内存安装"
+            ;;
+        4)
             log_info "用户选择: 自动选择 ($INSTALL_METHOD)"
             ;;
         *)
@@ -272,6 +282,15 @@ execute_installation() {
                 bash install-robust.sh native
             else
                 log_error "原生安装脚本不存在"
+                exit 1
+            fi
+            ;;
+        "low-memory")
+            log_info "使用低内存优化安装..."
+            if [ -f "install-low-memory.sh" ]; then
+                bash install-low-memory.sh
+            else
+                log_error "低内存安装脚本不存在"
                 exit 1
             fi
             ;;
