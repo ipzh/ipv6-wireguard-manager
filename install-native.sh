@@ -353,11 +353,30 @@ install_frontend() {
         exit 1
     fi
     
-    # 安装依赖
-    npm install
-    
-    # 构建生产版本
-    npm run build
+    # 使用构建脚本
+    if [ -f "../../scripts/build-frontend.sh" ]; then
+        echo "🔨 使用构建脚本..."
+        bash ../../scripts/build-frontend.sh
+    else
+        # 备用构建方法
+        echo "📦 安装依赖..."
+        npm install
+        
+        # 检查并安装必要的构建工具
+        if ! npx tsc --version >/dev/null 2>&1; then
+            echo "📦 安装TypeScript..."
+            npm install typescript --save-dev
+        fi
+        
+        if ! npx vite --version >/dev/null 2>&1; then
+            echo "📦 安装Vite..."
+            npm install vite --save-dev
+        fi
+        
+        # 构建生产版本
+        echo "🏗️  构建生产版本..."
+        npm run build
+    fi
     
     echo "✅ 前端安装完成"
 }
