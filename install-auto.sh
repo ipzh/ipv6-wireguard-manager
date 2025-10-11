@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager - 智能安装器
-# 自动检测系统环境并选择最佳安装方式
+# IPv6 WireGuard Manager - 自动安装器
+# 专为 curl | bash 管道执行设计，无需用户交互
 
 set -e
 
@@ -42,16 +42,15 @@ log_step() {
 
 # 显示欢迎信息
 show_welcome() {
-    clear
     echo -e "${CYAN}"
     echo "=========================================="
     echo "  $PROJECT_NAME v$PROJECT_VERSION"
-    echo "  智能安装器"
+    echo "  自动安装器 (管道执行模式)"
     echo "=========================================="
     echo -e "${NC}"
     echo "🎯 自动检测系统环境并选择最佳安装方式"
     echo "📦 支持 Docker 和原生安装"
-    echo "⚡ 优化构建过程，提升安装体验"
+    echo "⚡ 无需用户交互，全自动安装"
     echo ""
 }
 
@@ -148,53 +147,20 @@ choose_installation_method() {
     # 智能选择逻辑
     if [ "$DOCKER_INSTALLED" = true ] && [ "$DOCKER_COMPOSE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 2048 ]; then
         INSTALL_METHOD="docker"
-        log_success "推荐使用 Docker 安装（环境完整，内存充足）"
+        log_success "自动选择: Docker 安装（环境完整，内存充足）"
     elif [ "$PYTHON_INSTALLED" = true ] && [ "$NODE_INSTALLED" = true ] && [ "$TOTAL_MEM" -gt 1024 ]; then
         INSTALL_METHOD="native"
-        log_success "推荐使用原生安装（依赖完整，性能更优）"
+        log_success "自动选择: 原生安装（依赖完整，性能更优）"
     elif [ "$TOTAL_MEM" -gt 2048 ]; then
         INSTALL_METHOD="docker"
-        log_warning "推荐使用 Docker 安装（需要安装 Docker）"
+        log_warning "自动选择: Docker 安装（需要安装 Docker）"
     else
         INSTALL_METHOD="native"
-        log_warning "推荐使用原生安装（内存较少，性能更优）"
+        log_warning "自动选择: 原生安装（内存较少，性能更优）"
     fi
     
     echo ""
-    echo "🎯 安装方式选择:"
-    echo "   1. Docker 安装 - 环境隔离，易于管理"
-    echo "   2. 原生安装 - 性能最优，资源占用少"
-    echo "   3. 自动选择 - 根据系统环境智能选择"
-    echo ""
-    
-    # 用户选择（支持非交互式模式）
-    if [ -t 0 ]; then
-        # 交互式模式
-        read -p "请选择安装方式 (1/2/3) [默认: 3]: " choice
-        choice=${choice:-3}
-    else
-        # 非交互式模式（管道执行）
-        log_info "检测到非交互式模式，使用自动选择: $INSTALL_METHOD"
-        choice=3
-    fi
-    
-    case $choice in
-        1)
-            INSTALL_METHOD="docker"
-            log_info "用户选择: Docker 安装"
-            ;;
-        2)
-            INSTALL_METHOD="native"
-            log_info "用户选择: 原生安装"
-            ;;
-        3)
-            log_info "用户选择: 自动选择 ($INSTALL_METHOD)"
-            ;;
-        *)
-            log_warning "无效选择，使用自动选择 ($INSTALL_METHOD)"
-            ;;
-    esac
-    
+    echo "🎯 安装方式: $INSTALL_METHOD"
     echo ""
 }
 
@@ -204,22 +170,8 @@ download_project() {
     
     # 检查是否已存在项目目录
     if [ -d "ipv6-wireguard-manager" ]; then
-        if [ -t 0 ]; then
-            # 交互式模式
-            log_warning "项目目录已存在，是否重新下载？"
-            read -p "输入 y 重新下载，其他键跳过: " reinstall
-            if [ "$reinstall" = "y" ] || [ "$reinstall" = "Y" ]; then
-                log_info "删除现有项目目录..."
-                rm -rf ipv6-wireguard-manager
-            else
-                log_info "使用现有项目目录"
-                return 0
-            fi
-        else
-            # 非交互式模式，自动使用现有目录
-            log_info "项目目录已存在，使用现有目录"
-            return 0
-        fi
+        log_info "项目目录已存在，使用现有目录"
+        return 0
     fi
     
     # 下载项目
@@ -341,20 +293,6 @@ get_access_urls() {
 
 # 主函数
 main() {
-    # 检查是否为管道执行模式
-    if [ ! -t 0 ]; then
-        log_info "检测到管道执行模式，使用自动安装..."
-        # 直接执行自动安装逻辑
-        show_welcome
-        detect_system
-        choose_installation_method
-        download_project
-        execute_installation
-        verify_installation
-        return
-    fi
-    
-    # 交互式模式
     show_welcome
     detect_system
     choose_installation_method
