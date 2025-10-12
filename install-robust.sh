@@ -483,8 +483,16 @@ EOF
     # 启动Redis
     case $OS in
         ubuntu|debian|centos|rhel|fedora)
-            sudo systemctl start redis
-            sudo systemctl enable redis
+            # 尝试不同的Redis服务名称
+            if systemctl list-unit-files | grep -q "redis-server.service"; then
+                sudo systemctl start redis-server
+                sudo systemctl enable redis-server
+            elif systemctl list-unit-files | grep -q "redis.service"; then
+                sudo systemctl start redis
+                sudo systemctl enable redis
+            else
+                echo "⚠️  Redis服务未找到，请手动启动"
+            fi
             ;;
         alpine)
             sudo rc-update add redis
@@ -562,7 +570,8 @@ create_systemd_service() {
     sudo tee /etc/systemd/system/ipv6-wireguard-manager.service > /dev/null << EOF
 [Unit]
 Description=IPv6 WireGuard Manager
-After=network.target postgresql.service redis.service
+After=network.target postgresql.service
+Wants=redis-server.service redis.service
 
 [Service]
 Type=simple
@@ -592,21 +601,31 @@ setup_permissions() {
     
     # 获取项目绝对路径
     PROJECT_PATH=$(pwd)
-    if [ -d "$INSTALL_DIR" ]; then
-        PROJECT_PATH=$(realpath "$INSTALL_DIR")
-    fi
+    echo "   当前目录: $PROJECT_PATH"
+    echo "   目标目录: $APP_HOME"
     
-    echo "   项目路径: $PROJECT_PATH"
+    # 确保目标目录存在
+    sudo mkdir -p "$APP_HOME"
     
-    # 移动应用到系统目录
-    sudo mv "$PROJECT_PATH" "$APP_HOME"
+    # 复制应用到系统目录（而不是移动，避免权限问题）
+    echo "📁 复制项目文件到系统目录..."
+    sudo cp -r "$PROJECT_PATH"/* "$APP_HOME/"
+    
+    # 设置所有权
     sudo chown -R "$APP_USER:$APP_USER" "$APP_HOME"
     
     # 设置目录权限
     sudo chmod 755 "$APP_HOME"
-    sudo chmod -R 644 "$APP_HOME"/*
-    sudo chmod -R 755 "$APP_HOME"/backend/venv
-    sudo chmod -R 755 "$APP_HOME"/frontend/dist
+    sudo find "$APP_HOME" -type f -exec chmod 644 {} \;
+    sudo find "$APP_HOME" -type d -exec chmod 755 {} \;
+    
+    # 设置特殊权限
+    if [ -d "$APP_HOME/backend/venv" ]; then
+        sudo chmod -R 755 "$APP_HOME/backend/venv"
+    fi
+    if [ -d "$APP_HOME/frontend/dist" ]; then
+        sudo chmod -R 755 "$APP_HOME/frontend/dist"
+    fi
     
     echo "✅ 权限设置完成"
 }
