@@ -402,16 +402,16 @@ verify_installation() {
         fi
     else
         # 检查原生服务
-        if systemctl is-active --quiet ipv6-wireguard-backend; then
+        if systemctl is-active --quiet ipv6-wireguard-manager; then
             log_success "后端服务运行正常"
         else
             log_warning "后端服务可能未正常启动"
         fi
         
-        if systemctl is-active --quiet ipv6-wireguard-frontend; then
-            log_success "前端服务运行正常"
+        if systemctl is-active --quiet nginx; then
+            log_success "Nginx服务运行正常"
         else
-            log_warning "前端服务可能未正常启动"
+            log_warning "Nginx服务可能未正常启动"
         fi
     fi
     
@@ -441,13 +441,13 @@ get_access_urls() {
     echo ""
     echo "🌐 访问地址:"
     echo "   前端界面:"
-    echo "     IPv4: http://$PUBLIC_IPV4:3000"
-    echo "     IPv4 (本地): http://$LOCAL_IPV4:3000"
+    echo "     IPv4: http://$PUBLIC_IPV4"
+    echo "     IPv4 (本地): http://$LOCAL_IPV4"
     if [ -n "$PUBLIC_IPV6" ] && [ "$PUBLIC_IPV6" != "localhost" ]; then
-        echo "     IPv6: http://[$PUBLIC_IPV6]:3000"
+        echo "     IPv6: http://[$PUBLIC_IPV6]"
     fi
     if [ -n "$LOCAL_IPV6" ] && [ "$LOCAL_IPV6" != "localhost" ]; then
-        echo "     IPv6 (本地): http://[$LOCAL_IPV6]:3000"
+        echo "     IPv6 (本地): http://[$LOCAL_IPV6]"
     fi
     echo ""
     echo "🔧 管理命令:"
@@ -456,9 +456,9 @@ get_access_urls() {
         echo "   重启服务: docker-compose restart"
         echo "   停止服务: docker-compose down"
     else
-        echo "   查看后端日志: journalctl -u ipv6-wireguard-backend -f"
-        echo "   查看前端日志: journalctl -u ipv6-wireguard-frontend -f"
-        echo "   重启服务: systemctl restart ipv6-wireguard-backend ipv6-wireguard-frontend"
+        echo "   查看后端日志: journalctl -u ipv6-wireguard-manager -f"
+        echo "   查看Nginx日志: journalctl -u nginx -f"
+        echo "   重启服务: systemctl restart ipv6-wireguard-manager nginx"
     fi
     echo ""
     echo "📚 更多信息:"
