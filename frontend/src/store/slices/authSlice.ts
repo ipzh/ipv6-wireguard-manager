@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { User, LoginCredentials, AuthResponse } from '../../types/auth'
-import api from '../../services/api'
+import { apiClient } from '../../services/api'
 
 interface AuthState {
   user: User | null
@@ -18,32 +18,23 @@ const initialState: AuthState = {
   error: null,
 }
 
-// 简单的本地认证配置
-const DEFAULT_USERNAME = 'admin'
-const DEFAULT_PASSWORD = 'admin123'
-
 // 异步操作
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      // 简单的本地认证验证
-      if (credentials.username === DEFAULT_USERNAME && credentials.password === DEFAULT_PASSWORD) {
-        const token = btoa(credentials.username + ':' + Date.now())
-        const user = {
-          id: 1,
-          username: credentials.username,
-          email: 'admin@ipv6wg.local',
-          role: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        
-        localStorage.setItem('token', token)
-        return { access_token: token, user }
-      } else {
-        return rejectWithValue('用户名或密码错误')
-      }
+      // 调用后端认证API
+      const response = await apiClient.post('/auth/login', {
+        username: credentials.username,
+        password: credentials.password
+      })
+      
+      const { access_token, user } = response
+      
+      // 存储token到localStorage
+      localStorage.setItem('token', access_token)
+      
+      return { access_token, user }
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || '登录失败')
     }
@@ -54,23 +45,33 @@ export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      // 简单的本地用户信息
-      const token = localStorage.getItem('token')
-      if (token) {
-        const user = {
-          id: 1,
-          username: DEFAULT_USERNAME,
-          email: 'admin@ipv6wg.local',
-          role: 'admin',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        return user
-      } else {
-        return rejectWithValue('未找到认证令牌')
-      }
+      // 调用后端API获取当前用户信息
+      const response = await apiClient.get('/auth/test-token')
+      return response
     } catch (error: any) {
+      // 如果token无效，清除本地存储
+      localStorage.removeItem('token')
       return rejectWithValue(error.response?.data?.detail || '获取用户信息失败')
+    }
+  }
+)
+
+export const refreshToken = createAsyncThunk(
+  'auth/refreshToken',
+  async (_, { rejectWithValue }) => {
+    try {
+      // 调用后端API刷新token
+      const response = await apiClient.post('/auth/refresh-token')
+      const { access_token } = response
+      
+      // 更新本地存储的token
+      localStorage.setItem('token', access_token)
+      
+      return { access_token }
+    } catch (error: any) {
+      // 如果刷新失败，清除本地token
+      localStorage.removeItem('token')
+      return rejectWithValue(error.response?.data?.detail || 'Token刷新失败')
     }
   }
 )
@@ -79,10 +80,13 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      // 简单的本地登出
+      // 清除本地存储的token
       localStorage.removeItem('token')
+      // 注意：这里可以添加调用后端登出API的逻辑
+      // await apiClient.post('/auth/logout')
       return null
     } catch (error: any) {
+      // 即使后端登出失败，也要清除本地token
       localStorage.removeItem('token')
       return rejectWithValue('登出失败')
     }
@@ -135,6 +139,18 @@ const authSlice = createSlice({
         state.isAuthenticated = false
         state.token = null
         localStorage.removeItem('token')
+      })
+      // 刷新token
+      .addCase(refreshToken.fulfilled, (state, action) => {
+        state.token = action.payload.access_token
+        state.isAuthenticated = true
+        state.error = null
+      })
+      .addCase(refreshToken.rejected, (state, action) => {
+        state.user = null
+        state.token = null
+        state.isAuthenticated = false
+        state.error = action.payload as string
       })
       // 登出
       .addCase(logout.fulfilled, (state) => {

@@ -106,3 +106,38 @@ async def test_token(
             detail="用户不存在"
         )
     return user
+
+
+@router.post("/refresh-token", response_model=LoginResponse)
+async def refresh_token(
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_async_db)
+) -> Any:
+    """
+    刷新访问令牌
+    """
+    user_service = UserService(db)
+    user = await user_service.get_user_by_id(current_user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户账户已被禁用"
+        )
+    
+    # 创建新的访问令牌
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        subject=str(user.id), expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user
+    )

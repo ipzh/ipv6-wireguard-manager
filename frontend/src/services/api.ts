@@ -37,12 +37,34 @@ class ApiClient {
       (response: AxiosResponse) => {
         return response
       },
-      (error) => {
-        if (error.response?.status === 401) {
-          // 清除token并跳转到登录页
-          localStorage.removeItem('token')
-          window.location.href = '/login'
+      async (error) => {
+        const originalRequest = error.config
+        
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true
+          
+          try {
+            // 尝试刷新token
+            const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh-token`, {}, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            })
+            
+            const { access_token } = refreshResponse.data
+            localStorage.setItem('token', access_token)
+            
+            // 重试原始请求
+            originalRequest.headers.Authorization = `Bearer ${access_token}`
+            return this.client(originalRequest)
+          } catch (refreshError) {
+            // 刷新失败，清除token并跳转到登录页
+            localStorage.removeItem('token')
+            window.location.href = '/login'
+            return Promise.reject(refreshError)
+          }
         }
+        
         return Promise.reject(error)
       }
     )
