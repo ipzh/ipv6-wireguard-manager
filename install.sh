@@ -55,17 +55,9 @@ fi
 # Detect memory
 TOTAL_MEM=$(free -m | awk 'NR==2{printf "%.0f", $2}')
 
-# Detect WSL
-if grep -q Microsoft /proc/version 2>/dev/null; then
-    IS_WSL=true
-else
-    IS_WSL=false
-fi
-
 log_info "System information:"
 echo "  OS: $OS_NAME $OS_VERSION"
 echo "  Memory: ${TOTAL_MEM}MB"
-echo "  WSL: $IS_WSL"
 echo ""
 
 # Smart installation type selection
@@ -77,9 +69,6 @@ if [ ! -t 0 ]; then
     if [ "$TOTAL_MEM" -lt 1024 ]; then
         INSTALL_TYPE="low-memory"
         log_warning "Memory less than 1GB, selecting low-memory installation"
-    elif [ "$IS_WSL" = true ]; then
-        INSTALL_TYPE="native"
-        log_info "WSL environment detected, selecting native installation"
     elif [ "$TOTAL_MEM" -lt 2048 ]; then
         INSTALL_TYPE="native"
         log_info "Low memory, selecting native installation (better performance)"
@@ -100,9 +89,6 @@ else
     
     # Show system recommendations
     echo "💡 System Recommendations:"
-    if [ "$IS_WSL" = true ]; then
-        echo "  WSL Environment: Recommended Native Installation"
-    fi
     if [ "$TOTAL_MEM" -lt 1024 ]; then
         echo "  Low Memory (<1GB): Recommended Low Memory Installation"
     elif [ "$TOTAL_MEM" -lt 2048 ]; then
@@ -143,9 +129,6 @@ else
                 if [ "$TOTAL_MEM" -lt 1024 ]; then
                     INSTALL_TYPE="low-memory"
                     log_warning "Auto-selected: Low Memory Installation"
-                elif [ "$IS_WSL" = true ]; then
-                    INSTALL_TYPE="native"
-                    log_info "Auto-selected: Native Installation (WSL environment)"
                 elif [ "$TOTAL_MEM" -lt 2048 ]; then
                     INSTALL_TYPE="native"
                     log_info "Auto-selected: Native Installation"
