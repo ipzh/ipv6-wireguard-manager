@@ -59,8 +59,19 @@ sys.path.insert(0, '/opt/ipv6-wireguard-manager/backend')
 try:
     from app.main import app
     print('✅ 应用导入成功')
+    
+    # 测试API路由
+    from app.api.api_v1.api import api_router
+    print('✅ API路由导入成功')
+    
+    # 测试数据库连接
+    from app.core.database import async_engine
+    print('✅ 数据库引擎导入成功')
+    
 except Exception as e:
     print(f'❌ 应用导入失败: {e}')
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 "
 
