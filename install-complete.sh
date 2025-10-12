@@ -455,15 +455,14 @@ EOF
     # 初始化数据库
     python -c "
 import asyncio
-from app.core.database import engine, AsyncSessionLocal
+from app.core.database import async_engine, AsyncSessionLocal
 from app.models import Base
 from app.core.init_db import init_db_data
-from sqlalchemy import text
 
 async def init_database():
     try:
         # 删除现有表（如果存在）以避免约束冲突
-        async with engine.begin() as conn:
+        async with async_engine.begin() as conn:
             # 删除所有表
             await conn.run_sync(Base.metadata.drop_all)
             # 重新创建表
