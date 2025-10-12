@@ -455,14 +455,24 @@ EOF
     # 初始化数据库
     python -c "
 import asyncio
-from app.core.database import engine
+from app.core.database import engine, AsyncSessionLocal
 from app.models import Base
-from app.core.init_db import init_db
+from app.core.init_db import init_db_data
+from sqlalchemy import text
 
 async def init_database():
     try:
-        Base.metadata.create_all(bind=engine)
-        await init_db()
+        # 删除现有表（如果存在）以避免约束冲突
+        async with engine.begin() as conn:
+            # 删除所有表
+            await conn.run_sync(Base.metadata.drop_all)
+            # 重新创建表
+            await conn.run_sync(Base.metadata.create_all)
+        
+        # 初始化默认数据
+        async with AsyncSessionLocal() as session:
+            await init_db_data(session)
+        
         print('数据库初始化成功')
     except Exception as e:
         print(f'数据库初始化失败: {e}')
