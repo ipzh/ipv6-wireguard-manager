@@ -258,19 +258,143 @@ PersistentKeepalive = {client.persistent_keepalive}
     def parse_peer_info(self, peer_line: str) -> Optional[WireGuardPeerStatus]:
         """解析peer信息"""
         try:
-            # 这里需要根据实际的wg show输出格式来解析
-            # 简化实现，实际需要更复杂的解析逻辑
+            # 解析实际的wg show输出格式
+            # 示例: peer: <public_key> endpoint <endpoint> allowed ips <ips> latest handshake <time> transfer <tx> <rx> persistent keepalive <interval>
+            
+            parts = peer_line.split()
+            peer_info = {
+                'public_key': '',
+                'preshared_key': '',
+                'allowed_ips': [],
+                'persistent_keepalive': 0,
+                'latest_handshake': None,
+                'transfer_tx': 0,
+                'transfer_rx': 0,
+                'endpoint': None
+            }
+            
+            i = 0
+            while i < len(parts):
+                if parts[i] == 'peer:':
+                    peer_info['public_key'] = parts[i + 1] if i + 1 < len(parts) else ''
+                elif parts[i] == 'endpoint':
+                    if i + 1 < len(parts):
+                        peer_info['endpoint'] = parts[i + 1]
+                elif parts[i] == 'allowed' and i + 1 < len(parts) and parts[i + 1] == 'ips':
+                    # 收集allowed ips
+                    ips = []
+                    j = i + 2
+                    while j < len(parts) and parts[j] not in ['latest', 'transfer', 'persistent']:
+                        ips.append(parts[j])
+                        j += 1
+                    peer_info['allowed_ips'] = ips
+                    i = j - 1
+                elif parts[i] == 'latest' and i + 1 < len(parts) and parts[i + 1] == 'handshake':
+                    if i + 2 < len(parts):
+                        peer_info['latest_handshake'] = parts[i + 2]
+                elif parts[i] == 'transfer':
+                    if i + 2 < len(parts):
+                        try:
+                            peer_info['transfer_tx'] = int(parts[i + 1])
+                            peer_info['transfer_rx'] = int(parts[i + 2])
+                        except ValueError:
+                            pass
+                elif parts[i] == 'persistent' and i + 1 < len(parts) and parts[i + 1] == 'keepalive':
+                    if i + 2 < len(parts):
+                        try:
+                            peer_info['persistent_keepalive'] = int(parts[i + 2])
+                        except ValueError:
+                            pass
+                i += 1
+            
             return WireGuardPeerStatus(
-                public_key="",
-                preshared_key="",
-                allowed_ips=[],
-                persistent_keepalive=0
+                public_key=peer_info['public_key'],
+                preshared_key=peer_info['preshared_key'],
+                allowed_ips=peer_info['allowed_ips'],
+                persistent_keepalive=peer_info['persistent_keepalive'],
+                latest_handshake=peer_info['latest_handshake'],
+                transfer_tx=peer_info['transfer_tx'],
+                transfer_rx=peer_info['transfer_rx'],
+                endpoint=peer_info['endpoint']
             )
         except Exception as e:
             logger.error(f"解析peer信息失败: {e}")
             return None
 
     # 客户端管理方法
+    async def create_client_with_ipv6_allocation(
+        self, 
+        client_in: WireGuardClientCreate,
+        pool_id: str,
+        auto_announce: bool = False
+    ) -> WireGuardClient:
+        """创建客户端并自动分配IPv6前缀"""
+        try:
+            async with self.db.begin():
+                # 创建客户端
+                client = await self.create_client(client_in)
+                
+                # 分配IPv6前缀
+                from .bgp_service import bgp_service
+                allocation_result = await bgp_service.allocate_ipv6_prefix(pool_id, str(client.id), auto_announce)
+                
+                if allocation_result["success"]:
+                    # 更新客户端的allowed_ips
+                    if client.allowed_ips is None:
+                        client.allowed_ips = []
+                    client.allowed_ips.append(allocation_result["allocated_prefix"])
+                    
+                    # 刷新WireGuard配置
+                    await self.refresh_server_config(client.server_id)
+                    
+                    logger.info(f"客户端 {client.name} 已分配IPv6前缀: {allocation_result['allocated_prefix']}")
+                
+                return client
+        except Exception as e:
+            logger.error(f"创建客户端并分配IPv6前缀失败: {e}")
+            raise
+
+    async def refresh_server_config(self, server_id: str) -> bool:
+        """刷新WireGuard服务器配置"""
+        try:
+            # 获取服务器信息
+            server = await self.get_server(server_id)
+            if not server:
+                logger.error(f"服务器 {server_id} 不存在")
+                return False
+            
+            # 生成新的配置文件
+            config_content = await self.generate_server_config(server)
+            
+            # 写入配置文件
+            config_path = f"/etc/wireguard/{server.interface}.conf"
+            with open(config_path, 'w') as f:
+                f.write(config_content)
+            
+            # 重新加载配置
+            result = subprocess.run(
+                ["wg-quick", "down", server.interface],
+                capture_output=True,
+                text=True
+            )
+            
+            result = subprocess.run(
+                ["wg-quick", "up", server.interface],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                logger.info(f"服务器 {server.interface} 配置刷新成功")
+                return True
+            else:
+                logger.error(f"服务器 {server.interface} 配置刷新失败: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"刷新服务器配置失败: {e}")
+            return False
+
     async def create_client(self, client_in: WireGuardClientCreate) -> WireGuardClient:
         """创建WireGuard客户端"""
         try:
