@@ -1183,9 +1183,9 @@ init_database() {
 import sys
 sys.path.insert(0, '.')
 try:
-    from app.core.database import engine
+    from app.core.database import sync_engine
     from app.models import Base
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=sync_engine)
     print('数据库表创建完成')
 except Exception as e:
     print(f'数据库表创建失败: {e}')
@@ -1200,10 +1200,11 @@ except Exception as e:
     echo "🔧 初始化默认数据..."
     if python -c "
 import sys
+import asyncio
 sys.path.insert(0, '.')
 try:
     from app.core.init_db import init_db
-    init_db()
+    asyncio.run(init_db())
     print('默认数据初始化完成')
 except Exception as e:
     print(f'默认数据初始化失败: {e}')
