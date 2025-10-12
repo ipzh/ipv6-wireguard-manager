@@ -655,7 +655,7 @@ Group=$APP_USER
 WorkingDirectory=$APP_HOME/backend
 Environment=PATH=$APP_HOME/backend/venv/bin
 Environment=PYTHONPATH=$APP_HOME/backend
-ExecStart=$APP_HOME/backend/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+ExecStart=$APP_HOME/backend/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=10
 StandardOutput=journal
