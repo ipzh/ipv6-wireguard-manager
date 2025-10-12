@@ -71,21 +71,91 @@ echo ""
 # Smart installation type selection
 log_info "Smart installation type selection..."
 
-if [ "$TOTAL_MEM" -lt 1024 ]; then
-    INSTALL_TYPE="low-memory"
-    log_warning "Memory less than 1GB, selecting low-memory installation"
-elif [ "$IS_WSL" = true ]; then
-    INSTALL_TYPE="native"
-    log_info "WSL environment detected, selecting native installation"
-elif [ "$TOTAL_MEM" -lt 2048 ]; then
-    INSTALL_TYPE="native"
-    log_info "Low memory, selecting native installation (better performance)"
+# Check if running in non-interactive mode (curl | bash)
+if [ ! -t 0 ]; then
+    log_info "Non-interactive mode detected, using automatic selection"
+    if [ "$TOTAL_MEM" -lt 1024 ]; then
+        INSTALL_TYPE="low-memory"
+        log_warning "Memory less than 1GB, selecting low-memory installation"
+    elif [ "$TOTAL_MEM" -lt 2048 ]; then
+        INSTALL_TYPE="native"
+        log_info "Low memory, selecting native installation (better performance)"
+    else
+        INSTALL_TYPE="docker"
+        log_info "Sufficient memory, selecting Docker installation (environment isolation)"
+    fi
+    log_info "Auto-selected: $INSTALL_TYPE"
 else
-    INSTALL_TYPE="docker"
-    log_info "Sufficient memory, selecting Docker installation (environment isolation)"
+    # Interactive mode - show installation options
+    echo "🎯 Installation Options:"
+    echo "  1. Docker Installation - Environment isolation, easy management"
+    echo "  2. Native Installation - Best performance, minimal resource usage"
+    echo "  3. Low Memory Installation - Optimized for 1GB memory"
+    echo "  4. VPS Installation - Optimized for VPS environments"
+    echo "  5. Auto Selection - Smart selection based on system environment"
+    echo ""
+    
+    # Show system recommendations
+    echo "💡 System Recommendations:"
+    if [ "$IS_WSL" = true ]; then
+        echo "  WSL Environment: Recommended Native Installation"
+    fi
+    if [ "$TOTAL_MEM" -lt 1024 ]; then
+        echo "  Low Memory (<1GB): Recommended Low Memory Installation"
+    elif [ "$TOTAL_MEM" -lt 2048 ]; then
+        echo "  Medium Memory (<2GB): Recommended Native Installation"
+    else
+        echo "  High Memory (>=2GB): Recommended Docker Installation"
+    fi
+    echo ""
+    
+    # Get user choice
+    while true; do
+        echo -n "Please select installation type (1-5): "
+        read -r choice
+        
+        case $choice in
+            1)
+                INSTALL_TYPE="docker"
+                log_info "Selected: Docker Installation"
+                break
+                ;;
+            2)
+                INSTALL_TYPE="native"
+                log_info "Selected: Native Installation"
+                break
+                ;;
+            3)
+                INSTALL_TYPE="low-memory"
+                log_info "Selected: Low Memory Installation"
+                break
+                ;;
+            4)
+                INSTALL_TYPE="vps"
+                log_info "Selected: VPS Installation"
+                break
+                ;;
+            5|"")
+                # Auto selection
+                if [ "$TOTAL_MEM" -lt 1024 ]; then
+                    INSTALL_TYPE="low-memory"
+                    log_warning "Auto-selected: Low Memory Installation"
+                elif [ "$TOTAL_MEM" -lt 2048 ]; then
+                    INSTALL_TYPE="native"
+                    log_info "Auto-selected: Native Installation"
+                else
+                    INSTALL_TYPE="docker"
+                    log_info "Auto-selected: Docker Installation"
+                fi
+                break
+                ;;
+            *)
+                log_error "Invalid selection. Please choose 1-5."
+                ;;
+        esac
+    done
 fi
 
-log_info "Auto-selected: $INSTALL_TYPE"
 echo ""
 
 # Project information
@@ -129,7 +199,13 @@ log_info "Executing installation..."
 
 if [ -f "$PROJECT_DIR/install-complete.sh" ]; then
     chmod +x "$PROJECT_DIR/install-complete.sh"
-    "$PROJECT_DIR/install-complete.sh" "$INSTALL_TYPE"
+    # Map VPS installation to native for now (can be customized later)
+    if [ "$INSTALL_TYPE" = "vps" ]; then
+        log_info "VPS installation mapped to native installation"
+        "$PROJECT_DIR/install-complete.sh" "native"
+    else
+        "$PROJECT_DIR/install-complete.sh" "$INSTALL_TYPE"
+    fi
 else
     log_error "Installation script not found"
     exit 1
