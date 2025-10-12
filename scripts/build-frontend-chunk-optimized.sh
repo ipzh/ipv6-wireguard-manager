@@ -71,25 +71,33 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@services': path.resolve(__dirname, './src/services'),
       '@store': path.resolve(__dirname, './src/store'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+      '@types': path.resolve(__dirname, './src/types'),
+      '@styles': path.resolve(__dirname, './src/styles'),
+      '@assets': path.resolve(__dirname, './src/assets'),
     },
   },
   build: {
     // 优化分块策略
     rollupOptions: {
       output: {
-        // 手动分块，避免大文件
-        manualChunks: {
-          // 将React相关库分离
-          'react-vendor': ['react', 'react-dom'],
-          // 将Ant Design分离
-          'antd-vendor': ['antd', '@ant-design/icons'],
-          // 将路由相关分离
-          'router-vendor': ['react-router-dom'],
-          // 将状态管理分离
-          'state-vendor': ['@reduxjs/toolkit', 'react-redux'],
-          // 将工具库分离
-          'utils-vendor': ['axios', 'dayjs'],
+        // 函数式分块，按包名稳定拆分，避免无效解析
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('antd') || id.includes('@ant-design')) return 'antd'
+            if (id.includes('react-router-dom')) return 'router'
+            if (id.includes('recharts')) return 'charts'
+            if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) return 'state'
+            if (id.includes('axios') || id.includes('dayjs')) return 'utils'
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor'
+            const m = id.toString().match(/node_modules[\\/](.*?)[\\/]/)
+            return m ? `vendor-${m[1]}` : 'vendor'
+          }
         },
         // 设置chunk大小限制
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -107,8 +115,8 @@ export default defineConfig({
         drop_debugger: true,
       },
     },
-    // 设置chunk大小警告限制
-    chunkSizeWarningLimit: 1000,
+    // 设置chunk大小警告限制（从环境变量读取）
+    chunkSizeWarningLimit: Number(process.env.VITE_CHUNK_SIZE ?? '1000'),
     // 启用源码映射（可选）
     sourcemap: false,
   },
@@ -120,6 +128,11 @@ export default defineConfig({
       'antd',
       '@ant-design/icons',
       'react-router-dom',
+      '@reduxjs/toolkit',
+      'react-redux',
+      'axios',
+      'dayjs',
+      'recharts',
     ],
   },
   // 开发服务器配置

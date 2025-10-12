@@ -2,6 +2,8 @@
 
 现代化的 IPv6 WireGuard 管理平台，基于 FastAPI + React 构建。
 
+> 详细的用户与部署文档请参见 `docs/Project-Guide.md`，涵盖架构、认证与安全、Docker/Nginx/HTTPS 部署、配置项以及故障排查等内容。
+
 ## ✨ 特性
 
 - 🚀 **现代化架构**: FastAPI + React + TypeScript

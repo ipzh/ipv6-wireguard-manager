@@ -34,15 +34,46 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
+    cssCodeSplit: true,
+    target: 'es2018',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          antd: ['antd', '@ant-design/icons'],
-          charts: ['recharts'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('antd') || id.includes('@ant-design')) return 'antd'
+            if (id.includes('react-router-dom')) return 'router'
+            if (id.includes('recharts')) return 'charts'
+            if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) return 'state'
+            if (id.includes('axios') || id.includes('dayjs')) return 'utils'
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor'
+            const m = id.toString().match(/node_modules[\\/](.*?)[\\/]/)
+            return m ? `vendor-${m[1]}` : 'vendor'
+          }
         },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
+      treeshake: true,
+      preserveEntrySignatures: 'allow',
     },
+    chunkSizeWarningLimit: 1200,
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'antd',
+      '@ant-design/icons',
+      '@reduxjs/toolkit',
+      'react-redux',
+      'axios',
+      'dayjs',
+      'recharts',
+      'qrcode',
+      'styled-components',
+    ],
   },
 })
