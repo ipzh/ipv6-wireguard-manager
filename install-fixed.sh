@@ -601,13 +601,19 @@ show_installation_result() {
     
     # 获取服务器IP
     IPV4=$(ip route get 8.8.8.8 | awk '{print $7; exit}' 2>/dev/null || echo "未知")
-    IPV6=$(ip -6 route get 2001:4860:4860::8888 | awk '{print $7; exit}' 2>/dev/null || echo "未知")
+    IPV6=$(ip -6 addr show | grep -E 'inet6.*global' | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    if [ -z "$IPV6" ]; then
+        IPV6="未知"
+    fi
     
     echo ""
     log_info "访问信息:"
     echo "  前端界面: http://$IPV4"
     if [ "$IPV6" != "未知" ]; then
         echo "  IPv6访问: http://[$IPV6]"
+        echo "  IPv6 API文档: http://[$IPV6]/docs"
+    else
+        echo "  IPv6访问: 未检测到IPv6地址"
     fi
     echo "  API文档: http://$IPV4/docs"
     echo ""
