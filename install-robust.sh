@@ -549,10 +549,11 @@ EOF
 setup_nginx() {
     echo "🌐 配置Nginx..."
     
-    # 创建Nginx配置
+    # 创建Nginx配置（自动支持IPv4和IPv6）
     sudo tee /etc/nginx/sites-available/ipv6-wireguard-manager > /dev/null << EOF
 server {
     listen 80;
+    listen [::]:80;  # IPv6监听
     server_name _;
     
     # 前端静态文件
@@ -567,6 +568,7 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
     
     # WebSocket代理
@@ -575,6 +577,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
     }
 }
 EOF
@@ -781,6 +784,19 @@ verify_installation() {
     else
         echo "❌ Web服务访问异常"
     fi
+    
+    # 测试IPv6访问
+    AUTO_IPV6=$(ip -6 addr show | grep -E "inet6.*global" | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    if [ -n "$AUTO_IPV6" ]; then
+        echo "🌐 检测到IPv6地址: $AUTO_IPV6"
+        if curl -6 -s "http://[$AUTO_IPV6]" >/dev/null 2>&1; then
+            echo "✅ IPv6访问正常"
+        else
+            echo "⚠️  IPv6访问测试失败（可能需要防火墙配置）"
+        fi
+    else
+        echo "⚠️  未检测到IPv6地址"
+    fi
 }
 
 # 显示安装结果
@@ -790,6 +806,10 @@ show_result() {
     echo "🎉 健壮安装完成！"
     echo "=================================="
     echo ""
+    
+    # 自动检测IPv6地址
+    AUTO_IPV6=$(ip -6 addr show | grep -E "inet6.*global" | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    
     echo "📋 访问信息："
     echo "   IPv4访问地址："
     if [ -n "$SERVER_IPV4" ] && [ "$SERVER_IPV4" != "localhost" ]; then
@@ -802,11 +822,21 @@ show_result() {
         echo "     - API文档: http://localhost/api/docs"
     fi
     
-    if [ -n "$SERVER_IPV6" ]; then
+    # 显示IPv6地址（自动检测或使用预设值）
+    if [ -n "$AUTO_IPV6" ]; then
+        echo "   IPv6访问地址（自动检测）："
+        echo "     - 前端界面: http://[$AUTO_IPV6]"
+        echo "     - 后端API: http://[$AUTO_IPV6]/api"
+        echo "     - API文档: http://[$AUTO_IPV6]/api/docs"
+    elif [ -n "$SERVER_IPV6" ]; then
         echo "   IPv6访问地址："
         echo "     - 前端界面: http://[$SERVER_IPV6]"
         echo "     - 后端API: http://[$SERVER_IPV6]/api"
         echo "     - API文档: http://[$SERVER_IPV6]/api/docs"
+    else
+        echo "   IPv6访问地址："
+        echo "     - 请运行 'ip -6 addr show' 查看IPv6地址"
+        echo "     - 格式: http://[您的IPv6地址]"
     fi
     echo ""
     echo "🔑 默认登录信息："

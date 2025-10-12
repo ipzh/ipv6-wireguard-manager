@@ -431,6 +431,11 @@ get_access_urls() {
     LOCAL_IPV4=$(ip route get 1.1.1.1 | awk '{print $7; exit}' 2>/dev/null || echo "localhost")
     LOCAL_IPV6=$(ip -6 route get 2001:4860:4860::8888 | awk '{print $7; exit}' 2>/dev/null || echo "")
     
+    # 自动检测IPv6地址（如果网络检测失败）
+    if [ -z "$LOCAL_IPV6" ] || [ "$LOCAL_IPV6" = "localhost" ]; then
+        LOCAL_IPV6=$(ip -6 addr show | grep -E "inet6.*global" | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    fi
+    
     echo ""
     echo -e "${GREEN}🎉 安装完成！${NC}"
     echo ""
