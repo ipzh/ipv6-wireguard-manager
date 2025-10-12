@@ -2,10 +2,17 @@
 网络相关模型
 """
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text
-from sqlalchemy.dialects.postgresql import UUID, INET, INET6, MACADDR
+from sqlalchemy.dialects.postgresql import UUID, INET, MACADDR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
+
+# 兼容性处理：某些SQLAlchemy版本可能没有INET6
+try:
+    from sqlalchemy.dialects.postgresql import INET6
+except ImportError:
+    # 如果没有INET6，使用String作为替代
+    INET6 = String(45)  # IPv6地址最大长度
 
 from ..core.database import Base
 

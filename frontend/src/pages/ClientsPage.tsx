@@ -289,7 +289,7 @@ PersistentKeepalive = ${client.persistent_keepalive || 25}`
           layout="vertical"
           onFinish={handleSubmit}
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="name"
               label="客户端名称"
@@ -323,7 +323,7 @@ PersistentKeepalive = ${client.persistent_keepalive || 25}`
             />
           </Form.Item>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="ipv4_address"
               label="IPv4地址"
@@ -345,7 +345,7 @@ PersistentKeepalive = ${client.persistent_keepalive || 25}`
             </Form.Item>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="allowed_ips"
               label="允许的IP"
@@ -361,7 +361,7 @@ PersistentKeepalive = ${client.persistent_keepalive || 25}`
             </Form.Item>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Form.Item
               name="mtu"
               label="MTU"

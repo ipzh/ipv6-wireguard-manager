@@ -174,54 +174,46 @@ const DashboardPage: React.FC = () => {
         </Button>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="系统状态"
-              value={apiStatus ? apiStatus.status : '检查中'}
-              valueStyle={{ color: apiStatus ? '#52c41a' : '#faad14' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
+      <div className="responsive-grid">
+        <Card className="fade-in">
+          <Statistic
+            title="系统状态"
+            value={apiStatus ? apiStatus.status : '检查中'}
+            valueStyle={{ color: apiStatus ? '#52c41a' : '#faad14' }}
+            prefix={<CheckCircleOutlined />}
+          />
+        </Card>
         
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="在线客户端"
-              value={clients.filter(c => c.status === 'connected').length}
-              suffix={`/ ${clients.length}`}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
+        <Card className="fade-in">
+          <Statistic
+            title="在线客户端"
+            value={clients.filter(c => c.status === 'connected').length}
+            suffix={`/ ${clients.length}`}
+            prefix={<UserOutlined />}
+          />
+        </Card>
         
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="WireGuard服务器"
-              value={servers.filter(s => s.status === 'running').length}
-              suffix={`/ ${servers.length}`}
-              prefix={<DesktopOutlined />}
-            />
-          </Card>
-        </Col>
+        <Card className="fade-in">
+          <Statistic
+            title="WireGuard服务器"
+            value={servers.filter(s => s.status === 'running').length}
+            suffix={`/ ${servers.length}`}
+            prefix={<DesktopOutlined />}
+          />
+        </Card>
         
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="BGP宣告"
-              value={bgpAnnouncements.filter(b => b.status === 'announced').length}
-              suffix={`/ ${bgpAnnouncements.length}`}
-              prefix={<GlobalOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+        <Card className="fade-in">
+          <Statistic
+            title="BGP宣告"
+            value={bgpAnnouncements.filter(b => b.status === 'announced').length}
+            suffix={`/ ${bgpAnnouncements.length}`}
+            prefix={<GlobalOutlined />}
+          />
+        </Card>
+      </div>
 
-      <Row gutter={[16, 16]} className="mt-6">
-        <Col xs={24} lg={12}>
+      <div className="mt-6 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card 
             title="WireGuard服务器" 
             extra={
@@ -229,10 +221,12 @@ const DashboardPage: React.FC = () => {
                 type="primary" 
                 size="small"
                 icon={<PlayCircleOutlined />}
+                className="hidden sm:inline-flex"
               >
                 管理
               </Button>
             }
+            className="fade-in"
           >
             <Table 
               columns={serverColumns} 
@@ -240,12 +234,11 @@ const DashboardPage: React.FC = () => {
               rowKey="id"
               pagination={false}
               size="small"
+              scroll={{ x: 'max-content' }}
               locale={{ emptyText: '暂无服务器' }}
             />
           </Card>
-        </Col>
-        
-        <Col xs={24} lg={12}>
+          
           <Card 
             title="WireGuard客户端" 
             extra={
@@ -253,10 +246,12 @@ const DashboardPage: React.FC = () => {
                 type="primary" 
                 size="small"
                 icon={<UserOutlined />}
+                className="hidden sm:inline-flex"
               >
                 管理
               </Button>
             }
+            className="fade-in"
           >
             <Table 
               columns={clientColumns} 
@@ -264,37 +259,37 @@ const DashboardPage: React.FC = () => {
               rowKey="id"
               pagination={false}
               size="small"
+              scroll={{ x: 'max-content' }}
               locale={{ emptyText: '暂无客户端' }}
             />
           </Card>
-        </Col>
-      </Row>
+        </div>
 
-      <Row gutter={[16, 16]} className="mt-6">
-        <Col xs={24}>
-          <Card 
-            title="BGP宣告管理" 
-            extra={
-              <Button 
-                type="primary" 
-                size="small"
-                icon={<GlobalOutlined />}
-              >
-                管理BGP
-              </Button>
-            }
-          >
-            <Table 
-              columns={bgpColumns} 
-              dataSource={bgpAnnouncements} 
-              rowKey="id"
-              pagination={false}
+        <Card 
+          title="BGP宣告管理" 
+          extra={
+            <Button 
+              type="primary" 
               size="small"
-              locale={{ emptyText: '暂无BGP宣告' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+              icon={<GlobalOutlined />}
+              className="hidden sm:inline-flex"
+            >
+              管理BGP
+            </Button>
+          }
+          className="fade-in"
+        >
+          <Table 
+            columns={bgpColumns} 
+            dataSource={bgpAnnouncements} 
+            rowKey="id"
+            pagination={false}
+            size="small"
+            scroll={{ x: 'max-content' }}
+            locale={{ emptyText: '暂无BGP宣告' }}
+          />
+        </Card>
+      </div>
     </div>
   )
 }

@@ -39,6 +39,9 @@ sync_engine = create_engine(
     echo=settings.DEBUG,
 )
 
+# 为了向后兼容，导出engine别名
+engine = sync_engine
+
 # 创建同步会话工厂
 SessionLocal = sessionmaker(
     bind=sync_engine,
