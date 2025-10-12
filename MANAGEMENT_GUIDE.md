@@ -2,7 +2,7 @@
 
 ## 📋 概述
 
-本指南介绍IPv6 WireGuard Manager安装后的日常管理和维护操作。
+本指南介绍IPv6 WireGuard Manager的日常管理和维护操作。
 
 ## 🚀 快速开始
 
@@ -41,32 +41,14 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/ma
 ```bash
 ./manage.sh status
 # 或
-sudo systemctl status ipv6-wireguard-manager
-sudo systemctl status nginx
+sudo systemctl status ipv6-wireguard-manager nginx
 ```
 
-#### 启动服务
+#### 启动/停止/重启服务
 ```bash
-./manage.sh start
-# 或
-sudo systemctl start ipv6-wireguard-manager
-sudo systemctl start nginx
-```
-
-#### 停止服务
-```bash
-./manage.sh stop
-# 或
-sudo systemctl stop ipv6-wireguard-manager
-sudo systemctl stop nginx
-```
-
-#### 重启服务
-```bash
-./manage.sh restart
-# 或
-sudo systemctl restart ipv6-wireguard-manager
-sudo systemctl restart nginx
+./manage.sh start    # 启动服务
+./manage.sh stop     # 停止服务
+./manage.sh restart  # 重启服务
 ```
 
 ### 2. 日志管理
@@ -79,14 +61,7 @@ sudo systemctl restart nginx
 # 手动查看
 sudo journalctl -u ipv6-wireguard-manager -f
 sudo tail -f /var/log/nginx/error.log
-sudo tail -f /var/log/nginx/access.log
 ```
-
-#### 日志类型
-- **后端服务日志**: `sudo journalctl -u ipv6-wireguard-manager`
-- **Nginx错误日志**: `/var/log/nginx/error.log`
-- **Nginx访问日志**: `/var/log/nginx/access.log`
-- **系统日志**: `sudo journalctl`
 
 ### 3. 监控和健康检查
 
@@ -95,27 +70,14 @@ sudo tail -f /var/log/nginx/access.log
 ./manage.sh health
 ```
 
-检查项目包括：
-- 服务运行状态
-- 端口监听状态
-- API响应测试
-- 前端访问测试
-- IPv6访问测试
-
 #### 实时监控
 ```bash
 ./manage.sh monitor
 ```
 
-监控选项：
-- 服务状态监控
-- 日志实时监控
-- 系统资源监控
-- 网络连接监控
-
 ### 4. 配置管理
 
-#### 查看配置
+#### 查看和编辑配置
 ```bash
 ./manage.sh config
 ```
@@ -125,49 +87,18 @@ sudo tail -f /var/log/nginx/access.log
 - **Nginx配置**: `/etc/nginx/sites-available/ipv6-wireguard-manager`
 - **systemd服务**: `/etc/systemd/system/ipv6-wireguard-manager.service`
 
-#### 重新加载配置
-```bash
-# 重新加载systemd配置
-sudo systemctl daemon-reload
-
-# 测试并重新加载Nginx配置
-sudo nginx -t
-sudo systemctl reload nginx
-
-# 重启后端服务
-sudo systemctl restart ipv6-wireguard-manager
-```
-
 ### 5. 数据备份和恢复
 
-#### 备份数据
 ```bash
-./manage.sh backup
-```
-
-备份内容包括：
-- 应用文件
-- 数据库数据
-- 配置文件
-
-#### 恢复数据
-```bash
-./manage.sh restore
+./manage.sh backup   # 备份数据
+./manage.sh restore  # 恢复数据
 ```
 
 ### 6. 应用更新
 
-#### 更新应用
 ```bash
 ./manage.sh update
 ```
-
-更新流程：
-1. 停止服务
-2. 备份当前配置
-3. 更新应用代码
-4. 更新依赖
-5. 重启服务
 
 ## 🌐 访问管理
 
@@ -180,13 +111,22 @@ sudo systemctl restart ipv6-wireguard-manager
 - **本地访问**: `http://localhost`
 - **IPv4访问**: `http://您的IPv4地址`
 - **IPv6访问**: `http://[您的IPv6地址]`
-- **公网访问**: 根据您的网络配置
 
 ### 默认登录信息
 - **用户名**: admin
 - **密码**: admin123
 
 ## 🔍 故障排除
+
+### 快速修复
+
+```bash
+# 修复常见问题
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fix-common-issues.sh | bash
+
+# 验证安装状态
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/verify-installation.sh | bash
+```
 
 ### 常见问题
 
@@ -197,98 +137,25 @@ sudo systemctl status ipv6-wireguard-manager
 
 # 查看详细日志
 sudo journalctl -u ipv6-wireguard-manager -n 50
-
-# 检查端口占用
-ss -tlnp | grep :8000
 ```
 
-#### 2. 500 Internal Server Error
+#### 2. 前端访问异常
 ```bash
-# 运行快速修复
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/quick-fix-500.sh | bash
+# 检查前端文件
+ls -la /opt/ipv6-wireguard-manager/frontend/dist/
 
-# 或运行详细诊断
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fix-500-error.sh | bash
+# 重新构建前端
+cd /opt/ipv6-wireguard-manager/frontend
+npm run build
 ```
 
 #### 3. IPv6访问问题
 ```bash
-# 检查IPv6状态
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/check-ipv6-status.sh | bash
+# 检查IPv6地址
+ip -6 addr show
 
-# 配置IPv6访问
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/configure-ipv6-access.sh | bash
-```
-
-#### 4. 权限问题
-```bash
-# 修复权限
-sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
-sudo chmod -R 755 /opt/ipv6-wireguard-manager
-```
-
-### 诊断命令
-
-#### 检查服务状态
-```bash
-# 服务状态
-sudo systemctl status ipv6-wireguard-manager nginx
-
-# 端口监听
-ss -tlnp | grep -E ":(80|8000)"
-
-# 进程状态
-ps aux | grep -E "(uvicorn|nginx)"
-```
-
-#### 检查网络连接
-```bash
-# 测试本地API
-curl http://127.0.0.1:8000/health
-
-# 测试前端访问
-curl http://localhost
-
-# 测试IPv6访问
-curl -6 http://[您的IPv6地址]/api/v1/status
-```
-
-#### 检查日志
-```bash
-# 后端服务日志
-sudo journalctl -u ipv6-wireguard-manager --since "1 hour ago"
-
-# Nginx错误日志
-sudo tail -50 /var/log/nginx/error.log
-
-# 系统日志
-sudo journalctl --since "1 hour ago" | grep -i error
-```
-
-## 📊 性能监控
-
-### 系统资源监控
-```bash
-# CPU和内存使用
-htop
-
-# 磁盘使用
-df -h
-
-# 网络连接
-ss -tuln
-```
-
-### 应用性能监控
-```bash
-# 查看服务资源使用
-sudo systemctl status ipv6-wireguard-manager
-
-# 查看Nginx状态
-sudo nginx -s status
-
-# 查看数据库连接
-sudo -u postgres psql -c "SELECT * FROM pg_stat_activity;"
+# 检查IPv6监听
+ss -tlnp | grep :80 | grep "::"
 ```
 
 ## 🔐 安全建议
@@ -325,6 +192,29 @@ git pull origin main
 sudo systemctl restart ipv6-wireguard-manager
 ```
 
+## 📊 性能监控
+
+### 系统资源监控
+```bash
+# CPU和内存使用
+htop
+
+# 磁盘使用
+df -h
+
+# 网络连接
+ss -tuln
+```
+
+### 应用性能监控
+```bash
+# 查看服务资源使用
+sudo systemctl status ipv6-wireguard-manager
+
+# 查看Nginx状态
+sudo nginx -s status
+```
+
 ## 📅 维护计划
 
 ### 日常维护
@@ -358,15 +248,6 @@ sudo systemctl restart ipv6-wireguard-manager
 
 # 健康检查
 ./manage.sh health
-```
-
-### 紧急修复
-```bash
-# 快速修复500错误
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/quick-fix-500.sh | bash
-
-# 完整修复
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/final-fix.sh | bash
 ```
 
 ## 📝 总结

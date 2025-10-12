@@ -1,140 +1,205 @@
 # IPv6 WireGuard Manager
 
-现代化的 IPv6 WireGuard 管理平台，基于 FastAPI + React 构建。
-
-> 详细的用户与部署文档请参见 `docs/Project-Guide.md`，涵盖架构、认证与安全、Docker/Nginx/HTTPS 部署、配置项以及故障排查等内容。
+一个现代化的IPv6 WireGuard管理平台，支持IPv4和IPv6双栈网络，提供直观的Web界面进行WireGuard配置和管理。
 
 ## ✨ 特性
 
-- 🚀 **现代化架构**: FastAPI + React + TypeScript
-- 🔐 **安全认证**: JWT 认证 + RBAC 权限控制
-- 🌐 **IPv6 支持**: 完整的 IPv6 网络管理
-- 📊 **实时监控**: WebSocket 实时数据推送
-- 🐳 **容器化部署**: Docker 一键部署
-- ⚡ **高性能**: 原生安装，资源占用少
+- 🌐 **双栈支持**: 完整支持IPv4和IPv6网络
+- 🎨 **现代化界面**: 基于React + TypeScript + Ant Design
+- 🚀 **一键安装**: 支持Docker和原生安装方式
+- 📱 **响应式设计**: 适配桌面和移动设备
+- 🔧 **智能管理**: 自动检测系统环境，智能选择安装方式
+- 🛡️ **安全可靠**: 内置安全配置和权限管理
 
-## 🚀 快速安装
+## 🖥️ 支持的操作系统
 
-### 一键安装（推荐）
+- **Ubuntu** 18.04+ (推荐)
+- **Debian** 9+
+- **CentOS** 7+
+- **RHEL** 7+
+- **Fedora** 30+
+- **Alpine** 3.10+
+
+## 🚀 快速开始
+
+### 一键安装
 
 ```bash
+# 自动选择最佳安装方式
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
 
-### 手动安装
+### 安装选项
 
 ```bash
-# 下载项目
-git clone https://github.com/ipzh/ipv6-wireguard-manager.git
-cd ipv6-wireguard-manager
+# 下载安装脚本
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh -o install.sh
+chmod +x install.sh
 
-# 选择安装方式
+# 运行安装脚本
 ./install.sh
 ```
 
-## 📦 安装方式
-
-| 方式 | 特点 | 适用场景 |
-|------|------|----------|
-| **Docker** | 环境隔离，易于管理 | 测试环境、开发环境 |
-| **原生** | 性能最优，资源占用少 | 生产环境、VPS部署 |
-
-## 🛠️ 系统要求
-
-### 最低要求
-- **内存**: 1GB+
-- **磁盘**: 2GB+
-- **系统**: Linux (Ubuntu/Debian/CentOS/RHEL/Fedora/Alpine)
-
-### 推荐配置
-- **内存**: 2GB+
-- **磁盘**: 5GB+
-- **CPU**: 2核心+
+安装脚本提供以下选项：
+1. **Docker安装** - 环境隔离，易于管理
+2. **原生安装** - 性能最优，资源占用少
+3. **自动选择** - 根据系统环境智能选择
 
 ## 🌐 访问地址
 
-安装完成后，访问以下地址：
+安装完成后，您可以通过以下地址访问：
 
-- **前端界面**: http://your-server-ip:3000
-- **API文档**: http://your-server-ip:8000/docs
-- **WebSocket**: ws://your-server-ip:8000/ws
+### IPv4访问
+```
+http://您的服务器IPv4地址
+```
+
+### IPv6访问
+```
+http://[您的服务器IPv6地址]
+```
+
+### 默认登录信息
+- **用户名**: admin
+- **密码**: admin123
 
 ## 🔧 管理命令
 
-### Docker 安装
+### 服务管理
 ```bash
-# 查看日志
-docker-compose logs -f
+# 查看服务状态
+sudo systemctl status ipv6-wireguard-manager nginx
 
-# 重启服务
-docker-compose restart
+# 启动服务
+sudo systemctl start ipv6-wireguard-manager nginx
 
 # 停止服务
-docker-compose down
-```
-
-### 原生安装
-```bash
-# 查看后端日志
-journalctl -u ipv6-wireguard-backend -f
-
-# 查看前端日志
-journalctl -u ipv6-wireguard-frontend -f
+sudo systemctl stop ipv6-wireguard-manager nginx
 
 # 重启服务
-systemctl restart ipv6-wireguard-backend ipv6-wireguard-frontend
+sudo systemctl restart ipv6-wireguard-manager nginx
 ```
 
-## 📚 项目结构
+### 日志查看
+```bash
+# 查看后端服务日志
+sudo journalctl -u ipv6-wireguard-manager -f
+
+# 查看Nginx日志
+sudo journalctl -u nginx -f
+
+# 查看Nginx错误日志
+sudo tail -f /var/log/nginx/error.log
+```
+
+### 配置管理
+```bash
+# 测试Nginx配置
+sudo nginx -t
+
+# 重新加载Nginx配置
+sudo systemctl reload nginx
+
+# 编辑环境配置
+sudo nano /opt/ipv6-wireguard-manager/backend/.env
+```
+
+## 🛠️ 故障排除
+
+### 常见问题
+
+#### 1. 服务无法启动
+```bash
+# 检查服务状态
+sudo systemctl status ipv6-wireguard-manager
+
+# 查看详细日志
+sudo journalctl -u ipv6-wireguard-manager -n 50
+```
+
+#### 2. 前端访问异常
+```bash
+# 检查前端文件
+ls -la /opt/ipv6-wireguard-manager/frontend/dist/
+
+# 重新构建前端
+cd /opt/ipv6-wireguard-manager/frontend
+npm run build
+```
+
+#### 3. IPv6访问问题
+```bash
+# 检查IPv6地址
+ip -6 addr show
+
+# 检查IPv6监听
+ss -tlnp | grep :80 | grep "::"
+```
+
+### 快速修复
+
+如果遇到问题，可以使用以下快速修复脚本：
+
+```bash
+# 修复常见问题
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fix-common-issues.sh | bash
+
+# 验证安装状态
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/verify-installation.sh | bash
+```
+
+## 📁 项目结构
 
 ```
 ipv6-wireguard-manager/
-├── backend/                 # FastAPI 后端
-│   ├── app/
-│   │   ├── api/            # API 路由
-│   │   ├── core/           # 核心配置
-│   │   ├── models/         # 数据模型
-│   │   ├── schemas/        # Pydantic 模式
-│   │   └── services/       # 业务逻辑
-│   └── requirements.txt    # Python 依赖
-├── frontend/               # React 前端
-│   ├── src/
-│   │   ├── components/     # React 组件
-│   │   ├── pages/          # 页面组件
-│   │   ├── store/          # Redux 状态管理
-│   │   └── services/       # API 服务
-│   └── package.json        # Node.js 依赖
-├── docker-compose.yml      # Docker 配置
-├── install.sh             # 智能安装器
+├── backend/                 # 后端服务
+│   ├── app/                # 应用代码
+│   ├── requirements.txt    # Python依赖
+│   └── .env               # 环境配置
+├── frontend/               # 前端应用
+│   ├── src/               # 源代码
+│   ├── dist/              # 构建输出
+│   └── package.json       # 前端依赖
+├── install.sh             # 主安装脚本
 ├── install-robust.sh      # 健壮安装脚本
-└── scripts/               # 工具脚本
+└── README.md              # 项目文档
 ```
 
-## 🔧 开发
+## 🔐 安全建议
 
-### 后端开发
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+1. **更改默认密码**: 安装后立即更改默认登录密码
+2. **配置防火墙**: 只开放必要的端口（80, 443, 22）
+3. **启用HTTPS**: 配置SSL证书以加密传输
+4. **定期更新**: 保持系统和应用更新
 
-### 前端开发
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## 📊 系统要求
+
+### 最低要求
+- **CPU**: 1核心
+- **内存**: 1GB RAM
+- **存储**: 2GB 可用空间
+- **网络**: IPv4/IPv6网络连接
+
+### 推荐配置
+- **CPU**: 2核心
+- **内存**: 2GB RAM
+- **存储**: 5GB 可用空间
+- **网络**: 稳定的IPv4/IPv6双栈连接
+
+## 🆘 获取帮助
+
+- **GitHub Issues**: [提交问题](https://github.com/ipzh/ipv6-wireguard-manager/issues)
+- **文档**: 查看项目Wiki获取详细文档
+- **社区**: 参与讨论和交流
 
 ## 📄 许可证
 
-MIT License
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 Pull Request！
+欢迎贡献代码！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与项目开发。
 
-## 📞 支持
+---
 
-- **GitHub Issues**: [问题反馈](https://github.com/ipzh/ipv6-wireguard-manager/issues)
-- **文档**: [项目文档](https://github.com/ipzh/ipv6-wireguard-manager)
+**注意**: 请确保在生产环境中更改默认密码并配置适当的安全措施。
