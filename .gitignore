@@ -104,6 +104,8 @@ jspm_packages/
 # Nuxt.js build / generate output
 .nuxt
 dist
+# Allow frontend prebuilt files
+!frontend/dist/
 
 # Gatsby files
 .cache/
