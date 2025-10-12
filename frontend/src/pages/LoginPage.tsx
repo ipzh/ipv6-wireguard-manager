@@ -103,6 +103,14 @@ const LoginPage: React.FC = () => {
         </Card>
 
         <div className="text-center mt-6 text-white text-sm">
+          <div className="bg-white bg-opacity-10 rounded-lg p-4 mb-4">
+            <p className="font-semibold mb-2">默认登录信息：</p>
+            <p>用户名: <span className="font-mono">admin</span></p>
+            <p>密码: <span className="font-mono">admin123</span></p>
+            <p className="text-yellow-200 text-xs mt-2">
+              ⚠️ 请在生产环境中修改默认密码！
+            </p>
+          </div>
           <p>© 2024 IPv6 WireGuard Manager. All rights reserved.</p>
         </div>
       </div>
