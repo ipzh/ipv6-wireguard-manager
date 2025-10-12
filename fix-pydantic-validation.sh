@@ -1,3 +1,17 @@
+#!/bin/bash
+
+echo "🔧 修复Pydantic验证错误..."
+echo "================================"
+
+# 进入后端目录
+cd /opt/ipv6-wireguard-manager/backend
+
+# 激活虚拟环境
+source venv/bin/activate
+
+echo "🔧 更新配置文件..."
+# 创建修复后的config.py
+cat > app/core/config.py << 'EOF'
 """
 应用配置管理
 """
@@ -93,3 +107,26 @@ class Settings(BaseSettings):
 
 # 创建全局配置实例
 settings = Settings()
+EOF
+
+echo "✅ 配置文件已更新"
+
+echo "🔍 测试配置导入..."
+python -c "from app.core.config import settings; print('✅ 配置导入成功')"
+
+echo "🔍 测试app导入..."
+python -c "from app.main import app; print('✅ app导入成功')"
+
+echo "🗄️  初始化数据库..."
+python -c "from app.core.database import engine; from app.models import Base; Base.metadata.create_all(bind=engine); print('✅ 数据库表创建完成')"
+
+echo "🚀 重启服务..."
+sudo systemctl restart ipv6-wireguard-manager
+
+# 等待服务启动
+sleep 3
+
+echo "🔍 检查服务状态..."
+sudo systemctl status ipv6-wireguard-manager --no-pager
+
+echo "🎯 Pydantic验证修复完成！"
