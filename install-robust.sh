@@ -641,9 +641,27 @@ EOF
 setup_permissions() {
     echo "🔐 设置权限..."
     
-    # 获取项目绝对路径
-    PROJECT_PATH=$(pwd)
-    echo "   当前目录: $PROJECT_PATH"
+    # 获取项目根目录路径
+    if [ -d "backend" ] && [ -d "frontend" ]; then
+        # 当前在项目根目录
+        PROJECT_PATH=$(pwd)
+    elif [ -d "../backend" ] && [ -d "../frontend" ]; then
+        # 当前在子目录，回到项目根目录
+        PROJECT_PATH=$(realpath ..)
+        cd "$PROJECT_PATH"
+    elif [ -d "../../backend" ] && [ -d "../../frontend" ]; then
+        # 当前在子子目录，回到项目根目录
+        PROJECT_PATH=$(realpath ../..)
+        cd "$PROJECT_PATH"
+    else
+        echo "❌ 无法找到项目根目录"
+        echo "📁 当前目录: $(pwd)"
+        echo "📁 目录内容:"
+        ls -la
+        exit 1
+    fi
+    
+    echo "   项目根目录: $PROJECT_PATH"
     echo "   目标目录: $APP_HOME"
     
     # 确保目标目录存在
@@ -651,7 +669,27 @@ setup_permissions() {
     
     # 复制应用到系统目录（而不是移动，避免权限问题）
     echo "📁 复制项目文件到系统目录..."
-    sudo cp -r "$PROJECT_PATH"/* "$APP_HOME/"
+    echo "   复制后端文件..."
+    if [ -d "backend" ]; then
+        sudo cp -r backend "$APP_HOME/"
+    else
+        echo "❌ 后端目录不存在"
+    fi
+    
+    echo "   复制前端文件..."
+    if [ -d "frontend" ]; then
+        sudo cp -r frontend "$APP_HOME/"
+    else
+        echo "❌ 前端目录不存在"
+    fi
+    
+    echo "   复制其他文件..."
+    # 复制其他重要文件
+    for file in requirements.txt docker-compose.yml README.md; do
+        if [ -f "$file" ]; then
+            sudo cp "$file" "$APP_HOME/"
+        fi
+    done
     
     # 设置所有权
     sudo chown -R "$APP_USER:$APP_USER" "$APP_HOME"
