@@ -2,7 +2,13 @@
 应用配置管理
 """
 from typing import List, Optional
-from pydantic import BaseSettings, validator
+try:
+    # Pydantic 2.x
+    from pydantic_settings import BaseSettings
+    from pydantic import field_validator
+except ImportError:
+    # Pydantic 1.x fallback
+    from pydantic import BaseSettings, validator as field_validator
 import secrets
 
 
@@ -67,7 +73,8 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str = "admin123"
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
     
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v: str | List[str]) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
@@ -78,6 +85,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        # Pydantic 2.x compatibility
+        env_file_encoding = "utf-8"
 
 
 # 创建全局配置实例
