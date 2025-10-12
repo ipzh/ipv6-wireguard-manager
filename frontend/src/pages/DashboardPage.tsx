@@ -57,28 +57,28 @@ const DashboardPage: React.FC = () => {
     setLoading(true)
     try {
       // 加载API状态
-      const statusResponse = await fetch('/api/v1/status')
+      const statusResponse = await fetch('/api/v1/status/status')
       if (statusResponse.ok) {
         const statusData = await statusResponse.json()
         setApiStatus(statusData)
       }
 
       // 加载服务器数据
-      const serversResponse = await fetch('/api/v1/servers')
+      const serversResponse = await fetch('/api/v1/wireguard/servers')
       if (serversResponse.ok) {
         const serversData = await serversResponse.json()
         setServers(serversData.servers || [])
       }
 
       // 加载客户端数据
-      const clientsResponse = await fetch('/api/v1/clients')
+      const clientsResponse = await fetch('/api/v1/wireguard/clients')
       if (clientsResponse.ok) {
         const clientsData = await clientsResponse.json()
         setClients(clientsData.clients || [])
       }
 
       // 加载BGP宣告数据
-      const bgpResponse = await fetch('/api/v1/bgp/announcements')
+      const bgpResponse = await fetch('/api/v1/network/bgp/announcements')
       if (bgpResponse.ok) {
         const bgpData = await bgpResponse.json()
         setBgpAnnouncements(bgpData.announcements || [])

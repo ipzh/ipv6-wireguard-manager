@@ -28,6 +28,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     salt = Column(String(255), nullable=False)
+    role = Column(String(20), default="user", nullable=False)  # admin, operator, user
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)

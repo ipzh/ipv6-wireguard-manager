@@ -10,8 +10,8 @@ import shutil
 import json
 from datetime import datetime
 
-from ...dependencies import get_current_user
-from ....models.user import User
+from ..dependencies import get_current_user
+from ...models.user import User
 
 router = APIRouter()
 

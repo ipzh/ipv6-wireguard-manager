@@ -139,6 +139,14 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 3. 设置备份间隔和位置
 4. 手动触发备份
 
+### 系统管理
+1. 进入 **系统设置** → **系统管理**
+2. 查看系统信息和状态
+3. 执行系统操作（需要管理员权限）：
+   - **完全卸载**: 输入"UNINSTALL"确认
+   - **重新安装**: 输入"REINSTALL"确认
+4. 管理备份文件
+
 ## 🛠️ 故障排除
 
 ### 客户端无法连接
