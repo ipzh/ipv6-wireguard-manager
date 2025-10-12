@@ -409,13 +409,39 @@ install_frontend() {
     cd frontend
     echo "✅ 进入前端目录: $(pwd)"
     
-    # 检查package.json
+    # 检查是否已有预构建的dist目录
+    if [ -d "dist" ] && [ -f "dist/index.html" ]; then
+        echo "✅ 发现预构建的前端文件，跳过构建过程"
+        echo "📁 构建文件:"
+        ls -la dist/
+        echo "✅ 前端安装完成"
+        return 0
+    fi
+    
+    # 如果没有预构建文件，检查是否有构建环境
     if [ ! -f "package.json" ]; then
-        echo "❌ package.json 不存在"
+        echo "❌ package.json 不存在，无法构建前端"
         echo "📁 前端目录内容:"
         ls -la
         exit 1
     fi
+    
+    # 检查Node.js环境
+    if ! command -v node >/dev/null 2>&1; then
+        echo "⚠️  Node.js 未安装，跳过前端构建"
+        echo "   前端将使用预构建文件或需要手动构建"
+        return 0
+    fi
+    
+    # 检查npm
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "⚠️  npm 未安装，跳过前端构建"
+        echo "   前端将使用预构建文件或需要手动构建"
+        return 0
+    fi
+    
+    echo "🔨 开始构建前端..."
+    echo "   检测到构建环境，开始构建过程"
     
     # 使用构建脚本
     if [ -f "../../scripts/build-frontend.sh" ]; then
