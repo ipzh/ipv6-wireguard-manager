@@ -952,7 +952,11 @@ setup_database() {
             ;;
     esac
     
+    # 等待PostgreSQL启动
+    sleep 3
+    
     # 创建数据库和用户（如果不存在）
+    echo "🔧 创建数据库和用户..."
     sudo -u postgres psql << EOF
 -- 创建数据库（如果不存在）
 SELECT 'CREATE DATABASE ipv6wgm' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ipv6wgm')\gexec
@@ -961,15 +965,81 @@ SELECT 'CREATE DATABASE ipv6wgm' WHERE NOT EXISTS (SELECT FROM pg_database WHERE
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ipv6wgm') THEN
-        CREATE USER ipv6wgm WITH PASSWORD 'password';
+        CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm';
+    ELSE
+        -- 如果用户已存在，重置密码
+        ALTER USER ipv6wgm WITH PASSWORD 'ipv6wgm';
     END IF;
 END
 \$\$;
 
--- 授权
+-- 授权数据库权限
 GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;
+GRANT CONNECT ON DATABASE ipv6wgm TO ipv6wgm;
+
+-- 连接到数据库并授权模式权限
+\c ipv6wgm
+GRANT ALL ON SCHEMA public TO ipv6wgm;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ipv6wgm;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ipv6wgm;
+
+-- 设置默认权限
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ipv6wgm;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ipv6wgm;
 \q
 EOF
+    
+    # 配置PostgreSQL认证
+    echo "🔧 配置PostgreSQL认证..."
+    PG_VERSION=$(sudo -u postgres psql -t -c "SELECT version();" | grep -oP '\d+\.\d+' | head -1)
+    PG_CONFIG_DIR="/etc/postgresql/$PG_VERSION/main"
+    
+    if [ -d "$PG_CONFIG_DIR" ]; then
+        echo "PostgreSQL配置目录: $PG_CONFIG_DIR"
+        
+        # 检查并添加认证配置
+        if [ -f "$PG_CONFIG_DIR/pg_hba.conf" ]; then
+            # 检查是否已有正确的配置
+            if ! grep -q "local.*ipv6wgm.*ipv6wgm.*md5" "$PG_CONFIG_DIR/pg_hba.conf"; then
+                echo "添加本地连接认证配置..."
+                sudo tee -a "$PG_CONFIG_DIR/pg_hba.conf" > /dev/null << 'EOF'
+
+# IPv6 WireGuard Manager local connections
+local   ipv6wgm             ipv6wgm                                     md5
+host    ipv6wgm             ipv6wgm             127.0.0.1/32            md5
+host    ipv6wgm             ipv6wgm             ::1/128                 md5
+EOF
+            fi
+            
+            # 重新加载PostgreSQL配置
+            sudo systemctl reload postgresql
+            sleep 2
+        fi
+    else
+        echo "⚠️  PostgreSQL配置目录不存在，尝试其他位置..."
+        # 尝试其他可能的配置目录
+        for dir in /etc/postgresql/*/main /var/lib/pgsql/data; do
+            if [ -d "$dir" ]; then
+                echo "找到配置目录: $dir"
+                PG_CONFIG_DIR="$dir"
+                break
+            fi
+        done
+    fi
+    
+    # 测试数据库连接
+    echo "🔍 测试数据库连接..."
+    if PGPASSWORD="ipv6wgm" psql -h localhost -U ipv6wgm -d ipv6wgm -c "SELECT 1;" >/dev/null 2>&1; then
+        echo "✅ 数据库连接测试成功"
+    else
+        echo "⚠️  数据库连接测试失败，尝试修复..."
+        # 尝试IPv4连接
+        if PGPASSWORD="ipv6wgm" psql -h 127.0.0.1 -U ipv6wgm -d ipv6wgm -c "SELECT 1;" >/dev/null 2>&1; then
+            echo "✅ IPv4数据库连接测试成功"
+        else
+            echo "❌ 数据库连接仍然失败，请检查PostgreSQL配置"
+        fi
+    fi
     
     # 启动Redis
     case $OS in
@@ -1077,8 +1147,9 @@ Type=simple
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_HOME/backend
-Environment=PATH=$APP_HOME/backend/venv/bin
-ExecStart=$APP_HOME/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Environment=PATH=$APP_HOME/backend/venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=$APP_HOME/backend
+ExecStart=$APP_HOME/backend/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=always
 RestartSec=5
 
@@ -1192,20 +1263,40 @@ init_database() {
     
     # 运行数据库迁移
     echo "🔧 创建数据库表..."
-    python -c "
-from app.core.database import engine
-from app.models import Base
-Base.metadata.create_all(bind=engine)
-print('数据库表创建完成')
-" || echo "⚠️  数据库表创建失败"
+    if python -c "
+import sys
+sys.path.insert(0, '.')
+try:
+    from app.core.database import engine
+    from app.models import Base
+    Base.metadata.create_all(bind=engine)
+    print('数据库表创建完成')
+except Exception as e:
+    print(f'数据库表创建失败: {e}')
+    sys.exit(1)
+"; then
+        echo "✅ 数据库表创建成功"
+    else
+        echo "⚠️  数据库表创建失败，但继续安装"
+    fi
     
     # 初始化默认数据
     echo "🔧 初始化默认数据..."
-    python -c "
-from app.core.init_db import init_db
-init_db()
-print('默认数据初始化完成')
-" || echo "⚠️  默认数据初始化失败"
+    if python -c "
+import sys
+sys.path.insert(0, '.')
+try:
+    from app.core.init_db import init_db
+    init_db()
+    print('默认数据初始化完成')
+except Exception as e:
+    print(f'默认数据初始化失败: {e}')
+    # 不退出，继续安装
+"; then
+        echo "✅ 默认数据初始化成功"
+    else
+        echo "⚠️  默认数据初始化失败，但继续安装"
+    fi
     
     echo "✅ 数据库初始化完成"
 }
