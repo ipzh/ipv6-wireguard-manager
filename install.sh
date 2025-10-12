@@ -77,6 +77,9 @@ if [ ! -t 0 ]; then
     if [ "$TOTAL_MEM" -lt 1024 ]; then
         INSTALL_TYPE="low-memory"
         log_warning "Memory less than 1GB, selecting low-memory installation"
+    elif [ "$IS_WSL" = true ]; then
+        INSTALL_TYPE="native"
+        log_info "WSL environment detected, selecting native installation"
     elif [ "$TOTAL_MEM" -lt 2048 ]; then
         INSTALL_TYPE="native"
         log_info "Low memory, selecting native installation (better performance)"
@@ -140,6 +143,9 @@ else
                 if [ "$TOTAL_MEM" -lt 1024 ]; then
                     INSTALL_TYPE="low-memory"
                     log_warning "Auto-selected: Low Memory Installation"
+                elif [ "$IS_WSL" = true ]; then
+                    INSTALL_TYPE="native"
+                    log_info "Auto-selected: Native Installation (WSL environment)"
                 elif [ "$TOTAL_MEM" -lt 2048 ]; then
                     INSTALL_TYPE="native"
                     log_info "Auto-selected: Native Installation"
