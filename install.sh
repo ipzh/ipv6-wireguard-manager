@@ -173,11 +173,41 @@ choose_installation_method() {
     echo "   4. 自动选择 - 根据系统环境智能选择"
     echo ""
     
-    # 用户选择（支持非交互式模式）
+    # 用户选择（支持非交互式模式和倒计时）
     if [ -t 0 ]; then
-        # 交互式模式
-        read -p "请选择安装方式 (1/2/3/4) [默认: 4]: " choice
-        choice=${choice:-4}
+        # 交互式模式 - 10秒倒计时
+        echo "⏰ 10秒后自动选择: $INSTALL_METHOD"
+        echo "   如需手动选择，请在倒计时结束前输入数字 (1-4)"
+        echo ""
+        
+        # 倒计时显示函数
+        show_countdown() {
+            local seconds=10
+            while [ $seconds -gt 0 ]; do
+                printf "\r⏳ 倒计时: %2d 秒 (自动选择: $INSTALL_METHOD) " $seconds
+                sleep 1
+                seconds=$((seconds-1))
+            done
+            echo ""
+        }
+        
+        # 后台运行倒计时
+        show_countdown &
+        COUNTDOWN_PID=$!
+        
+        # 使用read的超时功能
+        if read -t 10 -p "请选择安装方式 (1/2/3/4): " choice; then
+            # 用户输入了选择，停止倒计时
+            kill $COUNTDOWN_PID 2>/dev/null || true
+            echo ""
+            log_info "用户选择: $choice"
+        else
+            # 超时，使用自动选择
+            kill $COUNTDOWN_PID 2>/dev/null || true
+            echo ""
+            log_info "⏰ 10秒超时，使用自动选择: $INSTALL_METHOD"
+            choice=4
+        fi
     else
         # 非交互式模式（管道执行）
         log_info "检测到非交互式模式，使用自动选择: $INSTALL_METHOD"
