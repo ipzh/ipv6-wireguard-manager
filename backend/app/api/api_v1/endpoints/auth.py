@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.config import settings
 from ....core.database import get_async_db
-from ....core.security import create_access_token, verify_password, get_password_hash
+from ....core.security import create_access_token, verify_password, get_password_hash, get_current_user_id
 from ....schemas.user import LoginRequest, LoginResponse, User, UserCreate
 from ....services.user_service import UserService
 
