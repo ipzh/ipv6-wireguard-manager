@@ -27,7 +27,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    salt = Column(String(255), nullable=False)
+    salt = Column(String(255), nullable=True)  # 改为nullable=True，因为pbkdf2_sha256包含在哈希中
     role = Column(String(20), default="user", nullable=False)  # admin, operator, user
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
