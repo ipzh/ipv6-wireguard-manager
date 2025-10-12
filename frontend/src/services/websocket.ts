@@ -43,7 +43,7 @@ class WebSocketService extends EventEmitter {
       this.isConnecting = true;
 
       try {
-        const wsUrl = `${this.config.url}/ws/${this.config.userId}?connection_type=${this.config.connectionType}`;
+        const wsUrl = `${this.config.url}/api/v1/ws/${this.config.userId}?connection_type=${this.config.connectionType}`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {

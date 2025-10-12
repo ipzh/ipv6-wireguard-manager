@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Typography, Table, Tag, Button, Modal, Form, Input, Select, message, Space, Popconfirm, QRCode } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined, QrcodeOutlined, DownloadOutlined } from '@ant-design/icons'
+import { apiClient } from '../services/api'
 
 const { Title } = Typography
 const { Option } = Select
@@ -43,11 +44,8 @@ const ClientsPage: React.FC = () => {
   const loadClients = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/clients')
-      if (response.ok) {
-        const data = await response.json()
-        setClients(data.clients || [])
-      }
+      const response = await apiClient.get('/wireguard/clients')
+      setClients(response.data.clients || [])
     } catch (error) {
       console.error('加载客户端失败:', error)
       message.error('加载客户端失败')
@@ -58,11 +56,8 @@ const ClientsPage: React.FC = () => {
 
   const loadServers = async () => {
     try {
-      const response = await fetch('/api/v1/servers')
-      if (response.ok) {
-        const data = await response.json()
-        setServers(data.servers || [])
-      }
+      const response = await apiClient.get('/wireguard/servers')
+      setServers(response.data.servers || [])
     } catch (error) {
       console.error('加载服务器失败:', error)
     }
@@ -87,15 +82,9 @@ const ClientsPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/v1/clients/${id}`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        message.success('删除成功')
-        loadClients()
-      } else {
-        message.error('删除失败')
-      }
+      await apiClient.delete(`/wireguard/clients/${id}`)
+      message.success('删除成功')
+      loadClients()
     } catch (error) {
       console.error('删除失败:', error)
       message.error('删除失败')
@@ -104,27 +93,15 @@ const ClientsPage: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      const url = editingRecord 
-        ? `/api/v1/clients/${editingRecord.id}`
-        : '/api/v1/clients'
-      
-      const method = editingRecord ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(values)
-      })
-
-      if (response.ok) {
-        message.success(editingRecord ? '更新成功' : '添加成功')
-        setModalVisible(false)
-        loadClients()
+      if (editingRecord) {
+        await apiClient.put(`/wireguard/clients/${editingRecord.id}`, values)
+        message.success('更新成功')
       } else {
-        message.error(editingRecord ? '更新失败' : '添加失败')
+        await apiClient.post('/wireguard/clients', values)
+        message.success('添加成功')
       }
+      setModalVisible(false)
+      loadClients()
     } catch (error) {
       console.error('操作失败:', error)
       message.error('操作失败')

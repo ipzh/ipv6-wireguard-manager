@@ -10,6 +10,7 @@ import {
   PlayCircleOutlined,
   PauseCircleOutlined
 } from '@ant-design/icons'
+import { apiClient } from '../services/api'
 
 const { Title } = Typography
 
@@ -57,32 +58,20 @@ const DashboardPage: React.FC = () => {
     setLoading(true)
     try {
       // 加载API状态
-      const statusResponse = await fetch('/api/v1/status/status')
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json()
-        setApiStatus(statusData)
-      }
+      const statusResponse = await apiClient.get('/status/status')
+      setApiStatus(statusResponse.data)
 
       // 加载服务器数据
-      const serversResponse = await fetch('/api/v1/wireguard/servers')
-      if (serversResponse.ok) {
-        const serversData = await serversResponse.json()
-        setServers(serversData.servers || [])
-      }
+      const serversResponse = await apiClient.get('/wireguard/servers')
+      setServers(serversResponse.data.servers || [])
 
       // 加载客户端数据
-      const clientsResponse = await fetch('/api/v1/wireguard/clients')
-      if (clientsResponse.ok) {
-        const clientsData = await clientsResponse.json()
-        setClients(clientsData.clients || [])
-      }
+      const clientsResponse = await apiClient.get('/wireguard/clients')
+      setClients(clientsResponse.data.clients || [])
 
       // 加载BGP宣告数据
-      const bgpResponse = await fetch('/api/v1/network/bgp/announcements')
-      if (bgpResponse.ok) {
-        const bgpData = await bgpResponse.json()
-        setBgpAnnouncements(bgpData.announcements || [])
-      }
+      const bgpResponse = await apiClient.get('/network/bgp/announcements')
+      setBgpAnnouncements(bgpResponse.data.announcements || [])
     } catch (error) {
       console.error('加载数据失败:', error)
       message.error('加载数据失败')

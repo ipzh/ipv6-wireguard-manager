@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Typography, Table, Tag, Button, Modal, Form, Input, InputNumber, message, Space, Popconfirm, Switch } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, PauseCircleOutlined, CopyOutlined } from '@ant-design/icons'
+import { apiClient } from '../services/api'
 
 const { Title } = Typography
 
@@ -30,11 +31,8 @@ const ServersPage: React.FC = () => {
   const loadServers = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/servers')
-      if (response.ok) {
-        const data = await response.json()
-        setServers(data.servers || [])
-      }
+      const response = await apiClient.get('/wireguard/servers')
+      setServers(response.data.servers || [])
     } catch (error) {
       console.error('加载服务器失败:', error)
       message.error('加载服务器失败')
@@ -61,15 +59,9 @@ const ServersPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/v1/servers/${id}`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        message.success('删除成功')
-        loadServers()
-      } else {
-        message.error('删除失败')
-      }
+      await apiClient.delete(`/wireguard/servers/${id}`)
+      message.success('删除成功')
+      loadServers()
     } catch (error) {
       console.error('删除失败:', error)
       message.error('删除失败')
@@ -79,19 +71,9 @@ const ServersPage: React.FC = () => {
   const handleToggleStatus = async (id: number, currentStatus: string) => {
     try {
       const newStatus = currentStatus === 'running' ? 'stopped' : 'running'
-      const response = await fetch(`/api/v1/servers/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      })
-      if (response.ok) {
-        message.success(`服务器已${newStatus === 'running' ? '启动' : '停止'}`)
-        loadServers()
-      } else {
-        message.error('操作失败')
-      }
+      await apiClient.put(`/wireguard/servers/${id}/status`, { status: newStatus })
+      message.success(`服务器已${newStatus === 'running' ? '启动' : '停止'}`)
+      loadServers()
     } catch (error) {
       console.error('操作失败:', error)
       message.error('操作失败')
@@ -100,27 +82,15 @@ const ServersPage: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      const url = editingRecord 
-        ? `/api/v1/servers/${editingRecord.id}`
-        : '/api/v1/servers'
-      
-      const method = editingRecord ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(values)
-      })
-
-      if (response.ok) {
-        message.success(editingRecord ? '更新成功' : '添加成功')
-        setModalVisible(false)
-        loadServers()
+      if (editingRecord) {
+        await apiClient.put(`/wireguard/servers/${editingRecord.id}`, values)
+        message.success('更新成功')
       } else {
-        message.error(editingRecord ? '更新失败' : '添加失败')
+        await apiClient.post('/wireguard/servers', values)
+        message.success('添加成功')
       }
+      setModalVisible(false)
+      loadServers()
     } catch (error) {
       console.error('操作失败:', error)
       message.error('操作失败')

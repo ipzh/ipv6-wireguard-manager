@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Typography, Table, Tag, Button, Modal, Form, Input, InputNumber, message, Space, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons'
+import { apiClient } from '../services/api'
 
 const { Title } = Typography
 
@@ -23,11 +24,8 @@ const NetworkPage: React.FC = () => {
   const loadBGPAnnouncements = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/bgp/announcements')
-      if (response.ok) {
-        const data = await response.json()
-        setBgpAnnouncements(data.announcements || [])
-      }
+      const response = await apiClient.get('/network/bgp/announcements')
+      setBgpAnnouncements(response.data.announcements || [])
     } catch (error) {
       console.error('加载BGP宣告失败:', error)
       message.error('加载BGP宣告失败')
@@ -54,15 +52,9 @@ const NetworkPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/v1/bgp/announcements/${id}`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        message.success('删除成功')
-        loadBGPAnnouncements()
-      } else {
-        message.error('删除失败')
-      }
+      await apiClient.delete(`/network/bgp/announcements/${id}`)
+      message.success('删除成功')
+      loadBGPAnnouncements()
     } catch (error) {
       console.error('删除失败:', error)
       message.error('删除失败')
@@ -71,27 +63,15 @@ const NetworkPage: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      const url = editingRecord 
-        ? `/api/v1/bgp/announcements/${editingRecord.id}`
-        : '/api/v1/bgp/announcements'
-      
-      const method = editingRecord ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(values)
-      })
-
-      if (response.ok) {
-        message.success(editingRecord ? '更新成功' : '添加成功')
-        setModalVisible(false)
-        loadBGPAnnouncements()
+      if (editingRecord) {
+        await apiClient.put(`/network/bgp/announcements/${editingRecord.id}`, values)
+        message.success('更新成功')
       } else {
-        message.error(editingRecord ? '更新失败' : '添加失败')
+        await apiClient.post('/network/bgp/announcements', values)
+        message.success('添加成功')
       }
+      setModalVisible(false)
+      loadBGPAnnouncements()
     } catch (error) {
       console.error('操作失败:', error)
       message.error('操作失败')
