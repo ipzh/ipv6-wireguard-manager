@@ -392,18 +392,23 @@ setup_database() {
     sudo -u postgres psql -c "ALTER USER ipv6wgm CREATEDB;" 2>/dev/null || true
     
     # 配置PostgreSQL认证
-    PG_HBA_FILE="/etc/postgresql/*/main/pg_hba.conf"
-    if [ -f $PG_HBA_FILE ]; then
+    # 查找PostgreSQL配置文件
+    PG_HBA_FILE=$(find /etc/postgresql -name "pg_hba.conf" 2>/dev/null | head -1)
+    if [ -n "$PG_HBA_FILE" ] && [ -f "$PG_HBA_FILE" ]; then
+        log_info "Found PostgreSQL config: $PG_HBA_FILE"
         # 备份原配置
-        cp $PG_HBA_FILE ${PG_HBA_FILE}.backup
+        cp "$PG_HBA_FILE" "${PG_HBA_FILE}.backup"
         
         # 添加信任认证
-        echo "local   all             ipv6wgm                                trust" >> $PG_HBA_FILE
-        echo "host    all             ipv6wgm        127.0.0.1/32            trust" >> $PG_HBA_FILE
-        echo "host    all             ipv6wgm        ::1/128                 trust" >> $PG_HBA_FILE
+        echo "local   all             ipv6wgm                                trust" >> "$PG_HBA_FILE"
+        echo "host    all             ipv6wgm        127.0.0.1/32            trust" >> "$PG_HBA_FILE"
+        echo "host    all             ipv6wgm        ::1/128                 trust" >> "$PG_HBA_FILE"
         
         # 重启PostgreSQL
         systemctl restart postgresql
+        log_info "PostgreSQL authentication configured"
+    else
+        log_warning "PostgreSQL config file not found, skipping authentication setup"
     fi
     
     log_success "数据库配置完成"
