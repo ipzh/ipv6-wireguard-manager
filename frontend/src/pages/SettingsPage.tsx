@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Typography, Tabs, Form, Input, Button, message, Space, Divider, Switch, Select, InputNumber, Checkbox } from 'antd'
-import { UserOutlined, LockOutlined, MailOutlined, SettingOutlined, SecurityScanOutlined, GlobalOutlined } from '@ant-design/icons'
+import { Card, Typography, Tabs, Form, Input, Button, message, Space, Divider, Switch, Select, InputNumber, Checkbox, Modal, Progress, Alert } from 'antd'
+import { UserOutlined, LockOutlined, MailOutlined, SettingOutlined, SecurityScanOutlined, GlobalOutlined, ToolOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 
 const { Title } = Typography
 const { TabPane } = Tabs
@@ -69,6 +69,21 @@ const SettingsPage: React.FC = () => {
   const [passwordForm] = Form.useForm()
   const [settingsForm] = Form.useForm()
   const [domainForm] = Form.useForm()
+  
+  // 系统管理相关状态
+  const [systemModalVisible, setSystemModalVisible] = useState(false)
+  const [systemAction, setSystemAction] = useState<'uninstall' | 'reinstall' | null>(null)
+  const [systemProgress, setSystemProgress] = useState(0)
+  const [systemLogs, setSystemLogs] = useState<string[]>([])
+  const [systemConfirmText, setSystemConfirmText] = useState('')
+  const [systemInfo, setSystemInfo] = useState({
+    version: 'v1.0.0',
+    install_date: '2024-10-12',
+    backend_status: '运行中',
+    database_status: '正常',
+    nginx_status: '运行中',
+    uptime: '未知'
+  })
 
   const loadUserProfile = async () => {
     setProfileLoading(true)
@@ -112,10 +127,28 @@ const SettingsPage: React.FC = () => {
     }
   }
 
+  const loadSystemInfo = async () => {
+    try {
+      const response = await fetch('/api/v1/system/info', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setSystemInfo(data)
+      }
+    } catch (error) {
+      console.error('获取系统信息失败:', error)
+    }
+  }
+
   useEffect(() => {
     loadUserProfile()
     loadSystemSettings()
     loadDomainSettings()
+    loadSystemInfo()
   }, [])
 
   const handleProfileUpdate = async (values: any) => {
@@ -225,6 +258,101 @@ const SettingsPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 系统管理函数
+  const handleSystemAction = (action: 'uninstall' | 'reinstall') => {
+    setSystemAction(action)
+    setSystemModalVisible(true)
+    setSystemProgress(0)
+    setSystemLogs([])
+    setSystemConfirmText('')
+  }
+
+  const confirmSystemAction = async () => {
+    if (!systemAction) return
+
+    const requiredText = systemAction === 'uninstall' ? 'UNINSTALL' : 'REINSTALL'
+    if (systemConfirmText !== requiredText) {
+      message.error(`请输入 "${requiredText}" 确认操作`)
+      return
+    }
+
+    setLoading(true)
+    setSystemProgress(0)
+    setSystemLogs([])
+
+    try {
+      // 调用后端API执行系统操作
+      const response = await fetch('/api/v1/system/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          action: systemAction,
+          confirm_text: systemConfirmText
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || '操作失败')
+      }
+
+      const result = await response.json()
+      
+      // 模拟操作进度
+      const steps = systemAction === 'uninstall' 
+        ? [
+            '停止服务...',
+            '备份配置文件...',
+            '删除应用文件...',
+            '清理数据库...',
+            '卸载完成'
+          ]
+        : [
+            '停止服务...',
+            '备份当前配置...',
+            '下载最新版本...',
+            '重新安装依赖...',
+            '恢复配置...',
+            '启动服务...',
+            '重新安装完成'
+          ]
+
+      for (let i = 0; i < steps.length; i++) {
+        setSystemLogs(prev => [...prev, steps[i]])
+        setSystemProgress((i + 1) * (100 / steps.length))
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+
+      if (systemAction === 'uninstall') {
+        message.success('系统卸载完成，页面将在5秒后跳转')
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 5000)
+      } else {
+        message.success('系统重新安装完成，页面将在3秒后刷新')
+        setTimeout(() => {
+          window.location.reload()
+        }, 3000)
+      }
+    } catch (error) {
+      message.error(`${systemAction === 'uninstall' ? '卸载' : '重新安装'}失败: ${error.message}`)
+    } finally {
+      setLoading(false)
+      setSystemModalVisible(false)
+    }
+  }
+
+  const cancelSystemAction = () => {
+    setSystemModalVisible(false)
+    setSystemAction(null)
+    setSystemProgress(0)
+    setSystemLogs([])
+    setSystemConfirmText('')
   }
 
   return (
@@ -739,7 +867,213 @@ MIIEvQIBADANBgkqhkiG9w0B...
             </Form>
           </Card>
         </TabPane>
+
+        <TabPane 
+          tab={
+            <span>
+              <ToolOutlined />
+              系统管理
+            </span>
+          } 
+          key="system-management"
+        >
+          <Card title="系统管理">
+            <Alert
+              message="危险操作警告"
+              description="以下操作将影响整个系统，请谨慎操作。建议在执行前备份重要数据。"
+              type="warning"
+              showIcon
+              style={{ marginBottom: 24 }}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <Title level={4}>系统操作</Title>
+                <div className="space-y-4">
+                  <Card size="small" title="完全卸载系统">
+                    <p className="text-gray-600 mb-4">
+                      完全卸载IPv6 WireGuard Manager系统，包括：
+                    </p>
+                    <ul className="text-sm text-gray-600 mb-4 space-y-1">
+                      <li>• 停止所有服务</li>
+                      <li>• 删除应用文件</li>
+                      <li>• 清理数据库</li>
+                      <li>• 移除系统配置</li>
+                    </ul>
+                    <Button 
+                      type="primary" 
+                      danger 
+                      onClick={() => handleSystemAction('uninstall')}
+                      icon={<ExclamationCircleOutlined />}
+                    >
+                      完全卸载系统
+                    </Button>
+                  </Card>
+
+                  <Card size="small" title="重新安装系统">
+                    <p className="text-gray-600 mb-4">
+                      重新安装IPv6 WireGuard Manager系统，包括：
+                    </p>
+                    <ul className="text-sm text-gray-600 mb-4 space-y-1">
+                      <li>• 下载最新版本</li>
+                      <li>• 重新安装依赖</li>
+                      <li>• 恢复配置</li>
+                      <li>• 重启服务</li>
+                    </ul>
+                    <Button 
+                      type="primary" 
+                      onClick={() => handleSystemAction('reinstall')}
+                      icon={<ToolOutlined />}
+                    >
+                      重新安装系统
+                    </Button>
+                  </Card>
+                </div>
+              </div>
+
+              <div>
+                <Title level={4}>系统信息</Title>
+                <div className="space-y-4">
+                  <Card size="small" title="当前版本">
+                    <p className="text-lg font-semibold">{systemInfo.version}</p>
+                    <p className="text-sm text-gray-600">IPv6 WireGuard Manager</p>
+                  </Card>
+
+                  <Card size="small" title="安装时间">
+                    <p className="text-lg font-semibold">{systemInfo.install_date}</p>
+                    <p className="text-sm text-gray-600">系统首次安装时间</p>
+                  </Card>
+
+                  <Card size="small" title="系统状态">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>后端服务</span>
+                        <span className={systemInfo.backend_status === '运行中' ? 'text-green-600' : 'text-red-600'}>
+                          {systemInfo.backend_status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>数据库</span>
+                        <span className={systemInfo.database_status === '正常' ? 'text-green-600' : 'text-red-600'}>
+                          {systemInfo.database_status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Nginx</span>
+                        <span className={systemInfo.nginx_status === '运行中' ? 'text-green-600' : 'text-red-600'}>
+                          {systemInfo.nginx_status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>运行时间</span>
+                        <span className="text-blue-600">{systemInfo.uptime}</span>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </div>
+
+            <Divider />
+
+            <div>
+              <Title level={4}>备份与恢复</Title>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button 
+                  type="default" 
+                  block
+                  onClick={() => message.info('备份功能开发中...')}
+                >
+                  创建备份
+                </Button>
+                <Button 
+                  type="default" 
+                  block
+                  onClick={() => message.info('恢复功能开发中...')}
+                >
+                  恢复备份
+                </Button>
+                <Button 
+                  type="default" 
+                  block
+                  onClick={() => message.info('导出功能开发中...')}
+                >
+                  导出配置
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </TabPane>
       </Tabs>
+
+      {/* 系统操作确认模态框 */}
+      <Modal
+        title={
+          <div className="flex items-center">
+            <ExclamationCircleOutlined className="text-red-500 mr-2" />
+            {systemAction === 'uninstall' ? '确认卸载系统' : '确认重新安装'}
+          </div>
+        }
+        open={systemModalVisible}
+        onCancel={cancelSystemAction}
+        footer={null}
+        width={600}
+        closable={!loading}
+        maskClosable={!loading}
+      >
+        <div className="space-y-4">
+          <Alert
+            message={systemAction === 'uninstall' ? '卸载警告' : '重新安装警告'}
+            description={
+              systemAction === 'uninstall' 
+                ? '此操作将完全删除IPv6 WireGuard Manager系统，包括所有配置、用户数据和WireGuard配置。此操作不可逆！'
+                : '此操作将重新安装IPv6 WireGuard Manager系统，当前配置将被备份并在安装后恢复。'
+            }
+            type="error"
+            showIcon
+          />
+
+          <div>
+            <p className="mb-2">
+              请输入 <strong>{systemAction === 'uninstall' ? 'UNINSTALL' : 'REINSTALL'}</strong> 确认操作：
+            </p>
+            <Input
+              value={systemConfirmText}
+              onChange={(e) => setSystemConfirmText(e.target.value)}
+              placeholder={`请输入 ${systemAction === 'uninstall' ? 'UNINSTALL' : 'REINSTALL'}`}
+              disabled={loading}
+            />
+          </div>
+
+          {loading && (
+            <div>
+              <Progress percent={systemProgress} status="active" />
+              <div className="mt-2 max-h-32 overflow-y-auto">
+                {systemLogs.map((log, index) => (
+                  <div key={index} className="text-sm text-gray-600">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2">
+            <Button onClick={cancelSystemAction} disabled={loading}>
+              取消
+            </Button>
+            <Button
+              type="primary"
+              danger={systemAction === 'uninstall'}
+              onClick={confirmSystemAction}
+              loading={loading}
+              disabled={systemConfirmText !== (systemAction === 'uninstall' ? 'UNINSTALL' : 'REINSTALL')}
+            >
+              {systemAction === 'uninstall' ? '确认卸载' : '确认重新安装'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

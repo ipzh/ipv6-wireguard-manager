@@ -3,7 +3,7 @@ API v1 路由聚合
 """
 from fastapi import APIRouter
 
-from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket
+from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system
 
 api_router = APIRouter()
 
@@ -27,3 +27,6 @@ api_router.include_router(logs.router, prefix="/logs", tags=["日志管理"])
 
 # WebSocket实时通信路由
 api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket实时通信"])
+
+# 系统管理路由
+api_router.include_router(system.router, prefix="/system", tags=["系统管理"])
