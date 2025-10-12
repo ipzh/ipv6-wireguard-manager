@@ -90,7 +90,8 @@ detect_system() {
     DOCKER_COMPOSE_INSTALLED=false
     PYTHON_INSTALLED=false
     NODE_INSTALLED=false
-    GIT_INSTALLED=false
+    CURL_INSTALLED=false
+    WGET_INSTALLED=false
     
     if command -v docker >/dev/null 2>&1; then
         DOCKER_INSTALLED=true
@@ -111,9 +112,14 @@ detect_system() {
         NODE_VERSION=$(node --version)
     fi
     
-    if command -v git >/dev/null 2>&1; then
-        GIT_INSTALLED=true
-        GIT_VERSION=$(git --version | cut -d' ' -f3)
+    if command -v curl >/dev/null 2>&1; then
+        CURL_INSTALLED=true
+        CURL_VERSION=$(curl --version | head -n1 | cut -d' ' -f2)
+    fi
+    
+    if command -v wget >/dev/null 2>&1; then
+        WGET_INSTALLED=true
+        WGET_VERSION=$(wget --version | head -n1 | cut -d' ' -f3)
     fi
     
     # 显示系统信息
@@ -131,7 +137,8 @@ detect_system() {
     echo "   Docker Compose: $([ "$DOCKER_COMPOSE_INSTALLED" = true ] && echo "✅ 已安装" || echo "❌ 未安装")"
     echo "   Python3: $([ "$PYTHON_INSTALLED" = true ] && echo "✅ $PYTHON_VERSION" || echo "❌ 未安装")"
     echo "   Node.js: $([ "$NODE_INSTALLED" = true ] && echo "✅ $NODE_VERSION" || echo "❌ 未安装")"
-    echo "   Git: $([ "$GIT_INSTALLED" = true ] && echo "✅ $GIT_VERSION" || echo "❌ 未安装")"
+    echo "   curl: $([ "$CURL_INSTALLED" = true ] && echo "✅ $CURL_VERSION" || echo "❌ 未安装")"
+    echo "   wget: $([ "$WGET_INSTALLED" = true ] && echo "✅ $WGET_VERSION" || echo "❌ 未安装")"
     echo ""
 }
 
@@ -245,48 +252,28 @@ choose_installation_method() {
     echo ""
 }
 
-# 安装Git
-install_git() {
-    log_info "安装 Git..."
-    
-    case "$OS_ID" in
-        ubuntu|debian)
-            sudo apt-get update
-            sudo apt-get install -y git
-            ;;
-        centos|rhel|fedora)
-            if command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y git
-            else
-                sudo yum install -y git
-            fi
-            ;;
-        alpine)
-            sudo apk add --no-cache git
-            ;;
-        *)
-            log_error "不支持的操作系统: $OS_ID"
-            exit 1
-            ;;
-    esac
-    
-    if command -v git >/dev/null 2>&1; then
-        log_success "Git 安装成功"
+# 检查下载工具
+check_download_tool() {
+    if command -v curl >/dev/null 2>&1; then
+        DOWNLOAD_TOOL="curl"
+        DOWNLOAD_CMD="curl -L -o"
+    elif command -v wget >/dev/null 2>&1; then
+        DOWNLOAD_TOOL="wget"
+        DOWNLOAD_CMD="wget -O"
     else
-        log_error "Git 安装失败"
+        log_error "需要 curl 或 wget 来下载项目，但都未安装"
+        log_info "请安装 curl 或 wget 后重试"
         exit 1
     fi
+    log_info "使用下载工具: $DOWNLOAD_TOOL"
 }
 
 # 下载项目
 download_project() {
     log_step "下载项目..."
     
-    # 检查Git是否已安装
-    if [ "$GIT_INSTALLED" != true ]; then
-        log_warning "Git 未安装，正在自动安装..."
-        install_git
-    fi
+    # 检查下载工具
+    check_download_tool
     
     # 检查是否已存在项目目录
     if [ -d "ipv6-wireguard-manager" ]; then
@@ -312,14 +299,39 @@ download_project() {
         fi
     fi
     
-    # 下载项目
-    log_info "从 GitHub 下载项目..."
-    if git clone "$REPO_URL" ipv6-wireguard-manager; then
-        log_success "项目下载成功"
+    # 下载项目压缩包
+    log_info "从 GitHub 下载项目压缩包..."
+    DOWNLOAD_URL="https://github.com/ipzh/ipv6-wireguard-manager/archive/refs/heads/main.zip"
+    ZIP_FILE="ipv6-wireguard-manager.zip"
+    
+    if $DOWNLOAD_CMD "$ZIP_FILE" "$DOWNLOAD_URL"; then
+        log_success "项目压缩包下载成功"
     else
-        log_error "项目下载失败"
+        log_error "项目压缩包下载失败"
         exit 1
     fi
+    
+    # 解压项目
+    log_info "解压项目文件..."
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -q "$ZIP_FILE"
+    else
+        log_error "需要 unzip 来解压文件，但未安装"
+        log_info "请安装 unzip 后重试"
+        exit 1
+    fi
+    
+    # 重命名目录
+    if [ -d "ipv6-wireguard-manager-main" ]; then
+        mv ipv6-wireguard-manager-main ipv6-wireguard-manager
+        log_success "项目解压成功"
+    else
+        log_error "项目解压失败，目录不存在"
+        exit 1
+    fi
+    
+    # 清理压缩包
+    rm -f "$ZIP_FILE"
     
     # 进入项目目录
     cd ipv6-wireguard-manager || exit 1
