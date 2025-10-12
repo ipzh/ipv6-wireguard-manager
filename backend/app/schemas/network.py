@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 # Network Interface Schemas
 class NetworkInterfaceBase(BaseModel):
@@ -12,7 +12,8 @@ class NetworkInterfaceBase(BaseModel):
     mac_address: Optional[str] = None
     mtu: Optional[int] = None
 
-    @validator('type')
+    @field_validator('type')
+    @classmethod
     def validate_type(cls, v):
         allowed_types = ['physical', 'virtual', 'tunnel']
         if v not in allowed_types:
@@ -48,14 +49,16 @@ class FirewallRuleBase(BaseModel):
     action: str  # 'ACCEPT', 'DROP', 'REJECT', 'MASQUERADE', etc.
     priority: int = 0
 
-    @validator('table_name')
+    @field_validator('table_name')
+    @classmethod
     def validate_table(cls, v):
         allowed_tables = ['filter', 'nat', 'mangle', 'raw']
         if v not in allowed_tables:
             raise ValueError(f'表名必须是: {", ".join(allowed_tables)}')
         return v
 
-    @validator('action')
+    @field_validator('action')
+    @classmethod
     def validate_action(cls, v):
         allowed_actions = ['ACCEPT', 'DROP', 'REJECT', 'MASQUERADE', 'SNAT', 'DNAT']
         if v not in allowed_actions:

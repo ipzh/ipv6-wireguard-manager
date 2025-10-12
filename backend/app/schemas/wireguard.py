@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 
 # WireGuard Server Schemas
@@ -14,13 +14,15 @@ class WireGuardServerBase(BaseModel):
     dns_servers: Optional[List[str]] = None
     mtu: int = 1420
 
-    @validator('listen_port')
+    @field_validator('listen_port')
+    @classmethod
     def validate_port(cls, v):
         if not 1 <= v <= 65535:
             raise ValueError('端口必须在1-65535之间')
         return v
 
-    @validator('mtu')
+    @field_validator('mtu')
+    @classmethod
     def validate_mtu(cls, v):
         if not 68 <= v <= 65535:
             raise ValueError('MTU必须在68-65535之间')
@@ -60,7 +62,8 @@ class WireGuardClientBase(BaseModel):
     allowed_ips: Optional[List[str]] = None
     persistent_keepalive: int = 25
 
-    @validator('persistent_keepalive')
+    @field_validator('persistent_keepalive')
+    @classmethod
     def validate_keepalive(cls, v):
         if not 0 <= v <= 65535:
             raise ValueError('Keepalive必须在0-65535之间')

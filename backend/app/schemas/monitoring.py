@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from decimal import Decimal
 
 # System Metric Schemas
@@ -49,7 +49,8 @@ class OperationLogBase(BaseModel):
     error_message: Optional[str] = None
     execution_time: Optional[int] = None  # in milliseconds
 
-    @validator('status')
+    @field_validator('status')
+    @classmethod
     def validate_status(cls, v):
         allowed_statuses = ['success', 'failed', 'in_progress']
         if v not in allowed_statuses:
