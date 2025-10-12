@@ -90,6 +90,7 @@ detect_system() {
     DOCKER_COMPOSE_INSTALLED=false
     PYTHON_INSTALLED=false
     NODE_INSTALLED=false
+    GIT_INSTALLED=false
     
     if command -v docker >/dev/null 2>&1; then
         DOCKER_INSTALLED=true
@@ -110,6 +111,11 @@ detect_system() {
         NODE_VERSION=$(node --version)
     fi
     
+    if command -v git >/dev/null 2>&1; then
+        GIT_INSTALLED=true
+        GIT_VERSION=$(git --version | cut -d' ' -f3)
+    fi
+    
     # 显示系统信息
     echo "🖥️  系统信息:"
     echo "   操作系统: $OS_NAME $OS_VERSION"
@@ -125,6 +131,7 @@ detect_system() {
     echo "   Docker Compose: $([ "$DOCKER_COMPOSE_INSTALLED" = true ] && echo "✅ 已安装" || echo "❌ 未安装")"
     echo "   Python3: $([ "$PYTHON_INSTALLED" = true ] && echo "✅ $PYTHON_VERSION" || echo "❌ 未安装")"
     echo "   Node.js: $([ "$NODE_INSTALLED" = true ] && echo "✅ $NODE_VERSION" || echo "❌ 未安装")"
+    echo "   Git: $([ "$GIT_INSTALLED" = true ] && echo "✅ $GIT_VERSION" || echo "❌ 未安装")"
     echo ""
 }
 
@@ -238,9 +245,48 @@ choose_installation_method() {
     echo ""
 }
 
+# 安装Git
+install_git() {
+    log_info "安装 Git..."
+    
+    case "$OS_ID" in
+        ubuntu|debian)
+            sudo apt-get update
+            sudo apt-get install -y git
+            ;;
+        centos|rhel|fedora)
+            if command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y git
+            else
+                sudo yum install -y git
+            fi
+            ;;
+        alpine)
+            sudo apk add --no-cache git
+            ;;
+        *)
+            log_error "不支持的操作系统: $OS_ID"
+            exit 1
+            ;;
+    esac
+    
+    if command -v git >/dev/null 2>&1; then
+        log_success "Git 安装成功"
+    else
+        log_error "Git 安装失败"
+        exit 1
+    fi
+}
+
 # 下载项目
 download_project() {
     log_step "下载项目..."
+    
+    # 检查Git是否已安装
+    if [ "$GIT_INSTALLED" != true ]; then
+        log_warning "Git 未安装，正在自动安装..."
+        install_git
+    fi
     
     # 检查是否已存在项目目录
     if [ -d "ipv6-wireguard-manager" ]; then
