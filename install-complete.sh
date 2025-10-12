@@ -391,6 +391,13 @@ setup_database() {
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;" 2>/dev/null || true
     sudo -u postgres psql -c "ALTER USER ipv6wgm CREATEDB;" 2>/dev/null || true
     
+    # 授予用户对public schema的完整权限
+    sudo -u postgres psql -d ipv6wgm -c "GRANT ALL ON SCHEMA public TO ipv6wgm;" 2>/dev/null || true
+    sudo -u postgres psql -d ipv6wgm -c "GRANT CREATE ON SCHEMA public TO ipv6wgm;" 2>/dev/null || true
+    sudo -u postgres psql -d ipv6wgm -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ipv6wgm;" 2>/dev/null || true
+    sudo -u postgres psql -d ipv6wgm -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ipv6wgm;" 2>/dev/null || true
+    sudo -u postgres psql -d ipv6wgm -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO ipv6wgm;" 2>/dev/null || true
+    
     # 配置PostgreSQL认证
     # 查找PostgreSQL配置文件
     PG_HBA_FILE=$(find /etc/postgresql -name "pg_hba.conf" 2>/dev/null | head -1)
