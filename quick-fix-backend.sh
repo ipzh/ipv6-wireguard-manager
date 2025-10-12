@@ -9,6 +9,10 @@ systemctl stop ipv6-wireguard-manager
 echo "修复 auth.py 导入问题..."
 sed -i 's/from ....core.security import create_access_token, verify_password, get_password_hash/from ....core.security import create_access_token, verify_password, get_password_hash, get_current_user_id/g' /opt/ipv6-wireguard-manager/backend/app/api/api_v1/endpoints/auth.py
 
+# 修复FastAPI响应模型问题
+echo "修复 FastAPI 响应模型问题..."
+sed -i 's/@router.post("\/test-token", response_model=User)/@router.post("\/test-token", response_model=None)/g' /opt/ipv6-wireguard-manager/backend/app/api/api_v1/endpoints/auth.py
+
 # 验证修复
 echo "验证修复..."
 cd /opt/ipv6-wireguard-manager/backend

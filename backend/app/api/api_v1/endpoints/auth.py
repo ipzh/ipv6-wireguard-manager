@@ -90,11 +90,11 @@ async def login_access_token(
     )
 
 
-@router.post("/test-token", response_model=User)
+@router.post("/test-token", response_model=None)
 async def test_token(
-    current_user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_async_db)
-) -> Any:
+    db: AsyncSession = Depends(get_async_db),
+    current_user_id: str = Depends(get_current_user_id)
+) -> User:
     """
     测试令牌有效性
     """
