@@ -498,10 +498,21 @@ setup_database() {
             ;;
     esac
     
-    # 创建数据库和用户
+    # 创建数据库和用户（如果不存在）
     sudo -u postgres psql << EOF
-CREATE DATABASE ipv6wgm;
-CREATE USER ipv6wgm WITH PASSWORD 'password';
+-- 创建数据库（如果不存在）
+SELECT 'CREATE DATABASE ipv6wgm' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ipv6wgm')\gexec
+
+-- 创建用户（如果不存在）
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ipv6wgm') THEN
+        CREATE USER ipv6wgm WITH PASSWORD 'password';
+    END IF;
+END
+\$\$;
+
+-- 授权
 GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;
 \q
 EOF
@@ -511,11 +522,16 @@ EOF
         ubuntu|debian|centos|rhel|fedora)
             # 尝试不同的Redis服务名称
             if systemctl list-unit-files | grep -q "redis-server.service"; then
-                sudo systemctl start redis-server
-                sudo systemctl enable redis-server
+                echo "🔧 启动 redis-server 服务..."
+                sudo systemctl start redis-server || echo "⚠️  redis-server 启动失败"
+                sudo systemctl enable redis-server || echo "⚠️  redis-server 启用失败"
             elif systemctl list-unit-files | grep -q "redis.service"; then
-                sudo systemctl start redis
-                sudo systemctl enable redis
+                echo "🔧 启动 redis 服务..."
+                sudo systemctl start redis || echo "⚠️  redis 启动失败"
+                # 避免启用别名服务
+                if ! systemctl is-enabled redis >/dev/null 2>&1; then
+                    sudo systemctl enable redis || echo "⚠️  redis 启用失败"
+                fi
             else
                 echo "⚠️  Redis服务未找到，请手动启动"
             fi
@@ -660,23 +676,41 @@ setup_permissions() {
 init_database() {
     echo "🗄️  初始化数据库..."
     
+    # 检查目录是否存在
+    if [ ! -d "$APP_HOME/backend" ]; then
+        echo "❌ 后端目录不存在: $APP_HOME/backend"
+        echo "📁 检查目录结构:"
+        ls -la "$APP_HOME" 2>/dev/null || echo "   $APP_HOME 不存在"
+        return 1
+    fi
+    
     cd "$APP_HOME/backend"
+    echo "   当前目录: $(pwd)"
+    
+    # 检查虚拟环境
+    if [ ! -d "venv" ]; then
+        echo "❌ 虚拟环境不存在，跳过数据库初始化"
+        return 1
+    fi
+    
     source venv/bin/activate
     
     # 运行数据库迁移
+    echo "🔧 创建数据库表..."
     python -c "
 from app.core.database import engine
 from app.models import Base
 Base.metadata.create_all(bind=engine)
 print('数据库表创建完成')
-"
+" || echo "⚠️  数据库表创建失败"
     
     # 初始化默认数据
+    echo "🔧 初始化默认数据..."
     python -c "
 from app.core.init_db import init_db
 init_db()
 print('默认数据初始化完成')
-"
+" || echo "⚠️  默认数据初始化失败"
     
     echo "✅ 数据库初始化完成"
 }
