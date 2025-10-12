@@ -50,6 +50,7 @@ class IPv6Allocation(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pool_id = Column(UUID(as_uuid=True), ForeignKey("ipv6_prefix_pools.id"), nullable=False)
     client_id = Column(UUID(as_uuid=True), ForeignKey("wireguard_clients.id"), nullable=True)
+    server_id = Column(UUID(as_uuid=True), ForeignKey("wireguard_servers.id"), nullable=True)
     
     allocated_prefix = Column(String(128), nullable=False)  # 分配的前缀
     allocated_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -59,6 +60,7 @@ class IPv6Allocation(Base):
     # 关联关系
     pool = relationship("IPv6PrefixPool", back_populates="allocations")
     client = relationship("WireGuardClient", back_populates="ipv6_allocations")
+    server = relationship("WireGuardServer", back_populates="ipv6_allocations")
 
 
 class IPv6Whitelist(Base):
