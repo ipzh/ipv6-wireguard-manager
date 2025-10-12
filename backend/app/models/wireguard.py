@@ -38,6 +38,7 @@ class WireGuardServer(Base):
 
     # 关系
     clients = relationship("WireGuardClient", secondary="client_server_relations", back_populates="servers")
+    ipv6_allocations = relationship("IPv6Allocation", back_populates="server")
 
     def __repr__(self):
         return f"<WireGuardServer(id={self.id}, name={self.name}, interface={self.interface})>"
@@ -67,6 +68,7 @@ class WireGuardClient(Base):
 
     # 关系
     servers = relationship("WireGuardServer", secondary="client_server_relations", back_populates="clients")
+    ipv6_allocations = relationship("IPv6Allocation", back_populates="client")
 
     def __repr__(self):
         return f"<WireGuardClient(id={self.id}, name={self.name})>"

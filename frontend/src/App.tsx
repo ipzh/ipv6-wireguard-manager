@@ -6,6 +6,8 @@ import DashboardPage from '@pages/DashboardPage'
 import ClientsPage from '@pages/ClientsPage'
 import ServersPage from '@pages/ServersPage'
 import NetworkPage from '@pages/NetworkPage'
+import BGPSessionsPage from '@pages/BGPSessionsPage'
+import IPv6PoolsPage from '@pages/IPv6PoolsPage'
 import MonitoringPage from '@pages/MonitoringPage'
 import LogsPage from '@pages/LogsPage'
 import UsersPage from '@pages/UsersPage'
@@ -32,6 +34,8 @@ const App: React.FC = () => {
                 <Route path="/clients" element={<ClientsPage />} />
                 <Route path="/servers" element={<ServersPage />} />
                 <Route path="/network" element={<NetworkPage />} />
+                <Route path="/bgp-sessions" element={<BGPSessionsPage />} />
+                <Route path="/ipv6-pools" element={<IPv6PoolsPage />} />
                 <Route path="/monitoring" element={<MonitoringPage />} />
                 <Route path="/logs" element={<LogsPage />} />
                 <Route path="/users" element={<UsersPage />} />

@@ -6,6 +6,8 @@ import {
   UserOutlined,
   CloudServerOutlined,
   GlobalOutlined,
+  ApiOutlined,
+  DatabaseOutlined,
   MonitorOutlined,
   FileTextOutlined,
   TeamOutlined,
@@ -43,6 +45,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       key: '/network',
       icon: <GlobalOutlined />,
       label: '网络管理',
+    },
+    {
+      key: '/bgp-sessions',
+      icon: <ApiOutlined />,
+      label: 'BGP会话',
+    },
+    {
+      key: '/ipv6-pools',
+      icon: <DatabaseOutlined />,
+      label: 'IPv6前缀池',
     },
     {
       key: '/monitoring',
