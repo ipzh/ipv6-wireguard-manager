@@ -417,11 +417,19 @@ setup_postgresql_low_memory() {
 optimize_postgresql_low_memory() {
     log_info "优化PostgreSQL低内存配置..."
     
+    # 查找PostgreSQL配置目录
+    local postgresql_conf_dir=$(find /etc/postgresql -name "postgresql.conf" -type f | head -1 | xargs dirname 2>/dev/null || echo "")
+    
+    if [ -z "$postgresql_conf_dir" ]; then
+        log_warning "未找到PostgreSQL配置文件，跳过优化配置"
+        return 0
+    fi
+    
     # 备份原始配置
-    cp /etc/postgresql/*/main/postgresql.conf /etc/postgresql/*/main/postgresql.conf.backup
+    cp "$postgresql_conf_dir/postgresql.conf" "$postgresql_conf_dir/postgresql.conf.backup"
     
     # 应用低内存优化配置
-    cat >> /etc/postgresql/*/main/postgresql.conf << 'EOF'
+    cat >> "$postgresql_conf_dir/postgresql.conf" << 'EOF'
 
 # IPv6 WireGuard Manager 低内存优化配置
 shared_buffers = 64MB
