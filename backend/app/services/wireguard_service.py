@@ -1,3 +1,6 @@
+"""
+WireGuard服务
+"""
 import uuid
 import subprocess
 import os
@@ -14,9 +17,9 @@ from ..models.wireguard import WireGuardServer, WireGuardClient
 from ..schemas.wireguard import (
     WireGuardServerCreate, WireGuardServerUpdate,
     WireGuardClientCreate, WireGuardClientUpdate,
-    WireGuardStatus, WireGuardInterfaceStatus, WireGuardPeerStatus
+    WireGuardStatus, WireGuardInterfaceStatus, WireGuardPeerStatus,
+    WireGuardConfig, WireGuardPeer
 )
-from ..core.security import get_password_hash
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,6 +60,171 @@ class WireGuardService:
             logger.error(f"生成密钥对失败: {e}")
             raise
 
+    async def get_config(self) -> WireGuardConfig:
+        """获取WireGuard配置"""
+        try:
+            # 获取所有服务器
+            servers = await self.get_servers()
+            if not servers:
+                return WireGuardConfig(server_config="", client_configs=[])
+            
+            server = servers[0]  # 使用第一个服务器
+            server_config = await self.generate_server_config(server)
+            
+            # 获取所有客户端
+            clients = await self.get_clients_by_server(server.id)
+            client_configs = []
+            
+            for client in clients:
+                client_config = await self.generate_client_config(client)
+                client_configs.append({
+                    "id": str(client.id),
+                    "name": client.name,
+                    "config": client_config
+                })
+            
+            return WireGuardConfig(
+                server_config=server_config,
+                client_configs=client_configs
+            )
+        except Exception as e:
+            logger.error(f"获取配置失败: {e}")
+            raise
+
+    async def update_config(self, config: WireGuardConfig) -> WireGuardConfig:
+        """更新WireGuard配置"""
+        try:
+            # 这里可以实现配置更新逻辑
+            # 暂时返回原配置
+            return config
+        except Exception as e:
+            logger.error(f"更新配置失败: {e}")
+            raise
+
+    async def get_peers(self) -> List[WireGuardPeer]:
+        """获取所有对等节点"""
+        try:
+            clients = await self.get_all_clients()
+            peers = []
+            
+            for client in clients:
+                peer = WireGuardPeer(
+                    id=str(client.id),
+                    name=client.name,
+                    public_key=client.public_key,
+                    allowed_ips=client.allowed_ips or [],
+                    endpoint=None,
+                    persistent_keepalive=client.persistent_keepalive
+                )
+                peers.append(peer)
+            
+            return peers
+        except Exception as e:
+            logger.error(f"获取对等节点失败: {e}")
+            raise
+
+    async def create_peer(self, peer: WireGuardPeer) -> WireGuardPeer:
+        """创建新的对等节点"""
+        try:
+            # 获取第一个服务器
+            servers = await self.get_servers()
+            if not servers:
+                raise Exception("没有可用的服务器")
+            
+            server = servers[0]
+            
+            # 创建客户端
+            client_data = WireGuardClientCreate(
+                server_id=server.id,
+                name=peer.name,
+                allowed_ips=peer.allowed_ips,
+                persistent_keepalive=peer.persistent_keepalive
+            )
+            
+            client = await self.create_client(client_data)
+            
+            return WireGuardPeer(
+                id=str(client.id),
+                name=client.name,
+                public_key=client.public_key,
+                allowed_ips=client.allowed_ips or [],
+                endpoint=None,
+                persistent_keepalive=client.persistent_keepalive
+            )
+        except Exception as e:
+            logger.error(f"创建对等节点失败: {e}")
+            raise
+
+    async def get_peer(self, peer_id: str) -> Optional[WireGuardPeer]:
+        """获取单个对等节点"""
+        try:
+            client = await self.get_client_by_id(uuid.UUID(peer_id))
+            if not client:
+                return None
+            
+            return WireGuardPeer(
+                id=str(client.id),
+                name=client.name,
+                public_key=client.public_key,
+                allowed_ips=client.allowed_ips or [],
+                endpoint=None,
+                persistent_keepalive=client.persistent_keepalive
+            )
+        except Exception as e:
+            logger.error(f"获取对等节点失败: {e}")
+            return None
+
+    async def update_peer(self, peer_id: str, peer: WireGuardPeer) -> Optional[WireGuardPeer]:
+        """更新对等节点"""
+        try:
+            client = await self.get_client_by_id(uuid.UUID(peer_id))
+            if not client:
+                return None
+            
+            # 更新客户端
+            client_data = WireGuardClientUpdate(
+                name=peer.name,
+                allowed_ips=peer.allowed_ips,
+                persistent_keepalive=peer.persistent_keepalive
+            )
+            
+            updated_client = await self.update_client(client, client_data)
+            
+            return WireGuardPeer(
+                id=str(updated_client.id),
+                name=updated_client.name,
+                public_key=updated_client.public_key,
+                allowed_ips=updated_client.allowed_ips or [],
+                endpoint=None,
+                persistent_keepalive=updated_client.persistent_keepalive
+            )
+        except Exception as e:
+            logger.error(f"更新对等节点失败: {e}")
+            return None
+
+    async def delete_peer(self, peer_id: str) -> bool:
+        """删除对等节点"""
+        try:
+            client = await self.get_client_by_id(uuid.UUID(peer_id))
+            if not client:
+                return False
+            
+            await self.delete_client(client)
+            return True
+        except Exception as e:
+            logger.error(f"删除对等节点失败: {e}")
+            return False
+
+    async def restart_peer(self, peer_id: str) -> bool:
+        """重启对等节点"""
+        try:
+            # 这里可以实现重启逻辑
+            # 暂时返回成功
+            return True
+        except Exception as e:
+            logger.error(f"重启对等节点失败: {e}")
+            return False
+
     async def create_server(self, server_in: WireGuardServerCreate) -> WireGuardServer:
         """创建WireGuard服务器"""
         try:
@@ -88,43 +256,6 @@ class WireGuardService:
         except Exception as e:
             await self.db.rollback()
             logger.error(f"创建服务器失败: {e}")
-            raise
-
-    async def update_server(self, server: WireGuardServer, server_in: WireGuardServerUpdate) -> WireGuardServer:
-        """更新WireGuard服务器"""
-        try:
-            update_data = server_in.model_dump(exclude_unset=True)
-            for field, value in update_data.items():
-                setattr(server, field, value)
-            
-            await self.db.commit()
-            await self.db.refresh(server)
-            
-            # 重新生成配置文件
-            await self.generate_server_config(server)
-            
-            return server
-        except Exception as e:
-            await self.db.rollback()
-            logger.error(f"更新服务器失败: {e}")
-            raise
-
-    async def delete_server(self, server: WireGuardServer):
-        """删除WireGuard服务器"""
-        try:
-            # 停止服务器
-            await self.stop_server(server)
-            
-            # 删除配置文件
-            if server.config_file_path and os.path.exists(server.config_file_path):
-                os.remove(server.config_file_path)
-            
-            # 删除数据库记录
-            await self.db.delete(server)
-            await self.db.commit()
-        except Exception as e:
-            await self.db.rollback()
-            logger.error(f"删除服务器失败: {e}")
             raise
 
     async def get_server_by_id(self, server_id: uuid.UUID) -> Optional[WireGuardServer]:
@@ -177,253 +308,6 @@ PersistentKeepalive = {client.persistent_keepalive}
             logger.error(f"生成服务器配置失败: {e}")
             raise
 
-    async def start_server(self, server: WireGuardServer) -> bool:
-        """启动WireGuard服务器"""
-        try:
-            cmd = ["wg-quick", "up", server.interface]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                server.is_active = True
-                await self.db.commit()
-                logger.info(f"服务器 {server.name} 启动成功")
-                return True
-            else:
-                logger.error(f"启动服务器失败: {result.stderr}")
-                return False
-        except Exception as e:
-            logger.error(f"启动服务器异常: {e}")
-            return False
-
-    async def stop_server(self, server: WireGuardServer) -> bool:
-        """停止WireGuard服务器"""
-        try:
-            cmd = ["wg-quick", "down", server.interface]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                server.is_active = False
-                await self.db.commit()
-                logger.info(f"服务器 {server.name} 停止成功")
-                return True
-            else:
-                logger.error(f"停止服务器失败: {result.stderr}")
-                return False
-        except Exception as e:
-            logger.error(f"停止服务器异常: {e}")
-            return False
-
-    async def restart_server(self, server: WireGuardServer) -> bool:
-        """重启WireGuard服务器"""
-        await self.stop_server(server)
-        return await self.start_server(server)
-
-    async def get_server_status(self, server: WireGuardServer) -> WireGuardStatus:
-        """获取服务器状态"""
-        try:
-            cmd = ["wg", "show", server.interface]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode != 0:
-                raise Exception(f"获取状态失败: {result.stderr}")
-            
-            # 解析wg show输出
-            lines = result.stdout.strip().split('\n')
-            interface_info = WireGuardInterfaceStatus(
-                interface=server.interface,
-                public_key=server.public_key,
-                private_key=server.private_key,
-                listening_port=server.listen_port,
-                peers=0
-            )
-            
-            peers = []
-            for line in lines:
-                if line.startswith('peer:'):
-                    # 解析peer信息
-                    peer_info = self.parse_peer_info(line)
-                    if peer_info:
-                        peers.append(peer_info)
-            
-            interface_info.peers = len(peers)
-            
-            return WireGuardStatus(
-                interface=interface_info,
-                peers=peers
-            )
-        except Exception as e:
-            logger.error(f"获取服务器状态失败: {e}")
-            raise
-
-    def parse_peer_info(self, peer_line: str) -> Optional[WireGuardPeerStatus]:
-        """解析peer信息 - 完善版本"""
-        try:
-            # 解析实际的wg show输出格式
-            # 示例: peer: <public_key> endpoint <endpoint> allowed ips <ips> latest handshake <time> transfer <tx> <rx> persistent keepalive <interval>
-            
-            parts = peer_line.split()
-            peer_info = {
-                'public_key': '',
-                'preshared_key': '',
-                'allowed_ips': [],
-                'persistent_keepalive': 0,
-                'latest_handshake': None,
-                'transfer_tx': 0,
-                'transfer_rx': 0,
-                'endpoint': None
-            }
-            
-            i = 0
-            while i < len(parts):
-                if parts[i] == 'peer:':
-                    i += 1
-                    if i < len(parts):
-                        peer_info['public_key'] = parts[i]
-                elif parts[i] == 'endpoint':
-                    i += 1
-                    if i < len(parts):
-                        peer_info['endpoint'] = parts[i]
-                elif parts[i] == 'allowed' and i + 1 < len(parts) and parts[i + 1] == 'ips':
-                    i += 2
-                    allowed_ips = []
-                    while i < len(parts) and not parts[i].startswith('latest') and not parts[i].startswith('transfer') and not parts[i].startswith('persistent'):
-                        allowed_ips.append(parts[i])
-                        i += 1
-                    peer_info['allowed_ips'] = allowed_ips
-                    continue
-                elif parts[i] == 'latest' and i + 1 < len(parts) and parts[i + 1] == 'handshake':
-                    i += 2
-                    if i < len(parts):
-                        # 解析时间戳
-                        try:
-                            peer_info['latest_handshake'] = int(parts[i])
-                        except ValueError:
-                            peer_info['latest_handshake'] = None
-                elif parts[i] == 'transfer':
-                    i += 1
-                    if i + 1 < len(parts):
-                        try:
-                            peer_info['transfer_rx'] = int(parts[i])
-                            peer_info['transfer_tx'] = int(parts[i + 1])
-                            i += 1
-                        except ValueError:
-                            pass
-                elif parts[i] == 'persistent' and i + 1 < len(parts) and parts[i + 1] == 'keepalive':
-                    i += 2
-                    if i < len(parts):
-                        try:
-                            peer_info['persistent_keepalive'] = int(parts[i])
-                        except ValueError:
-                            pass
-                i += 1
-            
-            return WireGuardPeerStatus(**peer_info)
-        except Exception as e:
-            logger.error(f"解析peer信息失败: {e}")
-            return None
-                elif parts[i] == 'transfer':
-                    if i + 2 < len(parts):
-                        try:
-                            peer_info['transfer_tx'] = int(parts[i + 1])
-                            peer_info['transfer_rx'] = int(parts[i + 2])
-                        except ValueError:
-                            pass
-                elif parts[i] == 'persistent' and i + 1 < len(parts) and parts[i + 1] == 'keepalive':
-                    if i + 2 < len(parts):
-                        try:
-                            peer_info['persistent_keepalive'] = int(parts[i + 2])
-                        except ValueError:
-                            pass
-                i += 1
-            
-            return WireGuardPeerStatus(
-                public_key=peer_info['public_key'],
-                preshared_key=peer_info['preshared_key'],
-                allowed_ips=peer_info['allowed_ips'],
-                persistent_keepalive=peer_info['persistent_keepalive'],
-                latest_handshake=peer_info['latest_handshake'],
-                transfer_tx=peer_info['transfer_tx'],
-                transfer_rx=peer_info['transfer_rx'],
-                endpoint=peer_info['endpoint']
-            )
-        except Exception as e:
-            logger.error(f"解析peer信息失败: {e}")
-            return None
-
-    # 客户端管理方法
-    async def create_client_with_ipv6_allocation(
-        self, 
-        client_in: WireGuardClientCreate,
-        pool_id: str,
-        auto_announce: bool = False
-    ) -> WireGuardClient:
-        """创建客户端并自动分配IPv6前缀"""
-        try:
-            async with self.db.begin():
-                # 创建客户端
-                client = await self.create_client(client_in)
-                
-                # 分配IPv6前缀
-                from .bgp_service import bgp_service
-                allocation_result = await bgp_service.allocate_ipv6_prefix(pool_id, str(client.id), auto_announce)
-                
-                if allocation_result["success"]:
-                    # 更新客户端的allowed_ips
-                    if client.allowed_ips is None:
-                        client.allowed_ips = []
-                    client.allowed_ips.append(allocation_result["allocated_prefix"])
-                    
-                    # 刷新WireGuard配置
-                    await self.refresh_server_config(client.server_id)
-                    
-                    logger.info(f"客户端 {client.name} 已分配IPv6前缀: {allocation_result['allocated_prefix']}")
-                
-                return client
-        except Exception as e:
-            logger.error(f"创建客户端并分配IPv6前缀失败: {e}")
-            raise
-
-    async def refresh_server_config(self, server_id: str) -> bool:
-        """刷新WireGuard服务器配置"""
-        try:
-            # 获取服务器信息
-            server = await self.get_server(server_id)
-            if not server:
-                logger.error(f"服务器 {server_id} 不存在")
-                return False
-            
-            # 生成新的配置文件
-            config_content = await self.generate_server_config(server)
-            
-            # 写入配置文件
-            config_path = f"/etc/wireguard/{server.interface}.conf"
-            with open(config_path, 'w') as f:
-                f.write(config_content)
-            
-            # 重新加载配置
-            result = subprocess.run(
-                ["wg-quick", "down", server.interface],
-                capture_output=True,
-                text=True
-            )
-            
-            result = subprocess.run(
-                ["wg-quick", "up", server.interface],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode == 0:
-                logger.info(f"服务器 {server.interface} 配置刷新成功")
-                return True
-            else:
-                logger.error(f"服务器 {server.interface} 配置刷新失败: {result.stderr}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"刷新服务器配置失败: {e}")
-            return False
-
     async def create_client(self, client_in: WireGuardClientCreate) -> WireGuardClient:
         """创建WireGuard客户端"""
         try:
@@ -469,6 +353,11 @@ PersistentKeepalive = {client.persistent_keepalive}
         result = await self.db.execute(
             select(WireGuardClient).where(WireGuardClient.server_id == server_id)
         )
+        return result.scalars().all()
+
+    async def get_all_clients(self) -> List[WireGuardClient]:
+        """获取所有客户端"""
+        result = await self.db.execute(select(WireGuardClient))
         return result.scalars().all()
 
     async def generate_client_config(self, client: WireGuardClient) -> str:

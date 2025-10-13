@@ -1,16 +1,21 @@
 """
-日志API端点 - 简化版本
+日志管理API端点
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ....core.database import get_async_db
 
 router = APIRouter()
 
-@router.get("/")
-async def get_logs():
-    """获取日志信息"""
-    return {"message": "logs endpoint is working", "data": []}
 
-@router.post("/")
-async def create_logs(data: dict):
-    """创建日志配置"""
-    return {"message": "logs created successfully", "data": data}
+@router.get("/")
+async def get_logs(db: AsyncSession = Depends(get_async_db)):
+    """获取日志列表"""
+    return {"logs": [], "message": "日志功能待实现"}
+
+
+@router.get("/{log_id}")
+async def get_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
+    """获取单个日志"""
+    return {"log": {}, "message": "日志详情功能待实现"}

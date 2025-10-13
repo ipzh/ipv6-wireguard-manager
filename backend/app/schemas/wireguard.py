@@ -124,6 +124,15 @@ class WireGuardConfig(BaseModel):
     server_config: str
     client_configs: List[dict]
 
+class WireGuardPeer(BaseModel):
+    """WireGuard对等节点模式"""
+    id: str
+    name: str
+    public_key: str
+    allowed_ips: List[str]
+    endpoint: Optional[str] = None
+    persistent_keepalive: int = 25
+
 class QRCodeResponse(BaseModel):
     qr_code: str
     config: str

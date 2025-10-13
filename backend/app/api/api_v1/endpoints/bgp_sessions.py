@@ -1,16 +1,21 @@
 """
-BGP会话管理API端点 - 简化版本
+BGP会话管理API端点
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ....core.database import get_async_db
 
 router = APIRouter()
 
+
 @router.get("/")
-async def get_bgp_sessions():
-    """获取BGP会话信息"""
-    return {"message": "bgp_sessions endpoint is working", "data": []}
+async def get_bgp_sessions(db: AsyncSession = Depends(get_async_db)):
+    """获取BGP会话列表"""
+    return {"sessions": [], "message": "BGP会话管理功能待实现"}
+
 
 @router.post("/")
-async def create_bgp_sessions(data: dict):
-    """创建BGP会话配置"""
-    return {"message": "bgp_sessions created successfully", "data": data}
+async def create_bgp_session(db: AsyncSession = Depends(get_async_db)):
+    """创建BGP会话"""
+    return {"message": "创建BGP会话功能待实现"}

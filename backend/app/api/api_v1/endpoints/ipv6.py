@@ -1,16 +1,21 @@
 """
-IPv6管理API端点 - 简化版本
+IPv6管理API端点
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ....core.database import get_async_db
 
 router = APIRouter()
 
-@router.get("/")
-async def get_ipv6():
-    """获取IPv6信息"""
-    return {"message": "ipv6 endpoint is working", "data": []}
 
-@router.post("/")
-async def create_ipv6(data: dict):
-    """创建IPv6配置"""
-    return {"message": "ipv6 created successfully", "data": data}
+@router.get("/pools")
+async def get_ipv6_pools(db: AsyncSession = Depends(get_async_db)):
+    """获取IPv6前缀池"""
+    return {"pools": [], "message": "IPv6前缀池功能待实现"}
+
+
+@router.get("/allocations")
+async def get_ipv6_allocations(db: AsyncSession = Depends(get_async_db)):
+    """获取IPv6分配"""
+    return {"allocations": [], "message": "IPv6分配功能待实现"}
