@@ -15,7 +15,7 @@ from ....services.user_service import UserService
 router = APIRouter()
 
 
-@router.post("/login")
+@router.post("/login", response_model=None)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_db)
@@ -49,7 +49,7 @@ async def login(
     )
 
 
-@router.post("/login-json")
+@router.post("/login-json", response_model=None)
 async def login_json(
     login_data: dict,
     db: AsyncSession = Depends(get_async_db)
@@ -83,7 +83,7 @@ async def login_json(
     )
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=None)
 async def logout():
     """用户登出"""
     return {"message": "登出成功"}

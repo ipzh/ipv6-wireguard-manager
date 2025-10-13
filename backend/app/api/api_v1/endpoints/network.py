@@ -9,13 +9,13 @@ from ....core.database import get_async_db
 router = APIRouter()
 
 
-@router.get("/interfaces")
+@router.get("/interfaces", response_model=None)
 async def get_network_interfaces(db: AsyncSession = Depends(get_async_db)):
     """获取网络接口信息"""
     return {"interfaces": [], "message": "网络接口功能待实现"}
 
 
-@router.get("/status")
+@router.get("/status", response_model=None)
 async def get_network_status(db: AsyncSession = Depends(get_async_db)):
     """获取网络状态"""
     return {"status": "healthy", "message": "网络状态正常"}

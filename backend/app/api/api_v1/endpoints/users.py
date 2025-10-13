@@ -11,7 +11,7 @@ from ....services.user_service import UserService
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 async def get_users(db: AsyncSession = Depends(get_async_db)):
     """获取用户列表"""
     user_service = UserService(db)
@@ -19,7 +19,7 @@ async def get_users(db: AsyncSession = Depends(get_async_db)):
     return users
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=None)
 async def get_user(user_id: str, db: AsyncSession = Depends(get_async_db)):
     """获取单个用户"""
     user_service = UserService(db)
@@ -29,7 +29,7 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_async_db)):
     return user
 
 
-@router.post("/")
+@router.post("/", response_model=None)
 async def create_user(user: UserCreate, db: AsyncSession = Depends(get_async_db)):
     """创建新用户"""
     user_service = UserService(db)
@@ -41,7 +41,7 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(get_async_db)
     return new_user
 
 
-@router.put("/{user_id}")
+@router.put("/{user_id}", response_model=None)
 async def update_user(
     user_id: str, 
     user_update: UserUpdate, 
@@ -57,7 +57,7 @@ async def update_user(
     return updated_user
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", response_model=None)
 async def delete_user(user_id: str, db: AsyncSession = Depends(get_async_db)):
     """删除用户"""
     user_service = UserService(db)

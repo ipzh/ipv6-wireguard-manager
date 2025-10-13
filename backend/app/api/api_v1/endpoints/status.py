@@ -10,7 +10,7 @@ from ....services.status_service import StatusService
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 async def get_system_status(db: AsyncSession = Depends(get_async_db)):
     """获取系统状态"""
     status_service = StatusService(db)
@@ -18,13 +18,13 @@ async def get_system_status(db: AsyncSession = Depends(get_async_db)):
     return status_info
 
 
-@router.get("/health")
+@router.get("/health", response_model=None)
 async def health_check():
     """健康检查"""
     return {"status": "healthy", "message": "系统运行正常"}
 
 
-@router.get("/services")
+@router.get("/services", response_model=None)
 async def get_services_status(db: AsyncSession = Depends(get_async_db)):
     """获取服务状态"""
     status_service = StatusService(db)

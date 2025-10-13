@@ -9,13 +9,13 @@ from ....core.database import get_async_db
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=None)
 async def get_bgp_sessions(db: AsyncSession = Depends(get_async_db)):
     """获取BGP会话列表"""
     return {"sessions": [], "message": "BGP会话管理功能待实现"}
 
 
-@router.post("/")
+@router.post("/", response_model=None)
 async def create_bgp_session(db: AsyncSession = Depends(get_async_db)):
     """创建BGP会话"""
     return {"message": "创建BGP会话功能待实现"}

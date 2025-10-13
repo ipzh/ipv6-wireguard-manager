@@ -11,7 +11,7 @@ from ....services.wireguard_service import WireGuardService
 router = APIRouter()
 
 
-@router.get("/config")
+@router.get("/config", response_model=None)
 async def get_wireguard_config(db: AsyncSession = Depends(get_async_db)):
     """获取WireGuard配置"""
     wireguard_service = WireGuardService(db)
@@ -19,7 +19,7 @@ async def get_wireguard_config(db: AsyncSession = Depends(get_async_db)):
     return config
 
 
-@router.post("/config")
+@router.post("/config", response_model=None)
 async def update_wireguard_config(
     config: WireGuardConfig, 
     db: AsyncSession = Depends(get_async_db)
@@ -30,7 +30,7 @@ async def update_wireguard_config(
     return updated_config
 
 
-@router.get("/peers")
+@router.get("/peers", response_model=None)
 async def get_peers(db: AsyncSession = Depends(get_async_db)):
     """获取所有对等节点"""
     wireguard_service = WireGuardService(db)
@@ -38,7 +38,7 @@ async def get_peers(db: AsyncSession = Depends(get_async_db)):
     return peers
 
 
-@router.post("/peers")
+@router.post("/peers", response_model=None)
 async def create_peer(peer: WireGuardPeer, db: AsyncSession = Depends(get_async_db)):
     """创建新的对等节点"""
     wireguard_service = WireGuardService(db)
@@ -46,7 +46,7 @@ async def create_peer(peer: WireGuardPeer, db: AsyncSession = Depends(get_async_
     return new_peer
 
 
-@router.get("/peers/{peer_id}")
+@router.get("/peers/{peer_id}", response_model=None)
 async def get_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """获取单个对等节点"""
     wireguard_service = WireGuardService(db)
@@ -56,7 +56,7 @@ async def get_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     return peer
 
 
-@router.put("/peers/{peer_id}")
+@router.put("/peers/{peer_id}", response_model=None)
 async def update_peer(
     peer_id: str, 
     peer: WireGuardPeer, 
@@ -70,7 +70,7 @@ async def update_peer(
     return updated_peer
 
 
-@router.delete("/peers/{peer_id}")
+@router.delete("/peers/{peer_id}", response_model=None)
 async def delete_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """删除对等节点"""
     wireguard_service = WireGuardService(db)
@@ -80,7 +80,7 @@ async def delete_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     return {"message": "对等节点删除成功"}
 
 
-@router.post("/peers/{peer_id}/restart")
+@router.post("/peers/{peer_id}/restart", response_model=None)
 async def restart_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """重启对等节点"""
     wireguard_service = WireGuardService(db)
