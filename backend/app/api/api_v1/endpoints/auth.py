@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.config import settings
 from ....core.database import get_async_db
-from ....core.security import create_access_token
+from ....core.security import create_access_token, get_current_user
 from ....schemas.user import LoginResponse, User
 from ....services.user_service import UserService
 
@@ -49,6 +49,33 @@ async def login(
     )
 
 
+@router.post("/logout")
+async def logout():
+    """用户登出"""
+    return {"message": "登出成功"}
+
+
+@router.get("/me")
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """获取当前用户信息"""
+    return current_user
+
+
+@router.post("/refresh")
+async def refresh_token(current_user: User = Depends(get_current_user)):
+    """刷新访问令牌"""
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(current_user.id)}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
+
+
 @router.post("/login-json")
 async def login_json(
     login_data: dict,
@@ -81,3 +108,30 @@ async def login_json(
         token_type="bearer",
         user=user
     )
+
+
+@router.post("/logout")
+async def logout():
+    """用户登出"""
+    return {"message": "登出成功"}
+
+
+@router.get("/me")
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """获取当前用户信息"""
+    return current_user
+
+
+@router.post("/refresh")
+async def refresh_token(current_user: User = Depends(get_current_user)):
+    """刷新访问令牌"""
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(current_user.id)}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
