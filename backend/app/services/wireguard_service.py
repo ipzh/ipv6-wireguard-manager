@@ -256,7 +256,7 @@ PersistentKeepalive = {client.persistent_keepalive}
             raise
 
     def parse_peer_info(self, peer_line: str) -> Optional[WireGuardPeerStatus]:
-        """解析peer信息"""
+        """解析peer信息 - 完善版本"""
         try:
             # 解析实际的wg show输出格式
             # 示例: peer: <public_key> endpoint <endpoint> allowed ips <ips> latest handshake <time> transfer <tx> <rx> persistent keepalive <interval>
@@ -276,22 +276,51 @@ PersistentKeepalive = {client.persistent_keepalive}
             i = 0
             while i < len(parts):
                 if parts[i] == 'peer:':
-                    peer_info['public_key'] = parts[i + 1] if i + 1 < len(parts) else ''
+                    i += 1
+                    if i < len(parts):
+                        peer_info['public_key'] = parts[i]
                 elif parts[i] == 'endpoint':
-                    if i + 1 < len(parts):
-                        peer_info['endpoint'] = parts[i + 1]
+                    i += 1
+                    if i < len(parts):
+                        peer_info['endpoint'] = parts[i]
                 elif parts[i] == 'allowed' and i + 1 < len(parts) and parts[i + 1] == 'ips':
-                    # 收集allowed ips
-                    ips = []
-                    j = i + 2
-                    while j < len(parts) and parts[j] not in ['latest', 'transfer', 'persistent']:
-                        ips.append(parts[j])
-                        j += 1
-                    peer_info['allowed_ips'] = ips
-                    i = j - 1
+                    i += 2
+                    allowed_ips = []
+                    while i < len(parts) and not parts[i].startswith('latest') and not parts[i].startswith('transfer') and not parts[i].startswith('persistent'):
+                        allowed_ips.append(parts[i])
+                        i += 1
+                    peer_info['allowed_ips'] = allowed_ips
+                    continue
                 elif parts[i] == 'latest' and i + 1 < len(parts) and parts[i + 1] == 'handshake':
-                    if i + 2 < len(parts):
-                        peer_info['latest_handshake'] = parts[i + 2]
+                    i += 2
+                    if i < len(parts):
+                        # 解析时间戳
+                        try:
+                            peer_info['latest_handshake'] = int(parts[i])
+                        except ValueError:
+                            peer_info['latest_handshake'] = None
+                elif parts[i] == 'transfer':
+                    i += 1
+                    if i + 1 < len(parts):
+                        try:
+                            peer_info['transfer_rx'] = int(parts[i])
+                            peer_info['transfer_tx'] = int(parts[i + 1])
+                            i += 1
+                        except ValueError:
+                            pass
+                elif parts[i] == 'persistent' and i + 1 < len(parts) and parts[i + 1] == 'keepalive':
+                    i += 2
+                    if i < len(parts):
+                        try:
+                            peer_info['persistent_keepalive'] = int(parts[i])
+                        except ValueError:
+                            pass
+                i += 1
+            
+            return WireGuardPeerStatus(**peer_info)
+        except Exception as e:
+            logger.error(f"解析peer信息失败: {e}")
+            return None
                 elif parts[i] == 'transfer':
                     if i + 2 < len(parts):
                         try:
