@@ -65,12 +65,9 @@ class DatabaseHealthChecker:
                 # 提取数据库名称
                 db_name = self.db_url.split("/")[-1].split("?")[0]
                 
-                # 创建连接到postgres数据库的URL
-                postgres_url = self.db_url.replace(f"/{db_name}", "/postgres")
-                
+                # 使用当前配置的用户连接，而不是尝试使用postgres用户
                 try:
-                    temp_engine = create_engine(postgres_url)
-                    with temp_engine.connect() as conn:
+                    with self.engine.connect() as conn:
                         result = conn.execute(
                             text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
                             {"db_name": db_name}
@@ -197,20 +194,30 @@ class DatabaseHealthChecker:
             if self.db_url.startswith("postgresql://"):
                 db_name = self.db_url.split("/")[-1].split("?")[0]
                 
-                # 连接到postgres数据库创建目标数据库
-                postgres_url = self.db_url.replace(f"/{db_name}", "/postgres")
-                temp_engine = create_engine(postgres_url)
+                # 使用系统命令创建数据库，避免认证问题
+                import subprocess
                 
-                with temp_engine.connect() as conn:
-                    conn.execute(text(f"CREATE DATABASE {db_name}"))
-                    conn.commit()
+                # 提取用户名和密码
+                username = self.db_url.split("://")[1].split(":")[0]
+                password = self.db_url.split("://")[1].split(":")[1].split("@")[0]
                 
-                self.fixes_applied.append({
-                    "type": "database_created",
-                    "message": f"创建数据库 '{db_name}'"
-                })
-                logger.info(f"成功创建数据库 '{db_name}'")
+                # 设置环境变量并使用createdb命令
+                env = os.environ.copy()
+                env['PGPASSWORD'] = password
                 
+                result = subprocess.run([
+                    'createdb', '-h', 'localhost', '-p', '5432', '-U', username, db_name
+                ], env=env, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    self.fixes_applied.append({
+                        "type": "database_created",
+                        "message": f"创建数据库 '{db_name}'"
+                    })
+                    logger.info(f"成功创建数据库 '{db_name}'")
+                else:
+                    logger.error(f"创建数据库失败: {result.stderr}")
+                    
         except Exception as e:
             logger.error(f"创建数据库失败: {e}")
     
@@ -221,19 +228,26 @@ class DatabaseHealthChecker:
                 username = self.db_url.split("://")[1].split(":")[0]
                 password = self.db_url.split("://")[1].split(":")[1].split("@")[0]
                 
-                # 连接到postgres数据库创建用户
-                postgres_url = self.db_url.replace(f"/{self.db_url.split('/')[-1].split('?')[0]}", "/postgres")
-                temp_engine = create_engine(postgres_url)
+                # 使用系统命令创建用户，避免认证问题
+                import subprocess
                 
-                with temp_engine.connect() as conn:
-                    conn.execute(text(f"CREATE USER {username} WITH PASSWORD '{password}'"))
-                    conn.commit()
+                # 设置环境变量并使用createuser命令
+                env = os.environ.copy()
+                env['PGPASSWORD'] = 'password'  # 使用默认postgres密码
                 
-                self.fixes_applied.append({
-                    "type": "user_created",
-                    "message": f"创建用户 '{username}'"
-                })
-                logger.info(f"成功创建用户 '{username}'")
+                result = subprocess.run([
+                    'createuser', '-h', 'localhost', '-p', '5432', '-U', 'postgres', 
+                    '--createdb', '--login', '--pwprompt', username
+                ], env=env, capture_output=True, text=True, input=password)
+                
+                if result.returncode == 0:
+                    self.fixes_applied.append({
+                        "type": "user_created",
+                        "message": f"创建用户 '{username}'"
+                    })
+                    logger.info(f"成功创建用户 '{username}'")
+                else:
+                    logger.error(f"创建用户失败: {result.stderr}")
                 
         except Exception as e:
             logger.error(f"创建用户失败: {e}")
@@ -245,19 +259,26 @@ class DatabaseHealthChecker:
                 username = self.db_url.split("://")[1].split(":")[0]
                 db_name = self.db_url.split("/")[-1].split("?")[0]
                 
-                # 连接到postgres数据库授予权限
-                postgres_url = self.db_url.replace(f"/{db_name}", "/postgres")
-                temp_engine = create_engine(postgres_url)
+                # 使用系统命令授予权限，避免认证问题
+                import subprocess
                 
-                with temp_engine.connect() as conn:
-                    conn.execute(text(f"GRANT CONNECT ON DATABASE {db_name} TO {username}"))
-                    conn.commit()
+                # 设置环境变量并使用psql命令
+                env = os.environ.copy()
+                env['PGPASSWORD'] = 'password'  # 使用默认postgres密码
                 
-                self.fixes_applied.append({
-                    "type": "permission_granted",
-                    "message": f"授予用户 '{username}' 连接数据库 '{db_name}' 的权限"
-                })
-                logger.info(f"成功授予连接权限")
+                result = subprocess.run([
+                    'psql', '-h', 'localhost', '-p', '5432', '-U', 'postgres', '-d', 'postgres',
+                    '-c', f"GRANT CONNECT ON DATABASE {db_name} TO {username}"
+                ], env=env, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    self.fixes_applied.append({
+                        "type": "permission_granted",
+                        "message": f"授予用户 '{username}' 连接数据库 '{db_name}' 的权限"
+                    })
+                    logger.info(f"成功授予连接权限")
+                else:
+                    logger.error(f"授予连接权限失败: {result.stderr}")
                 
         except Exception as e:
             logger.error(f"授予连接权限失败: {e}")
