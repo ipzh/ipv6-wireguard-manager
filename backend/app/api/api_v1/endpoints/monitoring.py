@@ -3,19 +3,20 @@
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Dict, Any
 
 from ....core.database import get_async_db
 
 router = APIRouter()
 
 
-@router.get("/metrics", response_model=None)
+@router.get("/metrics", response_model=dict)
 async def get_system_metrics(db: AsyncSession = Depends(get_async_db)):
     """获取系统指标"""
     return {"metrics": {}, "message": "系统监控功能待实现"}
 
 
-@router.get("/alerts", response_model=None)
+@router.get("/alerts", response_model=dict)
 async def get_alerts(db: AsyncSession = Depends(get_async_db)):
     """获取告警信息"""
     return {"alerts": [], "message": "告警功能待实现"}

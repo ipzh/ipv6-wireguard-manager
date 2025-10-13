@@ -108,7 +108,7 @@ async def health_check():
 
 
 # 包含API路由
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 if __name__ == "__main__":

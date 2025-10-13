@@ -51,3 +51,15 @@ class ErrorResponse(BaseModel):
     message: str
     error_code: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
+
+
+class MessageResponse(BaseModel):
+    """消息响应"""
+    message: str
+
+
+class TokenResponse(BaseModel):
+    """令牌响应"""
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: Optional[int] = None

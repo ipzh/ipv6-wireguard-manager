@@ -83,10 +83,12 @@ async def login_json(
     )
 
 
+from ....schemas.common import MessageResponse, TokenResponse
+
 @router.post("/logout", response_model=None)
 async def logout():
     """用户登出"""
-    return {"message": "登出成功"}
+    return MessageResponse(message="登出成功")
 
 
 @router.get("/me", response_model=None)
@@ -95,16 +97,16 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/refresh", response_model=None)
-async def refresh_token(current_user: dict = Depends(get_current_user)):
-    """刷新访问令牌"""
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(current_user.get("id"))}, expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    }
+# @router.post("/refresh", response_model=TokenResponse)
+# async def refresh_token(current_user: User = Depends(get_current_user)):
+#     """刷新访问令牌"""
+#     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"sub": str(current_user.id)}, expires_delta=access_token_expires
+#     )
+#     
+#     return TokenResponse(
+#         access_token=access_token,
+#         token_type="bearer",
+#         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+#     )

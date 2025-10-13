@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....core.database import get_async_db
 from ....schemas.user import User, UserCreate, UserUpdate
+from ....schemas.common import MessageResponse
 from ....services.user_service import UserService
 
 router = APIRouter()
@@ -49,12 +50,11 @@ async def update_user(
 ):
     """更新用户信息"""
     user_service = UserService(db)
-    user = await user_service.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
-    
-    updated_user = await user_service.update_user(user_id, user_update)
-    return updated_user
+    try:
+        updated_user = await user_service.update_user(user_id, user_update)
+        return updated_user
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{user_id}", response_model=None)
@@ -66,4 +66,4 @@ async def delete_user(user_id: str, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     
     await user_service.delete_user(user_id)
-    return {"message": "用户删除成功"}
+    return MessageResponse(message="用户删除成功")

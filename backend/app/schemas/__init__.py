@@ -37,4 +37,6 @@ __all__ = [
     "Token",
     "TokenPayload",
     "Message",
+    "TokenResponse",
+    "MessageResponse",
 ]

@@ -10,6 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
+from app.schemas.user import User
 
 # 密码加密上下文 - 使用pbkdf2_sha256避免bcrypt版本兼容性问题
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -62,8 +63,7 @@ def get_password_hash(password: str) -> str:
 
 
 async def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = security,
-    db: AsyncSession = None
+    credentials: HTTPAuthorizationCredentials = security
 ) -> str:
     """获取当前用户ID"""
     credentials_exception = HTTPException(
@@ -83,17 +83,15 @@ async def get_current_user_id(
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = security,
-    db: AsyncSession = None
+    credentials: HTTPAuthorizationCredentials = security
 ):
     """获取当前用户（兼容性函数）"""
-    user_id = await get_current_user_id(credentials, db)
-    return await get_current_active_user(user_id, db)
+    user_id = await get_current_user_id(credentials)
+    return await get_current_active_user(user_id)
 
 
 async def get_current_active_user(
-    current_user_id: str = None,
-    db: AsyncSession = None
+    current_user_id: str = None
 ):
     """获取当前活跃用户"""
     if not current_user_id:
@@ -103,8 +101,21 @@ async def get_current_active_user(
         )
     
     # 这里需要从数据库获取用户信息
-    # 暂时返回用户ID，后续会完善
-    return {"id": current_user_id, "is_active": True}
+    # 暂时返回模拟的User对象，后续会完善
+    import uuid
+    from datetime import datetime
+    
+    # 创建模拟的User对象 - 避免循环导入，直接使用字典
+    return {
+        "id": uuid.UUID(current_user_id),
+        "username": "admin",
+        "email": "admin@example.com",
+        "is_active": True,
+        "is_superuser": True,
+        "last_login": None,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now()
+    }
 
 
 def check_permissions(user_permissions: list, required_permissions: list) -> bool:
