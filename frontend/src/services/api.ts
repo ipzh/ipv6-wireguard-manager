@@ -21,9 +21,13 @@ class ApiClient {
     // 请求拦截器
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('token')
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+          }
+        } catch (error) {
+          console.warn('Failed to get token from localStorage:', error)
         }
         return config
       },
@@ -45,22 +49,29 @@ class ApiClient {
           
           try {
             // 尝试刷新token
-            const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh-token`, {}, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+            if (token) {
+              const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh-token`, {}, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              })
+              
+              const { access_token } = refreshResponse.data
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('token', access_token)
               }
-            })
-            
-            const { access_token } = refreshResponse.data
-            localStorage.setItem('token', access_token)
-            
-            // 重试原始请求
-            originalRequest.headers.Authorization = `Bearer ${access_token}`
-            return this.client(originalRequest)
+              
+              // 重试原始请求
+              originalRequest.headers.Authorization = `Bearer ${access_token}`
+              return this.client(originalRequest)
+            }
           } catch (refreshError) {
             // 刷新失败，清除token并跳转到登录页
-            localStorage.removeItem('token')
-            window.location.href = '/login'
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('token')
+              window.location.href = '/login'
+            }
             return Promise.reject(refreshError)
           }
         }

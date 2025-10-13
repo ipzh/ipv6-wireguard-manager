@@ -39,17 +39,13 @@ export default defineConfig({
     target: 'es2018',
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('antd') || id.includes('@ant-design')) return 'antd'
-            if (id.includes('react-router-dom')) return 'router'
-            if (id.includes('recharts')) return 'charts'
-            if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) return 'state'
-            if (id.includes('axios') || id.includes('dayjs')) return 'utils'
-            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor'
-            const m = id.toString().match(/node_modules[\\/](.*?)[\\/]/)
-            return m ? `vendor-${m[1]}` : 'vendor'
-          }
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'router': ['react-router-dom'],
+          'antd': ['antd', '@ant-design/icons'],
+          'state': ['@reduxjs/toolkit', 'react-redux'],
+          'utils': ['axios', 'dayjs', 'qrcode'],
+          'charts': ['recharts'],
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
@@ -59,6 +55,13 @@ export default defineConfig({
       preserveEntrySignatures: 'allow',
     },
     chunkSizeWarningLimit: 1200,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
   optimizeDeps: {
     include: [
@@ -75,5 +78,9 @@ export default defineConfig({
       'qrcode',
       'styled-components',
     ],
+    force: true,
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
   },
 })

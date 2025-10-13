@@ -12,7 +12,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('token'),
+  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   isAuthenticated: false,
   loading: false,
   error: null,
@@ -32,7 +32,9 @@ export const login = createAsyncThunk(
       const { access_token, user } = response
       
       // 存储token到localStorage
-      localStorage.setItem('token', access_token)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', access_token)
+      }
       
       return { access_token, user }
     } catch (error: any) {
@@ -50,7 +52,9 @@ export const getCurrentUser = createAsyncThunk(
       return response
     } catch (error: any) {
       // 如果token无效，清除本地存储
-      localStorage.removeItem('token')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
       return rejectWithValue(error.response?.data?.detail || '获取用户信息失败')
     }
   }
@@ -65,12 +69,16 @@ export const refreshToken = createAsyncThunk(
       const { access_token } = response
       
       // 更新本地存储的token
-      localStorage.setItem('token', access_token)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', access_token)
+      }
       
       return { access_token }
     } catch (error: any) {
       // 如果刷新失败，清除本地token
-      localStorage.removeItem('token')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
       return rejectWithValue(error.response?.data?.detail || 'Token刷新失败')
     }
   }
@@ -81,13 +89,17 @@ export const logout = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       // 清除本地存储的token
-      localStorage.removeItem('token')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
       // 注意：这里可以添加调用后端登出API的逻辑
       // await apiClient.post('/auth/logout')
       return null
     } catch (error: any) {
       // 即使后端登出失败，也要清除本地token
-      localStorage.removeItem('token')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
       return rejectWithValue('登出失败')
     }
   }
@@ -138,7 +150,9 @@ const authSlice = createSlice({
         state.error = action.payload as string
         state.isAuthenticated = false
         state.token = null
-        localStorage.removeItem('token')
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token')
+        }
       })
       // 刷新token
       .addCase(refreshToken.fulfilled, (state, action) => {
