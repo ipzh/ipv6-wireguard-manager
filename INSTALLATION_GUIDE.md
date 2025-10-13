@@ -199,7 +199,7 @@ docker-compose -f docker-compose.production.yml down
 1. **端口被占用**
    ```bash
    # 检查端口占用
-   netstat -tlnp | grep :80
+   ss -tlnp | grep :80
    
    # 使用其他端口
    curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --port 8080

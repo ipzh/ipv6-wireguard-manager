@@ -748,15 +748,15 @@ verify_installation() {
         return 1
     fi
     
-    # 检查端口监听
-    if netstat -tlnp | grep -q ":$PORT "; then
+    # 检查端口监听（使用ss命令替代netstat，更通用）
+    if ss -tlnp | grep -q ":$PORT "; then
         log_success "端口$PORT监听正常"
     else
         log_error "端口$PORT未监听"
         return 1
     fi
     
-    if netstat -tlnp | grep -q ":8000 "; then
+    if ss -tlnp | grep -q ":8000 "; then
         log_success "端口8000监听正常"
     else
         log_error "端口8000未监听"

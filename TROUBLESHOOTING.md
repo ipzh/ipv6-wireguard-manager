@@ -73,7 +73,7 @@ npm config set registry https://registry.npmmirror.com
 **解决方案**:
 ```bash
 # 检查端口占用
-sudo netstat -tlnp | grep :8000
+sudo ss -tlnp | grep :8000
 
 # 检查配置文件
 cat /opt/ipv6-wireguard-manager/.env
@@ -403,7 +403,7 @@ top
 
 # 网络状态
 ss -tuln
-netstat -tlnp
+ss -tlnp
 ```
 
 ### 服务诊断

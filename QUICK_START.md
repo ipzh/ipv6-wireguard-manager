@@ -156,7 +156,7 @@ systemctl status ipv6-wireguard-manager
 systemctl restart ipv6-wireguard-manager
 
 # 检查端口
-netstat -tlnp | grep :80
+ss -tlnp | grep :80
 ```
 
 #### 2. BGP会话无法建立
