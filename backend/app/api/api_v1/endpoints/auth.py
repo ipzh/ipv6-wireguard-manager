@@ -89,18 +89,18 @@ async def logout():
     return {"message": "登出成功"}
 
 
-@router.get("/me")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+@router.get("/me", response_model=None)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     """获取当前用户信息"""
     return current_user
 
 
-@router.post("/refresh")
-async def refresh_token(current_user: User = Depends(get_current_user)):
+@router.post("/refresh", response_model=None)
+async def refresh_token(current_user: dict = Depends(get_current_user)):
     """刷新访问令牌"""
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(current_user.id)}, expires_delta=access_token_expires
+        data={"sub": str(current_user.get("id"))}, expires_delta=access_token_expires
     )
     
     return {
