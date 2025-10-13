@@ -223,26 +223,6 @@ class DatabaseHealthChecker:
                     
         except Exception as e:
             logger.error(f"修复缺失数据库失败: {e}")
-                
-                # 设置环境变量并使用createdb命令
-                env = os.environ.copy()
-                env['PGPASSWORD'] = password
-                
-                result = subprocess.run([
-                    'createdb', '-h', 'localhost', '-p', '5432', '-U', username, db_name
-                ], env=env, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    self.fixes_applied.append({
-                        "type": "database_created",
-                        "message": f"创建数据库 '{db_name}'"
-                    })
-                    logger.info(f"成功创建数据库 '{db_name}'")
-                else:
-                    logger.error(f"创建数据库失败: {result.stderr}")
-                    
-        except Exception as e:
-            logger.error(f"创建数据库失败: {e}")
     
     def _fix_missing_user(self):
         """修复缺失的用户"""
