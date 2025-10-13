@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from ..models.user import User, Role, UserRole
 from ..models.wireguard import WireGuardServer, WireGuardClient
 from ..models.network import NetworkInterface, FirewallRule
-from ..models.monitoring import SystemMetric, AuditLog, OperationLog
+from ..models.monitoring import SystemMetric, AuditLog
 from ..models.config import ConfigVersion, BackupRecord
 from ..core.security import get_password_hash
 import logging
