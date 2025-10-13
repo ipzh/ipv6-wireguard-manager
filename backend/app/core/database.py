@@ -24,17 +24,27 @@ if settings.DATABASE_URL.startswith("postgresql://"):
         asyncpg_available = False
         print("警告: asyncpg驱动未安装，将使用同步模式")
     
-    if asyncpg_available:
-        async_engine = create_async_engine(
-            async_db_url,
-            pool_size=settings.DATABASE_POOL_SIZE,
-            max_overflow=settings.DATABASE_MAX_OVERFLOW,
-            pool_pre_ping=True,
-            pool_recycle=3600,
-            echo=settings.DEBUG,
-        )
-    else:
-        # 如果asyncpg不可用，设置为None
+    # 检查数据库连接是否可用
+    try:
+        if asyncpg_available:
+            # 测试异步连接
+            async_engine = create_async_engine(
+                async_db_url,
+                pool_size=settings.DATABASE_POOL_SIZE,
+                max_overflow=settings.DATABASE_MAX_OVERFLOW,
+                pool_pre_ping=True,
+                pool_recycle=3600,
+                echo=settings.DEBUG,
+                connect_args={
+                    "server_settings": {
+                        "jit": "off"
+                    }
+                }
+            )
+        else:
+            async_engine = None
+    except Exception as e:
+        print(f"警告: 异步数据库连接失败，使用同步模式: {e}")
         async_engine = None
 else:
     # SQLite数据库（不支持异步）
@@ -119,15 +129,32 @@ async def get_redis() -> redis.Redis:
 
 async def init_db():
     """初始化数据库"""
-    if not async_engine:
-        # 如果异步引擎不可用，使用同步引擎
-        print("警告: 异步数据库引擎不可用，使用同步模式")
-        Base.metadata.create_all(bind=sync_engine)
-        return
-    
-    async with async_engine.begin() as conn:
-        # 创建所有表
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        # 首先检查数据库健康状况
+        from .database_health import check_and_fix_database
+        
+        print("检查数据库健康状况...")
+        if not check_and_fix_database():
+            print("警告: 数据库健康检查发现问题，继续尝试初始化...")
+        
+        if not async_engine:
+            # 如果异步引擎不可用，使用同步引擎
+            print("警告: 异步数据库引擎不可用，使用同步模式")
+            Base.metadata.create_all(bind=sync_engine)
+            return
+        
+        async with async_engine.begin() as conn:
+            # 创建所有表
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"数据库初始化失败: {e}")
+        print("尝试使用同步模式初始化数据库...")
+        try:
+            Base.metadata.create_all(bind=sync_engine)
+            print("同步模式数据库初始化成功")
+        except Exception as sync_error:
+            print(f"同步模式数据库初始化也失败: {sync_error}")
+            raise
 
 
 async def close_db():

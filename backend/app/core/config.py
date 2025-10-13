@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     SERVER_PORT: int = 8000
     
     # 数据库配置
-    DATABASE_URL: str = "sqlite:///./ipv6_wireguard.db"
+    DATABASE_URL: str = "postgresql://ipv6wgm:password@localhost:5432/ipv6wgm"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 30
     DATABASE_CONNECT_TIMEOUT: int = 30

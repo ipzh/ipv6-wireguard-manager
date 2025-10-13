@@ -74,7 +74,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """应用启动事件"""
     logger.info("Starting IPv6 WireGuard Manager...")
-    await init_db()
+    
+    # 使用增强的数据库初始化
+    try:
+        from .core.database_health import check_and_fix_database
+        
+        # 先检查并修复数据库问题
+        logger.info("Checking database health...")
+        if not check_and_fix_database():
+            logger.warning("Database health check found issues, continuing with initialization...")
+        
+        # 初始化数据库
+        await init_db()
+        logger.info("Database initialization completed")
+        
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # 继续启动应用，但记录错误
+        logger.warning("Application starting with database issues")
+    
     logger.info("Application started successfully")
 
 
