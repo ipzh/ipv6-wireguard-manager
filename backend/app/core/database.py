@@ -120,7 +120,10 @@ async def get_redis() -> redis.Redis:
 async def init_db():
     """初始化数据库"""
     if not async_engine:
-        raise RuntimeError("异步数据库引擎不可用，请检查数据库配置和asyncpg驱动")
+        # 如果异步引擎不可用，使用同步引擎
+        print("警告: 异步数据库引擎不可用，使用同步模式")
+        Base.metadata.create_all(bind=sync_engine)
+        return
     
     async with async_engine.begin() as conn:
         # 创建所有表
