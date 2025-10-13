@@ -88,38 +88,139 @@ show_install_options() {
     esac
 }
 
+# Parse command line arguments
+parse_arguments() {
+    local install_type=""
+    local install_dir="/opt/ipv6-wireguard-manager"
+    local port="80"
+    local silent=false
+    local performance=false
+    local production=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            docker|native|low-memory)
+                install_type="$1"
+                shift
+                ;;
+            --dir)
+                install_dir="$2"
+                shift 2
+                ;;
+            --port)
+                port="$2"
+                shift 2
+                ;;
+            --silent)
+                silent=true
+                shift
+                ;;
+            --performance)
+                performance=true
+                shift
+                ;;
+            --production)
+                production=true
+                shift
+                ;;
+            --auto)
+                silent=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+    
+    # If no install type specified, auto-select
+    if [ -z "$install_type" ]; then
+        if [ "$silent" = true ] || [ ! -t 0 ]; then
+            install_type=$(auto_select_install_type)
+        else
+            install_type=$(show_install_options)
+        fi
+    fi
+    
+    echo "$install_type|$install_dir|$port|$silent|$performance|$production"
+}
+
+# Show help information
+show_help() {
+    echo "IPv6 WireGuard Manager Installation Script"
+    echo ""
+    echo "Usage: $0 [OPTIONS] [INSTALL_TYPE]"
+    echo ""
+    echo "Install Types:"
+    echo "  docker      Docker installation (recommended for beginners)"
+    echo "  native      Native installation (recommended for VPS)"
+    echo "  low-memory  Low memory installation (1GB+ RAM)"
+    echo ""
+    echo "Options:"
+    echo "  --dir DIR       Installation directory (default: /opt/ipv6-wireguard-manager)"
+    echo "  --port PORT     Web server port (default: 80)"
+    echo "  --silent        Silent installation (no interaction)"
+    echo "  --performance   Enable performance optimizations"
+    echo "  --production    Production installation with monitoring"
+    echo "  --auto          Auto-select installation type"
+    echo "  --help, -h      Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                                    # Interactive installation"
+    echo "  $0 docker                            # Docker installation"
+    echo "  $0 --dir /opt/my-app --port 8080     # Custom directory and port"
+    echo "  $0 --silent --performance            # Silent with optimizations"
+    echo "  $0 --production native               # Production native installation"
+}
+
 # Main installation function
 main() {
-    log_info "IPv6 WireGuard Manager Installation Script - Fixed Version"
+    log_info "IPv6 WireGuard Manager Installation Script - Enhanced Version"
     log_info "All FastAPI dependency injection issues have been resolved"
     echo ""
     
-    # Check if running in non-interactive mode
-    local install_type
-    if [ ! -t 0 ] || [ "$1" = "--auto" ]; then
-        install_type=$(auto_select_install_type)
-        log_info "Non-interactive mode detected, auto-selecting: $install_type"
-    else
-        install_type=$(show_install_options)
-    fi
+    # Parse arguments
+    local args=$(parse_arguments "$@")
+    IFS='|' read -r install_type install_dir port silent performance production <<< "$args"
     
-    log_info "Selected installation type: $install_type"
+    log_info "Installation configuration:"
+    log_info "  Type: $install_type"
+    log_info "  Directory: $install_dir"
+    log_info "  Port: $port"
+    log_info "  Silent: $silent"
+    log_info "  Performance: $performance"
+    log_info "  Production: $production"
+    echo ""
     
     # Download and run the complete installation script
     log_info "Downloading complete installation script..."
     
+    # Build arguments for install-complete.sh
+    local complete_args="$install_type"
+    [ "$install_dir" != "/opt/ipv6-wireguard-manager" ] && complete_args="$complete_args --dir $install_dir"
+    [ "$port" != "80" ] && complete_args="$complete_args --port $port"
+    [ "$silent" = true ] && complete_args="$complete_args --silent"
+    [ "$performance" = true ] && complete_args="$complete_args --performance"
+    [ "$production" = true ] && complete_args="$complete_args --production"
+    
     case $install_type in
         "docker")
             log_info "Starting Docker installation..."
-            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s docker
+            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s $complete_args
             ;;
         "native")
             log_info "Starting native installation..."
-            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s native
+            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s $complete_args
             ;;
         "low-memory")
             log_info "Starting low-memory installation..."
-            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s low-memory
+            curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-complete.sh | bash -s $complete_args
             ;;
         *)
             log_error "Invalid installation type: $install_type"

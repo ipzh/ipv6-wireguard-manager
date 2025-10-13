@@ -29,11 +29,61 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 获取安装类型
-INSTALL_TYPE=${1:-native}
+# 解析命令行参数
+parse_arguments() {
+    local install_type="native"
+    local install_dir="/opt/ipv6-wireguard-manager"
+    local port="80"
+    local silent=false
+    local performance=false
+    local production=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            docker|native|low-memory)
+                install_type="$1"
+                shift
+                ;;
+            --dir)
+                install_dir="$2"
+                shift 2
+                ;;
+            --port)
+                port="$2"
+                shift 2
+                ;;
+            --silent)
+                silent=true
+                shift
+                ;;
+            --performance)
+                performance=true
+                shift
+                ;;
+            --production)
+                production=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    
+    echo "$install_type|$install_dir|$port|$silent|$performance|$production"
+}
+
+# 解析参数
+args=$(parse_arguments "$@")
+IFS='|' read -r INSTALL_TYPE INSTALL_DIR PORT SILENT PERFORMANCE PRODUCTION <<< "$args"
 
 log_info "IPv6 WireGuard Manager 完整安装脚本"
 log_info "安装类型: $INSTALL_TYPE"
+log_info "安装目录: $INSTALL_DIR"
+log_info "端口: $PORT"
+log_info "静默模式: $SILENT"
+log_info "性能优化: $PERFORMANCE"
+log_info "生产模式: $PRODUCTION"
 
 # 检查系统要求
 check_system_requirements() {
@@ -212,7 +262,7 @@ install_low_memory_dependencies() {
 download_project() {
     log_info "下载项目代码..."
     
-    local project_dir="/opt/ipv6-wireguard-manager"
+    local project_dir="$INSTALL_DIR"
     
     # 创建项目目录
     mkdir -p $project_dir
@@ -331,14 +381,14 @@ setup_nginx() {
     log_info "配置Nginx..."
     
     # 创建Nginx配置
-    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << 'EOF'
+    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
 server {
-    listen 80;
+    listen $PORT;
     server_name _;
     
     # 前端静态文件
     location / {
-        root /opt/ipv6-wireguard-manager/frontend/dist;
+        root $INSTALL_DIR/frontend/dist;
         try_files $uri $uri/ /index.html;
     }
     
@@ -383,7 +433,7 @@ create_systemd_service() {
     log_info "创建系统服务..."
     
     # 创建服务文件
-    cat > /etc/systemd/system/ipv6-wireguard-manager.service << 'EOF'
+    cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager
 After=network.target
@@ -391,14 +441,14 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/ipv6-wireguard-manager/backend
-Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
+WorkingDirectory=$INSTALL_DIR/backend
+Environment=PATH=$INSTALL_DIR/backend/venv/bin
 Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false
 Environment=LOG_LEVEL=INFO
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
@@ -425,7 +475,7 @@ setup_firewall() {
     # 检查ufw是否安装
     if command -v ufw &> /dev/null; then
         # 允许HTTP和HTTPS
-        ufw allow 80/tcp
+        ufw allow $PORT/tcp
         ufw allow 443/tcp
         
         # 允许WireGuard端口
@@ -439,6 +489,89 @@ setup_firewall() {
         log_success "防火墙配置完成"
     else
         log_warning "ufw未安装，跳过防火墙配置"
+    fi
+}
+
+# 性能优化配置
+setup_performance_optimizations() {
+    if [ "$PERFORMANCE" = true ]; then
+        log_info "配置性能优化..."
+        
+        # 优化内核参数
+        cat >> /etc/sysctl.conf << 'EOF'
+# IPv6 WireGuard Manager 性能优化
+net.core.rmem_max = 134217728
+net.core.wmem_max = 134217728
+net.ipv4.tcp_rmem = 4096 65536 134217728
+net.ipv4.tcp_wmem = 4096 65536 134217728
+net.core.netdev_max_backlog = 5000
+net.ipv4.tcp_congestion_control = bbr
+EOF
+        
+        # 应用内核参数
+        sysctl -p
+        
+        # 优化Nginx配置
+        cat >> /etc/nginx/nginx.conf << 'EOF'
+# 性能优化配置
+worker_processes auto;
+worker_connections 1024;
+keepalive_timeout 65;
+gzip on;
+gzip_vary on;
+gzip_min_length 1024;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+EOF
+        
+        log_success "性能优化配置完成"
+    fi
+}
+
+# 生产环境配置
+setup_production_config() {
+    if [ "$PRODUCTION" = true ]; then
+        log_info "配置生产环境..."
+        
+        # 安装监控工具
+        apt-get install -y htop iotop nethogs
+        
+        # 配置日志轮转
+        cat > /etc/logrotate.d/ipv6-wireguard-manager << EOF
+$INSTALL_DIR/backend/logs/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 644 root root
+    postrotate
+        systemctl reload ipv6-wireguard-manager
+    endscript
+}
+EOF
+        
+        # 配置自动备份
+        cat > /etc/cron.daily/ipv6-wireguard-backup << 'EOF'
+#!/bin/bash
+BACKUP_DIR="/opt/backups/ipv6-wireguard-manager"
+mkdir -p $BACKUP_DIR
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# 备份数据库
+pg_dump ipv6_wireguard_manager > $BACKUP_DIR/db_$DATE.sql
+
+# 备份配置文件
+tar -czf $BACKUP_DIR/config_$DATE.tar.gz /opt/ipv6-wireguard-manager/backend/app/core /etc/nginx/sites-available/ipv6-wireguard-manager
+
+# 清理旧备份（保留30天）
+find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
+find $BACKUP_DIR -name "*.tar.gz" -mtime +30 -delete
+EOF
+        
+        chmod +x /etc/cron.daily/ipv6-wireguard-backup
+        
+        log_success "生产环境配置完成"
     fi
 }
 
@@ -467,10 +600,10 @@ verify_installation() {
     fi
     
     # 检查端口监听
-    if netstat -tlnp | grep -q ":80 "; then
-        log_success "端口80监听正常"
+    if netstat -tlnp | grep -q ":$PORT "; then
+        log_success "端口$PORT监听正常"
     else
-        log_error "端口80未监听"
+        log_error "端口$PORT未监听"
         return 1
     fi
     
@@ -502,11 +635,19 @@ show_installation_result() {
     
     echo ""
     log_info "访问信息:"
-    echo "  前端界面: http://$server_ip"
-    if [ -n "$ipv6_ip" ]; then
-        echo "  IPv6访问: http://[$ipv6_ip]"
+    if [ "$PORT" = "80" ]; then
+        echo "  前端界面: http://$server_ip"
+        if [ -n "$ipv6_ip" ]; then
+            echo "  IPv6访问: http://[$ipv6_ip]"
+        fi
+        echo "  API文档: http://$server_ip/docs"
+    else
+        echo "  前端界面: http://$server_ip:$PORT"
+        if [ -n "$ipv6_ip" ]; then
+            echo "  IPv6访问: http://[$ipv6_ip]:$PORT"
+        fi
+        echo "  API文档: http://$server_ip:$PORT/docs"
     fi
-    echo "  API文档: http://$server_ip/docs"
     
     echo ""
     log_info "默认登录信息:"
@@ -515,7 +656,7 @@ show_installation_result() {
     
     echo ""
     log_info "配置文件位置:"
-    echo "  应用目录: /opt/ipv6-wireguard-manager"
+    echo "  应用目录: $INSTALL_DIR"
     echo "  Nginx配置: /etc/nginx/sites-available/ipv6-wireguard-manager"
     echo "  服务配置: /etc/systemd/system/ipv6-wireguard-manager.service"
     
@@ -563,6 +704,8 @@ install_native() {
     setup_nginx
     create_systemd_service
     setup_firewall
+    setup_performance_optimizations
+    setup_production_config
     verify_installation
     show_installation_result
 }
@@ -580,6 +723,8 @@ install_low_memory() {
     setup_nginx
     create_systemd_service
     setup_firewall
+    setup_performance_optimizations
+    setup_production_config
     verify_installation
     show_installation_result
 }
