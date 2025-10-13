@@ -157,32 +157,27 @@ POST /api/v1/bgp/announcements/{ann_id}/disable
 
 ## 🏊 IPv6 前缀池管理
 
-### 前缀池配置
-- **池名称**: 唯一的前缀池标识
-- **基础前缀**: 如 2001:db8::/48
-- **前缀长度**: 分配的前缀长度
-- **总容量**: 前缀池总容量
-- **自动宣告**: 分配时自动BGP宣告
-- **白名单**: 前缀访问控制
-- **RPKI**: 路由来源验证
+### 核心功能
 
-### 智能分配算法
-- **自动分配**: 智能选择可用前缀
-- **容量跟踪**: 实时监控使用情况
-- **冲突避免**: 防止前缀冲突
-- **回收机制**: 自动回收未使用前缀
+1. **前缀池配置**
+   - 创建IPv6前缀池
+   - 设置总容量和分配长度
+   - 配置自动宣告功能
 
-### 分配管理
-- **客户端分配**: 为WireGuard客户端分配前缀
-- **服务器分配**: 为WireGuard服务器分配前缀
-- **手动分配**: 手动指定前缀分配
-- **批量分配**: 批量分配多个前缀
+2. **智能地址分配**
+   - 自动计算可用前缀
+   - 与WireGuard客户端联动
+   - 支持"分配即宣告"
 
-### 安全控制
-- **前缀白名单**: 允许的前缀范围
-- **最大前缀限制**: 防止前缀滥用
-- **RPKI验证**: 路由来源验证
-- **告警系统**: 异常情况告警
+3. **安全控制**
+   - 前缀白名单管理
+   - 最大前缀限制
+   - RPKI预检验证
+
+4. **监控告警**
+   - 容量使用监控
+   - 异常告警系统
+   - 操作审计日志
 
 ### API端点
 ```bash
@@ -198,6 +193,58 @@ POST /api/v1/ipv6/pools
   "total_capacity": 1000,
   "auto_announce": true,
   "whitelist_enabled": true,
+  "rpki_enabled": true
+}
+
+# 分配IPv6前缀
+POST /api/v1/ipv6/pools/{pool_id}/allocate
+{
+  "client_id": "client-uuid",
+  "auto_announce": true
+}
+
+# 释放前缀
+POST /api/v1/ipv6/pools/{pool_id}/release/{allocation_id}
+
+# 添加白名单
+POST /api/v1/ipv6/pools/{pool_id}/whitelist
+{
+  "prefix": "2001:db8::/64",
+  "description": "允许的前缀"
+}
+
+# RPKI验证
+POST /api/v1/ipv6/pools/{pool_id}/validate-rpki
+{
+  "prefix": "2001:db8::/64"
+}
+```
+
+## 🚨 告警系统
+
+### 告警类型
+1. **RPKI_INVALID**: RPKI验证失败
+2. **PREFIX_LIMIT**: 前缀数量超限
+3. **SESSION_DOWN**: BGP会话断开
+4. **POOL_DEPLETED**: 前缀池耗尽
+5. **CONFIG_ERROR**: 配置错误
+
+### 告警严重程度
+- **INFO**: 信息性告警
+- **WARNING**: 警告级别
+- **ERROR**: 错误级别
+- **CRITICAL**: 严重级别
+
+### 创建告警
+```bash
+POST /api/v1/ipv6/pools/{pool_id}/alerts
+{
+  "alert_type": "PREFIX_LIMIT",
+  "severity": "WARNING",
+  "message": "前缀池使用率超过90%",
+  "prefix": "2001:db8::/48"
+}
+```
   "rpki_enabled": true
 }
 
