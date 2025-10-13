@@ -520,14 +520,14 @@ setup_nginx() {
     log_info "配置Nginx..."
     
     # 创建Nginx配置
-    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
+    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << 'EOF'
 server {
-    listen $PORT;
+    listen 80;
     server_name _;
     
     # 前端静态文件
     location / {
-        root $INSTALL_DIR/frontend/dist;
+        root /opt/ipv6-wireguard-manager/frontend/dist;
         try_files $uri $uri/ /index.html;
     }
     
