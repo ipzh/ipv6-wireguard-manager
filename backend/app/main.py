@@ -42,7 +42,7 @@ if settings.BACKEND_CORS_ORIGINS:
 # 添加受信任主机中间件
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.DEBUG else ["localhost", "127.0.0.1"]
+    allowed_hosts=["*"]  # 允许所有主机（生产环境建议限制）
 )
 
 
