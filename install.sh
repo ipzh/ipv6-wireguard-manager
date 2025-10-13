@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager One-Click Installation Script - Fixed Version
-# Fixed for non-interactive mode (curl | bash)
-# All FastAPI dependency injection issues resolved
+# IPv6 WireGuard Manager - Linux一键安装脚本
+# 专为Linux服务器环境设计
+# 修复了所有FastAPI依赖注入问题
 
 set -e
 
