@@ -7,7 +7,7 @@ import redis
 import logging
 from typing import Dict, Any
 
-from ....core.database_simple import get_db
+from ....core.database import get_db
 
 # 导入缓存和性能监控（如果可用）
 try:
