@@ -63,7 +63,7 @@ if "!POSTGRESQL_INSTALLED!"=="1" (
         call :info "配置应用使用PostgreSQL..."
         
         echo # 数据库配置> backend\.env
-        echo DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm>> backend\.env
+        echo DATABASE_URL=postgresql://ipv6wgm:password@localhost:5432/ipv6wgm>> backend\.env
         echo REDIS_URL=redis://localhost:6379/0>> backend\.env
         echo.>> backend\.env
         echo # 应用配置>> backend\.env

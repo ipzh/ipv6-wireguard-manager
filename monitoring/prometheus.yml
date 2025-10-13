@@ -36,7 +36,7 @@ scrape_configs:
     metrics_path: '/metrics'
     params:
       user: ['ipv6wgm']
-      password: ['ipv6wgm123']
+      password: ['password']
     scrape_interval: 30s
 
   # Redis监控

@@ -208,11 +208,15 @@ setup_database() {
     # 检查数据库连接
     log "INFO" "检查数据库连接..."
     
-    # 尝试导入数据库模块
+    # 尝试导入数据库模块（使用新的健康检查功能）
     check_command "python -c 'from app.core.database import engine; print(\"数据库引擎创建成功\")'" "检查数据库引擎"
     
     # 检查数据库表
     check_command "python -c 'from app.core.database import Base; from app.models import *; print(\"模型导入成功\")'" "检查数据模型"
+    
+    # 运行数据库初始化（使用新的健康检查功能）
+    log "INFO" "运行数据库初始化..."
+    check_command "python -c 'from app.core.database import init_db; import asyncio; print(\"开始数据库初始化...\"); result = asyncio.run(init_db()); print(f\"数据库初始化完成: {result}\")'" "执行数据库初始化"
     
     # 运行数据库迁移
     log "INFO" "运行数据库迁移..."
@@ -327,7 +331,7 @@ Type=simple
 User=root
 WorkingDirectory=$BACKEND_DIR
 Environment=PATH=$BACKEND_DIR/venv/bin
-Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm
+Environment=DATABASE_URL=postgresql://ipv6wgm:password@localhost:5432/ipv6wgm
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false

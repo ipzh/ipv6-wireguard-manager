@@ -35,7 +35,7 @@ create_env_file() {
     if [ ! -f .env.production ]; then
         cat > .env.production << EOF
 # 生产环境配置
-POSTGRES_PASSWORD=ipv6wgm123
+POSTGRES_PASSWORD=password
 REDIS_PASSWORD=redis123
 SECRET_KEY=$(openssl rand -hex 32)
 GRAFANA_PASSWORD=admin123
@@ -47,8 +47,8 @@ API_V1_STR=/api/v1
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8000
 
-# 数据库配置
-DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm
+# 数据库配置（使用VPS标准配置）
+DATABASE_URL=postgresql://ipv6wgm:password@postgres:5432/ipv6wgm
 DATABASE_POOL_SIZE=20
 DATABASE_MAX_OVERFLOW=30
 
@@ -124,11 +124,13 @@ wait_for_services() {
 init_database() {
     echo -e "${BLUE}🗃️  初始化数据库...${NC}"
     
-    # 运行数据库迁移
+    # 运行数据库初始化（使用新的健康检查功能）
     docker-compose -f docker-compose.production.yml exec -T backend python -c "
-from app.core.init_db_sync import create_tables, init_default_data
-if create_tables():
-    init_default_data()
+from app.core.database import init_db
+import asyncio
+print('开始数据库初始化...')
+result = asyncio.run(init_db())
+print(f'数据库初始化完成: {result}')
 "
     
     echo -e "${GREEN}✅ 数据库初始化完成${NC}"

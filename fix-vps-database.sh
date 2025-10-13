@@ -67,7 +67,7 @@ if systemctl is-active --quiet postgresql; then
             
             # 创建数据库和用户
             sudo -u postgres psql -c "CREATE DATABASE ipv6wgm;"
-            sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+            sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'password';"
             sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;"
             sudo -u postgres psql -d ipv6wgm -c "GRANT ALL ON SCHEMA public TO ipv6wgm;"
             
@@ -114,7 +114,7 @@ if systemctl is-active --quiet postgresql && sudo -u postgres psql -c "SELECT 1;
     # 创建环境变量文件
     cat > backend/.env << EOF
 # 数据库配置
-DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm
+DATABASE_URL=postgresql://ipv6wgm:password@localhost:5432/ipv6wgm
 REDIS_URL=redis://localhost:6379/0
 
 # 应用配置

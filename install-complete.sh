@@ -355,6 +355,9 @@ setup_docker_postgresql() {
         docker-compose -f docker-compose.production.yml exec -T postgres createdb -U ipv6wgm ipv6wgm || true
     fi
     
+    # 确保使用正确的密码配置
+    log_info "确保Docker PostgreSQL使用VPS标准配置..."
+    
     log_success "Docker模式下的PostgreSQL配置完成"
 }
 
@@ -372,10 +375,12 @@ setup_postgresql() {
     
     # 检查用户是否已存在
     if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ipv6wgm';" | grep -q 1; then
-        log_warning "用户 ipv6wgm 已存在，跳过创建"
+        log_warning "用户 ipv6wgm 已存在，更新密码..."
+        # 更新用户密码为VPS标准配置
+        sudo -u postgres psql -c "ALTER USER ipv6wgm WITH PASSWORD 'password';"
     else
-        # 创建用户
-        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+        # 创建用户（使用VPS标准密码）
+        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'password';"
     fi
     
     # 授予权限
@@ -398,10 +403,12 @@ setup_postgresql_low_memory() {
     
     # 检查用户是否已存在
     if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ipv6wgm';" | grep -q 1; then
-        log_warning "用户 ipv6wgm 已存在，跳过创建"
+        log_warning "用户 ipv6wgm 已存在，更新密码..."
+        # 更新用户密码为VPS标准配置
+        sudo -u postgres psql -c "ALTER USER ipv6wgm WITH PASSWORD 'password';"
     else
-        # 创建用户
-        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+        # 创建用户（使用VPS标准密码）
+        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'password';"
     fi
     
     # 授予权限
@@ -472,15 +479,15 @@ install_backend() {
     pip install --upgrade pip
     pip install -r requirements.txt
     
-    # 设置环境变量
+    # 设置环境变量（使用VPS标准配置）
     case $INSTALL_TYPE in
         "docker")
-            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm"
+            export DATABASE_URL="postgresql://ipv6wgm:password@postgres:5432/ipv6wgm"
             export REDIS_URL="redis://redis:6379/0"
             ;;
         *)
-            # 原生模式和低内存模式都使用本地PostgreSQL
-            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm"
+            # 原生模式和低内存模式都使用VPS标准PostgreSQL配置
+            export DATABASE_URL="postgresql://ipv6wgm:password@localhost:5432/ipv6wgm"
             export REDIS_URL="redis://localhost:6379/0"
             ;;
     esac
@@ -489,12 +496,14 @@ install_backend() {
     export DEBUG=false
     export LOG_LEVEL=INFO
     
-    # 初始化数据库
+    # 初始化数据库（使用新的健康检查功能）
     python -c "
 from app.core.database import init_db
 import asyncio
-asyncio.run(init_db())
+print('开始数据库初始化...')
+result = asyncio.run(init_db())
 print('数据库初始化完成')
+print(f'初始化结果: {result}')
 "
     
     log_success "后端安装完成"
@@ -583,7 +592,7 @@ Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR/backend
 Environment=PATH=$INSTALL_DIR/backend/venv/bin
-Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm
+Environment=DATABASE_URL=postgresql://ipv6wgm:password@localhost:5432/ipv6wgm
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false

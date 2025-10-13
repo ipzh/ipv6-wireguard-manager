@@ -32,7 +32,7 @@ echo 📝 创建环境配置文件...
 if not exist .env.production (
     (
         echo # 生产环境配置
-        echo POSTGRES_PASSWORD=ipv6wgm123
+        echo POSTGRES_PASSWORD=password
         echo REDIS_PASSWORD=redis123
         echo SECRET_KEY=generated-secret-key-here
         echo GRAFANA_PASSWORD=admin123
@@ -45,7 +45,7 @@ if not exist .env.production (
         echo SERVER_PORT=8000
         echo.
         echo # 数据库配置
-        echo DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm
+        echo DATABASE_URL=postgresql://ipv6wgm:password@postgres:5432/ipv6wgm
         echo DATABASE_POOL_SIZE=20
         echo DATABASE_MAX_OVERFLOW=30
         echo.

@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ipv6wgm
       POSTGRES_USER: ipv6wgm
-      POSTGRES_PASSWORD: ipv6wgm123
+      POSTGRES_PASSWORD: password
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -51,7 +51,7 @@ services:
     container_name: ipv6-wireguard-backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm
+      - DATABASE_URL=postgresql://ipv6wgm:password@postgres:5432/ipv6wgm
       - REDIS_URL=redis://:redis123@redis:6379/0
       - DEBUG=false
       - LOG_LEVEL=INFO
