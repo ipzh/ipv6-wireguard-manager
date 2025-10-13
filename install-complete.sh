@@ -728,8 +728,11 @@ get_server_ip() {
     # 获取IPv4地址
     IPV4=$(ip route get 8.8.8.8 | awk '{print $7; exit}' 2>/dev/null || echo "未知")
     
-    # 获取IPv6地址
-    IPV6=$(ip -6 route get 2001:4860:4860::8888 | awk '{print $7; exit}' 2>/dev/null || echo "未知")
+    # 获取IPv6地址（改进检测）
+    IPV6=$(ip -6 addr show | grep -E 'inet6.*global' | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    if [ -z "$IPV6" ]; then
+        IPV6="未知"
+    fi
     
     echo "IPv4: $IPV4"
     echo "IPv6: $IPV6"
