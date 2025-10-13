@@ -480,7 +480,7 @@ install_backend() {
             ;;
         *)
             # 原生模式和低内存模式都使用本地PostgreSQL
-            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager"
+            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm"
             export REDIS_URL="redis://localhost:6379/0"
             ;;
     esac
@@ -699,7 +699,7 @@ mkdir -p $BACKUP_DIR
 DATE=$(date +%Y%m%d_%H%M%S)
 
 # 备份数据库
-pg_dump ipv6_wireguard_manager > $BACKUP_DIR/db_$DATE.sql
+pg_dump ipv6wgm > $BACKUP_DIR/db_$DATE.sql
 
 # 备份配置文件
 tar -czf $BACKUP_DIR/config_$DATE.tar.gz /opt/ipv6-wireguard-manager/backend/app/core /etc/nginx/sites-available/ipv6-wireguard-manager

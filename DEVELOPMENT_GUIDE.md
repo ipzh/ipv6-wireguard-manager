@@ -620,7 +620,7 @@ npm run dev
 
 ```bash
 # 连接数据库
-psql -h localhost -U postgres -d ipv6_wireguard_manager
+psql -h localhost -U postgres -d ipv6wgm
 
 # 查看表结构
 \dt

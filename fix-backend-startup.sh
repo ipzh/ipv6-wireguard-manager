@@ -41,7 +41,7 @@ if [ ! -f "/opt/ipv6-wireguard-manager/.env" ]; then
     echo "创建环境变量文件..."
     cat > /opt/ipv6-wireguard-manager/.env << 'EOF'
 # 数据库配置
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6wgm
 REDIS_URL=redis://localhost:6379/0
 
 # 安全配置
@@ -82,14 +82,14 @@ fi
 echo "8. 运行数据库迁移..."
 cd /opt/ipv6-wireguard-manager/backend
 source venv/bin/activate
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6wgm"
 alembic upgrade head
 
 # 9. 测试应用启动
 echo "9. 测试应用启动..."
 cd /opt/ipv6-wireguard-manager/backend
 source venv/bin/activate
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6wgm"
 export REDIS_URL="redis://localhost:6379/0"
 export SECRET_KEY="test-secret-key"
 
@@ -117,7 +117,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/opt/ipv6-wireguard-manager/backend
 Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
-Environment=DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager
+Environment=DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6wgm
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false

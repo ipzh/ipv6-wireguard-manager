@@ -12,7 +12,7 @@ cd /opt/ipv6-wireguard-manager/backend
 source venv/bin/activate
 
 # 设置环境变量
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6wgm"
 export REDIS_URL="redis://localhost:6379/0"
 export SECRET_KEY="your-secret-key-change-this-in-production"
 

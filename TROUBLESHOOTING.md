@@ -239,7 +239,7 @@ sudo -u postgres psql -c "SELECT query, mean_time, calls FROM pg_stat_statements
 sudo -u postgres psql -c "ANALYZE;"
 
 # 重建索引
-sudo -u postgres psql -c "REINDEX DATABASE ipv6_wireguard_manager;"
+sudo -u postgres psql -c "REINDEX DATABASE ipv6wgm;"
 ```
 
 ## ⚡ 性能问题

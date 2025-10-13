@@ -54,7 +54,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 async def test_db():
     try:
-        db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager')
+        db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ipv6wgm')
         engine = create_async_engine(db_url)
         async with engine.begin() as conn:
             result = await conn.execute('SELECT 1')

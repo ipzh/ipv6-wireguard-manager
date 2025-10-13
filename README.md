@@ -148,7 +148,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 ```bash
 # 数据库配置
-DATABASE_URL=postgresql://user:password@localhost:5432/ipv6_wireguard_manager
+DATABASE_URL=postgresql://user:password@localhost:5432/ipv6wgm
 REDIS_URL=redis://localhost:6379/0
 
 # 安全配置

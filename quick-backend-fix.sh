@@ -31,7 +31,7 @@ chown -R www-data:www-data /opt/ipv6-wireguard-manager/
 chmod +x /opt/ipv6-wireguard-manager/backend/venv/bin/*
 
 # 3. 修复环境变量
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ipv6wgm"
 export REDIS_URL="redis://localhost:6379/0"
 export SECRET_KEY="your-secret-key-change-this-in-production"
 
@@ -54,7 +54,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/opt/ipv6-wireguard-manager/backend
 Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
-Environment=DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6_wireguard_manager
+Environment=DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipv6wgm
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
