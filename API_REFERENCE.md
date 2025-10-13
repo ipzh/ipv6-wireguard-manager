@@ -468,6 +468,106 @@ Authorization: Bearer <token>
 
 ## ⚙️ 系统管理API
 
+### 健康检查端点
+```http
+GET /api/v1/status/health
+```
+
+**响应**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "version": "1.0.0"
+}
+```
+
+### 详细健康检查
+```http
+GET /api/v1/status/health/detailed
+Authorization: Bearer <token>
+```
+
+**响应**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "components": {
+    "database": {
+      "status": "healthy",
+      "response_time": 15.2
+    },
+    "redis": {
+      "status": "healthy",
+      "response_time": 2.1
+    },
+    "cache": {
+      "status": "healthy",
+      "hit_rate": 85.5
+    }
+  }
+}
+```
+
+### 就绪检查（Kubernetes）
+```http
+GET /api/v1/status/ready
+```
+
+**响应**:
+```json
+{
+  "status": "ready",
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+### 存活检查（Kubernetes）
+```http
+GET /api/v1/status/live
+```
+
+**响应**:
+```json
+{
+  "status": "alive",
+  "timestamp": "2024-01-01T12:00:00Z"
+}
+```
+
+### 性能指标端点
+```http
+GET /api/v1/status/metrics
+Authorization: Bearer <token>
+```
+
+**响应**:
+```json
+{
+  "timestamp": "2024-01-01T12:00:00Z",
+  "performance": {
+    "api_response_time": {
+      "avg": 45.2,
+      "p95": 120.5,
+      "p99": 250.8
+    },
+    "database_query_time": {
+      "avg": 12.3,
+      "p95": 35.6,
+      "p99": 89.2
+    },
+    "cache_hit_rate": 85.5,
+    "active_connections": 125
+  },
+  "system": {
+    "cpu_usage": 25.5,
+    "memory_usage": 60.2,
+    "disk_usage": 45.8
+  }
+}
+```
+
 ### 获取系统状态
 ```http
 GET /api/v1/status/status

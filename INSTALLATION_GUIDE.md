@@ -7,6 +7,32 @@
 ```bash
 # 一键安装，自动选择最佳安装方式
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+
+# 或者使用wget
+wget -qO- https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+```
+
+### 安装选项
+
+```bash
+# 指定安装目录
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --dir /opt/ipv6-wireguard
+
+# 指定端口
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --port 8080
+
+# 静默安装（无交互）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
+```
+
+### 性能优化安装
+
+```bash
+# 高性能安装（启用所有优化）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --performance
+
+# 生产环境安装（包含监控和健康检查）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production
 ```
 
 ### 指定安装方式
@@ -36,6 +62,63 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 - **存储**：5GB+ 可用空间
 - **CPU**：2核心+
 
+## 🔧 安装流程
+
+### 1. 环境准备
+
+#### 系统要求检查
+```bash
+# 检查系统版本
+cat /etc/os-release
+
+# 检查Python版本
+python3 --version
+
+# 检查Docker版本
+docker --version
+
+# 检查可用内存
+free -h
+
+# 检查磁盘空间
+df -h
+
+# 检查CPU核心数
+nproc
+
+# 检查系统负载
+uptime
+```
+
+#### 性能优化检查
+```bash
+# 检查系统性能参数
+cat /proc/sys/vm/swappiness
+cat /proc/sys/net/core/somaxconn
+
+# 检查文件描述符限制
+ulimit -n
+
+# 检查网络连接限制
+sysctl net.ipv4.ip_local_port_range
+
+# 检查内存分配策略
+cat /proc/sys/vm/overcommit_memory
+```
+
+#### 依赖安装
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install -y python3 python3-pip docker.io docker-compose curl wget htop iotop
+
+# CentOS/RHEL
+sudo yum install -y python3 python3-pip docker docker-compose curl wget htop iotop
+
+# macOS
+brew install python3 docker docker-compose curl wget htop
+```
+
 ## 🔧 安装方式详解
 
 ### 1. Docker安装（推荐新手）
@@ -57,6 +140,36 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 **安装命令**：
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s docker
+```
+
+#### 性能优化配置
+```bash
+# 配置系统性能参数（Linux系统）
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+echo 'net.core.somaxconn=65535' | sudo tee -a /etc/sysctl.conf
+echo 'net.ipv4.tcp_max_syn_backlog=65535' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# 配置文件描述符限制
+echo '* soft nofile 65535' | sudo tee -a /etc/security/limits.conf
+echo '* hard nofile 65535' | sudo tee -a /etc/security/limits.conf
+
+# 配置Docker性能优化
+sudo mkdir -p /etc/docker
+echo '{
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 65535,
+      "Soft": 65535
+    }
+  },
+  "max-concurrent-downloads": 3,
+  "max-concurrent-uploads": 3
+}' | sudo tee /etc/docker/daemon.json
+
+# 重启Docker服务
+sudo systemctl restart docker
 ```
 
 ### 2. 原生安装（推荐VPS）

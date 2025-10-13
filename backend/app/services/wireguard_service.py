@@ -7,6 +7,7 @@ import os
 import qrcode
 import io
 import base64
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -214,6 +215,71 @@ class WireGuardService:
         except Exception as e:
             logger.error(f"删除对等节点失败: {e}")
             return False
+
+    async def get_status(self) -> WireGuardStatus:
+        """获取WireGuard状态"""
+        try:
+            # 获取所有服务器
+            servers = await self.get_servers()
+            if not servers:
+                return WireGuardStatus(
+                    interface=WireGuardInterfaceStatus(
+                        name="wg0",
+                        public_key="",
+                        private_key="",
+                        listen_port=51820,
+                        fwmark=0,
+                        peers=0
+                    ),
+                    peers=[]
+                )
+            
+            # 使用第一个服务器
+            server = servers[0]
+            
+            # 获取所有客户端作为peers
+            clients = await self.get_all_clients()
+            peers = []
+            
+            for client in clients:
+                peer_status = WireGuardPeerStatus(
+                    public_key=client.public_key,
+                    preshared_key="",
+                    allowed_ips=client.allowed_ips or [],
+                    persistent_keepalive=client.persistent_keepalive or 25,
+                    latest_handshake=int(datetime.now().timestamp()),
+                    transfer_rx=0,
+                    transfer_tx=0
+                )
+                peers.append(peer_status)
+            
+            interface_status = WireGuardInterfaceStatus(
+                name=server.interface or "wg0",
+                public_key=server.public_key,
+                private_key=server.private_key,
+                listen_port=server.listen_port or 51820,
+                fwmark=0,
+                peers=len(peers)
+            )
+            
+            return WireGuardStatus(
+                interface=interface_status,
+                peers=peers
+            )
+        except Exception as e:
+            logger.error(f"获取WireGuard状态失败: {e}")
+            # 返回默认状态
+            return WireGuardStatus(
+                interface=WireGuardInterfaceStatus(
+                    name="wg0",
+                    public_key="",
+                    private_key="",
+                    listen_port=51820,
+                    fwmark=0,
+                    peers=0
+                ),
+                peers=[]
+            )
 
     async def restart_peer(self, peer_id: str) -> bool:
         """重启对等节点"""

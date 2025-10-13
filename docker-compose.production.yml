@@ -1,58 +1,113 @@
 version: '3.8'
 
 services:
-  # 主应用服务
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    container_name: ipv6-wireguard-manager
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: ipv6-wireguard-postgres
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/ipv6_wireguard_manager
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=false
-      - LOG_LEVEL=INFO
+      POSTGRES_DB: ipv6wgm
+      POSTGRES_USER: ipv6wgm
+      POSTGRES_PASSWORD: ipv6wgm123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - /etc/wireguard:/etc/wireguard:ro
-      - /var/log:/var/log:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
     ports:
-      - "8000:8000"
-    depends_on:
-      - db
-      - redis
+      - "5432:5432"
     networks:
-      - app-network
+      - ipv6-wireguard-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "pg_isready -U ipv6wgm -d ipv6wgm"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # 前端服务
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ipv6-wireguard-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ipv6-wireguard-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 后端API服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    container_name: ipv6-wireguard-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./backend/logs:/app/logs
+      - /etc/wireguard:/etc/wireguard:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ipv6-wireguard-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端Web服务
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-      target: production
+      dockerfile: Dockerfile.production
     container_name: ipv6-wireguard-frontend
     restart: unless-stopped
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    networks:
+      - ipv6-wireguard-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: ipv6-wireguard-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
-      - app
+      - frontend
+      - backend
     networks:
-      - app-network
+      - ipv6-wireguard-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

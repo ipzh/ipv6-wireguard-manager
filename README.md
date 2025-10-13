@@ -90,23 +90,15 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 - **存储**：最低2GB可用空间
 - **网络**：支持IPv4和IPv6
 
-## 📖 详细文档
+## 📚 详细文档
 
-### 安装指南
 - [安装指南](INSTALLATION_GUIDE.md) - 详细的安装步骤和配置说明
-- [快速开始](QUICK_START.md) - 快速上手指南
-- [故障排除](TROUBLESHOOTING.md) - 常见问题解决方案
-
-### 功能文档
-- [功能详细说明](FEATURES_DETAILED.md) - 所有功能的详细说明
-- [BGP功能指南](BGP_FEATURES_GUIDE.md) - BGP相关功能使用指南
-- [API参考文档](API_REFERENCE.md) - 完整的API接口文档
-- [用户手册](USER_MANUAL.md) - 用户操作指南
-
-### 开发文档
-- [技术架构](TECHNICAL_ARCHITECTURE.md) - 系统架构设计
-- [实现状态](IMPLEMENTATION_STATUS.md) - 功能实现状态
-- [开发指南](DEVELOPMENT_GUIDE.md) - 开发环境搭建和贡献指南
+- [快速开始](QUICK_START.md) - 5分钟快速部署和使用指南
+- [用户手册](USER_MANUAL.md) - 完整的功能使用说明
+- [功能详解](FEATURES_DETAILED.md) - 所有功能的详细说明
+- [API参考](API_REFERENCE.md) - 完整的API接口文档
+- [开发指南](DEVELOPMENT_GUIDE.md) - 开发环境搭建和代码规范
+- [部署文档](DEPLOYMENT-README.md) - 性能优化与生产部署指南
 
 ## 🏗️ 系统架构
 

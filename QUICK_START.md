@@ -2,14 +2,61 @@
 
 ## 🚀 5分钟快速部署
 
-### 1. 一键安装
+### 步骤1：环境准备
 ```bash
-# 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+# 检查系统要求
+uname -a
+python3 --version
+docker --version
+
+# 检查性能优化参数
+ulimit -n
+cat /proc/sys/net/core/somaxconn
 ```
 
-### 2. 访问系统
-- 打开浏览器访问: `http://your-server-ip`
+### 步骤2：一键安装
+```bash
+# 下载并执行安装脚本（性能优化版）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --performance
+
+# 或者克隆项目手动安装
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+./scripts/install.sh --performance
+```
+
+### 步骤2.5：性能优化配置（可选）
+```bash
+# 启用系统性能优化
+sudo ./scripts/optimize-system.sh
+
+# 配置数据库性能优化
+sudo ./scripts/optimize-database.sh
+
+# 配置缓存性能优化
+sudo ./scripts/optimize-cache.sh
+```
+
+### 步骤3：验证部署和性能
+```bash
+# 健康检查验证
+curl http://localhost:8000/api/v1/status/health
+
+# 详细健康检查
+curl http://localhost:8000/api/v1/status/health/detailed
+
+# 性能指标检查
+curl http://localhost:8000/api/v1/status/metrics
+
+# Kubernetes就绪检查
+curl http://localhost:8000/api/v1/status/ready
+
+# Kubernetes存活检查
+curl http://localhost:8000/api/v1/status/live
+```
+
+### 步骤4：访问系统
+- 打开浏览器访问: `http://your-server-ip:8000`
 - 使用默认账号登录:
   - 用户名: `admin`
   - 密码: `admin123`

@@ -7,6 +7,7 @@ from sqlalchemy.future import select
 from sqlalchemy import update, delete
 from uuid import UUID
 import ipaddress
+import logging
 
 from ..models.ipv6 import PrefixPool as PrefixPoolModel, PoolPrefix as PoolPrefixModel
 from ..schemas.ipv6 import PrefixPoolCreate, PrefixPoolUpdate, PoolPrefixUpdate
@@ -48,30 +49,93 @@ class IPv6PoolService:
         return result.scalars().all()
 
     async def allocate_next(self, pool_id: UUID, assigned_to_type: Optional[str] = None, assigned_to_id: Optional[str] = None, note: Optional[str] = None) -> Optional[PoolPrefixModel]:
-        # 获取池信息
-        result = await self.db.execute(select(PrefixPoolModel).where(PrefixPoolModel.id == pool_id))
-        pool = result.scalars().first()
-        if not pool:
-            return None
+        """智能分配下一个可用的IPv6前缀"""
+        try:
+            # 获取池信息
+            result = await self.db.execute(select(PrefixPoolModel).where(PrefixPoolModel.id == pool_id))
+            pool = result.scalars().first()
+            if not pool:
+                return None
 
-        # 已存在前缀集合
-        existing_result = await self.db.execute(select(PoolPrefixModel).where(PoolPrefixModel.pool_id == pool_id))
-        existing = {p.prefix for p in existing_result.scalars().all()}
+            # 获取已分配的前缀
+            existing_result = await self.db.execute(
+                select(PoolPrefixModel).where(PoolPrefixModel.pool_id == pool_id)
+            )
+            existing_prefixes = {p.prefix for p in existing_result.scalars().all()}
 
-        # 遍历子网，找到第一个未使用的
-        network = ipaddress.ip_network(pool.base_prefix, strict=False)
-        if pool.prefix_len < network.prefixlen:
-            # 要分配的子网比base前缀更大（更短的len），按base子网继续
-            target_len = network.prefixlen
-        else:
+            # 解析基础前缀
+            network = ipaddress.ip_network(pool.base_prefix, strict=False)
             target_len = pool.prefix_len
+            
+            # 如果目标长度小于基础前缀长度，使用基础前缀长度
+            if target_len < network.prefixlen:
+                target_len = network.prefixlen
 
-        for subnet in network.subnets(new_prefix=target_len):
-            cidr = str(subnet)
-            if cidr not in existing:
+            # 智能分配策略：优先分配连续的地址块
+            allocated_subnets = []
+            for prefix in existing_prefixes:
+                try:
+                    subnet = ipaddress.ip_network(prefix, strict=False)
+                    if subnet.prefixlen == target_len:
+                        allocated_subnets.append(subnet)
+                except ValueError:
+                    continue
+
+            # 按网络地址排序
+            allocated_subnets.sort()
+            
+            # 查找第一个可用的子网
+            for i, subnet in enumerate(allocated_subnets):
+                if i == 0:
+                    # 检查第一个子网之前是否有空间
+                    first_subnet = list(network.subnets(new_prefix=target_len))[0]
+                    if subnet != first_subnet:
+                        # 分配第一个子网
+                        new_prefix = str(first_subnet)
+                        break
+                
+                if i < len(allocated_subnets) - 1:
+                    next_subnet = allocated_subnets[i + 1]
+                    # 检查当前子网和下一个子网之间是否有空间
+                    if next_subnet > subnet:
+                        # 尝试分配下一个连续的子网
+                        try:
+                            next_available = list(subnet.subnets(new_prefix=target_len))[1]
+                            if next_available < next_subnet:
+                                new_prefix = str(next_available)
+                                break
+                        except ValueError:
+                            continue
+            else:
+                # 如果所有已分配子网之间没有空间，分配最后一个子网之后的下一个
+                if allocated_subnets:
+                    last_subnet = allocated_subnets[-1]
+                    try:
+                        next_subnets = list(last_subnet.subnets(new_prefix=target_len))
+                        if len(next_subnets) > 1:
+                            new_prefix = str(next_subnets[1])
+                        else:
+                            # 尝试从整个网络中找到下一个可用的
+                            new_prefix = None
+                    except ValueError:
+                        new_prefix = None
+                else:
+                    # 分配第一个子网
+                    first_subnet = list(network.subnets(new_prefix=target_len))[0]
+                    new_prefix = str(first_subnet)
+
+            # 如果通过智能分配没有找到，回退到顺序分配
+            if new_prefix is None:
+                for subnet in network.subnets(new_prefix=target_len):
+                    cidr = str(subnet)
+                    if cidr not in existing_prefixes:
+                        new_prefix = cidr
+                        break
+
+            if new_prefix:
                 record = PoolPrefixModel(
                     pool_id=pool_id,
-                    prefix=cidr,
+                    prefix=new_prefix,
                     status="allocated",
                     assigned_to_type=assigned_to_type,
                     assigned_to_id=assigned_to_id,
@@ -79,8 +143,18 @@ class IPv6PoolService:
                 )
                 self.db.add(record)
                 await self.db.flush()
+                
+                # 记录分配日志
+                logger = logging.getLogger(__name__)
+                logger.info(f"IPv6前缀分配成功: {new_prefix} -> {assigned_to_type}:{assigned_to_id}")
+                
                 return record
-        return None
+            
+            return None
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"IPv6前缀分配失败: {e}")
+            return None
 
     async def release(self, prefix_id: UUID) -> bool:
         # 将记录标记为free

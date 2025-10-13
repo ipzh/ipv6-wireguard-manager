@@ -5,6 +5,7 @@ import qrcode
 import io
 import base64
 import re
+import time
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -193,12 +194,12 @@ class WireGuardService:
             return WireGuardPeerStatus(
                 public_key=parts[0],
                 preshared_key=parts[1] if parts[1] != '(none)' else "",
+                endpoint=parts[3] if parts[3] != '(none)' else None,
                 allowed_ips=allowed_ips,
-                persistent_keepalive=persistent_keepalive,
                 latest_handshake=latest_handshake,
                 transfer_rx=transfer_rx,
                 transfer_tx=transfer_tx,
-                endpoint=parts[3] if parts[3] != '(none)' else None
+                persistent_keepalive=persistent_keepalive
             )
         except Exception as e:
             logger.error(f"解析peer信息失败: {e}")

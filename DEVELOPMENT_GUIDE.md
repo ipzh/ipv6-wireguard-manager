@@ -402,12 +402,84 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ### 生产环境部署
 
+#### 使用Docker Compose部署
 ```bash
 # 构建生产镜像
 docker-compose -f docker-compose.production.yml build
 
 # 启动生产环境
 docker-compose -f docker-compose.production.yml up -d
+```
+
+#### 使用自动化部署脚本
+```bash
+# Linux/Mac系统
+./deploy-production.sh
+
+# Windows系统
+./deploy-production.bat
+```
+
+#### 手动部署步骤
+```bash
+# 1. 检查依赖
+python --version
+node --version
+docker --version
+
+# 2. 创建环境文件
+cp .env.example .env
+# 编辑.env文件，配置数据库连接、Redis连接等
+
+# 3. 启动数据库服务
+docker-compose -f docker-compose.production.yml up -d db redis
+
+# 4. 初始化数据库
+cd backend
+python -m app.core.init_db_sync
+
+# 5. 启动应用服务
+docker-compose -f docker-compose.production.yml up -d backend frontend nginx
+
+# 6. 验证部署
+curl http://localhost:8000/api/v1/status/health
+```
+
+### 性能优化部署
+
+#### 数据库优化配置
+```python
+# 数据库连接池配置
+DATABASE_POOL_SIZE = 20
+DATABASE_MAX_OVERFLOW = 30
+DATABASE_POOL_RECYCLE = 3600
+
+# 查询优化配置
+QUERY_TIMEOUT = 30
+MAX_QUERY_RESULTS = 1000
+```
+
+#### 缓存优化配置
+```python
+# Redis缓存配置
+REDIS_CACHE_TTL = 3600
+REDIS_CACHE_PREFIX = "ipv6wg:"
+REDIS_CONNECTION_POOL_SIZE = 20
+
+# 内存缓存配置
+MEMORY_CACHE_SIZE = 1000
+MEMORY_CACHE_TTL = 300
+```
+
+#### 应用性能优化
+```python
+# 异步任务配置
+ASYNC_WORKERS = 4
+ASYNC_QUEUE_SIZE = 1000
+
+# API性能配置
+API_RATE_LIMIT = 1000  # 每分钟请求数
+API_TIMEOUT = 30  # 请求超时时间
 ```
 
 ### 数据库迁移
@@ -421,6 +493,33 @@ alembic upgrade head
 
 # 回滚迁移
 alembic downgrade -1
+```
+
+### 健康检查配置
+
+#### Kubernetes健康检查
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/v1/status/live
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/status/ready
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+#### 自定义健康检查
+```python
+# 健康检查配置
+HEALTH_CHECK_TIMEOUT = 5
+HEALTH_CHECK_RETRY_COUNT = 3
+HEALTH_CHECK_INTERVAL = 30
 ```
 
 ## 🤝 贡献流程

@@ -15,15 +15,41 @@ metadata = MetaData()
 # 数据库URL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm")
 
-# 创建同步数据库引擎
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=False,
-)
+# 创建同步数据库引擎（带连接重试机制）
+def create_engine_with_retry():
+    """创建带重试机制的数据库引擎"""
+    import time
+    max_retries = 3
+    retry_delay = 5
+    
+    for attempt in range(max_retries):
+        try:
+            engine = create_engine(
+                DATABASE_URL,
+                pool_size=10,
+                max_overflow=20,
+                pool_pre_ping=True,
+                pool_recycle=3600,
+                echo=False,
+                connect_args={
+                    "connect_timeout": 30,
+                    "application_name": "ipv6-wireguard-manager"
+                }
+            )
+            # 测试连接
+            with engine.connect() as conn:
+                conn.execute("SELECT 1")
+            return engine
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"数据库连接失败，{retry_delay}秒后重试 (尝试 {attempt + 1}/{max_retries}): {e}")
+                time.sleep(retry_delay)
+            else:
+                print(f"数据库连接失败，使用内存数据库模式: {e}")
+                # 创建内存SQLite引擎作为后备
+                return create_engine("sqlite:///:memory:", echo=False)
+
+engine = create_engine_with_retry()
 
 # 创建会话工厂
 SessionLocal = sessionmaker(

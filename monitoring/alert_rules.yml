@@ -1,0 +1,133 @@
+# Prometheus告警规则
+groups:
+  # 系统级别告警
+  - name: system_alerts
+    rules:
+      # 高CPU使用率
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高CPU使用率"
+          description: "实例 {{ $labels.instance }} 的CPU使用率超过80%，当前值为 {{ $value }}%"
+
+      # 高内存使用率
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高内存使用率"
+          description: "实例 {{ $labels.instance }} 的内存使用率超过85%，当前值为 {{ $value }}%"
+
+      # 磁盘空间不足
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100) < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足"
+          description: "实例 {{ $labels.instance }} 的根分区磁盘空间不足10%，当前可用 {{ $value }}%"
+
+  # 应用级别告警
+  - name: application_alerts
+    rules:
+      # 后端服务不可用
+      - alert: BackendServiceDown
+        expr: up{job="ipv6-wireguard-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "后端服务不可用"
+          description: "后端服务 {{ $labels.instance }} 已下线"
+
+      # 高响应时间
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高响应时间"
+          description: "后端服务响应时间超过5秒，当前P95值为 {{ $value }}秒"
+
+      # 高错误率
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高错误率"
+          description: "HTTP错误率超过5%，当前值为 {{ $value }}%"
+
+  # 数据库级别告警
+  - name: database_alerts
+    rules:
+      # 数据库连接数过高
+      - alert: HighDatabaseConnections
+        expr: pg_stat_activity_count > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接数过高"
+          description: "PostgreSQL连接数超过50，当前值为 {{ $value }}"
+
+      # 数据库锁等待
+      - alert: DatabaseLockWait
+        expr: pg_stat_activity_waiting > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库锁等待"
+          description: "PostgreSQL锁等待数量超过10，当前值为 {{ $value }}"
+
+      # 数据库慢查询
+      - alert: SlowQueries
+        expr: rate(pg_stat_statements_calls{query!~"(COMMIT|BEGIN|ROLLBACK)"}[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库慢查询"
+          description: "PostgreSQL慢查询数量过高，当前值为 {{ $value }}"
+
+  # Redis级别告警
+  - name: redis_alerts
+    rules:
+      # Redis内存使用率过高
+      - alert: HighRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis内存使用率过高"
+          description: "Redis内存使用率超过85%，当前值为 {{ $value }}%"
+
+      # Redis连接数过高
+      - alert: HighRedisConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis连接数过高"
+          description: "Redis连接数超过100，当前值为 {{ $value }}"
+
+      # Redis响应时间过长
+      - alert: HighRedisLatency
+        expr: redis_commands_duration_seconds_sum / redis_commands_duration_seconds_count > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis响应时间过长"
+          description: "Redis平均响应时间超过100ms，当前值为 {{ $value }}秒"

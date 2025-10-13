@@ -312,10 +312,108 @@ async def start_data_streams():
         asyncio.create_task(system_metrics_stream()),
         asyncio.create_task(wireguard_status_stream()),
         asyncio.create_task(network_status_stream()),
-        asyncio.create_task(alerts_stream())
+        asyncio.create_task(alerts_stream()),
+        asyncio.create_task(bgp_status_stream()),
+        asyncio.create_task(ipv6_status_stream())
     ]
     
     await asyncio.gather(*tasks)
+
+# BGP状态数据流
+async def bgp_status_stream():
+    """BGP会话状态数据流"""
+    while True:
+        try:
+            # 模拟BGP会话状态数据
+            bgp_sessions = [
+                {
+                    "id": "bgp-session-1",
+                    "name": "ISP-1",
+                    "neighbor": "2001:db8::1",
+                    "remote_as": 65001,
+                    "status": "established",
+                    "uptime": 3600,
+                    "prefixes_received": 100,
+                    "prefixes_sent": 50,
+                    "last_update": time.time() - 60
+                },
+                {
+                    "id": "bgp-session-2", 
+                    "name": "ISP-2",
+                    "neighbor": "2001:db8::2",
+                    "remote_as": 65002,
+                    "status": "idle",
+                    "uptime": 0,
+                    "prefixes_received": 0,
+                    "prefixes_sent": 0,
+                    "last_update": time.time() - 300
+                }
+            ]
+            
+            bgp_data = {
+                "type": "bgp_status",
+                "timestamp": time.time(),
+                "data": {
+                    "sessions": bgp_sessions,
+                    "total_sessions": len(bgp_sessions),
+                    "established_sessions": len([s for s in bgp_sessions if s["status"] == "established"]),
+                    "total_prefixes_received": sum(s["prefixes_received"] for s in bgp_sessions),
+                    "total_prefixes_sent": sum(s["prefixes_sent"] for s in bgp_sessions)
+                }
+            }
+            
+            await manager.broadcast(json.dumps(bgp_data), "bgp_status")
+            await asyncio.sleep(15)  # 每15秒发送一次
+            
+        except Exception as e:
+            print(f"BGP状态流错误: {e}")
+            await asyncio.sleep(15)
+
+# IPv6状态数据流
+async def ipv6_status_stream():
+    """IPv6前缀分配状态数据流"""
+    while True:
+        try:
+            # 模拟IPv6前缀分配数据
+            ipv6_allocations = [
+                {
+                    "id": "alloc-1",
+                    "prefix": "2001:db8:1000::/48",
+                    "client_id": "client-001",
+                    "pool_id": "pool-1",
+                    "status": "active",
+                    "allocated_at": time.time() - 86400,
+                    "expires_at": time.time() + 2592000
+                },
+                {
+                    "id": "alloc-2",
+                    "prefix": "2001:db8:2000::/48", 
+                    "client_id": "client-002",
+                    "pool_id": "pool-1",
+                    "status": "active",
+                    "allocated_at": time.time() - 172800,
+                    "expires_at": time.time() + 2678400
+                }
+            ]
+            
+            ipv6_data = {
+                "type": "ipv6_status",
+                "timestamp": time.time(),
+                "data": {
+                    "allocations": ipv6_allocations,
+                    "total_allocations": len(ipv6_allocations),
+                    "active_allocations": len([a for a in ipv6_allocations if a["status"] == "active"]),
+                    "total_prefixes": 2,
+                    "utilization_percent": 40.0
+                }
+            }
+            
+            await manager.broadcast(json.dumps(ipv6_data), "ipv6_status")
+            await asyncio.sleep(30)  # 每30秒发送一次
+            
+        except Exception as e:
+            print(f"IPv6状态流错误: {e}")
+            await asyncio.sleep(30)
 
 # 获取WebSocket连接信息
 @router.get("/connections")

@@ -100,6 +100,12 @@ async def health_check():
         "timestamp": time.time()
     }
 
+# 导入API路由
+from .api.api_v1.endpoints import health
+
+# 包含API路由
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
+
 @app.get("/api/v1/status/status")
 async def get_status():
     """获取系统状态"""
