@@ -344,7 +344,7 @@ install_backend() {
     cd /opt/ipv6-wireguard-manager/backend
     
     # 检查并安装python3-venv包
-    if ! python3.11 -m venv --help &> /dev/null; then
+    if ! python3.11 -c "import venv" &> /dev/null; then
         log_info "检测到缺少python3-venv包，正在安装..."
         apt-get update -y
         apt-get install -y python3.11-venv
