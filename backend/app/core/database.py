@@ -1,7 +1,8 @@
 """
 数据库配置和连接管理
 """
-from sqlalchemy import create_engine, MetaData
+import os
+from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -38,9 +39,35 @@ if settings.DATABASE_URL.startswith("postgresql://"):
                 connect_args={
                     "server_settings": {
                         "jit": "off"
-                    }
+                    },
+                    "timeout": settings.DATABASE_CONNECT_TIMEOUT,
+                    "command_timeout": settings.DATABASE_STATEMENT_TIMEOUT
                 }
             )
+            
+            # 测试连接
+            import asyncio
+            async def test_async_connection():
+                try:
+                    async with async_engine.connect() as conn:
+                        await conn.execute(text("SELECT 1"))
+                    return True
+                except Exception:
+                    return False
+            
+            # 在Windows上使用不同的策略
+            if os.name == 'nt':
+                # Windows环境，使用线程池执行
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    connection_ok = executor.submit(asyncio.run, test_async_connection()).result()
+            else:
+                # Linux环境，直接运行
+                connection_ok = asyncio.run(test_async_connection())
+            
+            if not connection_ok:
+                print("警告: 异步数据库连接测试失败，使用同步模式")
+                async_engine = None
         else:
             async_engine = None
     except Exception as e:

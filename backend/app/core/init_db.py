@@ -46,7 +46,27 @@ async def init_db_data(session: AsyncSession):
     except Exception as e:
         await session.rollback()
         logger.error(f"数据库初始化失败: {e}")
-        raise
+        # 对于远程服务器，记录更详细的错误信息
+        error_msg = str(e)
+        if "Connection refused" in error_msg or "10061" in error_msg:
+            logger.error("💡 建议: 检查远程数据库服务器是否运行")
+        elif "timeout" in error_msg.lower():
+            logger.error("💡 建议: 检查网络连接和防火墙设置")
+        elif "authentication failed" in error_msg.lower():
+            logger.error("💡 建议: 检查数据库用户名和密码")
+        elif "database" in error_msg.lower() and "does not exist" in error_msg.lower():
+            logger.error("💡 建议: 数据库不存在，请先创建数据库")
+        elif "permission" in error_msg.lower():
+            logger.error("💡 建议: 检查数据库用户权限")
+        
+        # 对于远程服务器错误，不抛出异常，而是记录警告
+        if any(keyword in error_msg.lower() for keyword in [
+            "connection refused", "10061", "timeout", "authentication"
+        ]):
+            logger.warning("⚠️ 远程数据库连接问题，跳过数据初始化")
+            return
+        else:
+            raise
 
 async def create_default_roles(session: AsyncSession):
     """创建默认角色"""

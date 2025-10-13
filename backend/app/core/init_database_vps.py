@@ -36,6 +36,49 @@ class VPSDatabaseInitializer:
         logger.info("开始VPS环境数据库初始化...")
         
         try:
+            # 步骤0: 检查数据库连接配置
+            logger.info("步骤0: 检查数据库连接配置")
+            from .config import settings
+            
+            # 检查数据库URL配置
+            if not settings.DATABASE_URL:
+                logger.error("数据库URL未配置")
+                return False
+            
+            # 检查是否为远程PostgreSQL连接
+            if settings.DATABASE_URL.startswith("postgresql://"):
+                # 检查连接参数
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)
+                
+                # 检查主机名和端口
+                hostname = parsed_url.hostname
+                port = parsed_url.port or 5432
+                
+                logger.info(f"连接目标: {hostname}:{port}")
+                
+                # 检查是否为远程服务器
+                if hostname not in ['localhost', '127.0.0.1', '::1']:
+                    logger.info("检测到远程PostgreSQL服务器连接")
+                    
+                    # 检查网络连接
+                    import socket
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)  # 5秒超时
+                        result = sock.connect_ex((hostname, port))
+                        sock.close()
+                        
+                        if result != 0:
+                            logger.warning(f"远程PostgreSQL服务器 {hostname}:{port} 无法连接")
+                            logger.info("将尝试使用SQLite作为回退方案")
+                            # 切换到SQLite
+                            settings.DATABASE_URL = settings.SQLITE_DATABASE_URL
+                    except Exception as e:
+                        logger.warning(f"网络连接检查失败: {e}")
+                        logger.info("将尝试使用SQLite作为回退方案")
+                        settings.DATABASE_URL = settings.SQLITE_DATABASE_URL
+            
             # 步骤1: 检查数据库健康状况
             logger.info("步骤1: 检查数据库健康状况")
             health_status = self.health_checker.check_database_health()

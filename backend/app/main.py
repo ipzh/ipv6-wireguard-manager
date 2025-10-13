@@ -79,10 +79,23 @@ async def startup_event():
     try:
         from .core.database_health import check_and_fix_database
         
-        # 先检查并修复数据库问题
+        # 先检查并修复数据库问题（使用超时机制）
         logger.info("Checking database health...")
-        if not check_and_fix_database():
-            logger.warning("Database health check found issues, continuing with initialization...")
+        import asyncio
+        
+        # 异步执行数据库检查，避免阻塞
+        async def check_db():
+            return check_and_fix_database()
+        
+        try:
+            # 设置超时时间为30秒
+            result = await asyncio.wait_for(asyncio.to_thread(check_db), timeout=30.0)
+            if not result:
+                logger.warning("Database health check found issues, continuing with initialization...")
+        except asyncio.TimeoutError:
+            logger.warning("Database health check timed out, continuing with initialization...")
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
         
         # 初始化数据库
         await init_db()

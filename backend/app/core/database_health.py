@@ -7,7 +7,7 @@ import sys
 import subprocess
 import logging
 from typing import Optional, Dict, Any
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from .config import settings
@@ -48,129 +48,158 @@ class DatabaseHealthChecker:
         """检查数据库连接"""
         try:
             with self.engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            logger.info("数据库连接正常")
-        except OperationalError as e:
+                result = conn.execute(text("SELECT 1"))
+                if result.scalar() == 1:
+                    logger.info("数据库连接正常")
+                else:
+                    self.issues_found.append({
+                        "type": "connection",
+                        "message": "数据库连接测试失败",
+                        "severity": "critical"
+                    })
+        except Exception as e:
+            error_msg = str(e)
+            # 针对远程服务器连接错误进行特殊处理
+            if "Connection refused" in error_msg or "10061" in error_msg:
+                message = "远程数据库服务器连接被拒绝，请检查服务器是否运行"
+            elif "timeout" in error_msg.lower():
+                message = "数据库连接超时，请检查网络连接"
+            elif "authentication failed" in error_msg.lower():
+                message = "数据库认证失败，请检查用户名和密码"
+            else:
+                message = f"数据库连接失败: {error_msg}"
+            
             self.issues_found.append({
                 "type": "connection",
-                "message": f"数据库连接失败: {e}",
+                "message": message,
                 "severity": "critical"
             })
     
     def _check_database_exists(self):
         """检查数据库是否存在"""
         try:
-            # 尝试连接到默认数据库来检查目标数据库是否存在
-            if self.db_url.startswith("postgresql://"):
-                # 提取数据库名称
-                db_name = self.db_url.split("/")[-1].split("?")[0]
-                
-                # 使用当前配置的用户连接，而不是尝试使用postgres用户
-                try:
-                    with self.engine.connect() as conn:
-                        result = conn.execute(
-                            text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
-                            {"db_name": db_name}
-                        )
-                        if not result.scalar():
-                            self.issues_found.append({
-                                "type": "database_missing",
-                                "message": f"数据库 '{db_name}' 不存在",
-                                "severity": "critical"
-                            })
-                except Exception as e:
-                    logger.warning(f"无法检查数据库是否存在: {e}")
-                    
+            # 检查当前数据库是否存在
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT current_database()"))
+                db_name = result.scalar()
+                logger.info(f"数据库 {db_name} 存在")
         except Exception as e:
-            logger.warning(f"数据库存在性检查失败: {e}")
+            error_msg = str(e)
+            # 针对远程服务器错误进行特殊处理
+            if "database" in error_msg.lower() and "does not exist" in error_msg.lower():
+                message = "数据库不存在"
+            else:
+                message = f"数据库检查失败: {error_msg}"
+            
+            self.issues_found.append({
+                "type": "database_missing",
+                "message": message,
+                "severity": "critical"
+            })
     
     def _check_user_permissions(self):
         """检查用户权限"""
         try:
-            if self.db_url.startswith("postgresql://"):
-                # 测试连接权限
-                test_engine = create_engine(self.db_url)
-                with test_engine.connect() as conn:
-                    # 检查是否能执行简单查询
-                    conn.execute(text("SELECT 1"))
-                    
-                # 检查创建表权限
-                test_db_url = self.db_url
-                test_engine = create_engine(test_db_url)
+            with self.engine.connect() as conn:
+                # 检查当前用户权限
+                result = conn.execute(text("SELECT current_user"))
+                current_user = result.scalar()
                 
-                # 尝试创建临时表
-                metadata = MetaData()
-                test_table = Table('permission_test', metadata,
-                    Column('id', Integer, primary_key=True),
-                    Column('name', String)
-                )
+                # 检查连接权限
+                result = conn.execute(text("SELECT has_database_privilege(current_user, current_database(), 'CONNECT')"))
+                can_connect = result.scalar()
                 
-                try:
-                    metadata.create_all(test_engine)
-                    test_table.drop(test_engine)
-                    return True
-                except Exception as e:
-                    logger.warning(f"用户权限不足，需要修复: {e}")
-                    return False
-                    
-            return True
-            
+                # 检查创建权限
+                result = conn.execute(text("SELECT has_database_privilege(current_user, current_database(), 'CREATE')"))
+                can_create = result.scalar()
+                
+                if can_connect and can_create:
+                    logger.info(f"用户 {current_user} 具有足够的权限")
+                else:
+                    self.issues_found.append({
+                        "type": "permission_insufficient",
+                        "message": f"用户 {current_user} 权限不足",
+                        "severity": "warning"
+                    })
         except Exception as e:
-            logger.error(f"检查用户权限失败: {e}")
-            return False
+            error_msg = str(e)
+            # 针对权限错误进行特殊处理
+            if "permission" in error_msg.lower():
+                message = "用户权限不足，无法访问数据库"
+            else:
+                message = f"权限检查失败: {error_msg}"
+            
+            self.issues_found.append({
+                "type": "permission_error",
+                "message": message,
+                "severity": "critical"
+            })
     
     def _check_tables(self):
-        """检查表是否存在"""
+        """检查核心表是否存在"""
         try:
             with self.engine.connect() as conn:
-                # 检查核心表是否存在
-                tables_to_check = ["users", "wireguard_servers", "wireguard_clients"]
+                # 检查用户表
+                result = conn.execute(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'users'"))
+                users_table_exists = result.scalar() > 0
                 
-                for table in tables_to_check:
-                    result = conn.execute(
-                        text("SELECT 1 FROM information_schema.tables WHERE table_name = :table_name"),
-                        {"table_name": table}
-                    )
-                    if not result.scalar():
-                        self.issues_found.append({
-                            "type": "table_missing",
-                            "message": f"表 '{table}' 不存在",
-                            "severity": "warning"
-                        })
-                        
+                # 检查WireGuard服务器表
+                result = conn.execute(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'wireguard_servers'"))
+                servers_table_exists = result.scalar() > 0
+                
+                if users_table_exists and servers_table_exists:
+                    logger.info("核心表存在")
+                else:
+                    self.issues_found.append({
+                        "type": "table_missing",
+                        "message": "部分核心表缺失",
+                        "severity": "warning"
+                    })
         except Exception as e:
-            logger.warning(f"表检查失败: {e}")
+            error_msg = str(e)
+            # 针对表不存在错误进行特殊处理
+            if "relation" in error_msg.lower() and "does not exist" in error_msg.lower():
+                message = "数据库表不存在，需要初始化"
+            else:
+                message = f"表检查失败: {error_msg}"
+            
+            self.issues_found.append({
+                "type": "table_error",
+                "message": message,
+                "severity": "warning"
+            })
     
     def fix_database_issues(self) -> bool:
         """尝试修复数据库问题"""
         logger.info("开始修复数据库问题...")
         
-        # 先检查问题
-        health_status = self.check_database_health()
-        
-        if health_status["healthy"]:
-            logger.info("数据库健康，无需修复")
+        # 先检查连接是否正常，避免无限循环
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info("数据库连接正常，无需修复")
             return True
+        except Exception as e:
+            logger.warning(f"数据库连接失败，尝试修复: {e}")
         
-        # 根据问题类型进行修复
-        for issue in health_status["issues"]:
-            if issue["type"] == "database_missing":
-                self._fix_missing_database()
-            elif issue["type"] == "user_missing":
-                self._fix_missing_user()
-            elif issue["type"] == "permission_connect":
-                self._fix_connect_permissions()
-            elif issue["type"] == "permission_create":
-                self._fix_create_permissions()
+        # 尝试修复常见问题
+        try:
+            self._fix_missing_database()
+            self._fix_missing_user()
+            self._fix_connect_permissions()
+            self._fix_create_permissions()
+        except Exception as e:
+            logger.error(f"修复过程中出错: {e}")
+            return False
         
-        # 重新检查修复结果
-        health_status_after = self.check_database_health()
-        
-        if health_status_after["healthy"]:
+        # 重新检查连接
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
             logger.info("数据库问题修复成功")
             return True
-        else:
-            logger.error("数据库问题修复失败")
+        except Exception as e:
+            logger.error(f"数据库问题修复失败: {e}")
             return False
     
     def _fix_missing_database(self):
@@ -342,21 +371,29 @@ def check_and_fix_database():
             os.environ["USE_SQLITE_FALLBACK"] = "true"
             
             # 检查SQLite数据库
-            sqlite_db_url = f"sqlite:///{settings.SQLITE_DATABASE_PATH}"
+            sqlite_db_url = settings.SQLITE_DATABASE_URL
             sqlite_checker = DatabaseHealthChecker()
             sqlite_checker.db_url = sqlite_db_url
             sqlite_checker.engine = create_engine(sqlite_db_url)
             
-            sqlite_health_status = sqlite_checker.check_database_health()
-            
-            if sqlite_health_status["healthy"]:
+            # 直接尝试SQLite连接，不进行健康检查以避免循环
+            try:
+                with sqlite_checker.engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
                 logger.info("Successfully switched to SQLite database")
                 return True
-            else:
-                logger.error("Both PostgreSQL and SQLite connections failed")
+            except Exception as sqlite_error:
+                logger.error(f"SQLite connection failed: {sqlite_error}")
                 return False
         
-        return True
+        # 修复后再次检查PostgreSQL连接
+        try:
+            with checker.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except Exception as postgres_error:
+            logger.error(f"PostgreSQL connection still failed after fixes: {postgres_error}")
+            return False
         
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
@@ -367,13 +404,15 @@ def check_and_fix_database():
             import os
             os.environ["USE_SQLITE_FALLBACK"] = "true"
             
-            sqlite_db_url = f"sqlite:///{settings.SQLITE_DATABASE_PATH}"
+            sqlite_db_url = settings.SQLITE_DATABASE_URL
             sqlite_checker = DatabaseHealthChecker()
             sqlite_checker.db_url = sqlite_db_url
             sqlite_checker.engine = create_engine(sqlite_db_url)
             
-            health_status = sqlite_checker.check_database_health()
-            return health_status["healthy"]
+            # 直接尝试SQLite连接
+            with sqlite_checker.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
         except Exception as sqlite_error:
             logger.error(f"SQLite fallback also failed: {sqlite_error}")
             return False
