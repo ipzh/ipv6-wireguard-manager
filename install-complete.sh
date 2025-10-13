@@ -756,12 +756,26 @@ verify_installation() {
         return 1
     fi
     
-    if ss -tlnp | grep -q ":8000 "; then
-        log_success "端口8000监听正常"
-    else
-        log_error "端口8000未监听"
-        return 1
-    fi
+    # 检查端口8000监听状态，增加重试机制
+    local port_8000_check_attempts=0
+    local port_8000_max_attempts=5
+    
+    while [ $port_8000_check_attempts -lt $port_8000_max_attempts ]; do
+        if ss -tlnp | grep -q ":8000 "; then
+            log_success "端口8000监听正常"
+            break
+        else
+            port_8000_check_attempts=$((port_8000_check_attempts + 1))
+            if [ $port_8000_check_attempts -eq $port_8000_max_attempts ]; then
+                log_warning "端口8000未监听，但后端服务正在运行，继续验证API"
+                # 不返回错误，继续检查API
+                break
+            else
+                log_info "等待端口8000监听... (尝试 $port_8000_check_attempts/$port_8000_max_attempts)"
+                sleep 3
+            fi
+        fi
+    done
     
     # 测试API
     if curl -f http://localhost:8000/health > /dev/null 2>&1; then
