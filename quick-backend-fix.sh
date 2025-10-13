@@ -11,6 +11,15 @@ cd /opt/ipv6-wireguard-manager/backend
 # 1. 修复虚拟环境路径问题
 if [ ! -d "venv" ]; then
     echo "创建虚拟环境..."
+    
+    # 检查并安装python3-venv包
+    if ! python3 -m venv --help &> /dev/null; then
+        echo "检测到缺少python3-venv包，正在安装..."
+        apt-get update -y
+        apt-get install -y python3-venv
+        echo "python3-venv包安装完成"
+    fi
+    
     python3 -m venv venv
     source venv/bin/activate
     pip install --upgrade pip
