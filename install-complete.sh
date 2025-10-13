@@ -363,11 +363,11 @@ setup_postgresql() {
     log_info "配置PostgreSQL..."
     
     # 检查数据库是否已存在
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6_wireguard_manager; then
-        log_warning "数据库 ipv6_wireguard_manager 已存在，跳过创建"
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6wgm; then
+        log_warning "数据库 ipv6wgm 已存在，跳过创建"
     else
         # 创建数据库
-        sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
+        sudo -u postgres psql -c "CREATE DATABASE ipv6wgm;"
     fi
     
     # 检查用户是否已存在
@@ -379,7 +379,7 @@ setup_postgresql() {
     fi
     
     # 授予权限
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6_wireguard_manager TO ipv6wgm;"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;"
     
     log_success "PostgreSQL配置完成"
 }
@@ -389,11 +389,11 @@ setup_postgresql_low_memory() {
     log_info "配置低内存模式的PostgreSQL..."
     
     # 检查数据库是否已存在
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6_wireguard_manager; then
-        log_warning "数据库 ipv6_wireguard_manager 已存在，跳过创建"
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6wgm; then
+        log_warning "数据库 ipv6wgm 已存在，跳过创建"
     else
         # 创建数据库
-        sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
+        sudo -u postgres psql -c "CREATE DATABASE ipv6wgm;"
     fi
     
     # 检查用户是否已存在
@@ -405,7 +405,7 @@ setup_postgresql_low_memory() {
     fi
     
     # 授予权限
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6_wireguard_manager TO ipv6wgm;"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;"
     
     # 优化PostgreSQL配置以适应低内存环境
     optimize_postgresql_low_memory
@@ -575,14 +575,15 @@ create_systemd_service() {
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager
-After=network.target
+After=network.target postgresql.service
+Wants=postgresql.service
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR/backend
 Environment=PATH=$INSTALL_DIR/backend/venv/bin
-Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager
+Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm
 Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false
