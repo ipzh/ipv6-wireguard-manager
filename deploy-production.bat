@@ -41,7 +41,7 @@ if not exist .env.production (
         echo DEBUG=false
         echo LOG_LEVEL=INFO
         echo API_V1_STR=/api/v1
-        echo SERVER_HOST=0.0.0.0
+        echo SERVER_HOST=::
         echo SERVER_PORT=8000
         echo.
         echo # 数据库配置

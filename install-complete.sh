@@ -532,6 +532,7 @@ setup_nginx() {
     cat > /etc/nginx/sites-available/ipv6-wireguard-manager << 'EOF'
 server {
     listen 80;
+    listen [::]:80;
     server_name _;
     
     # 前端静态文件
@@ -597,7 +598,7 @@ Environment=REDIS_URL=redis://localhost:6379/0
 Environment=SECRET_KEY=your-secret-key-change-this-in-production
 Environment=DEBUG=false
 Environment=LOG_LEVEL=INFO
-ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host :: --port 8000
 Restart=always
 RestartSec=10
 
