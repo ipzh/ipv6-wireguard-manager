@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None
-    SERVER_HOST: str = "0.0.0.0"
+    SERVER_HOST: str = "::"  # 支持IPv4和IPv6
     SERVER_PORT: int = 8000
     
     # 数据库配置
