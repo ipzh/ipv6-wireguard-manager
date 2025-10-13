@@ -13,7 +13,7 @@ Base = declarative_base()
 metadata = MetaData()
 
 # 数据库URL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ipv6_wireguard.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm")
 
 # 创建同步数据库引擎（带连接重试机制）
 def create_engine_with_retry():

@@ -240,8 +240,12 @@ install_low_memory_dependencies() {
         apt-get install -y nodejs
     fi
     
-    # 安装SQLite（替代PostgreSQL）
-    apt-get install -y sqlite3
+    # 安装PostgreSQL（低内存优化配置）
+    if ! command -v psql &> /dev/null; then
+        apt-get install -y postgresql postgresql-contrib
+        systemctl enable postgresql
+        systemctl start postgresql
+    fi
     
     # 安装Nginx
     if ! command -v nginx &> /dev/null; then
@@ -286,18 +290,72 @@ setup_database() {
     
     case $INSTALL_TYPE in
         "docker")
-            # Docker模式不需要单独配置数据库
-            log_info "Docker模式，数据库将由容器管理"
+            # Docker模式需要确保PostgreSQL容器正确启动
+            setup_docker_postgresql
             ;;
         "native")
             setup_postgresql
             ;;
         "low-memory")
-            setup_sqlite
+            setup_postgresql_low_memory
             ;;
     esac
     
     log_success "数据库配置完成"
+}
+
+# 配置Docker模式下的PostgreSQL
+setup_docker_postgresql() {
+    log_info "配置Docker模式下的PostgreSQL..."
+    
+    cd $INSTALL_DIR
+    
+    # 检查Docker Compose文件是否存在
+    if [ ! -f "docker-compose.production.yml" ]; then
+        log_error "Docker Compose文件不存在"
+        exit 1
+    fi
+    
+    # 启动PostgreSQL容器
+    log_info "启动PostgreSQL容器..."
+    docker-compose -f docker-compose.production.yml up -d postgres
+    
+    # 等待PostgreSQL服务启动
+    log_info "等待PostgreSQL服务启动..."
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if docker-compose -f docker-compose.production.yml exec -T postgres pg_isready -U ipv6wgm -d ipv6wgm; then
+            log_success "PostgreSQL服务已启动"
+            break
+        fi
+        
+        log_info "等待PostgreSQL启动... (尝试 $attempt/$max_attempts)"
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    if [ $attempt -gt $max_attempts ]; then
+        log_error "PostgreSQL服务启动超时"
+        exit 1
+    fi
+    
+    # 初始化数据库
+    log_info "初始化PostgreSQL数据库..."
+    
+    # 等待数据库完全就绪
+    sleep 5
+    
+    # 检查数据库是否已存在
+    if docker-compose -f docker-compose.production.yml exec -T postgres psql -U ipv6wgm -d ipv6wgm -c "SELECT 1;" &> /dev/null; then
+        log_warning "数据库 ipv6wgm 已存在，跳过创建"
+    else
+        # 创建数据库（如果不存在）
+        docker-compose -f docker-compose.production.yml exec -T postgres createdb -U ipv6wgm ipv6wgm || true
+    fi
+    
+    log_success "Docker模式下的PostgreSQL配置完成"
 }
 
 # 配置PostgreSQL
@@ -326,15 +384,64 @@ setup_postgresql() {
     log_success "PostgreSQL配置完成"
 }
 
-# 配置SQLite
-setup_sqlite() {
-    log_info "配置SQLite..."
+# 配置低内存模式的PostgreSQL
+setup_postgresql_low_memory() {
+    log_info "配置低内存模式的PostgreSQL..."
     
-    # 创建数据库文件
-    touch /opt/ipv6-wireguard-manager/backend/ipv6_wireguard_manager.db
-    chmod 666 /opt/ipv6-wireguard-manager/backend/ipv6_wireguard_manager.db
+    # 检查数据库是否已存在
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6_wireguard_manager; then
+        log_warning "数据库 ipv6_wireguard_manager 已存在，跳过创建"
+    else
+        # 创建数据库
+        sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
+    fi
     
-    log_success "SQLite配置完成"
+    # 检查用户是否已存在
+    if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ipv6wgm';" | grep -q 1; then
+        log_warning "用户 ipv6wgm 已存在，跳过创建"
+    else
+        # 创建用户
+        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+    fi
+    
+    # 授予权限
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6_wireguard_manager TO ipv6wgm;"
+    
+    # 优化PostgreSQL配置以适应低内存环境
+    optimize_postgresql_low_memory
+    
+    log_success "低内存模式PostgreSQL配置完成"
+}
+
+# 优化PostgreSQL低内存配置
+optimize_postgresql_low_memory() {
+    log_info "优化PostgreSQL低内存配置..."
+    
+    # 备份原始配置
+    cp /etc/postgresql/*/main/postgresql.conf /etc/postgresql/*/main/postgresql.conf.backup
+    
+    # 应用低内存优化配置
+    cat >> /etc/postgresql/*/main/postgresql.conf << 'EOF'
+
+# IPv6 WireGuard Manager 低内存优化配置
+shared_buffers = 64MB
+work_mem = 4MB
+maintenance_work_mem = 32MB
+effective_cache_size = 128MB
+max_connections = 50
+random_page_cost = 1.1
+effective_io_concurrency = 2
+max_wal_size = 1GB
+min_wal_size = 80MB
+checkpoint_completion_target = 0.5
+wal_buffers = 4MB
+default_statistics_target = 100
+EOF
+    
+    # 重启PostgreSQL以应用配置
+    systemctl restart postgresql
+    
+    log_success "PostgreSQL低内存优化配置完成"
 }
 
 # 安装后端
@@ -358,13 +465,17 @@ install_backend() {
     pip install -r requirements.txt
     
     # 设置环境变量
-    if [ "$INSTALL_TYPE" = "low-memory" ]; then
-        export DATABASE_URL="sqlite:///./ipv6_wireguard_manager.db"
-        export REDIS_URL="redis://localhost:6379/0"
-    else
-        export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager"
-        export REDIS_URL="redis://localhost:6379/0"
-    fi
+    case $INSTALL_TYPE in
+        "docker")
+            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@postgres:5432/ipv6wgm"
+            export REDIS_URL="redis://redis:6379/0"
+            ;;
+        *)
+            # 原生模式和低内存模式都使用本地PostgreSQL
+            export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager"
+            export REDIS_URL="redis://localhost:6379/0"
+            ;;
+    esac
     
     export SECRET_KEY="your-secret-key-change-this-in-production"
     export DEBUG=false
@@ -691,24 +802,58 @@ install_docker() {
     check_system_requirements
     install_system_dependencies
     download_project
+    setup_database  # 配置数据库（包括PostgreSQL容器启动）
     setup_firewall
     
-    # 启动Docker服务
+    # 启动完整的Docker服务栈
     cd /opt/ipv6-wireguard-manager
+    log_info "启动完整的Docker服务栈..."
     docker-compose -f docker-compose.production.yml up -d
     
     # 等待服务启动
-    sleep 30
+    log_info "等待Docker服务启动..."
+    local max_attempts=30
+    local attempt=1
     
-    # 验证安装
-    if docker-compose -f docker-compose.production.yml ps | grep -q "Up"; then
-        log_success "Docker服务启动成功"
-        show_installation_result
-    else
-        log_error "Docker服务启动失败"
+    while [ $attempt -le $max_attempts ]; do
+        if docker-compose -f docker-compose.production.yml ps | grep -q "Up"; then
+            log_success "Docker服务启动成功"
+            break
+        fi
+        
+        log_info "等待Docker服务启动... (尝试 $attempt/$max_attempts)"
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    
+    if [ $attempt -gt $max_attempts ]; then
+        log_error "Docker服务启动超时"
         docker-compose -f docker-compose.production.yml logs
         exit 1
     fi
+    
+    # 验证安装
+    log_info "验证Docker安装..."
+    
+    # 检查后端服务
+    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+        log_success "后端API响应正常"
+    else
+        log_error "后端API响应失败"
+        docker-compose -f docker-compose.production.yml logs backend
+        exit 1
+    fi
+    
+    # 检查前端服务
+    if curl -f http://localhost:3000 > /dev/null 2>&1; then
+        log_success "前端服务响应正常"
+    else
+        log_error "前端服务响应失败"
+        docker-compose -f docker-compose.production.yml logs frontend
+        exit 1
+    fi
+    
+    show_installation_result
 }
 
 # 原生安装
@@ -737,7 +882,7 @@ install_low_memory() {
     check_system_requirements
     install_system_dependencies
     download_project
-    setup_database
+    setup_database  # 配置数据库（SQLite）
     install_backend
     install_frontend
     setup_nginx

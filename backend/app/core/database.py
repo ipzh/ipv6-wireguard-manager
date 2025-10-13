@@ -119,6 +119,9 @@ async def get_redis() -> redis.Redis:
 
 async def init_db():
     """初始化数据库"""
+    if not async_engine:
+        raise RuntimeError("异步数据库引擎不可用，请检查数据库配置和asyncpg驱动")
+    
     async with async_engine.begin() as conn:
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)
@@ -126,6 +129,7 @@ async def init_db():
 
 async def close_db():
     """关闭数据库连接"""
-    await async_engine.dispose()
+    if async_engine:
+        await async_engine.dispose()
     if redis_pool:
         await redis_pool.disconnect()
