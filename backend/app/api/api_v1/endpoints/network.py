@@ -14,7 +14,7 @@ from ....schemas.common import MessageResponse
 router = APIRouter()
 
 
-@router.get("/interfaces", response_model=Dict[str, Any])
+@router.get("/interfaces", response_model=None)
 async def get_network_interfaces(db: AsyncSession = Depends(get_async_db)):
     """获取网络接口信息"""
     try:
@@ -77,7 +77,7 @@ async def get_network_interfaces(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取网络接口信息失败: {str(e)}")
 
 
-@router.get("/status", response_model=Dict[str, Any])
+@router.get("/status", response_model=None)
 async def get_network_status(db: AsyncSession = Depends(get_async_db)):
     """获取网络状态"""
     try:
@@ -122,7 +122,7 @@ async def get_network_status(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取网络状态失败: {str(e)}")
 
 
-@router.get("/connections", response_model=Dict[str, Any])
+@router.get("/connections", response_model=None)
 async def get_network_connections(db: AsyncSession = Depends(get_async_db)):
     """获取网络连接信息"""
     try:
@@ -150,7 +150,7 @@ async def get_network_connections(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取网络连接信息失败: {str(e)}")
 
 
-@router.get("/health", response_model=Dict[str, Any])
+@router.get("/health", response_model=None)
 async def network_health_check():
     """网络服务健康检查"""
     return {

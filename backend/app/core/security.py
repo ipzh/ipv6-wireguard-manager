@@ -20,7 +20,7 @@ security = HTTPBearer()
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: timedelta = None
+    data: Union[str, Any], expires_delta: timedelta = None
 ) -> str:
     """创建访问令牌"""
     if expires_delta:
@@ -30,7 +30,7 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "sub": str(data)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 

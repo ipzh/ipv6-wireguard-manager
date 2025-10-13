@@ -15,7 +15,7 @@ from ....services.exabgp_service import ExaBGPService
 router = APIRouter()
 
 
-@router.get("/sessions", response_model=Dict[str, Any])
+@router.get("/sessions", response_model=None)
 async def get_bgp_sessions(db: AsyncSession = Depends(get_async_db)):
     """获取BGP会话列表"""
     try:
@@ -45,7 +45,7 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取BGP会话失败: {str(e)}")
 
 
-@router.get("/sessions/{session_id}", response_model=BGPSessionSchema)
+@router.get("/sessions/{session_id}", response_model=None)
 async def get_bgp_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_async_db)):
     """获取单个BGP会话"""
     try:
@@ -72,7 +72,7 @@ async def get_bgp_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=500, detail=f"获取BGP会话失败: {str(e)}")
 
 
-@router.post("/sessions", response_model=BGPSessionSchema)
+@router.post("/sessions", response_model=None)
 async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = Depends(get_async_db)):
     """创建BGP会话"""
     try:
@@ -109,7 +109,7 @@ async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = 
         raise HTTPException(status_code=500, detail=f"创建BGP会话失败: {str(e)}")
 
 
-@router.put("/sessions/{session_id}", response_model=BGPSessionSchema)
+@router.put("/sessions/{session_id}", response_model=None)
 async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSchema, db: AsyncSession = Depends(get_async_db)):
     """更新BGP会话"""
     try:
@@ -177,7 +177,7 @@ async def delete_bgp_session(session_id: uuid.UUID, db: AsyncSession = Depends(g
         raise HTTPException(status_code=500, detail=f"删除BGP会话失败: {str(e)}")
 
 
-@router.get("/routes", response_model=Dict[str, Any])
+@router.get("/routes", response_model=None)
 async def get_bgp_routes(db: AsyncSession = Depends(get_async_db)):
     """获取BGP路由宣告"""
     try:
@@ -205,7 +205,7 @@ async def get_bgp_routes(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取BGP路由失败: {str(e)}")
 
 
-@router.get("/status", response_model=Dict[str, Any])
+@router.get("/status", response_model=None)
 async def get_bgp_status(db: AsyncSession = Depends(get_async_db)):
     """获取BGP服务状态"""
     try:

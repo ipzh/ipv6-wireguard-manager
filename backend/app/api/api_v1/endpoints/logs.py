@@ -38,7 +38,7 @@ class LogDetailResponse(BaseModel):
     log: LogEntry
 
 
-@router.get("/", response_model=LogListResponse)
+@router.get("/", response_model=None)
 async def get_logs(
     page: int = 1,
     page_size: int = 50,
@@ -92,7 +92,7 @@ async def get_logs(
         raise HTTPException(status_code=500, detail=f"获取日志列表失败: {str(e)}")
 
 
-@router.get("/{log_id}", response_model=LogDetailResponse)
+@router.get("/{log_id}", response_model=None)
 async def get_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
     """获取单个日志"""
     try:

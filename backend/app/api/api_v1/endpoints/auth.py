@@ -17,7 +17,7 @@ from ....services.user_service import UserService
 router = APIRouter()
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=None)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_db)
@@ -56,7 +56,7 @@ async def login(
         raise HTTPException(status_code=500, detail=f"登录失败: {str(e)}")
 
 
-@router.post("/login-json", response_model=LoginResponse)
+@router.post("/login-json", response_model=None)
 async def login_json(
     login_data: dict,
     db: AsyncSession = Depends(get_async_db)
@@ -95,13 +95,13 @@ async def login_json(
         raise HTTPException(status_code=500, detail=f"登录失败: {str(e)}")
 
 
-@router.post("/logout", response_model=MessageResponse)
+@router.post("/logout", response_model=None)
 async def logout():
     """用户登出"""
     return MessageResponse(message="登出成功")
 
 
-@router.get("/me", response_model=Dict[str, Any])
+@router.get("/me", response_model=None)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
     try:
@@ -119,7 +119,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"获取用户信息失败: {str(e)}")
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=None)
 async def refresh_token(current_user: User = Depends(get_current_user)):
     """刷新访问令牌"""
     try:
@@ -137,7 +137,7 @@ async def refresh_token(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"刷新令牌失败: {str(e)}")
 
 
-@router.get("/health", response_model=Dict[str, Any])
+@router.get("/health", response_model=None)
 async def auth_health_check():
     """认证服务健康检查"""
     return {

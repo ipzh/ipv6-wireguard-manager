@@ -49,7 +49,7 @@ metrics_history = []
 alerts_history = []
 
 
-@router.get("/metrics", response_model=SystemMetrics)
+@router.get("/metrics", response_model=None)
 async def get_system_metrics(db: AsyncSession = Depends(get_async_db)):
     """获取当前系统指标"""
     try:
@@ -88,7 +88,7 @@ async def get_system_metrics(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取系统指标失败: {str(e)}")
 
 
-@router.get("/metrics/history", response_model=List[SystemMetrics])
+@router.get("/metrics/history", response_model=None)
 async def get_metrics_history(
     hours: int = 24,
     db: AsyncSession = Depends(get_async_db)
@@ -111,7 +111,7 @@ async def get_metrics_history(
         raise HTTPException(status_code=500, detail=f"获取历史指标失败: {str(e)}")
 
 
-@router.get("/alerts", response_model=AlertResponse)
+@router.get("/alerts", response_model=None)
 async def get_alerts(
     severity: Optional[str] = None,
     resolved: Optional[bool] = None,

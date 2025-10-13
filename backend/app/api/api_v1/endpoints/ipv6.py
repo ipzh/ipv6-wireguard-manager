@@ -13,7 +13,7 @@ from ....services.ipv6_service import IPv6PoolService
 router = APIRouter()
 
 
-@router.get("/pools", response_model=Dict[str, Any])
+@router.get("/pools", response_model=None)
 async def get_ipv6_pools(db: AsyncSession = Depends(get_async_db)):
     """获取IPv6前缀池列表"""
     try:
@@ -46,7 +46,7 @@ async def get_ipv6_pools(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取IPv6前缀池失败: {str(e)}")
 
 
-@router.post("/pools", response_model=Dict[str, Any])
+@router.post("/pools", response_model=None)
 async def create_ipv6_pool(
     pool_data: Dict[str, Any],
     db: AsyncSession = Depends(get_async_db)
@@ -76,7 +76,7 @@ async def create_ipv6_pool(
         raise HTTPException(status_code=500, detail=f"创建IPv6前缀池失败: {str(e)}")
 
 
-@router.get("/pools/{pool_id}", response_model=Dict[str, Any])
+@router.get("/pools/{pool_id}", response_model=None)
 async def get_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
     """获取单个IPv6前缀池"""
     try:
@@ -106,7 +106,7 @@ async def get_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取IPv6前缀池失败: {str(e)}")
 
 
-@router.put("/pools/{pool_id}", response_model=Dict[str, Any])
+@router.put("/pools/{pool_id}", response_model=None)
 async def update_ipv6_pool(
     pool_id: str,
     pool_data: Dict[str, Any],
@@ -141,7 +141,7 @@ async def update_ipv6_pool(
         raise HTTPException(status_code=500, detail=f"更新IPv6前缀池失败: {str(e)}")
 
 
-@router.delete("/pools/{pool_id}", response_model=MessageResponse)
+@router.delete("/pools/{pool_id}", response_model=None)
 async def delete_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
     """删除IPv6前缀池"""
     try:
@@ -158,7 +158,7 @@ async def delete_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db
         raise HTTPException(status_code=500, detail=f"删除IPv6前缀池失败: {str(e)}")
 
 
-@router.get("/allocations", response_model=Dict[str, Any])
+@router.get("/allocations", response_model=None)
 async def get_ipv6_allocations(
     pool_id: str = None,
     db: AsyncSession = Depends(get_async_db)
@@ -193,7 +193,7 @@ async def get_ipv6_allocations(
         raise HTTPException(status_code=500, detail=f"获取IPv6分配失败: {str(e)}")
 
 
-@router.post("/allocations/allocate", response_model=Dict[str, Any])
+@router.post("/allocations/allocate", response_model=None)
 async def allocate_ipv6_prefix(
     allocation_data: Dict[str, Any],
     db: AsyncSession = Depends(get_async_db)
@@ -225,7 +225,7 @@ async def allocate_ipv6_prefix(
         raise HTTPException(status_code=500, detail=f"分配IPv6前缀失败: {str(e)}")
 
 
-@router.post("/allocations/{allocation_id}/release", response_model=MessageResponse)
+@router.post("/allocations/{allocation_id}/release", response_model=None)
 async def release_ipv6_prefix(allocation_id: str, db: AsyncSession = Depends(get_async_db)):
     """释放IPv6前缀"""
     try:
@@ -242,7 +242,7 @@ async def release_ipv6_prefix(allocation_id: str, db: AsyncSession = Depends(get
         raise HTTPException(status_code=500, detail=f"释放IPv6前缀失败: {str(e)}")
 
 
-@router.get("/health", response_model=Dict[str, Any])
+@router.get("/health", response_model=None)
 async def ipv6_health_check():
     """IPv6服务健康检查"""
     return {

@@ -13,7 +13,7 @@ from ....services.wireguard_service import WireGuardService
 router = APIRouter()
 
 
-@router.get("/config", response_model=WireGuardConfig)
+@router.get("/config", response_model=None)
 async def get_wireguard_config(db: AsyncSession = Depends(get_async_db)):
     """获取WireGuard配置"""
     try:
@@ -24,7 +24,7 @@ async def get_wireguard_config(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取WireGuard配置失败: {str(e)}")
 
 
-@router.post("/config", response_model=WireGuardConfig)
+@router.post("/config", response_model=None)
 async def update_wireguard_config(
     config: WireGuardConfig, 
     db: AsyncSession = Depends(get_async_db)
@@ -38,7 +38,7 @@ async def update_wireguard_config(
         raise HTTPException(status_code=500, detail=f"更新WireGuard配置失败: {str(e)}")
 
 
-@router.get("/peers", response_model=list[WireGuardPeer])
+@router.get("/peers", response_model=None)
 async def get_peers(db: AsyncSession = Depends(get_async_db)):
     """获取所有对等节点"""
     try:
@@ -49,7 +49,7 @@ async def get_peers(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取对等节点失败: {str(e)}")
 
 
-@router.post("/peers", response_model=WireGuardPeer)
+@router.post("/peers", response_model=None)
 async def create_peer(peer: WireGuardPeer, db: AsyncSession = Depends(get_async_db)):
     """创建新的对等节点"""
     try:
@@ -60,7 +60,7 @@ async def create_peer(peer: WireGuardPeer, db: AsyncSession = Depends(get_async_
         raise HTTPException(status_code=500, detail=f"创建对等节点失败: {str(e)}")
 
 
-@router.get("/peers/{peer_id}", response_model=WireGuardPeer)
+@router.get("/peers/{peer_id}", response_model=None)
 async def get_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """获取单个对等节点"""
     try:
@@ -75,7 +75,7 @@ async def get_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取对等节点失败: {str(e)}")
 
 
-@router.put("/peers/{peer_id}", response_model=WireGuardPeer)
+@router.put("/peers/{peer_id}", response_model=None)
 async def update_peer(
     peer_id: str, 
     peer: WireGuardPeer, 
@@ -94,7 +94,7 @@ async def update_peer(
         raise HTTPException(status_code=500, detail=f"更新对等节点失败: {str(e)}")
 
 
-@router.delete("/peers/{peer_id}", response_model=MessageResponse)
+@router.delete("/peers/{peer_id}", response_model=None)
 async def delete_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """删除对等节点"""
     try:
@@ -109,7 +109,7 @@ async def delete_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"删除对等节点失败: {str(e)}")
 
 
-@router.post("/peers/{peer_id}/restart", response_model=MessageResponse)
+@router.post("/peers/{peer_id}/restart", response_model=None)
 async def restart_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
     """重启对等节点"""
     try:
@@ -124,7 +124,7 @@ async def restart_peer(peer_id: str, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"重启对等节点失败: {str(e)}")
 
 
-@router.get("/status", response_model=WireGuardStatus)
+@router.get("/status", response_model=None)
 async def get_wireguard_status(db: AsyncSession = Depends(get_async_db)):
     """获取WireGuard状态"""
     try:
@@ -135,7 +135,7 @@ async def get_wireguard_status(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取WireGuard状态失败: {str(e)}")
 
 
-@router.get("/servers", response_model=Dict[str, Any])
+@router.get("/servers", response_model=None)
 async def get_servers(db: AsyncSession = Depends(get_async_db)):
     """获取WireGuard服务器列表"""
     try:
@@ -166,7 +166,7 @@ async def get_servers(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取WireGuard服务器失败: {str(e)}")
 
 
-@router.get("/clients", response_model=Dict[str, Any])
+@router.get("/clients", response_model=None)
 async def get_clients(db: AsyncSession = Depends(get_async_db)):
     """获取WireGuard客户端列表"""
     try:

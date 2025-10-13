@@ -45,7 +45,7 @@ class ProcessInfo(BaseModel):
     create_time: str
 
 
-@router.get("/info", response_model=SystemInfo)
+@router.get("/info", response_model=None)
 async def get_system_info(db: AsyncSession = Depends(get_async_db)):
     """获取系统信息"""
     try:
@@ -77,7 +77,7 @@ async def get_system_info(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取系统信息失败: {str(e)}")
 
 
-@router.get("/processes", response_model=List[ProcessInfo])
+@router.get("/processes", response_model=None)
 async def get_system_processes(db: AsyncSession = Depends(get_async_db)):
     """获取系统进程列表"""
     try:
@@ -103,7 +103,7 @@ async def get_system_processes(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"获取进程列表失败: {str(e)}")
 
 
-@router.post("/restart", response_model=MessageResponse)
+@router.post("/restart", response_model=None)
 async def restart_system(db: AsyncSession = Depends(get_async_db)):
     """重启系统（模拟）"""
     try:
@@ -121,7 +121,7 @@ async def restart_system(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"系统重启失败: {str(e)}")
 
 
-@router.post("/shutdown", response_model=MessageResponse)
+@router.post("/shutdown", response_model=None)
 async def shutdown_system(db: AsyncSession = Depends(get_async_db)):
     """关闭系统（模拟）"""
     try:
