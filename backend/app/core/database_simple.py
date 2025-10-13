@@ -13,7 +13,7 @@ Base = declarative_base()
 metadata = MetaData()
 
 # 数据库URL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6wgm")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ipv6_wireguard.db")
 
 # 创建同步数据库引擎（带连接重试机制）
 def create_engine_with_retry():
@@ -24,21 +24,45 @@ def create_engine_with_retry():
     
     for attempt in range(max_retries):
         try:
-            engine = create_engine(
-                DATABASE_URL,
-                pool_size=10,
-                max_overflow=20,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-                echo=False,
-                connect_args={
-                    "connect_timeout": 30,
-                    "application_name": "ipv6-wireguard-manager"
-                }
-            )
+            # 根据数据库类型设置不同的连接参数
+            if DATABASE_URL.startswith("sqlite://"):
+                # SQLite数据库不需要连接超时参数
+                engine = create_engine(
+                    DATABASE_URL,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_pre_ping=True,
+                    pool_recycle=3600,
+                    echo=False,
+                    connect_args={
+                        "check_same_thread": False
+                    }
+                )
+            else:
+                # PostgreSQL数据库使用完整的连接参数
+                engine = create_engine(
+                    DATABASE_URL,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_pre_ping=True,
+                    pool_recycle=3600,
+                    echo=False,
+                    connect_args={
+                        "connect_timeout": 30,
+                        "application_name": "ipv6-wireguard-manager"
+                    }
+                )
+            
             # 测试连接
             with engine.connect() as conn:
-                conn.execute("SELECT 1")
+                if DATABASE_URL.startswith("sqlite://"):
+                    # SQLite连接测试 - 使用text()包装器
+                    from sqlalchemy import text
+                    conn.execute(text("SELECT 1"))
+                else:
+                    # PostgreSQL连接测试
+                    from sqlalchemy import text
+                    conn.execute(text("SELECT 1"))
             return engine
         except Exception as e:
             if attempt < max_retries - 1:

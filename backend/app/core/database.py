@@ -11,23 +11,47 @@ from typing import AsyncGenerator
 from .config import settings
 
 # 创建异步数据库引擎
-async_engine = create_async_engine(
-    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=settings.DEBUG,
-)
+# 检查数据库类型并创建相应的引擎
+if settings.DATABASE_URL.startswith("postgresql://"):
+    # PostgreSQL数据库
+    async_db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    
+    # 检查是否安装了asyncpg驱动
+    try:
+        import asyncpg
+        asyncpg_available = True
+    except ImportError:
+        asyncpg_available = False
+        print("警告: asyncpg驱动未安装，将使用同步模式")
+    
+    if asyncpg_available:
+        async_engine = create_async_engine(
+            async_db_url,
+            pool_size=settings.DATABASE_POOL_SIZE,
+            max_overflow=settings.DATABASE_MAX_OVERFLOW,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            echo=settings.DEBUG,
+        )
+    else:
+        # 如果asyncpg不可用，设置为None
+        async_engine = None
+else:
+    # SQLite数据库（不支持异步）
+    async_engine = None
+    print("使用SQLite数据库（同步模式）")
 
 # 创建异步会话工厂
-AsyncSessionLocal = async_sessionmaker(
-    bind=async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False,
-)
+if async_engine:
+    AsyncSessionLocal = async_sessionmaker(
+        bind=async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
+    )
+else:
+    AsyncSessionLocal = None
 
 # 创建同步数据库引擎（用于Alembic迁移）
 sync_engine = create_engine(
@@ -58,6 +82,9 @@ metadata = MetaData()
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """获取异步数据库会话"""
+    if not AsyncSessionLocal:
+        raise RuntimeError("异步数据库会话不可用，请检查asyncpg驱动是否安装")
+    
     async with AsyncSessionLocal() as session:
         try:
             yield session
