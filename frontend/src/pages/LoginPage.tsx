@@ -6,7 +6,7 @@ import {
   SafetyCertificateOutlined,
   GlobalOutlined,
   CloudServerOutlined,
-  ShieldCheckOutlined,
+  ShieldOutlined,
   EyeInvisibleOutlined,
   EyeTwoTone
 } from '@ant-design/icons'
@@ -90,7 +90,7 @@ const LoginPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-center lg:justify-start space-x-3">
                 <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                  <ShieldCheckOutlined className="text-2xl text-white" />
+                  <ShieldOutlined className="text-2xl text-white" />
                 </div>
                 <Title level={1} className="!text-white !mb-0 !text-4xl lg:!text-5xl font-bold">
                   IPv6 WireGuard
@@ -232,7 +232,7 @@ const LoginPage: React.FC = () => {
                 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <Text className="text-yellow-800 text-xs">
-                    <ShieldCheckOutlined className="mr-1" />
+                    <ShieldOutlined className="mr-1" />
                     默认账户仅用于演示，生产环境请修改密码
                   </Text>
                 </div>
