@@ -256,7 +256,7 @@ Group=www-data
 WorkingDirectory=/opt/ipv6-wireguard-manager
 Environment=PATH=/opt/ipv6-wireguard-manager/venv/bin
 Environment=PYTHONPATH=/opt/ipv6-wireguard-manager
-ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
+ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn app.main:app --host :: --port 8000 --workers 4
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

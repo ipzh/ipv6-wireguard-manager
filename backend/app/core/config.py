@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     DATABASE_STATEMENT_TIMEOUT: int = 30000
     DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT: int = 10000
     
+    # SQLite回退配置
+    SQLITE_DATABASE_URL: str = "sqlite:///./ipv6wgm.db"
+    USE_SQLITE_FALLBACK: bool = False
+    
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_POOL_SIZE: int = 10
