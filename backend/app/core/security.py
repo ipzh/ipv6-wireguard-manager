@@ -82,6 +82,15 @@ async def get_current_user_id(
         raise credentials_exception
 
 
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = security,
+    db: AsyncSession = None
+):
+    """获取当前用户（兼容性函数）"""
+    user_id = await get_current_user_id(credentials, db)
+    return await get_current_active_user(user_id, db)
+
+
 async def get_current_active_user(
     current_user_id: str = None,
     db: AsyncSession = None

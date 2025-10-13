@@ -1,5 +1,5 @@
 """
-认证相关API端点 - 修复版本
+认证相关API端点
 """
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -47,33 +47,6 @@ async def login(
         token_type="bearer",
         user=user
     )
-
-
-@router.post("/logout")
-async def logout():
-    """用户登出"""
-    return {"message": "登出成功"}
-
-
-@router.get("/me")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
-    """获取当前用户信息"""
-    return current_user
-
-
-@router.post("/refresh")
-async def refresh_token(current_user: User = Depends(get_current_user)):
-    """刷新访问令牌"""
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(current_user.id)}, expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    }
 
 
 @router.post("/login-json")
