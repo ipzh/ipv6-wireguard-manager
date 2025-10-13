@@ -1,0 +1,607 @@
+#!/bin/bash
+
+# IPv6 WireGuard Manager - 完整安装脚本
+# 支持 Docker、原生和低内存安装方式
+
+set -e
+
+# Color definitions
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 获取安装类型
+INSTALL_TYPE=${1:-native}
+
+log_info "IPv6 WireGuard Manager 完整安装脚本"
+log_info "安装类型: $INSTALL_TYPE"
+
+# 检查系统要求
+check_system_requirements() {
+    log_info "检查系统要求..."
+    
+    # 检查操作系统
+    if [[ ! -f /etc/os-release ]]; then
+        log_error "不支持的操作系统"
+        exit 1
+    fi
+    
+    source /etc/os-release
+    log_info "检测到操作系统: $NAME $VERSION"
+    
+    # 检查内存
+    local memory_mb=$(free -m | awk 'NR==2{print $2}')
+    log_info "系统内存: ${memory_mb}MB"
+    
+    if [ "$memory_mb" -lt 512 ]; then
+        log_error "系统内存不足，至少需要512MB"
+        exit 1
+    fi
+    
+    # 检查磁盘空间
+    local disk_space=$(df / | awk 'NR==2{print $4}')
+    local disk_space_mb=$((disk_space / 1024))
+    log_info "可用磁盘空间: ${disk_space_mb}MB"
+    
+    if [ "$disk_space_mb" -lt 1024 ]; then
+        log_error "磁盘空间不足，至少需要1GB"
+        exit 1
+    fi
+    
+    log_success "系统要求检查通过"
+}
+
+# 安装系统依赖
+install_system_dependencies() {
+    log_info "安装系统依赖..."
+    
+    # 更新包列表
+    apt-get update -y
+    
+    # 安装基础依赖
+    apt-get install -y \
+        curl \
+        wget \
+        git \
+        unzip \
+        software-properties-common \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        lsb-release
+    
+    # 根据安装类型安装额外依赖
+    case $INSTALL_TYPE in
+        "docker")
+            install_docker_dependencies
+            ;;
+        "native")
+            install_native_dependencies
+            ;;
+        "low-memory")
+            install_low_memory_dependencies
+            ;;
+    esac
+    
+    log_success "系统依赖安装完成"
+}
+
+# 安装Docker依赖
+install_docker_dependencies() {
+    log_info "安装Docker依赖..."
+    
+    # 安装Docker
+    if ! command -v docker &> /dev/null; then
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+        systemctl enable docker
+        systemctl start docker
+        rm get-docker.sh
+    fi
+    
+    # 安装Docker Compose
+    if ! command -v docker-compose &> /dev/null; then
+        curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+    fi
+    
+    log_success "Docker依赖安装完成"
+}
+
+# 安装原生依赖
+install_native_dependencies() {
+    log_info "安装原生依赖..."
+    
+    # 安装Python 3.11
+    if ! command -v python3.11 &> /dev/null; then
+        add-apt-repository ppa:deadsnakes/ppa -y
+        apt-get update
+        apt-get install -y python3.11 python3.11-venv python3.11-dev
+    fi
+    
+    # 安装Node.js 18
+    if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        apt-get install -y nodejs
+    fi
+    
+    # 安装PostgreSQL
+    if ! command -v psql &> /dev/null; then
+        apt-get install -y postgresql postgresql-contrib
+        systemctl enable postgresql
+        systemctl start postgresql
+    fi
+    
+    # 安装Redis
+    if ! command -v redis-server &> /dev/null; then
+        apt-get install -y redis-server
+        systemctl enable redis-server
+        systemctl start redis-server
+    fi
+    
+    # 安装Nginx
+    if ! command -v nginx &> /dev/null; then
+        apt-get install -y nginx
+        systemctl enable nginx
+        systemctl start nginx
+    fi
+    
+    # 安装WireGuard
+    if ! command -v wg &> /dev/null; then
+        apt-get install -y wireguard
+    fi
+    
+    log_success "原生依赖安装完成"
+}
+
+# 安装低内存依赖
+install_low_memory_dependencies() {
+    log_info "安装低内存依赖..."
+    
+    # 安装Python 3.11
+    if ! command -v python3.11 &> /dev/null; then
+        add-apt-repository ppa:deadsnakes/ppa -y
+        apt-get update
+        apt-get install -y python3.11 python3.11-venv python3.11-dev
+    fi
+    
+    # 安装Node.js 18
+    if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        apt-get install -y nodejs
+    fi
+    
+    # 安装SQLite（替代PostgreSQL）
+    apt-get install -y sqlite3
+    
+    # 安装Nginx
+    if ! command -v nginx &> /dev/null; then
+        apt-get install -y nginx
+        systemctl enable nginx
+        systemctl start nginx
+    fi
+    
+    # 安装WireGuard
+    if ! command -v wg &> /dev/null; then
+        apt-get install -y wireguard
+    fi
+    
+    log_success "低内存依赖安装完成"
+}
+
+# 下载项目代码
+download_project() {
+    log_info "下载项目代码..."
+    
+    local project_dir="/opt/ipv6-wireguard-manager"
+    
+    # 创建项目目录
+    mkdir -p $project_dir
+    cd $project_dir
+    
+    # 下载项目代码
+    if [ -d ".git" ]; then
+        log_info "更新现有代码..."
+        git pull origin main
+    else
+        log_info "克隆项目代码..."
+        git clone https://github.com/ipzh/ipv6-wireguard-manager.git .
+    fi
+    
+    log_success "项目代码下载完成"
+}
+
+# 配置数据库
+setup_database() {
+    log_info "配置数据库..."
+    
+    case $INSTALL_TYPE in
+        "docker")
+            # Docker模式不需要单独配置数据库
+            log_info "Docker模式，数据库将由容器管理"
+            ;;
+        "native")
+            setup_postgresql
+            ;;
+        "low-memory")
+            setup_sqlite
+            ;;
+    esac
+    
+    log_success "数据库配置完成"
+}
+
+# 配置PostgreSQL
+setup_postgresql() {
+    log_info "配置PostgreSQL..."
+    
+    # 创建数据库和用户
+    sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
+    sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6_wireguard_manager TO ipv6wgm;"
+    
+    log_success "PostgreSQL配置完成"
+}
+
+# 配置SQLite
+setup_sqlite() {
+    log_info "配置SQLite..."
+    
+    # 创建数据库文件
+    touch /opt/ipv6-wireguard-manager/backend/ipv6_wireguard_manager.db
+    chmod 666 /opt/ipv6-wireguard-manager/backend/ipv6_wireguard_manager.db
+    
+    log_success "SQLite配置完成"
+}
+
+# 安装后端
+install_backend() {
+    log_info "安装后端..."
+    
+    cd /opt/ipv6-wireguard-manager/backend
+    
+    # 创建虚拟环境
+    python3.11 -m venv venv
+    source venv/bin/activate
+    
+    # 安装Python依赖
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    
+    # 设置环境变量
+    if [ "$INSTALL_TYPE" = "low-memory" ]; then
+        export DATABASE_URL="sqlite:///./ipv6_wireguard_manager.db"
+        export REDIS_URL="redis://localhost:6379/0"
+    else
+        export DATABASE_URL="postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager"
+        export REDIS_URL="redis://localhost:6379/0"
+    fi
+    
+    export SECRET_KEY="your-secret-key-change-this-in-production"
+    export DEBUG=false
+    export LOG_LEVEL=INFO
+    
+    # 初始化数据库
+    python -c "
+from app.core.database import init_db
+import asyncio
+asyncio.run(init_db())
+print('数据库初始化完成')
+"
+    
+    log_success "后端安装完成"
+}
+
+# 安装前端
+install_frontend() {
+    log_info "安装前端..."
+    
+    cd /opt/ipv6-wireguard-manager/frontend
+    
+    # 安装Node.js依赖
+    npm install
+    
+    # 构建前端
+    npm run build
+    
+    log_success "前端安装完成"
+}
+
+# 配置Nginx
+setup_nginx() {
+    log_info "配置Nginx..."
+    
+    # 创建Nginx配置
+    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << 'EOF'
+server {
+    listen 80;
+    server_name _;
+    
+    # 前端静态文件
+    location / {
+        root /opt/ipv6-wireguard-manager/frontend/dist;
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # 后端API
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    # WebSocket支持
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+    
+    # 启用站点
+    ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+    
+    # 测试配置
+    nginx -t
+    
+    # 重启Nginx
+    systemctl restart nginx
+    
+    log_success "Nginx配置完成"
+}
+
+# 创建系统服务
+create_systemd_service() {
+    log_info "创建系统服务..."
+    
+    # 创建服务文件
+    cat > /etc/systemd/system/ipv6-wireguard-manager.service << 'EOF'
+[Unit]
+Description=IPv6 WireGuard Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ipv6-wireguard-manager/backend
+Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
+Environment=DATABASE_URL=postgresql://ipv6wgm:ipv6wgm123@localhost:5432/ipv6_wireguard_manager
+Environment=REDIS_URL=redis://localhost:6379/0
+Environment=SECRET_KEY=your-secret-key-change-this-in-production
+Environment=DEBUG=false
+Environment=LOG_LEVEL=INFO
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # 重载systemd
+    systemctl daemon-reload
+    
+    # 启用服务
+    systemctl enable ipv6-wireguard-manager
+    
+    # 启动服务
+    systemctl start ipv6-wireguard-manager
+    
+    log_success "系统服务创建完成"
+}
+
+# 配置防火墙
+setup_firewall() {
+    log_info "配置防火墙..."
+    
+    # 检查ufw是否安装
+    if command -v ufw &> /dev/null; then
+        # 允许HTTP和HTTPS
+        ufw allow 80/tcp
+        ufw allow 443/tcp
+        
+        # 允许WireGuard端口
+        ufw allow 51820/udp
+        
+        # 允许SSH（如果ufw是活跃的）
+        if ufw status | grep -q "Status: active"; then
+            ufw allow ssh
+        fi
+        
+        log_success "防火墙配置完成"
+    else
+        log_warning "ufw未安装，跳过防火墙配置"
+    fi
+}
+
+# 验证安装
+verify_installation() {
+    log_info "验证安装..."
+    
+    # 等待服务启动
+    sleep 10
+    
+    # 检查服务状态
+    if systemctl is-active --quiet ipv6-wireguard-manager; then
+        log_success "后端服务运行正常"
+    else
+        log_error "后端服务启动失败"
+        systemctl status ipv6-wireguard-manager --no-pager
+        return 1
+    fi
+    
+    # 检查Nginx状态
+    if systemctl is-active --quiet nginx; then
+        log_success "Nginx服务运行正常"
+    else
+        log_error "Nginx服务启动失败"
+        return 1
+    fi
+    
+    # 检查端口监听
+    if netstat -tlnp | grep -q ":80 "; then
+        log_success "端口80监听正常"
+    else
+        log_error "端口80未监听"
+        return 1
+    fi
+    
+    if netstat -tlnp | grep -q ":8000 "; then
+        log_success "端口8000监听正常"
+    else
+        log_error "端口8000未监听"
+        return 1
+    fi
+    
+    # 测试API
+    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+        log_success "后端API响应正常"
+    else
+        log_error "后端API响应失败"
+        return 1
+    fi
+    
+    log_success "安装验证通过"
+}
+
+# 显示安装结果
+show_installation_result() {
+    log_success "🎉 IPv6 WireGuard Manager 安装完成！"
+    
+    # 获取服务器IP
+    local server_ip=$(ip route get 1 | awk '{print $7; exit}' 2>/dev/null || echo "localhost")
+    local ipv6_ip=$(ip -6 addr show | grep -E 'inet6.*global' | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    
+    echo ""
+    log_info "访问信息:"
+    echo "  前端界面: http://$server_ip"
+    if [ -n "$ipv6_ip" ]; then
+        echo "  IPv6访问: http://[$ipv6_ip]"
+    fi
+    echo "  API文档: http://$server_ip/docs"
+    
+    echo ""
+    log_info "默认登录信息:"
+    echo "  用户名: admin"
+    echo "  密码: admin123"
+    
+    echo ""
+    log_info "配置文件位置:"
+    echo "  应用目录: /opt/ipv6-wireguard-manager"
+    echo "  Nginx配置: /etc/nginx/sites-available/ipv6-wireguard-manager"
+    echo "  服务配置: /etc/systemd/system/ipv6-wireguard-manager.service"
+    
+    echo ""
+    log_success "安装完成！请访问前端界面开始使用。"
+}
+
+# Docker安装
+install_docker() {
+    log_info "开始Docker安装..."
+    
+    check_system_requirements
+    install_system_dependencies
+    download_project
+    setup_firewall
+    
+    # 启动Docker服务
+    cd /opt/ipv6-wireguard-manager
+    docker-compose -f docker-compose.production.yml up -d
+    
+    # 等待服务启动
+    sleep 30
+    
+    # 验证安装
+    if docker-compose -f docker-compose.production.yml ps | grep -q "Up"; then
+        log_success "Docker服务启动成功"
+        show_installation_result
+    else
+        log_error "Docker服务启动失败"
+        docker-compose -f docker-compose.production.yml logs
+        exit 1
+    fi
+}
+
+# 原生安装
+install_native() {
+    log_info "开始原生安装..."
+    
+    check_system_requirements
+    install_system_dependencies
+    download_project
+    setup_database
+    install_backend
+    install_frontend
+    setup_nginx
+    create_systemd_service
+    setup_firewall
+    verify_installation
+    show_installation_result
+}
+
+# 低内存安装
+install_low_memory() {
+    log_info "开始低内存安装..."
+    
+    check_system_requirements
+    install_system_dependencies
+    download_project
+    setup_database
+    install_backend
+    install_frontend
+    setup_nginx
+    create_systemd_service
+    setup_firewall
+    verify_installation
+    show_installation_result
+}
+
+# 主安装函数
+main() {
+    case $INSTALL_TYPE in
+        "docker")
+            install_docker
+            ;;
+        "native")
+            install_native
+            ;;
+        "low-memory")
+            install_low_memory
+            ;;
+        *)
+            log_error "不支持的安装类型: $INSTALL_TYPE"
+            exit 1
+            ;;
+    esac
+}
+
+# 运行主函数
+main
