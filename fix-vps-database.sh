@@ -85,7 +85,19 @@ info "修复应用数据库配置..."
 
 # 检查当前工作目录
 if [ ! -d "backend" ]; then
-    error_exit "请在项目根目录运行此脚本"
+    # 尝试查找项目根目录
+    if [ -d "/opt/ipv6-wireguard-manager" ]; then
+        info "切换到项目目录: /opt/ipv6-wireguard-manager"
+        cd /opt/ipv6-wireguard-manager
+    elif [ -d "/root/ipv6-wireguard-manager" ]; then
+        info "切换到项目目录: /root/ipv6-wireguard-manager"
+        cd /root/ipv6-wireguard-manager
+    elif [ -d "/home/ipv6-wireguard-manager" ]; then
+        info "切换到项目目录: /home/ipv6-wireguard-manager"
+        cd /home/ipv6-wireguard-manager
+    else
+        error_exit "未找到项目根目录，请在项目根目录运行此脚本或确保项目安装在标准位置"
+    fi
 fi
 
 # 备份原始配置
