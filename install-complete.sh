@@ -304,9 +304,23 @@ setup_database() {
 setup_postgresql() {
     log_info "配置PostgreSQL..."
     
-    # 创建数据库和用户
-    sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
-    sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+    # 检查数据库是否已存在
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ipv6_wireguard_manager; then
+        log_warning "数据库 ipv6_wireguard_manager 已存在，跳过创建"
+    else
+        # 创建数据库
+        sudo -u postgres psql -c "CREATE DATABASE ipv6_wireguard_manager;"
+    fi
+    
+    # 检查用户是否已存在
+    if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='ipv6wgm';" | grep -q 1; then
+        log_warning "用户 ipv6wgm 已存在，跳过创建"
+    else
+        # 创建用户
+        sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'ipv6wgm123';"
+    fi
+    
+    # 授予权限
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6_wireguard_manager TO ipv6wgm;"
     
     log_success "PostgreSQL配置完成"
