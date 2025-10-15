@@ -98,6 +98,11 @@ else:
     AsyncSessionLocal = None
 
 # 创建同步数据库引擎（用于Alembic迁移）- 仅支持MySQL
+# 使用pymysql驱动而不是MySQLdb
+sync_db_url = settings.DATABASE_URL
+if sync_db_url.startswith("mysql://"):
+    sync_db_url = sync_db_url.replace("mysql://", "mysql+pymysql://")
+
 sync_connect_args = {
     "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
     "charset": "utf8mb4",
@@ -105,7 +110,7 @@ sync_connect_args = {
 }
 
 sync_engine = create_engine(
-    settings.DATABASE_URL,
+    sync_db_url,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
