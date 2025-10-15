@@ -39,22 +39,22 @@ def check_dependencies():
     print("\n📦 检查依赖包...")
     
     required_packages = [
-        'fastapi',
-        'uvicorn',
-        'pydantic',
-        'sqlalchemy',
-        'python-dotenv'
+        ('fastapi', 'fastapi'),
+        ('uvicorn', 'uvicorn'),
+        ('pydantic', 'pydantic'),
+        ('sqlalchemy', 'sqlalchemy'),
+        ('python-dotenv', 'dotenv')
     ]
     
     missing_packages = []
     
-    for package in required_packages:
+    for package_name, import_name in required_packages:
         try:
-            __import__(package.replace('-', '_'))
-            print(f"   ✅ {package}")
+            __import__(import_name)
+            print(f"   ✅ {package_name}")
         except ImportError:
-            print(f"   ❌ {package} - 未安装")
-            missing_packages.append(package)
+            print(f"   ❌ {package_name} - 未安装")
+            missing_packages.append(package_name)
     
     if missing_packages:
         print(f"\n   💡 安装缺失的依赖:")
