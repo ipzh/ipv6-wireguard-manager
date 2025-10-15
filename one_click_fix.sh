@@ -137,7 +137,27 @@ fi
 
 echo ""
 
-echo "5. 重启后端服务..."
+echo "5. 修复后端IPv6支持..."
+# 修复服务配置以支持IPv6
+if [ -f "/etc/systemd/system/ipv6-wireguard-manager.service" ]; then
+    # 备份原配置
+    cp /etc/systemd/system/ipv6-wireguard-manager.service /etc/systemd/system/ipv6-wireguard-manager.service.backup
+    
+    # 修复host参数从0.0.0.0改为::
+    sed -i 's/--host 0\.0\.0\.0/--host ::/g' /etc/systemd/system/ipv6-wireguard-manager.service
+    
+    echo "   ✅ 后端服务配置已修复（支持IPv6）"
+    
+    # 重新加载systemd配置
+    systemctl daemon-reload
+    echo "   ✅ systemd配置已重新加载"
+else
+    echo "   ❌ 服务配置文件不存在"
+fi
+
+echo ""
+
+echo "6. 重启后端服务..."
 if systemctl restart ipv6-wireguard-manager; then
     echo "   ✅ 后端服务重启成功"
 else
@@ -147,12 +167,12 @@ fi
 
 echo ""
 
-echo "6. 等待服务启动..."
+echo "7. 等待服务启动..."
 sleep 5
 
 echo ""
 
-echo "7. 检查服务状态..."
+echo "8. 检查服务状态..."
 if systemctl is-active --quiet nginx; then
     echo "   ✅ Nginx服务运行正常"
 else
@@ -167,7 +187,7 @@ fi
 
 echo ""
 
-echo "8. 测试连接..."
+echo "9. 测试连接..."
 echo "   测试本地前端连接:"
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:80 --connect-timeout 5; then
     echo "     ✅ 本地前端连接正常"
@@ -191,7 +211,7 @@ fi
 
 echo ""
 
-echo "9. 测试IPv6连接..."
+echo "10. 测试IPv6连接..."
 ipv6_ip="2605:6400:8a61:100::117"
 echo "   测试IPv6前端连接:"
 if curl -s -o /dev/null -w "%{http_code}" "http://[$ipv6_ip]:80" --connect-timeout 5; then
@@ -216,7 +236,7 @@ fi
 
 echo ""
 
-echo "10. 检查前端页面内容..."
+echo "11. 检查前端页面内容..."
 echo "   获取前端页面内容:"
 response=$(curl -s "http://[$ipv6_ip]:80" --connect-timeout 5)
 if [ -n "$response" ]; then
@@ -240,7 +260,7 @@ fi
 
 echo ""
 
-echo "11. 检查API文档..."
+echo "12. 检查API文档..."
 echo "   获取API文档内容:"
 api_response=$(curl -s "http://[$ipv6_ip]:8000/docs" --connect-timeout 5)
 if [ -n "$api_response" ]; then
@@ -257,7 +277,7 @@ fi
 
 echo ""
 
-echo "12. 显示访问地址..."
+echo "13. 显示访问地址..."
 get_ip_addresses() {
     local ipv4_ips=()
     local ipv6_ips=()

@@ -25,7 +25,7 @@ def main():
         load_dotenv(env_file)
     
     # 获取配置
-    host = os.getenv('SERVER_HOST', '0.0.0.0')
+    host = os.getenv('SERVER_HOST', '::')  # 使用::支持IPv6
     port = int(os.getenv('SERVER_PORT', '8000'))
     debug = os.getenv('DEBUG', 'false').lower() == 'true'
     log_level = os.getenv('LOG_LEVEL', 'info').lower()

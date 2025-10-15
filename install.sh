@@ -1506,7 +1506,7 @@ User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR/backend
 Environment=PATH=$INSTALL_DIR/backend/venv/bin
-ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --workers 4
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host :: --port $API_PORT --workers 4
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
@@ -1539,7 +1539,7 @@ User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR/backend
 Environment=PATH=$INSTALL_DIR/backend/venv/bin
-ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --workers 2
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host :: --port $API_PORT --workers 2
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
