@@ -342,11 +342,11 @@ parse_arguments() {
                 ;;
             --help|-h)
                 show_help
-                exit 0
+                return 2
                 ;;
             --version|-v)
                 show_version
-                exit 0
+                return 2
                 ;;
             *)
                 # 如果是管道执行且第一个参数不是选项，可能是安装类型
@@ -356,7 +356,7 @@ parse_arguments() {
                 else
                     log_error "未知选项: $1"
                     show_help
-                    exit 1
+                    return 1
                 fi
                 ;;
         esac
@@ -377,6 +377,7 @@ parse_arguments() {
     fi
     
     echo "$install_type|$install_dir|$port|$silent|$performance|$production|$debug|$skip_deps|$skip_db|$skip_service"
+    return 0
 }
 
 # 显示版本信息
@@ -450,6 +451,35 @@ show_help() {
 
 # 主安装函数
 main() {
+    # 检查是否为管道执行
+    local is_piped=false
+    if [ ! -t 0 ]; then
+        is_piped=true
+        log_info "检测到管道执行模式，跳过root权限检查"
+    else
+        # 检查root权限（仅交互模式）
+        if [[ $EUID -ne 0 ]]; then
+            log_error "此脚本需要root权限运行"
+            log_info "请使用: sudo $0 $*"
+            exit 1
+        fi
+    fi
+    
+    # 解析参数
+    local args
+    args=$(parse_arguments "$@")
+    local parse_result=$?
+    
+    # 检查参数解析结果
+    if [ $parse_result -eq 2 ]; then
+        # 帮助或版本信息已显示，直接退出
+        exit 0
+    elif [ $parse_result -ne 0 ]; then
+        # 参数解析错误
+        exit 1
+    fi
+    
+    # 显示脚本信息（仅在正常安装模式下）
     echo "=========================================="
     echo "🚀 IPv6 WireGuard Manager 增强版安装脚本"
     echo "=========================================="
@@ -459,19 +489,10 @@ main() {
     log_info "支持IPv6/IPv4双栈网络"
     echo ""
     
-    # 检查root权限
-    if [[ $EUID -ne 0 ]]; then
-        log_error "此脚本需要root权限运行"
-        log_info "请使用: sudo $0 $*"
-        exit 1
-    fi
-    
     # 检测系统信息
     detect_system
     check_requirements
     
-    # 解析参数
-    local args=$(parse_arguments "$@")
     IFS='|' read -r install_type install_dir port silent performance production debug skip_deps skip_db skip_service <<< "$args"
     
     log_info "安装配置:"
@@ -527,6 +548,8 @@ run_docker_installation() {
     [ "$performance" = true ] && complete_args="$complete_args --performance"
     [ "$production" = true ] && complete_args="$complete_args --production"
     [ "$debug" = true ] && complete_args="$complete_args --debug"
+    
+    log_info "Docker安装参数: $complete_args"
     
     # 下载并运行安装脚本
     curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | bash -s $complete_args
