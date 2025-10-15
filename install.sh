@@ -1037,8 +1037,43 @@ install_core_dependencies() {
     
     log_info "安装Python依赖包..."
     if ! pip install -r requirements-minimal.txt; then
-        log_error "安装Python依赖失败"
-        exit 1
+        log_error "安装Python依赖失败，尝试单独安装关键依赖..."
+        
+        # 尝试单独安装关键依赖
+        key_packages=(
+            "fastapi==0.104.1"
+            "uvicorn[standard]==0.24.0"
+            "pydantic==2.5.0"
+            "pydantic-settings==2.1.0"
+            "sqlalchemy==2.0.23"
+            "pymysql==1.1.0"
+            "python-dotenv==1.0.0"
+            "python-jose[cryptography]>=3.3.0"
+            "passlib[bcrypt]>=1.7.4"
+            "python-multipart>=0.0.6"
+            "click==8.1.7"
+            "cryptography>=41.0.0,<47.0.0"
+            "psutil==5.9.6"
+            "email-validator==2.1.0"
+        )
+        
+        for package in "${key_packages[@]}"; do
+            log_info "安装: $package"
+            if pip install "$package"; then
+                log_success "$package 安装成功"
+            else
+                log_warning "$package 安装失败，继续下一个"
+            fi
+        done
+        
+        # 验证关键依赖
+        log_info "验证关键依赖..."
+        if python -c "import fastapi, uvicorn, pydantic, sqlalchemy, pymysql, dotenv" 2>/dev/null; then
+            log_success "关键依赖验证通过"
+        else
+            log_error "关键依赖验证失败"
+            exit 1
+        fi
     fi
     
     log_success "核心依赖安装完成"
