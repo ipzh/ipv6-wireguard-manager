@@ -30,19 +30,15 @@ class Settings(BaseSettings):
     SERVER_HOST: str = "0.0.0.0"  # 监听所有IPv4和IPv6接口
     SERVER_PORT: int = 8000
     
-    # 数据库配置
-    DATABASE_URL: str = "postgresql://ipv6wgm:password@localhost:5432/ipv6wgm"
-    DATABASE_POOL_SIZE: int = 20
-    DATABASE_MAX_OVERFLOW: int = 30
+    # 数据库配置 - 仅支持MySQL
+    DATABASE_URL: str = "mysql://ipv6wgm:password@localhost:3306/ipv6wgm"
+    DATABASE_POOL_SIZE: int = 10  # 降低连接池大小以节省内存
+    DATABASE_MAX_OVERFLOW: int = 15  # 降低最大溢出连接数
     DATABASE_CONNECT_TIMEOUT: int = 30
     DATABASE_STATEMENT_TIMEOUT: int = 30000
     DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT: int = 10000
     DATABASE_POOL_RECYCLE: int = 3600
     DATABASE_POOL_PRE_PING: bool = True
-    
-    # SQLite回退配置
-    SQLITE_DATABASE_URL: str = "sqlite:///./ipv6wgm.db"
-    USE_SQLITE_FALLBACK: bool = False
     AUTO_CREATE_DATABASE: bool = True
     
     # Redis配置

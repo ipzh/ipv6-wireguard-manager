@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# IPv6 WireGuard Manager - 增强版一键安装脚本
-# 支持所有主流Linux发行版，IPv6/IPv4双栈网络
+# IPv6 WireGuard Manager - 智能安装脚本
+# 支持多种安装方式，自动检测系统环境，去除硬编码
 # 企业级VPN管理平台
 
 set -e
@@ -39,6 +39,48 @@ log_debug() {
 log_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
+
+# 全局变量
+SCRIPT_VERSION="3.0.0"
+PROJECT_NAME="IPv6 WireGuard Manager"
+PROJECT_REPO="https://github.com/ipzh/ipv6-wireguard-manager.git"
+DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
+DEFAULT_PORT="80"
+DEFAULT_API_PORT="8000"
+
+# 系统信息
+OS_ID=""
+OS_VERSION=""
+OS_NAME=""
+ARCH=""
+PACKAGE_MANAGER=""
+MEMORY_MB=""
+CPU_CORES=""
+DISK_SPACE_MB=""
+IPV6_SUPPORT=false
+
+# 安装配置
+INSTALL_TYPE=""
+INSTALL_DIR=""
+WEB_PORT=""
+API_PORT=""
+SERVICE_USER="ipv6wgm"
+SERVICE_GROUP="ipv6wgm"
+PYTHON_VERSION="3.11"
+NODE_VERSION="18"
+MYSQL_VERSION="8.0"
+POSTGRES_VERSION="15"
+REDIS_VERSION="7"
+
+# 功能开关
+SILENT=false
+PERFORMANCE=false
+PRODUCTION=false
+DEBUG=false
+SKIP_DEPS=false
+SKIP_DB=false
+SKIP_SERVICE=false
+SKIP_FRONTEND=false
 
 # 系统信息检测
 detect_system() {
@@ -80,7 +122,14 @@ detect_system() {
     DISK_SPACE=$(df / | awk 'NR==2{print $4}')
     DISK_SPACE_MB=$((DISK_SPACE / 1024))
     
-    log_success "系统信息:"
+    # 检测IPv6支持
+    if ping6 -c 1 2001:4860:4860::8888 &> /dev/null 2>&1; then
+        IPV6_SUPPORT=true
+    else
+        IPV6_SUPPORT=false
+    fi
+    
+    log_success "系统信息检测完成:"
     log_info "  操作系统: $OS_NAME"
     log_info "  版本: $OS_VERSION"
     log_info "  架构: $ARCH"
@@ -88,6 +137,7 @@ detect_system() {
     log_info "  内存: ${MEMORY_MB}MB"
     log_info "  CPU核心: $CPU_CORES"
     log_info "  可用磁盘: ${DISK_SPACE_MB}MB"
+    log_info "  IPv6支持: $([ "$IPV6_SUPPORT" = true ] && echo "是" || echo "否")"
 }
 
 # 检查系统要求
@@ -95,36 +145,33 @@ check_requirements() {
     log_info "检查系统要求..."
     
     local requirements_ok=true
+    local warnings=()
     
-    # 检查内存变量是否已设置
-    if [ -z "$MEMORY_MB" ] || [ "$MEMORY_MB" -lt 512 ]; then
-        log_error "系统内存不足或未正确检测，至少需要512MB"
+    # 检查内存
+    if [ "$MEMORY_MB" -lt 512 ]; then
+        log_error "系统内存不足，至少需要512MB"
         requirements_ok=false
     elif [ "$MEMORY_MB" -lt 1024 ]; then
-        log_warning "系统内存较少，建议使用低内存安装模式"
+        warnings+=("系统内存较少，建议使用最小化安装模式")
     fi
     
-    # 检查磁盘空间变量是否已设置
-    if [ -z "$DISK_SPACE_MB" ] || [ "$DISK_SPACE_MB" -lt 1024 ]; then
-        log_error "磁盘空间不足或未正确检测，至少需要1GB"
+    # 检查磁盘空间
+    if [ "$DISK_SPACE_MB" -lt 1024 ]; then
+        log_error "磁盘空间不足，至少需要1GB"
         requirements_ok=false
     elif [ "$DISK_SPACE_MB" -lt 2048 ]; then
-        log_warning "磁盘空间较少，建议至少2GB"
+        warnings+=("磁盘空间较少，建议至少2GB")
     fi
     
     # 检查网络连接
     if ! ping -c 1 8.8.8.8 &> /dev/null; then
-        log_warning "网络连接可能有问题"
+        warnings+=("网络连接可能有问题")
     fi
     
-    # 检查IPv6支持
-    if ping6 -c 1 2001:4860:4860::8888 &> /dev/null; then
-        log_success "IPv6网络连接正常"
-        IPV6_SUPPORT=true
-    else
-        log_warning "IPv6网络连接不可用（可选）"
-        IPV6_SUPPORT=false
-    fi
+    # 显示警告
+    for warning in "${warnings[@]}"; do
+        log_warning "$warning"
+    done
     
     if [ "$requirements_ok" = false ]; then
         log_error "系统要求检查失败"
@@ -134,23 +181,18 @@ check_requirements() {
     log_success "系统要求检查通过"
 }
 
-# 自动选择最适合的安装类型
-auto_select_install_type() {
+# 智能推荐安装类型
+recommend_install_type() {
     local recommended_type=""
     local reason=""
     
-    # 根据系统资源选择最适合的安装方式
-    if [ -z "$MEMORY_MB" ] || [ "$MEMORY_MB" -lt 1024 ]; then
+    # 根据系统资源智能推荐
+    if [ "$MEMORY_MB" -lt 1024 ]; then
         recommended_type="minimal"
-        reason="内存不足1GB或未正确检测，推荐最小化安装"
+        reason="内存不足1GB，强制最小化安装"
     elif [ "$MEMORY_MB" -lt 2048 ]; then
-        if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-            recommended_type="docker"
-            reason="内存1-2GB且Docker可用，推荐Docker安装（更稳定）"
-        else
-            recommended_type="native"
-            reason="内存1-2GB但Docker不可用，推荐原生安装"
-        fi
+        recommended_type="minimal"
+        reason="内存不足2GB，推荐最小化安装（优化MySQL配置）"
     else
         if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
             recommended_type="docker"
@@ -168,19 +210,12 @@ auto_select_install_type() {
 show_install_options() {
     echo ""
     echo "=========================================="
-    echo "🚀 IPv6 WireGuard Manager 安装选项"
+    echo "🚀 $PROJECT_NAME 安装选项"
     echo "=========================================="
     echo ""
     
-    log_info "检测到的系统信息:"
-    log_info "  操作系统: $OS_NAME"
-    log_info "  内存: ${MEMORY_MB}MB"
-    log_info "  CPU核心: $CPU_CORES"
-    log_info "  IPv6支持: $([ "$IPV6_SUPPORT" = true ] && echo "是" || echo "否")"
-    echo ""
-    
-    # 获取推荐安装方式
-    local recommended_result=$(auto_select_install_type)
+    # 获取智能推荐
+    local recommended_result=$(recommend_install_type)
     local recommended_type=$(echo "$recommended_result" | cut -d'|' -f1)
     local recommended_reason=$(echo "$recommended_result" | cut -d'|' -f2)
     
@@ -190,23 +225,43 @@ show_install_options() {
     echo ""
     
     log_info "安装选项:"
-    echo "🐳 1. Docker安装 (推荐新手)"
-    echo "   ✅ 优点: 环境隔离、易于管理、一键部署"
-    echo "   ❌ 缺点: 资源占用较高、性能略有损失"
-    echo "   🎯 适用: 测试环境、开发环境、性能要求不高的场景"
-    echo "   💾 内存要求: 2GB+"
-    echo ""
-    echo "⚡ 2. 原生安装 (推荐VPS)"
-    echo "   ✅ 优点: 性能最优、资源占用最小、启动快速"
-    echo "   ❌ 缺点: 依赖管理复杂、环境配置相对复杂"
-    echo "   🎯 适用: 生产环境、VPS部署、高性能场景"
-    echo "   💾 内存要求: 1GB+"
-    echo ""
-    echo "📦 3. 最小化安装 (低内存)"
-    echo "   ✅ 优点: 资源占用最少、适合低配置服务器"
-    echo "   ❌ 缺点: 功能有限、仅核心功能"
-    echo "   🎯 适用: 低配置VPS、测试环境"
-    echo "   💾 内存要求: 512MB+"
+    
+    if [ "$MEMORY_MB" -lt 2048 ]; then
+        echo "⚠️ 检测到内存不足2GB，推荐使用最小化安装"
+        echo ""
+        echo "📦 1. 最小化安装 (推荐 - 低内存优化)"
+        echo "   ✅ 优点: 资源占用最少、MySQL优化配置、适合低配置服务器"
+        echo "   ❌ 缺点: 功能有限、仅核心功能"
+        echo "   🎯 适用: 低配置VPS、内存受限环境"
+        echo "   💾 内存要求: 512MB+"
+        echo "   🗄️ 数据库: MySQL (优化配置)"
+        echo ""
+        echo "🐳 2. Docker安装 (不推荐 - 内存不足)"
+        echo "   ❌ 缺点: 内存占用过高、可能导致系统不稳定"
+        echo "   💾 内存要求: 2GB+"
+        echo ""
+        echo "⚡ 3. 原生安装 (不推荐 - 内存不足)"
+        echo "   ❌ 缺点: 内存占用较高、可能导致系统不稳定"
+        echo "   💾 内存要求: 1GB+"
+    else
+        echo "🐳 1. Docker安装 (推荐新手)"
+        echo "   ✅ 优点: 环境隔离、易于管理、一键部署"
+        echo "   ❌ 缺点: 资源占用较高、性能略有损失"
+        echo "   🎯 适用: 测试环境、开发环境、性能要求不高的场景"
+        echo "   💾 内存要求: 2GB+"
+        echo ""
+        echo "⚡ 2. 原生安装 (推荐VPS)"
+        echo "   ✅ 优点: 性能最优、资源占用最小、启动快速"
+        echo "   ❌ 缺点: 依赖管理复杂、环境配置相对复杂"
+        echo "   🎯 适用: 生产环境、VPS部署、高性能场景"
+        echo "   💾 内存要求: 1GB+"
+        echo ""
+        echo "📦 3. 最小化安装 (低内存)"
+        echo "   ✅ 优点: 资源占用最少、适合低配置服务器"
+        echo "   ❌ 缺点: 功能有限、仅核心功能"
+        echo "   🎯 适用: 低配置VPS、测试环境"
+        echo "   💾 内存要求: 512MB+"
+    fi
     echo ""
     echo "📊 性能对比:"
     echo "   💾 内存占用: Docker 2GB+ vs 原生 1GB+ vs 最小化 512MB+"
@@ -215,14 +270,11 @@ show_install_options() {
     echo ""
     
     # 检查是否为非交互模式
-    if [ ! -t 0 ] || [ "$1" = "--auto" ]; then
+    if [ ! -t 0 ] || [ "$SILENT" = true ]; then
         log_info "检测到非交互模式，自动选择安装类型..."
-        local auto_result=$(auto_select_install_type)
-        local auto_type=$(echo "$auto_result" | cut -d'|' -f1)
-        local auto_reason=$(echo "$auto_result" | cut -d'|' -f2)
-        log_info "自动选择的安装类型: $auto_type"
-        log_info "选择理由: $auto_reason"
-        echo "$auto_type"
+        log_info "自动选择的安装类型: $recommended_type"
+        log_info "选择理由: $recommended_reason"
+        echo "$recommended_type"
         return
     fi
     
@@ -265,126 +317,126 @@ show_install_options() {
         3) echo "minimal" ;;
         *) 
             log_warning "无效选择，使用自动选择" >&2
-            auto_select_install_type
+            echo "$recommended_type"
             ;;
     esac
 }
 
 # 解析命令行参数
 parse_arguments() {
-    local install_type=""
-    local install_dir="/opt/ipv6-wireguard-manager"
-    local port="80"
-    local silent=false
-    local performance=false
-    local production=false
-    local debug=false
-    local skip_deps=false
-    local skip_db=false
-    local skip_service=false
-    
-    # 检查是否通过管道执行（curl | bash）
-    local is_piped=false
-    if [ ! -t 0 ]; then
-        is_piped=true
-        # 如果是管道执行，检查是否有参数通过bash -s传递
-        if [ $# -gt 0 ]; then
-            # 重新解析参数（bash -s传递的参数）
-            set -- $@
-        fi
-    fi
-    
     while [[ $# -gt 0 ]]; do
         case $1 in
             docker|native|minimal)
-                install_type="$1"
+                INSTALL_TYPE="$1"
                 shift
                 ;;
             --dir)
-                install_dir="$2"
+                INSTALL_DIR="$2"
                 shift 2
                 ;;
             --port)
-                port="$2"
+                WEB_PORT="$2"
+                shift 2
+                ;;
+            --api-port)
+                API_PORT="$2"
+                shift 2
+                ;;
+            --user)
+                SERVICE_USER="$2"
+                shift 2
+                ;;
+            --group)
+                SERVICE_GROUP="$2"
+                shift 2
+                ;;
+            --python)
+                PYTHON_VERSION="$2"
+                shift 2
+                ;;
+            --node)
+                NODE_VERSION="$2"
+                shift 2
+                ;;
+            --mysql)
+                MYSQL_VERSION="$2"
+                shift 2
+                ;;
+            --postgres)
+                POSTGRES_VERSION="$2"
+                shift 2
+                ;;
+            --redis)
+                REDIS_VERSION="$2"
                 shift 2
                 ;;
             --silent)
-                silent=true
+                SILENT=true
                 shift
                 ;;
             --performance)
-                performance=true
+                PERFORMANCE=true
                 shift
                 ;;
             --production)
-                production=true
+                PRODUCTION=true
                 shift
                 ;;
             --debug)
-                debug=true
+                DEBUG=true
                 shift
                 ;;
             --skip-deps)
-                skip_deps=true
+                SKIP_DEPS=true
                 shift
                 ;;
             --skip-db)
-                skip_db=true
+                SKIP_DB=true
                 shift
                 ;;
             --skip-service)
-                skip_service=true
+                SKIP_SERVICE=true
+                shift
+                ;;
+            --skip-frontend)
+                SKIP_FRONTEND=true
                 shift
                 ;;
             --auto)
-                silent=true
+                SILENT=true
                 shift
                 ;;
             --help|-h)
                 show_help
-                return 2
+                exit 0
                 ;;
             --version|-v)
                 show_version
-                return 2
+                exit 0
                 ;;
             *)
-                # 如果是管道执行且第一个参数不是选项，可能是安装类型
-                if [ "$is_piped" = true ] && [ -z "$install_type" ] && [[ "$1" =~ ^(docker|native|minimal)$ ]]; then
-                    install_type="$1"
-                    shift
-                else
-                    log_error "未知选项: $1"
-                    show_help
-                    return 1
-                fi
+                log_error "未知选项: $1"
+                show_help
+                exit 1
                 ;;
         esac
     done
     
-    # 如果没有指定安装类型，自动选择
-    if [ -z "$install_type" ]; then
-        if [ "$silent" = true ] || [ "$is_piped" = true ] || [ ! -t 0 ]; then
-            # 在管道模式下，将日志信息重定向到stderr，避免污染返回值
-            log_info "自动选择安装类型..." >&2
-            local auto_result=$(auto_select_install_type)
-            install_type=$(echo "$auto_result" | cut -d'|' -f1)
-            local auto_reason=$(echo "$auto_result" | cut -d'|' -f2)
-            log_info "选择的安装类型: $install_type" >&2
-            log_info "选择理由: $auto_reason" >&2
-        else
-            install_type=$(show_install_options)
-        fi
-    fi
+    # 设置默认值
+    INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
+    WEB_PORT="${WEB_PORT:-$DEFAULT_PORT}"
+    API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
     
-    echo "$install_type|$install_dir|$port|$silent|$performance|$production|$debug|$skip_deps|$skip_db|$skip_service"
-    return 0
+    # 如果没有指定安装类型，自动选择
+    if [ -z "$INSTALL_TYPE" ]; then
+        INSTALL_TYPE=$(show_install_options)
+    fi
 }
 
 # 显示版本信息
 show_version() {
-    echo "IPv6 WireGuard Manager 安装脚本"
-    echo "版本: 3.0.0"
+    echo "$PROJECT_NAME 安装脚本"
+    echo "版本: $SCRIPT_VERSION"
     echo "发布日期: $(date +%Y-%m-%d)"
     echo ""
     echo "功能特性:"
@@ -404,13 +456,13 @@ show_version() {
     echo "  • Arch Linux"
     echo "  • openSUSE 15+"
     echo ""
-    echo "项目地址: https://github.com/ipzh/ipv6-wireguard-manager"
+    echo "项目地址: $PROJECT_REPO"
 }
 
 # 显示帮助信息
 show_help() {
     echo "=========================================="
-    echo "IPv6 WireGuard Manager 安装脚本"
+    echo "$PROJECT_NAME 安装脚本"
     echo "=========================================="
     echo ""
     echo "用法: $0 [选项] [安装类型]"
@@ -421,18 +473,27 @@ show_help() {
     echo "  minimal     最小化安装 (低内存)"
     echo ""
     echo "选项:"
-    echo "  --dir DIR       安装目录 (默认: /opt/ipv6-wireguard-manager)"
-    echo "  --port PORT     Web服务器端口 (默认: 80)"
-    echo "  --silent        静默安装 (无交互)"
-    echo "  --performance   启用性能优化"
-    echo "  --production    生产环境安装 (包含监控)"
-    echo "  --debug         调试模式"
-    echo "  --skip-deps     跳过依赖安装"
-    echo "  --skip-db       跳过数据库安装"
-    echo "  --skip-service  跳过服务安装"
-    echo "  --auto          自动选择安装类型"
-    echo "  --help, -h      显示此帮助信息"
-    echo "  --version, -v   显示版本信息"
+    echo "  --dir DIR           安装目录 (默认: $DEFAULT_INSTALL_DIR)"
+    echo "  --port PORT         Web服务器端口 (默认: $DEFAULT_PORT)"
+    echo "  --api-port PORT     API服务器端口 (默认: $DEFAULT_API_PORT)"
+    echo "  --user USER         服务用户 (默认: ipv6wgm)"
+    echo "  --group GROUP       服务组 (默认: ipv6wgm)"
+    echo "  --python VERSION    Python版本 (默认: 3.11)"
+    echo "  --node VERSION      Node.js版本 (默认: 18)"
+    echo "  --mysql VERSION     MySQL版本 (默认: 8.0)"
+    echo "  --postgres VERSION  PostgreSQL版本 (默认: 15)"
+    echo "  --redis VERSION     Redis版本 (默认: 7)"
+    echo "  --silent            静默安装 (无交互)"
+    echo "  --performance       启用性能优化"
+    echo "  --production        生产环境安装 (包含监控)"
+    echo "  --debug             调试模式"
+    echo "  --skip-deps         跳过依赖安装"
+    echo "  --skip-db           跳过数据库安装"
+    echo "  --skip-service      跳过服务安装"
+    echo "  --skip-frontend     跳过前端安装"
+    echo "  --auto              自动选择安装类型"
+    echo "  --help, -h          显示此帮助信息"
+    echo "  --version, -v       显示版本信息"
     echo ""
     echo "示例:"
     echo "  $0                                    # 交互式安装"
@@ -443,216 +504,774 @@ show_help() {
     echo "  $0 --debug minimal                   # 调试模式最小化安装"
     echo ""
     echo "快速安装:"
-    echo "  curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash"
+    echo "  curl -fsSL $PROJECT_REPO/raw/main/install.sh | bash"
     echo ""
     echo "更多信息:"
-    echo "  项目地址: https://github.com/ipzh/ipv6-wireguard-manager"
-    echo "  问题反馈: https://github.com/ipzh/ipv6-wireguard-manager/issues"
+    echo "  项目地址: $PROJECT_REPO"
+    echo "  问题反馈: $PROJECT_REPO/issues"
 }
 
 # 主安装函数
 main() {
-    # 检查是否为管道执行
-    local is_piped=false
-    if [ ! -t 0 ]; then
-        is_piped=true
-        log_info "检测到管道执行模式，跳过root权限检查"
-    else
-        # 检查root权限（仅交互模式）
-        if [[ $EUID -ne 0 ]]; then
-            log_error "此脚本需要root权限运行"
-            log_info "请使用: sudo $0 $*"
-            exit 1
-        fi
-    fi
+    echo "=========================================="
+    echo "🚀 $PROJECT_NAME 智能安装脚本"
+    echo "=========================================="
+    echo ""
+    log_info "版本: $SCRIPT_VERSION"
+    log_info "支持IPv6/IPv4双栈网络"
+    log_info "支持多种安装方式"
+    echo ""
     
-    # 解析参数
-    local args
-    args=$(parse_arguments "$@")
-    local parse_result=$?
-    
-    # 检查参数解析结果
-    if [ $parse_result -eq 2 ]; then
-        # 帮助或版本信息已显示，直接退出
-        exit 0
-    elif [ $parse_result -ne 0 ]; then
-        # 参数解析错误
+    # 检查root权限
+    if [[ $EUID -ne 0 ]]; then
+        log_error "此脚本需要root权限运行"
+        log_info "请使用: sudo $0 $*"
         exit 1
     fi
-    
-    # 显示脚本信息（仅在正常安装模式下）
-    echo "=========================================="
-    echo "🚀 IPv6 WireGuard Manager 增强版安装脚本"
-    echo "=========================================="
-    echo ""
-    log_info "版本: 3.0.0"
-    log_info "所有FastAPI依赖注入问题已解决"
-    log_info "支持IPv6/IPv4双栈网络"
-    echo ""
     
     # 检测系统信息
     detect_system
     check_requirements
     
-    IFS='|' read -r install_type install_dir port silent performance production debug skip_deps skip_db skip_service <<< "$args"
+    # 解析参数
+    parse_arguments "$@"
     
     log_info "安装配置:"
-    log_info "  类型: $install_type"
-    log_info "  目录: $install_dir"
-    log_info "  端口: $port"
-    log_info "  静默: $silent"
-    log_info "  性能优化: $performance"
-    log_info "  生产环境: $production"
-    log_info "  调试模式: $debug"
+    log_info "  类型: $INSTALL_TYPE"
+    log_info "  目录: $INSTALL_DIR"
+    log_info "  Web端口: $WEB_PORT"
+    log_info "  API端口: $API_PORT"
+    log_info "  服务用户: $SERVICE_USER"
+    log_info "  Python版本: $PYTHON_VERSION"
+    log_info "  Node.js版本: $NODE_VERSION"
+    log_info "  静默模式: $SILENT"
+    log_info "  性能优化: $PERFORMANCE"
+    log_info "  生产环境: $PRODUCTION"
+    log_info "  调试模式: $DEBUG"
     echo ""
     
     # 选择安装方式
-    case $install_type in
+    case $INSTALL_TYPE in
         "docker")
             log_step "开始Docker安装..."
-            run_docker_installation "$install_dir" "$port" "$silent" "$performance" "$production" "$debug"
+            run_docker_installation
             ;;
         "native")
             log_step "开始原生安装..."
-            run_native_installation "$install_dir" "$port" "$silent" "$performance" "$production" "$debug" "$skip_deps" "$skip_db" "$skip_service"
+            run_native_installation
             ;;
         "minimal")
             log_step "开始最小化安装..."
-            run_minimal_installation "$install_dir" "$port" "$silent" "$debug" "$skip_deps" "$skip_db" "$skip_service"
+            run_minimal_installation
             ;;
         *)
-            log_error "无效的安装类型: $install_type"
+            log_error "无效的安装类型: $INSTALL_TYPE"
             exit 1
             ;;
     esac
     
     # 显示安装完成信息
-    show_installation_complete "$install_dir" "$port"
+    show_installation_complete
 }
 
 # Docker安装
 run_docker_installation() {
-    local install_dir="$1"
-    local port="$2"
-    local silent="$3"
-    local performance="$4"
-    local production="$5"
-    local debug="$6"
+    log_info "使用Docker安装方式..."
     
-    log_info "使用通用安装脚本进行Docker安装..."
-    
-    # 构建参数（使用正确的格式：-t docker）
-    local complete_args="-t docker"
-    [ "$install_dir" != "/opt/ipv6-wireguard-manager" ] && complete_args="$complete_args --dir $install_dir"
-    [ "$port" != "80" ] && complete_args="$complete_args --port $port"
-    [ "$silent" = true ] && complete_args="$complete_args --silent"
-    [ "$performance" = true ] && complete_args="$complete_args --performance"
-    [ "$production" = true ] && complete_args="$complete_args --production"
-    [ "$debug" = true ] && complete_args="$complete_args --debug"
-    
-    # 检查是否为管道执行模式，如果是则使用sudo
-    if [ ! -t 0 ]; then
-        log_info "检测到管道执行模式，自动使用sudo权限..."
-        # 下载并运行安装脚本（使用sudo）
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | sudo bash -s -- $complete_args
-    else
-        log_info "Docker安装参数: $complete_args"
-        # 下载并运行安装脚本
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | bash -s -- $complete_args
+    # 检查Docker是否已安装
+    if ! command -v docker &> /dev/null; then
+        log_info "安装Docker..."
+        install_docker
     fi
+    
+    if ! command -v docker-compose &> /dev/null; then
+        log_info "安装Docker Compose..."
+        install_docker_compose
+    fi
+    
+    # 下载项目
+    download_project
+    
+    # 配置Docker环境
+    configure_docker_environment
+    
+    # 启动Docker服务
+    start_docker_services
+    
+    log_success "Docker安装完成"
 }
 
 # 原生安装
 run_native_installation() {
-    local install_dir="$1"
-    local port="$2"
-    local silent="$3"
-    local performance="$4"
-    local production="$5"
-    local debug="$6"
-    local skip_deps="$7"
-    local skip_db="$8"
-    local skip_service="$9"
+    log_info "使用原生安装方式..."
     
-    log_info "使用通用安装脚本进行原生安装..."
-    
-    # 构建参数（使用正确的格式：-t native）
-    local complete_args="-t native"
-    [ "$install_dir" != "/opt/ipv6-wireguard-manager" ] && complete_args="$complete_args --dir $install_dir"
-    [ "$port" != "80" ] && complete_args="$complete_args --port $port"
-    [ "$silent" = true ] && complete_args="$complete_args --silent"
-    [ "$performance" = true ] && complete_args="$complete_args --performance"
-    [ "$production" = true ] && complete_args="$complete_args --production"
-    [ "$debug" = true ] && complete_args="$complete_args --debug"
-    [ "$skip_deps" = true ] && complete_args="$complete_args --skip-deps"
-    [ "$skip_db" = true ] && complete_args="$complete_args --skip-db"
-    [ "$skip_service" = true ] && complete_args="$complete_args --skip-service"
-    
-    # 检查是否为管道执行模式，如果是则使用sudo
-    if [ ! -t 0 ]; then
-        log_info "检测到管道执行模式，自动使用sudo权限..."
-        # 下载并运行安装脚本（使用sudo）
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | sudo bash -s -- $complete_args
-    else
-        # 下载并运行安装脚本
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | bash -s -- $complete_args
+    # 安装系统依赖
+    if [ "$SKIP_DEPS" = false ]; then
+        install_system_dependencies
     fi
+    
+    # 创建服务用户
+    create_service_user
+    
+    # 下载项目
+    download_project
+    
+    # 安装应用依赖
+    install_application_dependencies
+    
+    # 创建环境变量文件
+    create_environment_file
+    
+    # 配置数据库
+    if [ "$SKIP_DB" = false ]; then
+        configure_database
+    fi
+    
+    # 配置Nginx
+    configure_nginx
+    
+    # 创建系统服务
+    if [ "$SKIP_SERVICE" = false ]; then
+        create_system_service
+    fi
+    
+    # 启动服务
+    start_services
+    
+    # 运行环境检查
+    run_environment_check
+    
+    log_success "原生安装完成"
 }
 
 # 最小化安装
 run_minimal_installation() {
-    local install_dir="$1"
-    local port="$2"
-    local silent="$3"
-    local debug="$4"
-    local skip_deps="$5"
-    local skip_db="$6"
-    local skip_service="$7"
+    log_info "使用最小化安装方式..."
     
-    log_info "使用通用安装脚本进行最小化安装..."
+    # 安装最小系统依赖
+    if [ "$SKIP_DEPS" = false ]; then
+        install_minimal_dependencies
+    fi
     
-    # 构建参数（使用正确的格式：-t minimal）
-    local complete_args="-t minimal"
-    [ "$install_dir" != "/opt/ipv6-wireguard-manager" ] && complete_args="$complete_args --dir $install_dir"
-    [ "$port" != "80" ] && complete_args="$complete_args --port $port"
-    [ "$silent" = true ] && complete_args="$complete_args --silent"
-    [ "$debug" = true ] && complete_args="$complete_args --debug"
-    [ "$skip_deps" = true ] && complete_args="$complete_args --skip-deps"
-    [ "$skip_db" = true ] && complete_args="$complete_args --skip-db"
-    [ "$skip_service" = true ] && complete_args="$complete_args --skip-service"
+    # 创建服务用户
+    create_service_user
     
-    # 检查是否为管道执行模式，如果是则使用sudo
-    if [ ! -t 0 ]; then
-        log_info "检测到管道执行模式，自动使用sudo权限..."
-        # 下载并运行安装脚本（使用sudo）
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | sudo bash -s -- $complete_args
+    # 下载项目
+    download_project
+    
+    # 安装核心依赖
+    install_core_dependencies
+    
+    # 配置最小化MySQL数据库
+    configure_minimal_mysql_database
+    
+    # 创建简单服务
+    if [ "$SKIP_SERVICE" = false ]; then
+        create_simple_service
+    fi
+    
+    # 启动服务
+    start_minimal_services
+    
+    # 运行环境检查
+    run_environment_check
+    
+    log_success "最小化安装完成"
+}
+
+# 安装Docker
+install_docker() {
+    case $PACKAGE_MANAGER in
+        "apt")
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/$OS_ID/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/$OS_ID $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        "yum"|"dnf")
+            $PACKAGE_MANAGER install -y yum-utils
+            $PACKAGE_MANAGER-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            $PACKAGE_MANAGER install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        "pacman")
+            pacman -S --noconfirm docker
+            ;;
+        "zypper")
+            zypper install -y docker
+            ;;
+    esac
+    
+    systemctl enable docker
+    systemctl start docker
+}
+
+# 安装Docker Compose
+install_docker_compose() {
+    local compose_version=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*?(?=")')
+    curl -L "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+}
+
+# 安装系统依赖
+install_system_dependencies() {
+    log_info "安装系统依赖..."
+    
+    case $PACKAGE_MANAGER in
+        "apt")
+            apt-get update
+            apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python$PYTHON_VERSION-dev python3-pip
+            apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION
+            apt-get install -y redis-server nginx
+            apt-get install -y git curl wget build-essential
+            ;;
+        "yum"|"dnf")
+            $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
+            $PACKAGE_MANAGER install -y mysql-server mysql
+            $PACKAGE_MANAGER install -y redis nginx
+            $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
+            ;;
+        "pacman")
+            pacman -S --noconfirm python python-pip mysql redis nginx
+            pacman -S --noconfirm git curl wget base-devel
+            ;;
+        "zypper")
+            zypper install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
+            zypper install -y mysql mysql-server
+            zypper install -y redis nginx
+            zypper install -y git curl wget gcc gcc-c++ make
+            ;;
+    esac
+}
+
+# 安装最小依赖（仅MySQL）
+install_minimal_dependencies() {
+    log_info "安装最小依赖（仅MySQL）..."
+    
+    case $PACKAGE_MANAGER in
+        "apt")
+            apt-get update
+            apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python3-pip
+            apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION
+            apt-get install -y nginx
+            apt-get install -y git curl wget
+            ;;
+        "yum"|"dnf")
+            $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip
+            $PACKAGE_MANAGER install -y mysql-server mysql
+            $PACKAGE_MANAGER install -y nginx
+            $PACKAGE_MANAGER install -y git curl wget
+            ;;
+        "pacman")
+            pacman -S --noconfirm python python-pip mysql nginx
+            pacman -S --noconfirm git curl wget
+            ;;
+        "zypper")
+            zypper install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip
+            zypper install -y mysql mysql-server
+            zypper install -y nginx
+            zypper install -y git curl wget
+            ;;
+    esac
+}
+
+# 创建服务用户
+create_service_user() {
+    log_info "创建服务用户..."
+    
+    if ! id "$SERVICE_USER" &>/dev/null; then
+        useradd -r -s /bin/false -d "$INSTALL_DIR" "$SERVICE_USER"
+        log_success "创建用户: $SERVICE_USER"
     else
-        # 下载并运行安装脚本
-        curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh | bash -s -- $complete_args
+        log_info "用户已存在: $SERVICE_USER"
+    fi
+    
+    if ! getent group "$SERVICE_GROUP" &>/dev/null; then
+        groupadd "$SERVICE_GROUP"
+        log_success "创建组: $SERVICE_GROUP"
+    else
+        log_info "组已存在: $SERVICE_GROUP"
+    fi
+}
+
+# 下载项目
+download_project() {
+    log_info "下载项目源码..."
+    
+    # 创建安装目录
+    mkdir -p "$INSTALL_DIR"
+    
+    # 如果目录已存在且有内容，备份
+    if [[ -d "$INSTALL_DIR" && "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
+        log_info "目录已存在，备份旧版本..."
+        mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
+        mkdir -p "$INSTALL_DIR"
+    fi
+    
+    # 克隆项目
+    git clone "$PROJECT_REPO" "$INSTALL_DIR"
+    
+    # 设置权限
+    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR"
+    chmod -R 755 "$INSTALL_DIR"
+    
+    log_success "项目下载完成"
+}
+
+# 安装应用依赖
+install_application_dependencies() {
+    log_info "安装应用依赖..."
+    
+    # 安装后端依赖
+    cd "$INSTALL_DIR/backend"
+    
+    # 创建虚拟环境
+    python$PYTHON_VERSION -m venv venv
+    source venv/bin/activate
+    
+    # 安装Python依赖
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    
+    # 安装前端依赖（如果启用）
+    if [ "$SKIP_FRONTEND" = false ]; then
+        cd "$INSTALL_DIR/frontend"
+        npm install
+        npm run build
+    fi
+    
+    log_success "应用依赖安装完成"
+}
+
+# 创建环境变量文件
+create_environment_file() {
+    log_info "创建环境变量文件..."
+    
+    cd "$INSTALL_DIR/backend"
+    
+    # 创建环境变量文件
+    cat > .env << EOF
+# 数据库配置
+DATABASE_URL=mysql://$SERVICE_USER:password@localhost:3306/ipv6wgm
+REDIS_URL=redis://localhost:6379/0
+USE_SQLITE_FALLBACK=false
+AUTO_CREATE_DATABASE=true
+
+# 服务器配置
+SERVER_HOST=0.0.0.0
+SERVER_PORT=$API_PORT
+DEBUG=$DEBUG
+
+# 安全配置
+SECRET_KEY=$(openssl rand -hex 32)
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# 日志配置
+LOG_LEVEL=info
+LOG_FILE=
+LOG_ROTATION=1 day
+LOG_RETENTION=30 days
+
+# 性能配置
+MAX_WORKERS=4
+DATABASE_POOL_SIZE=20
+DATABASE_MAX_OVERFLOW=30
+DATABASE_POOL_RECYCLE=3600
+DATABASE_POOL_PRE_PING=true
+
+# 监控配置
+ENABLE_HEALTH_CHECK=true
+HEALTH_CHECK_INTERVAL=30
+EOF
+    
+    # 设置权限
+    chown "$SERVICE_USER:$SERVICE_GROUP" .env
+    chmod 600 .env
+    
+    log_success "环境变量文件创建完成"
+}
+
+# 安装核心依赖
+install_core_dependencies() {
+    log_info "安装核心依赖..."
+    
+    cd "$INSTALL_DIR/backend"
+    
+    # 创建虚拟环境
+    python$PYTHON_VERSION -m venv venv
+    source venv/bin/activate
+    
+    # 安装核心Python依赖
+    pip install --upgrade pip
+    pip install -r requirements-minimal.txt
+    
+    log_success "核心依赖安装完成"
+}
+
+# 配置数据库
+configure_database() {
+    log_info "配置数据库..."
+    
+    # 启动MySQL
+    systemctl enable mysql
+    systemctl start mysql
+    
+    # 等待MySQL启动
+    sleep 5
+    
+    # 创建数据库和用户
+    mysql -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || log_info "数据库ipv6wgm已存在"
+    mysql -e "CREATE USER IF NOT EXISTS '$SERVICE_USER'@'localhost' IDENTIFIED BY 'password';" 2>/dev/null || log_info "用户$SERVICE_USER已存在"
+    mysql -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$SERVICE_USER'@'localhost';" 2>/dev/null || log_info "权限已设置"
+    mysql -e "FLUSH PRIVILEGES;" 2>/dev/null || log_info "权限刷新完成"
+    
+    # 启动Redis
+    systemctl enable redis-server
+    systemctl start redis-server
+    
+    # 等待Redis启动
+    sleep 3
+    
+    # 初始化数据库
+    cd "$INSTALL_DIR/backend"
+    python scripts/init_database_mysql.py
+    
+    log_success "数据库配置完成"
+}
+
+# 配置最小化MySQL数据库（低内存优化）
+configure_minimal_mysql_database() {
+    log_info "配置最小化MySQL数据库（低内存优化）..."
+    
+    # 启动MySQL
+    systemctl enable mysql
+    systemctl start mysql
+    
+    # 等待MySQL启动
+    sleep 5
+    
+    # 创建数据库和用户
+    mysql -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || log_info "数据库ipv6wgm已存在"
+    mysql -e "CREATE USER IF NOT EXISTS '$SERVICE_USER'@'localhost' IDENTIFIED BY 'password';" 2>/dev/null || log_info "用户$SERVICE_USER已存在"
+    mysql -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$SERVICE_USER'@'localhost';" 2>/dev/null || log_info "权限已设置"
+    mysql -e "FLUSH PRIVILEGES;" 2>/dev/null || log_info "权限刷新完成"
+    
+    # 优化MySQL配置以节省内存
+    log_info "优化MySQL配置以节省内存..."
+    cat > /etc/mysql/mysql.conf.d/99-low-memory.cnf << EOF
+[mysqld]
+# 低内存优化配置
+innodb_buffer_pool_size = 64M
+innodb_log_buffer_size = 8M
+innodb_log_file_size = 16M
+key_buffer_size = 16M
+max_connections = 50
+thread_cache_size = 4
+query_cache_size = 8M
+tmp_table_size = 16M
+max_heap_table_size = 16M
+sort_buffer_size = 256K
+read_buffer_size = 128K
+read_rnd_buffer_size = 256K
+join_buffer_size = 128K
+EOF
+    
+    # 重启MySQL应用配置
+    systemctl restart mysql
+    sleep 3
+    
+    cd "$INSTALL_DIR/backend"
+    source venv/bin/activate
+    
+    # 创建环境变量文件（低内存优化）
+    cat > .env << EOF
+# 数据库配置 - 低内存优化
+DATABASE_URL=mysql://$SERVICE_USER:password@localhost:3306/ipv6wgm
+REDIS_URL=redis://localhost:6379/0
+AUTO_CREATE_DATABASE=true
+
+# 服务器配置
+SERVER_HOST=0.0.0.0
+SERVER_PORT=$API_PORT
+DEBUG=$DEBUG
+
+# 安全配置
+SECRET_KEY=$(openssl rand -hex 32)
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# 性能配置 - 低内存优化
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+MAX_WORKERS=2
+EOF
+    
+    # 初始化数据库
+    python scripts/init_database_mysql.py
+    
+    log_success "最小化MySQL数据库配置完成"
+}
+
+# 配置Nginx
+configure_nginx() {
+    log_info "配置Nginx..."
+    
+    # 创建Nginx配置
+    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
+server {
+    listen $WEB_PORT;
+    listen [::]:$WEB_PORT;
+    server_name _;
+    
+    # 前端静态文件
+    location / {
+        root $INSTALL_DIR/frontend/dist;
+        try_files \$uri \$uri/ /index.html;
+    }
+    
+    # 后端API
+    location /api/ {
+        proxy_pass http://127.0.0.1:$API_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    
+    # WebSocket支持
+    location /ws/ {
+        proxy_pass http://127.0.0.1:$API_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+    
+    # 启用站点
+    ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
+    nginx -t
+    systemctl enable nginx
+    systemctl restart nginx
+    
+    log_success "Nginx配置完成"
+}
+
+# 创建系统服务
+create_system_service() {
+    log_info "创建系统服务..."
+    
+    # 创建systemd服务文件
+    cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
+[Unit]
+Description=IPv6 WireGuard Manager
+After=network.target mysql.service redis-server.service
+Wants=mysql.service redis-server.service
+
+[Service]
+Type=exec
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
+WorkingDirectory=$INSTALL_DIR/backend
+Environment=PATH=$INSTALL_DIR/backend/venv/bin
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --workers 4
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # 重新加载systemd
+    systemctl daemon-reload
+    systemctl enable ipv6-wireguard-manager
+    
+    log_success "系统服务创建完成"
+}
+
+# 创建简单服务
+create_simple_service() {
+    log_info "创建简单服务..."
+    
+    # 创建简单的systemd服务文件
+    cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
+[Unit]
+Description=IPv6 WireGuard Manager (Minimal)
+After=network.target
+
+[Service]
+Type=exec
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
+WorkingDirectory=$INSTALL_DIR/backend
+Environment=PATH=$INSTALL_DIR/backend/venv/bin
+ExecStart=$INSTALL_DIR/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --workers 2
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # 重新加载systemd
+    systemctl daemon-reload
+    systemctl enable ipv6-wireguard-manager
+    
+    log_success "简单服务创建完成"
+}
+
+# 配置Docker环境
+configure_docker_environment() {
+    log_info "配置Docker环境..."
+    
+    cd "$INSTALL_DIR"
+    
+    # 根据内存选择Docker配置
+    if [ "$MEMORY_MB" -lt 2048 ]; then
+        log_info "检测到低内存环境，使用低内存优化配置"
+        # 使用低内存Docker配置
+        if [ -f docker-compose.low-memory.yml ]; then
+            cp docker-compose.low-memory.yml docker-compose.yml
+        fi
+        
+        # 创建环境变量文件（低内存优化）
+        cat > .env << EOF
+# 数据库配置 - 低内存优化
+DATABASE_URL=mysql://$SERVICE_USER:password@mysql:3306/ipv6wgm
+
+# 服务器配置
+SERVER_HOST=0.0.0.0
+SERVER_PORT=$API_PORT
+DEBUG=$DEBUG
+
+# 安全配置
+SECRET_KEY=$(openssl rand -hex 32)
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# 性能配置 - 低内存优化
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+MAX_WORKERS=2
+EOF
+    else
+        # 创建环境变量文件（标准配置）
+        cat > .env << EOF
+# 数据库配置
+DATABASE_URL=mysql://$SERVICE_USER:password@mysql:3306/ipv6wgm
+REDIS_URL=redis://redis:6379/0
+
+# 服务器配置
+SERVER_HOST=0.0.0.0
+SERVER_PORT=$API_PORT
+DEBUG=$DEBUG
+
+# 安全配置
+SECRET_KEY=$(openssl rand -hex 32)
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+EOF
+    fi
+    
+    # 修改docker-compose.yml中的端口配置
+    if [ -f docker-compose.yml ]; then
+        sed -i "s/80:80/$WEB_PORT:80/g" docker-compose.yml
+        sed -i "s/8000:8000/$API_PORT:8000/g" docker-compose.yml
+    fi
+    
+    log_success "Docker环境配置完成"
+}
+
+# 启动Docker服务
+start_docker_services() {
+    log_info "启动Docker服务..."
+    
+    cd "$INSTALL_DIR"
+    
+    # 启动服务
+    docker-compose up -d
+    
+    # 等待服务启动
+    sleep 10
+    
+    # 检查服务状态
+    docker-compose ps
+    
+    log_success "Docker服务启动完成"
+}
+
+# 启动服务
+start_services() {
+    log_info "启动服务..."
+    
+    # 启动应用服务
+    systemctl start ipv6-wireguard-manager
+    
+    # 等待服务启动
+    sleep 5
+    
+    # 检查服务状态
+    systemctl status ipv6-wireguard-manager --no-pager
+    
+    log_success "服务启动完成"
+}
+
+# 启动最小服务
+start_minimal_services() {
+    log_info "启动最小服务..."
+    
+    # 启动应用服务
+    systemctl start ipv6-wireguard-manager
+    
+    # 等待服务启动
+    sleep 5
+    
+    # 检查服务状态
+    systemctl status ipv6-wireguard-manager --no-pager
+    
+    log_success "最小服务启动完成"
+}
+
+# 运行环境检查
+run_environment_check() {
+    log_info "运行环境检查..."
+    
+    cd "$INSTALL_DIR/backend"
+    
+    # 激活虚拟环境并运行检查
+    if [ -f "venv/bin/activate" ]; then
+        source venv/bin/activate
+        python scripts/check_environment.py
+    else
+        log_warning "虚拟环境不存在，跳过环境检查"
     fi
 }
 
 # 显示安装完成信息
 show_installation_complete() {
-    local install_dir="$1"
-    local port="$2"
-    
     echo ""
     echo "=========================================="
-    echo "🎉 IPv6 WireGuard Manager 安装完成！"
+    echo "🎉 $PROJECT_NAME 安装完成！"
     echo "=========================================="
     echo ""
     log_success "安装成功完成！"
     echo ""
     log_info "安装信息:"
-    log_info "  安装目录: $install_dir"
-    log_info "  访问端口: $port"
+    log_info "  安装类型: $INSTALL_TYPE"
+    log_info "  安装目录: $INSTALL_DIR"
+    log_info "  Web端口: $WEB_PORT"
+    log_info "  API端口: $API_PORT"
+    log_info "  服务用户: $SERVICE_USER"
     log_info "  操作系统: $OS_NAME"
     echo ""
     log_info "访问地址:"
-    log_info "  前端界面: http://localhost:$port"
-    log_info "  API文档: http://localhost:$port/api/v1/docs"
-    log_info "  健康检查: http://localhost:8000/health"
+    log_info "  前端界面: http://localhost:$WEB_PORT"
+    log_info "  API文档: http://localhost:$WEB_PORT/api/v1/docs"
+    log_info "  健康检查: http://localhost:$API_PORT/health"
     echo ""
     log_info "管理命令:"
     log_info "  启动服务: systemctl start ipv6-wireguard-manager"
@@ -666,8 +1285,8 @@ show_installation_complete() {
     log_info "  密码: admin123"
     echo ""
     log_info "更多信息:"
-    log_info "  项目地址: https://github.com/ipzh/ipv6-wireguard-manager"
-    log_info "  问题反馈: https://github.com/ipzh/ipv6-wireguard-manager/issues"
+    log_info "  项目地址: $PROJECT_REPO"
+    log_info "  问题反馈: $PROJECT_REPO/issues"
     echo ""
 }
 

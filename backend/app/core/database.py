@@ -11,24 +11,33 @@ from typing import AsyncGenerator
 
 from .config import settings
 
-# 创建异步数据库引擎
-# 检查数据库类型并创建相应的引擎
-if settings.DATABASE_URL.startswith("postgresql://"):
-    # PostgreSQL数据库
-    async_db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+# 创建异步数据库引擎 - 仅支持MySQL
+if settings.DATABASE_URL.startswith("mysql://"):
+    # MySQL数据库
+    async_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
     
-    # 检查是否安装了asyncpg驱动
+    # 检查是否安装了aiomysql驱动
     try:
-        import asyncpg
-        asyncpg_available = True
+        import aiomysql
+        aiomysql_available = True
     except ImportError:
-        asyncpg_available = False
-        print("警告: asyncpg驱动未安装，将使用同步模式")
+        aiomysql_available = False
+        print("警告: aiomysql驱动未安装，将使用同步模式")
+else:
+    # 不支持的数据库类型
+    print("错误: 仅支持MySQL数据库")
+    aiomysql_available = False
     
     # 检查数据库连接是否可用
     try:
-        if asyncpg_available:
+        if aiomysql_available:
             # 测试异步连接
+            connect_args = {
+                "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
+                "charset": "utf8mb4",
+                "autocommit": False
+            }
+            
             async_engine = create_async_engine(
                 async_db_url,
                 pool_size=settings.DATABASE_POOL_SIZE,
@@ -36,16 +45,7 @@ if settings.DATABASE_URL.startswith("postgresql://"):
                 pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
                 pool_recycle=settings.DATABASE_POOL_RECYCLE,
                 echo=settings.DEBUG,
-                connect_args={
-                    "server_settings": {
-                        "jit": "off",
-                        "application_name": "ipv6-wireguard-manager"
-                    },
-                    "timeout": settings.DATABASE_CONNECT_TIMEOUT,
-                    "command_timeout": settings.DATABASE_STATEMENT_TIMEOUT,
-                    "statement_timeout": settings.DATABASE_STATEMENT_TIMEOUT,
-                    "idle_in_transaction_session_timeout": settings.DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT
-                }
+                connect_args=connect_args
             )
             
             # 测试连接
@@ -76,10 +76,6 @@ if settings.DATABASE_URL.startswith("postgresql://"):
     except Exception as e:
         print(f"警告: 异步数据库连接失败，使用同步模式: {e}")
         async_engine = None
-else:
-    # SQLite数据库（不支持异步）
-    async_engine = None
-    print("使用SQLite数据库（同步模式）")
 
 # 创建异步会话工厂
 if async_engine:
@@ -93,7 +89,13 @@ if async_engine:
 else:
     AsyncSessionLocal = None
 
-# 创建同步数据库引擎（用于Alembic迁移）
+# 创建同步数据库引擎（用于Alembic迁移）- 仅支持MySQL
+sync_connect_args = {
+    "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
+    "charset": "utf8mb4",
+    "autocommit": False
+}
+
 sync_engine = create_engine(
     settings.DATABASE_URL,
     pool_size=settings.DATABASE_POOL_SIZE,
@@ -101,10 +103,7 @@ sync_engine = create_engine(
     pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
     pool_recycle=settings.DATABASE_POOL_RECYCLE,
     echo=settings.DEBUG,
-    connect_args={
-        "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
-        "application_name": "ipv6-wireguard-manager-sync"
-    } if settings.DATABASE_URL.startswith("postgresql://") else {}
+    connect_args=sync_connect_args
 )
 
 # 为了向后兼容，导出engine别名

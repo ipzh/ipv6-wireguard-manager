@@ -1,0 +1,26 @@
+[mysqld]
+# 低内存优化配置
+innodb_buffer_pool_size = 64M
+innodb_log_buffer_size = 8M
+innodb_log_file_size = 16M
+key_buffer_size = 16M
+max_connections = 50
+thread_cache_size = 4
+query_cache_size = 8M
+tmp_table_size = 16M
+max_heap_table_size = 16M
+sort_buffer_size = 256K
+read_buffer_size = 128K
+read_rnd_buffer_size = 256K
+join_buffer_size = 128K
+
+# 禁用不必要的功能以节省内存
+skip-name-resolve
+skip-innodb-doublewrite
+innodb_flush_log_at_trx_commit = 2
+sync_binlog = 0
+
+# 优化InnoDB设置
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = 1
+innodb_open_files = 400

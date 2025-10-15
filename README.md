@@ -60,6 +60,9 @@
 ```bash
 # 一键安装（自动选择最佳安装方式）
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+
+# 测试安装是否成功
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/test_installation.sh | bash
 ```
 
 ### 安装选项
@@ -403,6 +406,57 @@ cd ../frontend && npm install && npm run dev
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **OpenAPI Schema**: http://localhost:8000/openapi.json
+
+## 🔧 故障排除
+
+### 常见问题
+
+1. **安装后前端空白页面**:
+   ```bash
+   # 检查服务状态
+   systemctl status ipv6-wireguard-manager nginx
+   
+   # 查看日志
+   journalctl -u ipv6-wireguard-manager -f
+   ```
+
+2. **数据库连接失败**:
+   ```bash
+   # 检查数据库服务
+   systemctl status mysql redis-server
+   
+   # 运行环境检查
+   cd /opt/ipv6-wireguard-manager/backend
+   python scripts/check_environment.py
+   ```
+
+3. **依赖安装失败**:
+   ```bash
+   # 重新安装依赖
+   cd /opt/ipv6-wireguard-manager/backend
+   source venv/bin/activate
+   pip install -r requirements-minimal.txt
+   ```
+
+4. **端口冲突**:
+   ```bash
+   # 检查端口占用
+   netstat -tlnp | grep -E ':(80|8000|3306|6379)'
+   
+   # 修改配置
+   nano /opt/ipv6-wireguard-manager/backend/.env
+   ```
+
+### 测试安装
+
+```bash
+# 运行完整测试
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/test_installation.sh | bash
+
+# 手动测试
+curl http://localhost:8000/health
+curl http://localhost/
+```
 
 ## 🤝 贡献指南
 
