@@ -834,10 +834,32 @@ install_minimal_dependencies() {
         "apt")
             apt-get update
             apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python3-pip
-            # 尝试安装MySQL，如果特定版本失败则使用默认版本
-            if ! apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION 2>/dev/null; then
-                log_info "MySQL $MYSQL_VERSION 不可用，安装默认版本..."
-                apt-get install -y mysql-server mysql-client
+            # 尝试安装MySQL，支持多种包名
+            log_info "尝试安装MySQL..."
+            mysql_installed=false
+            
+            # 尝试MySQL 8.0特定版本
+            if apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION 2>/dev/null; then
+                log_success "MySQL $MYSQL_VERSION 安装成功"
+                mysql_installed=true
+            # 尝试默认MySQL包
+            elif apt-get install -y mysql-server mysql-client 2>/dev/null; then
+                log_success "MySQL默认版本安装成功"
+                mysql_installed=true
+            # 尝试MariaDB作为替代
+            elif apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
+                log_success "MariaDB安装成功（MySQL替代方案）"
+                mysql_installed=true
+            # 尝试MySQL 5.7
+            elif apt-get install -y mysql-server-5.7 mysql-client-5.7 2>/dev/null; then
+                log_success "MySQL 5.7安装成功"
+                mysql_installed=true
+            else
+                log_error "无法安装MySQL或MariaDB"
+                log_info "请手动安装数据库："
+                log_info "  Ubuntu/Debian: sudo apt-get install mariadb-server"
+                log_info "  或者: sudo apt-get install mysql-server"
+                exit 1
             fi
             apt-get install -y nginx
             apt-get install -y git curl wget
@@ -1050,38 +1072,63 @@ configure_database() {
 configure_minimal_mysql_database() {
     log_info "配置最小化MySQL数据库（低内存优化）..."
     
-    # 启动MySQL
-    log_info "启动MySQL服务..."
-    if ! systemctl enable mysql; then
-        log_error "启用MySQL服务失败"
+    # 检测数据库服务名称
+    if systemctl list-unit-files | grep -q "mysql.service"; then
+        DB_SERVICE="mysql"
+        DB_COMMAND="mysql"
+    elif systemctl list-unit-files | grep -q "mariadb.service"; then
+        DB_SERVICE="mariadb"
+        DB_COMMAND="mysql"  # MariaDB也使用mysql命令
+    else
+        log_error "未找到MySQL或MariaDB服务"
         exit 1
     fi
     
-    if ! systemctl start mysql; then
-        log_error "启动MySQL服务失败"
+    log_info "检测到数据库服务: $DB_SERVICE"
+    
+    # 启动数据库服务
+    log_info "启动$DB_SERVICE服务..."
+    if ! systemctl enable $DB_SERVICE; then
+        log_error "启用$DB_SERVICE服务失败"
         exit 1
     fi
     
-    # 等待MySQL启动
-    log_info "等待MySQL服务启动..."
+    if ! systemctl start $DB_SERVICE; then
+        log_error "启动$DB_SERVICE服务失败"
+        exit 1
+    fi
+    
+    # 等待数据库启动
+    log_info "等待$DB_SERVICE服务启动..."
     sleep 5
     
-    # 检查MySQL是否正常运行
-    if ! systemctl is-active --quiet mysql; then
-        log_error "MySQL服务未正常运行"
+    # 检查数据库是否正常运行
+    if ! systemctl is-active --quiet $DB_SERVICE; then
+        log_error "$DB_SERVICE服务未正常运行"
         exit 1
     fi
     
     # 创建数据库和用户
     log_info "创建数据库和用户..."
-    mysql -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || log_info "数据库ipv6wgm已存在"
-    mysql -e "CREATE USER IF NOT EXISTS '$SERVICE_USER'@'localhost' IDENTIFIED BY 'password';" 2>/dev/null || log_info "用户$SERVICE_USER已存在"
-    mysql -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$SERVICE_USER'@'localhost';" 2>/dev/null || log_info "权限已设置"
-    mysql -e "FLUSH PRIVILEGES;" 2>/dev/null || log_info "权限刷新完成"
+    $DB_COMMAND -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || log_info "数据库ipv6wgm已存在"
+    $DB_COMMAND -e "CREATE USER IF NOT EXISTS '$SERVICE_USER'@'localhost' IDENTIFIED BY 'password';" 2>/dev/null || log_info "用户$SERVICE_USER已存在"
+    $DB_COMMAND -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$SERVICE_USER'@'localhost';" 2>/dev/null || log_info "权限已设置"
+    $DB_COMMAND -e "FLUSH PRIVILEGES;" 2>/dev/null || log_info "权限刷新完成"
     
-    # 优化MySQL配置以节省内存
-    log_info "优化MySQL配置以节省内存..."
-    cat > /etc/mysql/mysql.conf.d/99-low-memory.cnf << EOF
+    # 优化数据库配置以节省内存
+    log_info "优化数据库配置以节省内存..."
+    
+    # 根据数据库类型选择配置路径
+    if [ "$DB_SERVICE" = "mysql" ]; then
+        CONFIG_DIR="/etc/mysql/mysql.conf.d"
+    else
+        CONFIG_DIR="/etc/mysql/conf.d"
+    fi
+    
+    # 确保配置目录存在
+    mkdir -p "$CONFIG_DIR"
+    
+    cat > "$CONFIG_DIR/99-low-memory.cnf" << EOF
 [mysqld]
 # 低内存优化配置
 innodb_buffer_pool_size = 64M
@@ -1099,17 +1146,17 @@ read_rnd_buffer_size = 256K
 join_buffer_size = 128K
 EOF
     
-    # 重启MySQL应用配置
-    log_info "重启MySQL应用配置..."
-    if ! systemctl restart mysql; then
-        log_error "重启MySQL失败"
+    # 重启数据库应用配置
+    log_info "重启$DB_SERVICE应用配置..."
+    if ! systemctl restart $DB_SERVICE; then
+        log_error "重启$DB_SERVICE失败"
         exit 1
     fi
     sleep 3
     
-    # 检查MySQL是否正常运行
-    if ! systemctl is-active --quiet mysql; then
-        log_error "MySQL重启后未正常运行"
+    # 检查数据库是否正常运行
+    if ! systemctl is-active --quiet $DB_SERVICE; then
+        log_error "$DB_SERVICE重启后未正常运行"
         exit 1
     fi
     
@@ -1247,7 +1294,7 @@ create_simple_service() {
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager (Minimal)
-After=network.target mysql.service
+After=network.target mysql.service mariadb.service
 
 [Service]
 Type=exec
