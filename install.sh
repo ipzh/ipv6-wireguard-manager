@@ -140,9 +140,9 @@ auto_select_install_type() {
     local reason=""
     
     # 根据系统资源选择最适合的安装方式
-    if [ "$MEMORY_MB" -lt 1024 ]; then
+    if [ -z "$MEMORY_MB" ] || [ "$MEMORY_MB" -lt 1024 ]; then
         recommended_type="minimal"
-        reason="内存不足1GB，推荐最小化安装"
+        reason="内存不足1GB或未正确检测，推荐最小化安装"
     elif [ "$MEMORY_MB" -lt 2048 ]; then
         if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
             recommended_type="docker"
