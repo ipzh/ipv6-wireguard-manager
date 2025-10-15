@@ -555,33 +555,13 @@ install_application() {
         cp -r . "$INSTALL_DIR/"
     else
         log_info "下载源码..."
-        # 检查目录是否已存在且非空
+        # 重装时总是重新下载最新代码，不保留旧版本
         if [[ -d "$INSTALL_DIR" && "$(ls -A $INSTALL_DIR 2>/dev/null)" ]]; then
-            log_info "目录已存在且非空，尝试更新代码..."
-        cd "$INSTALL_DIR"
-        if [[ -d ".git" ]]; then
-            # 添加git安全目录例外，解决所有权检测问题
-            git config --global --add safe.directory "$INSTALL_DIR"
-            
-            # 检查是否有未提交的修改
-            if ! git diff-index --quiet HEAD --; then
-                log_warning "检测到未提交的修改，自动保存修改..."
-                git stash
-                git pull origin main
-                git stash pop 2>/dev/null || log_info "无冲突，修改已自动应用"
-            else
-                git pull origin main
-            fi
-            cd - > /dev/null
-            else
-                log_warning "目录存在但不是git仓库，备份并重新克隆..."
-                mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
-                git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
-            fi
-        else
-            # 目录不存在或为空，直接克隆
-            git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
+            log_info "目录已存在，备份并重新下载最新代码..."
+            mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
         fi
+        # 直接克隆最新代码
+        git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
     fi
     
     # 设置权限
