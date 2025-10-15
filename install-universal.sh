@@ -555,7 +555,22 @@ install_application() {
         cp -r . "$INSTALL_DIR/"
     else
         log_info "下载源码..."
-        git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
+        # 检查目录是否已存在且非空
+        if [[ -d "$INSTALL_DIR" && "$(ls -A $INSTALL_DIR 2>/dev/null)" ]]; then
+            log_info "目录已存在且非空，尝试更新代码..."
+            cd "$INSTALL_DIR"
+            if [[ -d ".git" ]]; then
+                git pull origin main
+                cd - > /dev/null
+            else
+                log_warning "目录存在但不是git仓库，备份并重新克隆..."
+                mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
+                git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
+            fi
+        else
+            # 目录不存在或为空，直接克隆
+            git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$INSTALL_DIR"
+        fi
     fi
     
     # 设置权限

@@ -359,7 +359,22 @@ download_project() {
         git pull origin main
     else
         log_info "克隆项目代码..."
-        git clone https://github.com/ipzh/ipv6-wireguard-manager.git .
+        # 检查目录是否已存在且非空
+        if [ -d "." ] && [ "$(ls -A . 2>/dev/null)" ]; then
+            log_info "目录已存在且非空，尝试更新代码..."
+            if [ -d ".git" ]; then
+                git pull origin main
+            else
+                log_warning "目录存在但不是git仓库，备份并重新克隆..."
+                cd ..
+                mv "$(basename $project_dir)" "$(basename $project_dir).backup.$(date +%s)"
+                git clone https://github.com/ipzh/ipv6-wireguard-manager.git "$(basename $project_dir)"
+                cd "$(basename $project_dir)"
+            fi
+        else
+            # 目录不存在或为空，直接克隆
+            git clone https://github.com/ipzh/ipv6-wireguard-manager.git .
+        fi
     fi
     
     log_success "项目代码下载完成"
