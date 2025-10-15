@@ -1686,19 +1686,50 @@ show_installation_complete() {
         local ipv4_ips=()
         local ipv6_ips=()
         
-        # 获取IPv4地址
+        # 获取IPv4地址 - 改进的获取方法
+        echo "   正在获取IPv4地址..."
+        # 使用ip命令获取所有IPv4地址
         while IFS= read -r line; do
             if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
                 ipv4_ips+=("$line")
             fi
-        done < <(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' 2>/dev/null || ifconfig 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' || hostname -I 2>/dev/null | tr ' ' '\n' | grep -v '127.0.0.1')
+        done < <(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' 2>/dev/null)
         
-        # 获取IPv6地址
+        # 如果ip命令失败，尝试ifconfig
+        if [ ${#ipv4_ips[@]} -eq 0 ]; then
+            while IFS= read -r line; do
+                if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
+                    ipv4_ips+=("$line")
+                fi
+            done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1')
+        fi
+        
+        # 如果还是失败，尝试hostname -I
+        if [ ${#ipv4_ips[@]} -eq 0 ]; then
+            while IFS= read -r line; do
+                if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
+                    ipv4_ips+=("$line")
+                fi
+            done < <(hostname -I 2>/dev/null | tr ' ' '\n' | grep -v '127.0.0.1')
+        fi
+        
+        # 获取IPv6地址 - 改进的获取方法
+        echo "   正在获取IPv6地址..."
+        # 使用ip命令获取所有IPv6地址
         while IFS= read -r line; do
             if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
                 ipv6_ips+=("$line")
             fi
-        done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:' || ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | grep -v '::1' | grep -v '^fe80:')
+        done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:')
+        
+        # 如果ip命令失败，尝试ifconfig
+        if [ ${#ipv6_ips[@]} -eq 0 ]; then
+            while IFS= read -r line; do
+                if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
+                    ipv6_ips+=("$line")
+                fi
+            done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | grep -v '::1' | grep -v '^fe80:')
+        fi
         
         # 显示访问地址
         log_info "  📱 本地访问:"
