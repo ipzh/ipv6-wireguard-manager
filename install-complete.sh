@@ -363,6 +363,8 @@ download_project() {
         if [ -d "." ] && [ "$(ls -A . 2>/dev/null)" ]; then
             log_info "目录已存在且非空，尝试更新代码..."
             if [ -d ".git" ]; then
+                # 添加git安全目录例外，解决所有权检测问题
+                git config --global --add safe.directory "$PWD"
                 git pull origin main
             else
                 log_warning "目录存在但不是git仓库，备份并重新克隆..."

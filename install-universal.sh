@@ -558,10 +558,12 @@ install_application() {
         # 检查目录是否已存在且非空
         if [[ -d "$INSTALL_DIR" && "$(ls -A $INSTALL_DIR 2>/dev/null)" ]]; then
             log_info "目录已存在且非空，尝试更新代码..."
-            cd "$INSTALL_DIR"
-            if [[ -d ".git" ]]; then
-                git pull origin main
-                cd - > /dev/null
+        cd "$INSTALL_DIR"
+        if [[ -d ".git" ]]; then
+            # 添加git安全目录例外，解决所有权检测问题
+            git config --global --add safe.directory "$INSTALL_DIR"
+            git pull origin main
+            cd - > /dev/null
             else
                 log_warning "目录存在但不是git仓库，备份并重新克隆..."
                 mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%s)"
