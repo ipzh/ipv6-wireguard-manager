@@ -546,11 +546,16 @@ install_backend() {
     
     cd /opt/ipv6-wireguard-manager/backend
     
-    # 强制安装python3-venv包（确保虚拟环境创建成功）
-    log_info "确保python3-venv包已安装..."
-    apt-get update -y
-    apt-get install -y python3.11-venv
-    log_success "python3-venv包安装完成"
+    # 检查并安装python3-venv包（确保虚拟环境创建成功）
+    log_info "检查python3-venv包..."
+    if ! python3.11 -c "import ensurepip" 2>/dev/null; then
+        log_info "安装python3-venv包..."
+        apt-get update -y
+        apt-get install -y python3.11-venv
+        log_success "python3-venv包安装完成"
+    else
+        log_success "python3-venv包已可用"
+    fi
     
     # 创建虚拟环境
     python3.11 -m venv venv

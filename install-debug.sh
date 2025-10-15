@@ -141,6 +141,17 @@ install_backend() {
     
     # 检查Python虚拟环境
     if [ ! -d "venv" ]; then
+        # 检查并安装python3-venv包（确保虚拟环境创建成功）
+        log "INFO" "检查python3-venv包..."
+        if ! python3 -c "import ensurepip" 2>/dev/null; then
+            log "INFO" "安装python3-venv包..."
+            apt-get update -y
+            apt-get install -y python3-venv
+            log "SUCCESS" "python3-venv包安装完成"
+        else
+            log "SUCCESS" "python3-venv包已可用"
+        fi
+        
         check_command "python3 -m venv venv" "创建Python虚拟环境"
     fi
     
