@@ -566,6 +566,25 @@ install_application() {
     log_info "安装后端依赖..."
     cd "$INSTALL_DIR/backend"
     
+    # 检查并安装python3-venv包（如果尚未安装）
+    if ! python$PYTHON_VERSION -c "import ensurepip" 2>/dev/null; then
+        log_info "安装python3-venv包..."
+        case $PACKAGE_MANAGER in
+            "apt")
+                apt-get install -y python$PYTHON_VERSION-venv
+                ;;
+            "yum"|"dnf")
+                $PACKAGE_MANAGER install -y python$PYTHON_VERSION-venv
+                ;;
+            "pacman")
+                pacman -S --noconfirm python-pip
+                ;;
+            "zypper")
+                zypper install -y python3-pip
+                ;;
+        esac
+    fi
+    
     # 创建虚拟环境
     python$PYTHON_VERSION -m venv venv
     source venv/bin/activate
