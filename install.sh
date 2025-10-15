@@ -96,17 +96,17 @@ check_requirements() {
     
     local requirements_ok=true
     
-    # 检查内存
-    if [ "$MEMORY_MB" -lt 512 ]; then
-        log_error "系统内存不足，至少需要512MB"
+    # 检查内存变量是否已设置
+    if [ -z "$MEMORY_MB" ] || [ "$MEMORY_MB" -lt 512 ]; then
+        log_error "系统内存不足或未正确检测，至少需要512MB"
         requirements_ok=false
     elif [ "$MEMORY_MB" -lt 1024 ]; then
         log_warning "系统内存较少，建议使用低内存安装模式"
     fi
     
-    # 检查磁盘空间
-    if [ "$DISK_SPACE_MB" -lt 1024 ]; then
-        log_error "磁盘空间不足，至少需要1GB"
+    # 检查磁盘空间变量是否已设置
+    if [ -z "$DISK_SPACE_MB" ] || [ "$DISK_SPACE_MB" -lt 1024 ]; then
+        log_error "磁盘空间不足或未正确检测，至少需要1GB"
         requirements_ok=false
     elif [ "$DISK_SPACE_MB" -lt 2048 ]; then
         log_warning "磁盘空间较少，建议至少2GB"
