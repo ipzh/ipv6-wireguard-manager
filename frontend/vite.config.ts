@@ -52,7 +52,11 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
       },
-      treeshake: true,
+      treeshake: {
+        moduleSideEffects: false,
+        propertyReadSideEffects: false,
+        tryCatchDeoptimization: false,
+      },
       preserveEntrySignatures: 'allow',
     },
     chunkSizeWarningLimit: 1200,
@@ -61,8 +65,18 @@ export default defineConfig({
       compress: {
         drop_console: true,
         drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        passes: 2,
+      },
+      mangle: {
+        safari10: true,
+      },
+      format: {
+        comments: false,
       },
     },
+    reportCompressedSize: false,
+    assetsInlineLimit: 4096,
   },
   optimizeDeps: {
     include: [

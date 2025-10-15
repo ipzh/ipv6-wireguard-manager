@@ -33,15 +33,18 @@ if settings.DATABASE_URL.startswith("postgresql://"):
                 async_db_url,
                 pool_size=settings.DATABASE_POOL_SIZE,
                 max_overflow=settings.DATABASE_MAX_OVERFLOW,
-                pool_pre_ping=True,
-                pool_recycle=3600,
+                pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+                pool_recycle=settings.DATABASE_POOL_RECYCLE,
                 echo=settings.DEBUG,
                 connect_args={
                     "server_settings": {
-                        "jit": "off"
+                        "jit": "off",
+                        "application_name": "ipv6-wireguard-manager"
                     },
                     "timeout": settings.DATABASE_CONNECT_TIMEOUT,
-                    "command_timeout": settings.DATABASE_STATEMENT_TIMEOUT
+                    "command_timeout": settings.DATABASE_STATEMENT_TIMEOUT,
+                    "statement_timeout": settings.DATABASE_STATEMENT_TIMEOUT,
+                    "idle_in_transaction_session_timeout": settings.DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT
                 }
             )
             
@@ -95,9 +98,13 @@ sync_engine = create_engine(
     settings.DATABASE_URL,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+    pool_recycle=settings.DATABASE_POOL_RECYCLE,
     echo=settings.DEBUG,
+    connect_args={
+        "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
+        "application_name": "ipv6-wireguard-manager-sync"
+    } if settings.DATABASE_URL.startswith("postgresql://") else {}
 )
 
 # 为了向后兼容，导出engine别名

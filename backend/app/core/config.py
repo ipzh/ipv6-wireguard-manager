@@ -37,10 +37,13 @@ class Settings(BaseSettings):
     DATABASE_CONNECT_TIMEOUT: int = 30
     DATABASE_STATEMENT_TIMEOUT: int = 30000
     DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT: int = 10000
+    DATABASE_POOL_RECYCLE: int = 3600
+    DATABASE_POOL_PRE_PING: bool = True
     
     # SQLite回退配置
     SQLITE_DATABASE_URL: str = "sqlite:///./ipv6wgm.db"
     USE_SQLITE_FALLBACK: bool = False
+    AUTO_CREATE_DATABASE: bool = True
     
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -98,10 +101,22 @@ class Settings(BaseSettings):
     # 监控配置
     ENABLE_METRICS: bool = True
     METRICS_PORT: int = 9090
+    ENABLE_HEALTH_CHECK: bool = True
+    HEALTH_CHECK_INTERVAL: int = 30
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
+    LOG_FILE: Optional[str] = None
+    LOG_ROTATION: str = "1 day"
+    LOG_RETENTION: str = "30 days"
+    
+    # 性能配置
+    MAX_WORKERS: int = 4
+    WORKER_CLASS: str = "uvicorn.workers.UvicornWorker"
+    KEEP_ALIVE: int = 2
+    MAX_REQUESTS: int = 1000
+    MAX_REQUESTS_JITTER: int = 100
     
     # 邮件配置
     SMTP_TLS: bool = True
