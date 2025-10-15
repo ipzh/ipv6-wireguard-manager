@@ -134,17 +134,34 @@ check_requirements() {
     log_success "系统要求检查通过"
 }
 
-# 自动选择安装类型
+# 自动选择最适合的安装类型
 auto_select_install_type() {
+    local recommended_type=""
+    local reason=""
+    
+    # 根据系统资源选择最适合的安装方式
     if [ "$MEMORY_MB" -lt 1024 ]; then
-        echo "minimal"
+        recommended_type="minimal"
+        reason="内存不足1GB，推荐最小化安装"
     elif [ "$MEMORY_MB" -lt 2048 ]; then
-        echo "native"
-    elif command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-        echo "docker"
+        if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
+            recommended_type="docker"
+            reason="内存1-2GB且Docker可用，推荐Docker安装（更稳定）"
+        else
+            recommended_type="native"
+            reason="内存1-2GB但Docker不可用，推荐原生安装"
+        fi
     else
-        echo "native"
+        if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
+            recommended_type="docker"
+            reason="内存充足且Docker可用，推荐Docker安装（最佳体验）"
+        else
+            recommended_type="native"
+            reason="内存充足但Docker不可用，推荐原生安装（高性能）"
+        fi
     fi
+    
+    echo "$recommended_type|$reason"
 }
 
 # 显示安装选项
@@ -160,6 +177,16 @@ show_install_options() {
     log_info "  内存: ${MEMORY_MB}MB"
     log_info "  CPU核心: $CPU_CORES"
     log_info "  IPv6支持: $([ "$IPV6_SUPPORT" = true ] && echo "是" || echo "否")"
+    echo ""
+    
+    # 获取推荐安装方式
+    local recommended_result=$(auto_select_install_type)
+    local recommended_type=$(echo "$recommended_result" | cut -d'|' -f1)
+    local recommended_reason=$(echo "$recommended_result" | cut -d'|' -f2)
+    
+    log_info "智能推荐:"
+    log_success "  推荐安装方式: $recommended_type"
+    log_info "  推荐理由: $recommended_reason"
     echo ""
     
     log_info "安装选项:"
@@ -190,14 +217,47 @@ show_install_options() {
     # 检查是否为非交互模式
     if [ ! -t 0 ] || [ "$1" = "--auto" ]; then
         log_info "检测到非交互模式，自动选择安装类型..."
-        local auto_type=$(auto_select_install_type)
+        local auto_result=$(auto_select_install_type)
+        local auto_type=$(echo "$auto_result" | cut -d'|' -f1)
+        local auto_reason=$(echo "$auto_result" | cut -d'|' -f2)
         log_info "自动选择的安装类型: $auto_type"
+        log_info "选择理由: $auto_reason"
         echo "$auto_type"
         return
     fi
     
-    echo -n "请选择安装方式 (1-3): "
-    read -r choice
+    # 5秒倒计时选择
+    echo ""
+    log_info "5秒后将自动选择推荐方式，按任意键立即选择..."
+    echo ""
+    
+    local choice=""
+    local countdown=5
+    
+    # 倒计时循环
+    while [ $countdown -gt 0 ]; do
+        printf "\r⏰ 倒计时: %d 秒 (推荐: $recommended_type) " $countdown
+        sleep 1
+        countdown=$((countdown - 1))
+    done
+    
+    echo ""
+    echo ""
+    
+    # 检查是否有输入
+    if read -t 0; then
+        echo -n "请选择安装方式 (1-3, 回车使用推荐): "
+        read -r choice
+    else
+        choice=""
+    fi
+    
+    # 如果没有输入或输入为空，使用推荐方式
+    if [ -z "$choice" ]; then
+        log_info "使用推荐安装方式: $recommended_type"
+        echo "$recommended_type"
+        return
+    fi
     
     case $choice in
         1) echo "docker" ;;
@@ -289,8 +349,11 @@ parse_arguments() {
     if [ -z "$install_type" ]; then
         if [ "$silent" = true ] || [ ! -t 0 ]; then
             log_info "自动选择安装类型..."
-            install_type=$(auto_select_install_type)
+            local auto_result=$(auto_select_install_type)
+            install_type=$(echo "$auto_result" | cut -d'|' -f1)
+            local auto_reason=$(echo "$auto_result" | cut -d'|' -f2)
             log_info "选择的安装类型: $install_type"
+            log_info "选择理由: $auto_reason"
         else
             install_type=$(show_install_options)
         fi
