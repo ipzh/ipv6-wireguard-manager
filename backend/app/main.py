@@ -39,41 +39,11 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# 添加受信任主机中间件
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=[
-        "*",  # 允许所有主机
-        # IPv4本地访问
-        "localhost",
-        "127.0.0.1",
-        # IPv6本地访问
-        "::1",
-        "[::1]",
-        # 内网IPv4段
-        "172.16.*",
-        "172.17.*",
-        "172.18.*",
-        "172.19.*",
-        "172.20.*",
-        "172.21.*",
-        "172.22.*",
-        "172.23.*",
-        "172.24.*",
-        "172.25.*",
-        "172.26.*",
-        "172.27.*",
-        "172.28.*",
-        "172.29.*",
-        "172.30.*",
-        "172.31.*",
-        "192.168.*",
-        "10.*",
-        # 内网IPv6段（常见内网IPv6）
-        "fd00:*",
-        "fe80:*"
-    ]
-)
+# 禁用受信任主机中间件以支持所有主机访问
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=["*"]  # 这会报错，所以完全禁用
+# )
 
 
 @app.middleware("http")
