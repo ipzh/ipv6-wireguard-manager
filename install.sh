@@ -611,4 +611,5 @@ show_installation_complete() {
 }
 
 # Run main function
-main "$@"
+main "$@"#   F o r c e   u p d a t e   1 0 / 1 5 / 2 0 2 5   1 1 : 3 4 : 4 2  
+ 
