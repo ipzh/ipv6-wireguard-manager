@@ -283,6 +283,17 @@ parse_arguments() {
     local skip_db=false
     local skip_service=false
     
+    # 检查是否通过管道执行（curl | bash）
+    local is_piped=false
+    if [ ! -t 0 ]; then
+        is_piped=true
+        # 如果是管道执行，检查是否有参数通过bash -s传递
+        if [ $# -gt 0 ]; then
+            # 重新解析参数（bash -s传递的参数）
+            set -- $@
+        fi
+    fi
+    
     while [[ $# -gt 0 ]]; do
         case $1 in
             docker|native|minimal)
@@ -338,16 +349,22 @@ parse_arguments() {
                 exit 0
                 ;;
             *)
-                log_error "未知选项: $1"
-                show_help
-                exit 1
+                # 如果是管道执行且第一个参数不是选项，可能是安装类型
+                if [ "$is_piped" = true ] && [ -z "$install_type" ] && [[ "$1" =~ ^(docker|native|minimal)$ ]]; then
+                    install_type="$1"
+                    shift
+                else
+                    log_error "未知选项: $1"
+                    show_help
+                    exit 1
+                fi
                 ;;
         esac
     done
     
     # 如果没有指定安装类型，自动选择
     if [ -z "$install_type" ]; then
-        if [ "$silent" = true ] || [ ! -t 0 ]; then
+        if [ "$silent" = true ] || [ "$is_piped" = true ] || [ ! -t 0 ]; then
             log_info "自动选择安装类型..."
             local auto_result=$(auto_select_install_type)
             install_type=$(echo "$auto_result" | cut -d'|' -f1)
