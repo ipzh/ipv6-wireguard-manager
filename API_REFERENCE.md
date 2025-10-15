@@ -1,8 +1,25 @@
 # IPv6 WireGuard Manager API 参考文档
 
+> 📚 **完整API参考文档** - 支持IPv6/IPv4双栈网络，企业级VPN管理API
+
 ## 📋 概述
 
 IPv6 WireGuard Manager 提供完整的 RESTful API，支持所有核心功能的程序化访问。所有API都基于HTTP/HTTPS协议，使用JSON格式进行数据交换。
+
+### 🌐 双栈网络支持
+
+- ✅ **IPv6/IPv4双栈** - 所有API同时支持IPv6和IPv4访问
+- ✅ **自动协议检测** - 客户端自动检测和适配网络协议
+- ✅ **CORS支持** - 完整的跨域资源共享配置
+- ✅ **WebSocket支持** - 实时通信和监控功能
+
+### 🔧 API特性
+
+- ✅ **RESTful设计** - 遵循REST架构原则
+- ✅ **JWT认证** - 安全的令牌认证机制
+- ✅ **OpenAPI规范** - 完整的API文档和规范
+- ✅ **错误处理** - 统一的错误响应格式
+- ✅ **速率限制** - 防止API滥用的保护机制
 
 ## 🔐 认证
 
