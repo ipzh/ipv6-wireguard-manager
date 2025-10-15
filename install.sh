@@ -1371,7 +1371,12 @@ EOF
 configure_nginx() {
     log_info "配置Nginx..."
     
+    # 禁用默认站点
+    log_info "禁用Nginx默认站点..."
+    rm -f /etc/nginx/sites-enabled/default
+    
     # 创建Nginx配置
+    log_info "创建项目Nginx配置..."
     cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
 server {
     listen $WEB_PORT;
@@ -1382,6 +1387,22 @@ server {
     location / {
         root $INSTALL_DIR/frontend/dist;
         try_files \$uri \$uri/ /index.html;
+        
+        # 添加CORS头
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+        
+        # 处理预检请求
+        if (\$request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain; charset=utf-8';
+            add_header Content-Length 0;
+            return 204;
+        }
     }
     
     # 后端API
@@ -1391,6 +1412,22 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # 添加CORS头
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+        
+        # 处理预检请求
+        if (\$request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain; charset=utf-8';
+            add_header Content-Length 0;
+            return 204;
+        }
     }
     
     # WebSocket支持
@@ -1404,14 +1441,50 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
+    
+    # 健康检查
+    location /health {
+        proxy_pass http://127.0.0.1:$API_PORT/health;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
+        root $INSTALL_DIR/frontend/dist;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
 }
 EOF
     
     # 启用站点
+    log_info "启用项目站点..."
     ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
-    nginx -t
+    
+    # 测试配置
+    log_info "测试Nginx配置..."
+    if nginx -t; then
+        log_success "Nginx配置语法正确"
+    else
+        log_error "Nginx配置语法错误"
+        exit 1
+    fi
+    
+    # 启动和启用Nginx
+    log_info "启动Nginx服务..."
     systemctl enable nginx
     systemctl restart nginx
+    
+    # 检查服务状态
+    if systemctl is-active --quiet nginx; then
+        log_success "Nginx服务启动成功"
+    else
+        log_error "Nginx服务启动失败"
+        exit 1
+    fi
     
     log_success "Nginx配置完成"
 }
