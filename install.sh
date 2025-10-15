@@ -717,6 +717,19 @@ run_minimal_installation() {
     fi
     log_info "Python依赖安装完成"
     
+    # 构建前端（如果启用）
+    if [ "$SKIP_FRONTEND" = false ]; then
+        log_step "步骤 4.5/7: 构建前端"
+        log_info "开始构建前端..."
+        if ! build_frontend; then
+            log_error "前端构建失败"
+            exit 1
+        fi
+        log_info "前端构建完成"
+    else
+        log_info "跳过前端构建"
+    fi
+    
     # 配置最小化MySQL数据库
     log_step "步骤 5/7: 配置MySQL数据库"
     log_info "开始配置MySQL数据库..."
@@ -949,6 +962,62 @@ install_application_dependencies() {
     fi
     
     log_success "应用依赖安装完成"
+}
+
+# 构建前端
+build_frontend() {
+    log_info "构建前端..."
+    
+    cd "$INSTALL_DIR/frontend" || {
+        log_error "无法进入前端目录: $INSTALL_DIR/frontend"
+        return 1
+    }
+    
+    # 检查Node.js是否已安装
+    if ! command -v node &> /dev/null; then
+        log_info "安装Node.js..."
+        case $PACKAGE_MANAGER in
+            "apt")
+                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+                apt-get install -y nodejs
+                ;;
+            "yum"|"dnf")
+                curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+                $PACKAGE_MANAGER install -y nodejs
+                ;;
+            "pacman")
+                pacman -S --noconfirm nodejs npm
+                ;;
+            "zypper")
+                zypper install -y nodejs npm
+                ;;
+        esac
+    fi
+    
+    # 检查npm是否可用
+    if ! command -v npm &> /dev/null; then
+        log_error "npm不可用，无法构建前端"
+        return 1
+    fi
+    
+    # 安装前端依赖
+    log_info "安装前端依赖..."
+    if ! npm install; then
+        log_error "前端依赖安装失败"
+        return 1
+    fi
+    
+    # 构建前端
+    log_info "构建前端项目..."
+    if ! npm run build; then
+        log_error "前端构建失败"
+        return 1
+    fi
+    
+    # 设置权限
+    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/frontend"
+    
+    log_success "前端构建完成"
 }
 
 # 创建环境变量文件
@@ -1611,9 +1680,52 @@ show_installation_complete() {
     log_info "  操作系统: $OS_NAME"
     echo ""
     log_info "访问地址:"
-    log_info "  前端界面: http://localhost:$WEB_PORT"
-    log_info "  API文档: http://localhost:$WEB_PORT/api/v1/docs"
-    log_info "  健康检查: http://localhost:$API_PORT/health"
+    
+    # 获取本机IP地址
+    get_local_ips() {
+        local ipv4_ips=()
+        local ipv6_ips=()
+        
+        # 获取IPv4地址
+        while IFS= read -r line; do
+            if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
+                ipv4_ips+=("$line")
+            fi
+        done < <(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' 2>/dev/null || ifconfig 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' || hostname -I 2>/dev/null | tr ' ' '\n' | grep -v '127.0.0.1')
+        
+        # 获取IPv6地址
+        while IFS= read -r line; do
+            if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
+                ipv6_ips+=("$line")
+            fi
+        done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:' || ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | grep -v '::1' | grep -v '^fe80:')
+        
+        # 显示访问地址
+        log_info "  📱 本地访问:"
+        log_info "    前端界面: http://localhost:$WEB_PORT"
+        log_info "    API文档: http://localhost:$WEB_PORT/api/v1/docs"
+        log_info "    健康检查: http://localhost:$API_PORT/health"
+        
+        if [ ${#ipv4_ips[@]} -gt 0 ]; then
+            log_info "  🌐 IPv4访问:"
+            for ip in "${ipv4_ips[@]}"; do
+                log_info "    前端界面: http://$ip:$WEB_PORT"
+                log_info "    API文档: http://$ip:$WEB_PORT/api/v1/docs"
+                log_info "    健康检查: http://$ip:$API_PORT/health"
+            done
+        fi
+        
+        if [ ${#ipv6_ips[@]} -gt 0 ]; then
+            log_info "  🔗 IPv6访问:"
+            for ip in "${ipv6_ips[@]}"; do
+                log_info "    前端界面: http://[$ip]:$WEB_PORT"
+                log_info "    API文档: http://[$ip]:$WEB_PORT/api/v1/docs"
+                log_info "    健康检查: http://[$ip]:$API_PORT/health"
+            done
+        fi
+    }
+    
+    get_local_ips
     echo ""
     log_info "管理命令:"
     log_info "  启动服务: systemctl start ipv6-wireguard-manager"
