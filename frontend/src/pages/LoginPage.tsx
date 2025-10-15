@@ -4,7 +4,7 @@ import {
   SafetyCertificateOutlined,
   GlobalOutlined,
   CloudServerOutlined,
-  ShieldOutlined
+  SecurityScanOutlined
 } from '@ant-design/icons'
 
 import LoginForm from '@components/LoginForm'
@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-center lg:justify-start space-x-3">
                 <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                  <ShieldOutlined className="text-2xl text-white" />
+                  <SecurityScanOutlined className="text-2xl text-white" />
                 </div>
                 <Title level={1} className="!text-white !mb-0 !text-4xl lg:!text-5xl font-bold">
                   IPv6 WireGuard
