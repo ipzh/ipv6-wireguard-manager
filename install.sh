@@ -365,12 +365,13 @@ parse_arguments() {
     # 如果没有指定安装类型，自动选择
     if [ -z "$install_type" ]; then
         if [ "$silent" = true ] || [ "$is_piped" = true ] || [ ! -t 0 ]; then
-            log_info "自动选择安装类型..."
+            # 在管道模式下，将日志信息重定向到stderr，避免污染返回值
+            log_info "自动选择安装类型..." >&2
             local auto_result=$(auto_select_install_type)
             install_type=$(echo "$auto_result" | cut -d'|' -f1)
             local auto_reason=$(echo "$auto_result" | cut -d'|' -f2)
-            log_info "选择的安装类型: $install_type"
-            log_info "选择理由: $auto_reason"
+            log_info "选择的安装类型: $install_type" >&2
+            log_info "选择理由: $auto_reason" >&2
         else
             install_type=$(show_install_options)
         fi
@@ -538,6 +539,43 @@ run_docker_installation() {
     local production="$5"
     local debug="$6"
     
+    # 检查是否为管道执行模式
+    if [ ! -t 0 ]; then
+        log_info "检测到管道执行模式，提供安装指导..."
+        echo ""
+        echo "=========================================="
+        echo "🚀 IPv6 WireGuard Manager 安装指导"
+        echo "=========================================="
+        echo ""
+        echo "由于管道执行模式限制，无法自动完成安装。"
+        echo "请按照以下步骤手动安装："
+        echo ""
+        echo "1. 下载安装脚本："
+        echo "   curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh -o install-universal.sh"
+        echo ""
+        echo "2. 授予执行权限："
+        echo "   chmod +x install-universal.sh"
+        echo ""
+        echo "3. 使用root权限运行安装："
+        echo "   sudo ./install-universal.sh docker"
+        echo ""
+        echo "4. 可选参数："
+        echo "   --dir <安装目录>  (默认: /opt/ipv6-wireguard-manager)"
+        echo "   --port <端口号>   (默认: 80)"
+        echo "   --silent          (静默模式)"
+        echo "   --performance     (性能优化)"
+        echo "   --production      (生产环境)"
+        echo "   --debug           (调试模式)"
+        echo ""
+        echo "示例："
+        echo "   sudo ./install-universal.sh docker --dir /opt/myapp --port 8080 --production"
+        echo ""
+        echo "更多信息请参考："
+        echo "   https://github.com/ipzh/ipv6-wireguard-manager"
+        echo ""
+        return 0
+    fi
+    
     log_info "使用通用安装脚本进行Docker安装..."
     
     # 构建参数
@@ -567,6 +605,46 @@ run_native_installation() {
     local skip_db="$8"
     local skip_service="$9"
     
+    # 检查是否为管道执行模式
+    if [ ! -t 0 ]; then
+        log_info "检测到管道执行模式，提供安装指导..."
+        echo ""
+        echo "=========================================="
+        echo "🚀 IPv6 WireGuard Manager 安装指导"
+        echo "=========================================="
+        echo ""
+        echo "由于管道执行模式限制，无法自动完成安装。"
+        echo "请按照以下步骤手动安装："
+        echo ""
+        echo "1. 下载安装脚本："
+        echo "   curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh -o install-universal.sh"
+        echo ""
+        echo "2. 授予执行权限："
+        echo "   chmod +x install-universal.sh"
+        echo ""
+        echo "3. 使用root权限运行安装："
+        echo "   sudo ./install-universal.sh native"
+        echo ""
+        echo "4. 可选参数："
+        echo "   --dir <安装目录>  (默认: /opt/ipv6-wireguard-manager)"
+        echo "   --port <端口号>   (默认: 80)"
+        echo "   --silent          (静默模式)"
+        echo "   --performance     (性能优化)"
+        echo "   --production      (生产环境)"
+        echo "   --debug           (调试模式)"
+        echo "   --skip-deps       (跳过依赖安装)"
+        echo "   --skip-db         (跳过数据库配置)"
+        echo "   --skip-service    (跳过服务配置)"
+        echo ""
+        echo "示例："
+        echo "   sudo ./install-universal.sh native --dir /opt/myapp --port 8080 --production"
+        echo ""
+        echo "更多信息请参考："
+        echo "   https://github.com/ipzh/ipv6-wireguard-manager"
+        echo ""
+        return 0
+    fi
+    
     log_info "使用通用安装脚本进行原生安装..."
     
     # 构建参数
@@ -594,6 +672,44 @@ run_minimal_installation() {
     local skip_deps="$5"
     local skip_db="$6"
     local skip_service="$7"
+    
+    # 检查是否为管道执行模式
+    if [ ! -t 0 ]; then
+        log_info "检测到管道执行模式，提供安装指导..."
+        echo ""
+        echo "=========================================="
+        echo "🚀 IPv6 WireGuard Manager 安装指导"
+        echo "=========================================="
+        echo ""
+        echo "由于管道执行模式限制，无法自动完成安装。"
+        echo "请按照以下步骤手动安装："
+        echo ""
+        echo "1. 下载安装脚本："
+        echo "   curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install-universal.sh -o install-universal.sh"
+        echo ""
+        echo "2. 授予执行权限："
+        echo "   chmod +x install-universal.sh"
+        echo ""
+        echo "3. 使用root权限运行安装："
+        echo "   sudo ./install-universal.sh minimal"
+        echo ""
+        echo "4. 可选参数："
+        echo "   --dir <安装目录>  (默认: /opt/ipv6-wireguard-manager)"
+        echo "   --port <端口号>   (默认: 80)"
+        echo "   --silent          (静默模式)"
+        echo "   --debug           (调试模式)"
+        echo "   --skip-deps       (跳过依赖安装)"
+        echo "   --skip-db         (跳过数据库配置)"
+        echo "   --skip-service    (跳过服务配置)"
+        echo ""
+        echo "示例："
+        echo "   sudo ./install-universal.sh minimal --dir /opt/myapp --port 8080"
+        echo ""
+        echo "更多信息请参考："
+        echo "   https://github.com/ipzh/ipv6-wireguard-manager"
+        echo ""
+        return 0
+    fi
     
     log_info "使用通用安装脚本进行最小化安装..."
     
