@@ -1073,15 +1073,56 @@ configure_minimal_mysql_database() {
     log_info "配置最小化MySQL数据库（低内存优化）..."
     
     # 检测数据库服务名称
-    if systemctl list-unit-files | grep -q "mysql.service"; then
+    log_info "检测数据库服务..."
+    
+    # 尝试多种检测方法
+    if systemctl list-unit-files | grep -q "mysql.service" && systemctl is-enabled mysql.service 2>/dev/null; then
         DB_SERVICE="mysql"
         DB_COMMAND="mysql"
-    elif systemctl list-unit-files | grep -q "mariadb.service"; then
+        log_info "检测到MySQL服务"
+    elif systemctl list-unit-files | grep -q "mariadb.service" && systemctl is-enabled mariadb.service 2>/dev/null; then
         DB_SERVICE="mariadb"
         DB_COMMAND="mysql"  # MariaDB也使用mysql命令
+        log_info "检测到MariaDB服务"
+    elif systemctl is-enabled mysql.service 2>/dev/null; then
+        DB_SERVICE="mysql"
+        DB_COMMAND="mysql"
+        log_info "检测到MySQL服务（通过is-enabled）"
+    elif systemctl is-enabled mariadb.service 2>/dev/null; then
+        DB_SERVICE="mariadb"
+        DB_COMMAND="mysql"
+        log_info "检测到MariaDB服务（通过is-enabled）"
+    elif systemctl status mysql.service 2>/dev/null | grep -q "Active:"; then
+        DB_SERVICE="mysql"
+        DB_COMMAND="mysql"
+        log_info "检测到MySQL服务（通过status）"
+    elif systemctl status mariadb.service 2>/dev/null | grep -q "Active:"; then
+        DB_SERVICE="mariadb"
+        DB_COMMAND="mysql"
+        log_info "检测到MariaDB服务（通过status）"
     else
         log_error "未找到MySQL或MariaDB服务"
-        exit 1
+        log_info "尝试手动启动服务..."
+        
+        # 尝试启动MySQL
+        if systemctl start mysql.service 2>/dev/null; then
+            DB_SERVICE="mysql"
+            DB_COMMAND="mysql"
+            log_info "成功启动MySQL服务"
+        # 尝试启动MariaDB
+        elif systemctl start mariadb.service 2>/dev/null; then
+            DB_SERVICE="mariadb"
+            DB_COMMAND="mysql"
+            log_info "成功启动MariaDB服务"
+        else
+            log_error "无法启动MySQL或MariaDB服务"
+            log_info "请检查数据库安装状态："
+            log_info "  systemctl status mysql"
+            log_info "  systemctl status mariadb"
+            log_info "  dpkg -l | grep mysql"
+            log_info "  dpkg -l | grep mariadb"
+            exit 1
+        fi
     fi
     
     log_info "检测到数据库服务: $DB_SERVICE"
