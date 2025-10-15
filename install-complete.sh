@@ -365,7 +365,16 @@ download_project() {
             if [ -d ".git" ]; then
                 # 添加git安全目录例外，解决所有权检测问题
                 git config --global --add safe.directory "$PWD"
-                git pull origin main
+                
+                # 检查是否有未提交的修改
+                if ! git diff-index --quiet HEAD --; then
+                    log_warning "检测到未提交的修改，自动保存修改..."
+                    git stash
+                    git pull origin main
+                    git stash pop 2>/dev/null || log_info "无冲突，修改已自动应用"
+                else
+                    git pull origin main
+                fi
             else
                 log_warning "目录存在但不是git仓库，备份并重新克隆..."
                 cd ..
