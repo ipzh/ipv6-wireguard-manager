@@ -136,8 +136,6 @@ check_requirements() {
 
 # 自动选择安装类型
 auto_select_install_type() {
-    log_info "自动选择安装类型..."
-    
     if [ "$MEMORY_MB" -lt 1024 ]; then
         echo "minimal"
     elif [ "$MEMORY_MB" -lt 2048 ]; then
@@ -191,8 +189,9 @@ show_install_options() {
     
     # 检查是否为非交互模式
     if [ ! -t 0 ] || [ "$1" = "--auto" ]; then
+        log_info "检测到非交互模式，自动选择安装类型..."
         local auto_type=$(auto_select_install_type)
-        log_info "检测到非交互模式，自动选择: $auto_type"
+        log_info "自动选择的安装类型: $auto_type"
         echo "$auto_type"
         return
     fi
@@ -205,7 +204,7 @@ show_install_options() {
         2) echo "native" ;;
         3) echo "minimal" ;;
         *) 
-            log_warning "无效选择，使用自动选择"
+            log_warning "无效选择，使用自动选择" >&2
             auto_select_install_type
             ;;
     esac
@@ -289,7 +288,9 @@ parse_arguments() {
     # 如果没有指定安装类型，自动选择
     if [ -z "$install_type" ]; then
         if [ "$silent" = true ] || [ ! -t 0 ]; then
+            log_info "自动选择安装类型..."
             install_type=$(auto_select_install_type)
+            log_info "选择的安装类型: $install_type"
         else
             install_type=$(show_install_options)
         fi
