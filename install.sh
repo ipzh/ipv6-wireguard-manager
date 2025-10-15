@@ -4,7 +4,8 @@
 # 支持多种安装方式，自动检测系统环境，去除硬编码
 # 企业级VPN管理平台
 
-set -e  # 遇到错误立即退出
+# 暂时禁用严格错误处理以便调试
+# set -e  # 遇到错误立即退出
 set -u  # 使用未定义变量时退出
 set -o pipefail  # 管道中任何命令失败都会导致整个管道失败
 
@@ -443,7 +444,16 @@ parse_arguments() {
     
     # 如果没有指定安装类型，自动选择
     if [ -z "$INSTALL_TYPE" ]; then
-        INSTALL_TYPE=$(show_install_options)
+        # 在非交互模式下直接获取推荐类型
+        if [ ! -t 0 ] || [ "$SILENT" = true ]; then
+            local recommended_result=$(recommend_install_type)
+            INSTALL_TYPE=$(echo "$recommended_result" | cut -d'|' -f1)
+            local recommended_reason=$(echo "$recommended_result" | cut -d'|' -f2)
+            log_info "检测到非交互模式，自动选择安装类型: $INSTALL_TYPE"
+            log_info "选择理由: $recommended_reason"
+        else
+            INSTALL_TYPE=$(show_install_options)
+        fi
     fi
 }
 
@@ -661,43 +671,90 @@ run_native_installation() {
 # 最小化安装
 run_minimal_installation() {
     log_info "使用最小化安装方式..."
+    log_info "安装目录: $INSTALL_DIR"
+    log_info "服务用户: $SERVICE_USER"
+    log_info "跳过依赖: $SKIP_DEPS"
+    log_info "跳过服务: $SKIP_SERVICE"
     echo ""
     
     # 安装最小系统依赖
     if [ "$SKIP_DEPS" = false ]; then
         log_step "步骤 1/7: 安装系统依赖"
-        install_minimal_dependencies
+        log_info "开始安装系统依赖..."
+        if ! install_minimal_dependencies; then
+            log_error "系统依赖安装失败"
+            exit 1
+        fi
+        log_info "系统依赖安装完成"
+    else
+        log_info "跳过系统依赖安装"
     fi
     
     # 创建服务用户
     log_step "步骤 2/7: 创建服务用户"
-    create_service_user
+    log_info "开始创建服务用户..."
+    if ! create_service_user; then
+        log_error "创建服务用户失败"
+        exit 1
+    fi
+    log_info "服务用户创建完成"
     
     # 下载项目
     log_step "步骤 3/7: 下载项目代码"
-    download_project
+    log_info "开始下载项目代码..."
+    if ! download_project; then
+        log_error "下载项目代码失败"
+        exit 1
+    fi
+    log_info "项目代码下载完成"
     
     # 安装核心依赖
     log_step "步骤 4/7: 安装Python依赖"
-    install_core_dependencies
+    log_info "开始安装Python依赖..."
+    if ! install_core_dependencies; then
+        log_error "安装Python依赖失败"
+        exit 1
+    fi
+    log_info "Python依赖安装完成"
     
     # 配置最小化MySQL数据库
     log_step "步骤 5/7: 配置MySQL数据库"
-    configure_minimal_mysql_database
+    log_info "开始配置MySQL数据库..."
+    if ! configure_minimal_mysql_database; then
+        log_error "配置MySQL数据库失败"
+        exit 1
+    fi
+    log_info "MySQL数据库配置完成"
     
     # 创建简单服务
     if [ "$SKIP_SERVICE" = false ]; then
         log_step "步骤 6/7: 创建系统服务"
-        create_simple_service
+        log_info "开始创建系统服务..."
+        if ! create_simple_service; then
+            log_error "创建系统服务失败"
+            exit 1
+        fi
+        log_info "系统服务创建完成"
+    else
+        log_info "跳过系统服务创建"
     fi
     
     # 启动服务
     log_step "步骤 7/7: 启动服务"
-    start_minimal_services
+    log_info "开始启动服务..."
+    if ! start_minimal_services; then
+        log_error "启动服务失败"
+        exit 1
+    fi
+    log_info "服务启动完成"
     
     # 运行环境检查
     log_info "运行最终环境检查..."
-    run_environment_check
+    if ! run_environment_check; then
+        log_error "环境检查失败"
+        exit 1
+    fi
+    log_info "环境检查完成"
     
     echo ""
     log_success "最小化安装完成！"
@@ -777,7 +834,11 @@ install_minimal_dependencies() {
         "apt")
             apt-get update
             apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python3-pip
-            apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION
+            # 尝试安装MySQL，如果特定版本失败则使用默认版本
+            if ! apt-get install -y mysql-server-$MYSQL_VERSION mysql-client-$MYSQL_VERSION 2>/dev/null; then
+                log_info "MySQL $MYSQL_VERSION 不可用，安装默认版本..."
+                apt-get install -y mysql-server mysql-client
+            fi
             apt-get install -y nginx
             apt-get install -y git curl wget
             ;;
