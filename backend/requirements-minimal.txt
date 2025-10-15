@@ -8,6 +8,7 @@ pydantic-settings==2.1.0
 sqlalchemy==2.0.23
 alembic==1.13.1
 pymysql==1.1.0
+aiomysql==0.2.0
 
 # 认证和安全
 python-jose[cryptography]>=3.3.0

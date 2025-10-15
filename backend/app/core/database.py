@@ -18,6 +18,11 @@ except ImportError:
     REDIS_AVAILABLE = False
     redis = None
 
+# 初始化变量
+async_engine = None
+sync_engine = None
+aiomysql_available = False
+
 # 创建异步数据库引擎 - 仅支持MySQL
 if settings.DATABASE_URL.startswith("mysql://"):
     # MySQL数据库
@@ -30,10 +35,6 @@ if settings.DATABASE_URL.startswith("mysql://"):
     except ImportError:
         aiomysql_available = False
         print("警告: aiomysql驱动未安装，将使用同步模式")
-else:
-    # 不支持的数据库类型
-    print("错误: 仅支持MySQL数据库")
-    aiomysql_available = False
     
     # 检查数据库连接是否可用
     try:
