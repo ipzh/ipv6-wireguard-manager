@@ -92,7 +92,7 @@ log_info "4. 创建环境变量文件..."
 
 cat > .env << 'EOF'
 # API配置
-VITE_API_URL=http://172.16.1.117:8000
+VITE_API_URL=http://localhost:8000
 
 # 应用配置
 VITE_APP_NAME=IPv6 WireGuard Manager

@@ -41,7 +41,7 @@ npm install
 
 echo "[INFO] 5. 创建环境变量文件..."
 cat > .env << 'EOF'
-VITE_API_URL=http://172.16.1.117:8000
+VITE_API_URL=http://localhost:8000
 VITE_APP_NAME=IPv6 WireGuard Manager
 VITE_APP_VERSION=3.0.0
 VITE_DEBUG=false
@@ -75,7 +75,7 @@ systemctl restart nginx
 
 echo "[INFO] 11. 测试前端访问..."
 sleep 2
-if curl -f http://172.16.1.117/ > /dev/null 2>&1; then
+if curl -f http://localhost/ > /dev/null 2>&1; then
     echo "[SUCCESS] 前端访问正常"
 else
     echo "[WARNING] 前端访问测试失败，请检查Nginx配置"
@@ -93,8 +93,8 @@ echo "  - 重新构建了前端项目"
 echo "  - 重启了Nginx服务"
 echo ""
 echo "🚀 现在可以访问："
-echo "  - 前端界面: http://172.16.1.117"
-echo "  - API文档: http://172.16.1.117/api/v1/docs"
+echo "  - 前端界面: http://localhost"
+echo "  - API文档: http://localhost/api/v1/docs"
 echo ""
 echo "📋 默认登录信息："
 echo "  - 用户名: admin"

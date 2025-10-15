@@ -43,7 +43,7 @@ fi
 
 echo "[INFO] 4. 创建环境变量文件..."
 cat > .env << 'EOF'
-VITE_API_URL=http://172.16.1.117:8000
+VITE_API_URL=http://localhost:8000
 VITE_APP_NAME=IPv6 WireGuard Manager
 VITE_APP_VERSION=3.0.0
 VITE_APP_DESCRIPTION=企业级IPv6 VPN管理平台
@@ -132,7 +132,7 @@ else
 fi
 
 # 测试API连接
-if curl -f http://172.16.1.117:8000/health > /dev/null 2>&1; then
+if curl -f http://localhost:8000/health > /dev/null 2>&1; then
     echo "[SUCCESS] API连接正常"
 else
     echo "[WARNING] API连接测试失败"
@@ -162,9 +162,9 @@ npm版本: $(npm --version)
 - 静态资源: $(ls dist/assets/ 2>/dev/null | wc -l) 个文件
 
 访问地址:
-- 前端界面: http://172.16.1.117
-- API文档: http://172.16.1.117/api/v1/docs
-- 健康检查: http://172.16.1.117:8000/health
+- 前端界面: http://localhost
+- API文档: http://localhost/api/v1/docs
+- 健康检查: http://localhost:8000/health
 
 默认登录信息:
 - 用户名: admin
@@ -190,8 +190,8 @@ echo "  - 优化了代码质量和样式"
 echo "  - 确保了所有功能完整性"
 echo ""
 echo "🚀 现在可以访问："
-echo "  - 前端界面: http://172.16.1.117"
-echo "  - API文档: http://172.16.1.117/api/v1/docs"
+echo "  - 前端界面: http://localhost"
+echo "  - API文档: http://localhost/api/v1/docs"
 echo ""
 echo "📋 默认登录信息："
 echo "  - 用户名: admin"

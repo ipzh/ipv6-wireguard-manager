@@ -124,6 +124,30 @@ check_system_requirements() {
 install_system_dependencies() {
     log_info "安装系统依赖..."
     
+    # 检测包管理器
+    if command -v apt-get &> /dev/null; then
+        log_info "检测到APT包管理器 (Debian/Ubuntu)"
+        install_dependencies_apt
+    elif command -v yum &> /dev/null; then
+        log_info "检测到YUM包管理器 (CentOS/RHEL)"
+        install_dependencies_yum
+    elif command -v dnf &> /dev/null; then
+        log_info "检测到DNF包管理器 (Fedora)"
+        install_dependencies_dnf
+    elif command -v pacman &> /dev/null; then
+        log_info "检测到Pacman包管理器 (Arch Linux)"
+        install_dependencies_pacman
+    elif command -v zypper &> /dev/null; then
+        log_info "检测到Zypper包管理器 (openSUSE)"
+        install_dependencies_zypper
+    else
+        log_error "不支持的包管理器"
+        exit 1
+    fi
+}
+
+# APT包管理器安装依赖
+install_dependencies_apt() {
     # 更新包列表
     apt-get update -y
     
@@ -138,6 +162,63 @@ install_system_dependencies() {
         ca-certificates \
         gnupg \
         lsb-release
+}
+
+# YUM包管理器安装依赖
+install_dependencies_yum() {
+    # 更新包列表
+    yum update -y
+    
+    # 安装基础依赖
+    yum install -y \
+        curl \
+        wget \
+        git \
+        unzip \
+        ca-certificates \
+        epel-release
+}
+
+# DNF包管理器安装依赖
+install_dependencies_dnf() {
+    # 更新包列表
+    dnf update -y
+    
+    # 安装基础依赖
+    dnf install -y \
+        curl \
+        wget \
+        git \
+        unzip \
+        ca-certificates
+}
+
+# Pacman包管理器安装依赖
+install_dependencies_pacman() {
+    # 更新包列表
+    pacman -Sy
+    
+    # 安装基础依赖
+    pacman -S --noconfirm \
+        curl \
+        wget \
+        git \
+        unzip \
+        ca-certificates
+}
+
+# Zypper包管理器安装依赖
+install_dependencies_zypper() {
+    # 更新包列表
+    zypper refresh
+    
+    # 安装基础依赖
+    zypper install -y \
+        curl \
+        wget \
+        git \
+        unzip \
+        ca-certificates
     
     # 根据安装类型安装额外依赖
     case $INSTALL_TYPE in
