@@ -6,10 +6,17 @@ from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-import redis.asyncio as redis
 from typing import AsyncGenerator
 
 from .config import settings
+
+# 可选导入Redis（仅在需要时导入）
+try:
+    import redis.asyncio as redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    redis = None
 
 # 创建异步数据库引擎 - 仅支持MySQL
 if settings.DATABASE_URL.startswith("mysql://"):
@@ -148,8 +155,17 @@ def get_sync_db():
 redis_pool = None
 
 
-async def get_redis() -> redis.Redis:
-    """获取Redis连接"""
+async def get_redis():
+    """获取Redis连接（如果可用）"""
+    if not settings.USE_REDIS:
+        raise ImportError("Redis未启用，请设置USE_REDIS=True")
+    
+    if not REDIS_AVAILABLE:
+        raise ImportError("Redis不可用，请安装redis包")
+    
+    if not settings.REDIS_URL:
+        raise ImportError("Redis URL未配置")
+    
     global redis_pool
     if redis_pool is None:
         redis_pool = redis.ConnectionPool.from_url(
@@ -194,5 +210,5 @@ async def close_db():
     """关闭数据库连接"""
     if async_engine:
         await async_engine.dispose()
-    if redis_pool:
+    if redis_pool and REDIS_AVAILABLE:
         await redis_pool.disconnect()

@@ -957,8 +957,14 @@ create_environment_file() {
     
     cd "$INSTALL_DIR/backend"
     
-    # 创建环境变量文件
-    cat > .env << EOF
+    # 使用环境配置生成器
+    if [ -f "scripts/generate_environment.py" ]; then
+        log_info "使用智能环境配置生成器..."
+        python scripts/generate_environment.py --mode native --output .env --show-config
+    else
+        # 回退到手动配置
+        log_info "使用手动环境配置..."
+        cat > .env << EOF
 # 数据库配置
 DATABASE_URL=mysql://$SERVICE_USER:password@localhost:3306/ipv6wgm
 REDIS_URL=redis://localhost:6379/0
@@ -991,6 +997,7 @@ DATABASE_POOL_PRE_PING=true
 ENABLE_HEALTH_CHECK=true
 HEALTH_CHECK_INTERVAL=30
 EOF
+    fi
     
     # 设置权限
     chown "$SERVICE_USER:$SERVICE_GROUP" .env
@@ -1213,11 +1220,22 @@ EOF
     
     # 创建环境变量文件（低内存优化）
     log_info "创建环境变量文件..."
-    cat > .env << EOF
+    
+    # 使用环境配置生成器
+    if [ -f "scripts/generate_environment.py" ]; then
+        log_info "使用智能环境配置生成器（低内存优化）..."
+        python scripts/generate_environment.py --mode minimal --profile low_memory --output .env --show-config
+    else
+        # 回退到手动配置
+        log_info "使用手动环境配置（低内存优化）..."
+        cat > .env << EOF
 # 数据库配置 - 低内存优化
 DATABASE_URL=mysql://$SERVICE_USER:password@localhost:3306/ipv6wgm
-REDIS_URL=redis://localhost:6379/0
 AUTO_CREATE_DATABASE=true
+
+# Redis配置 - 低内存优化（禁用）
+USE_REDIS=false
+REDIS_URL=
 
 # 服务器配置
 SERVER_HOST=0.0.0.0
@@ -1233,6 +1251,7 @@ DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=10
 MAX_WORKERS=2
 EOF
+    fi
     
     # 初始化数据库
     log_info "初始化数据库..."
@@ -1387,7 +1406,13 @@ configure_docker_environment() {
         fi
         
         # 创建环境变量文件（低内存优化）
-        cat > .env << EOF
+        if [ -f "backend/scripts/generate_environment.py" ]; then
+            log_info "使用智能环境配置生成器（Docker低内存优化）..."
+            cd backend
+            python scripts/generate_environment.py --mode docker --profile low_memory --output ../.env --show-config
+            cd ..
+        else
+            cat > .env << EOF
 # 数据库配置 - 低内存优化
 DATABASE_URL=mysql://$SERVICE_USER:password@mysql:3306/ipv6wgm
 
@@ -1405,9 +1430,16 @@ DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=10
 MAX_WORKERS=2
 EOF
+        fi
     else
         # 创建环境变量文件（标准配置）
-        cat > .env << EOF
+        if [ -f "backend/scripts/generate_environment.py" ]; then
+            log_info "使用智能环境配置生成器（Docker标准配置）..."
+            cd backend
+            python scripts/generate_environment.py --mode docker --profile standard --output ../.env --show-config
+            cd ..
+        else
+            cat > .env << EOF
 # 数据库配置
 DATABASE_URL=mysql://$SERVICE_USER:password@mysql:3306/ipv6wgm
 REDIS_URL=redis://redis:6379/0
@@ -1421,6 +1453,7 @@ DEBUG=$DEBUG
 SECRET_KEY=$(openssl rand -hex 32)
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 EOF
+        fi
     fi
     
     # 修改docker-compose.yml中的端口配置

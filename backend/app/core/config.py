@@ -11,6 +11,19 @@ except ImportError:
     from pydantic import BaseSettings, validator as field_validator
 import secrets
 
+# 环境管理器
+_env_manager = None
+
+def get_environment_manager():
+    """获取环境管理器实例"""
+    global _env_manager
+    if _env_manager is None:
+        try:
+            from .environment import EnvironmentManager
+            _env_manager = EnvironmentManager()
+        except ImportError:
+            _env_manager = None
+    return _env_manager
 
 class Settings(BaseSettings):
     """应用配置"""
@@ -41,9 +54,10 @@ class Settings(BaseSettings):
     DATABASE_POOL_PRE_PING: bool = True
     AUTO_CREATE_DATABASE: bool = True
     
-    # Redis配置
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Redis配置（可选）
+    REDIS_URL: Optional[str] = None
     REDIS_POOL_SIZE: int = 10
+    USE_REDIS: bool = False
     
     # 安全配置
     ALGORITHM: str = "HS256"
@@ -136,6 +150,20 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # 应用环境管理器配置
+        self._apply_environment_config()
+    
+    def _apply_environment_config(self):
+        """应用环境管理器配置"""
+        env_manager = get_environment_manager()
+        if env_manager:
+            env_config = env_manager.get_all_config()
+            for key, value in env_config.items():
+                if hasattr(self, key) and not hasattr(self.__class__, key):
+                    setattr(self, key, value)
     
     class Config:
         env_file = ".env"
