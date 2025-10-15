@@ -1687,48 +1687,74 @@ show_installation_complete() {
         local ipv6_ips=()
         
         # 获取IPv4地址 - 改进的获取方法
-        echo "   正在获取IPv4地址..."
-        # 使用ip命令获取所有IPv4地址
-        while IFS= read -r line; do
-            if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
-                ipv4_ips+=("$line")
-            fi
-        done < <(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' 2>/dev/null)
+        log_info "   正在获取IPv4地址..."
         
-        # 如果ip命令失败，尝试ifconfig
-        if [ ${#ipv4_ips[@]} -eq 0 ]; then
+        # 方法1: 使用ip命令获取所有IPv4地址
+        if command -v ip &> /dev/null; then
             while IFS= read -r line; do
                 if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
                     ipv4_ips+=("$line")
+                    log_info "     ✅ 发现IPv4地址: $line"
+                fi
+            done < <(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' 2>/dev/null)
+        else
+            log_warning "     ip命令不可用"
+        fi
+        
+        # 方法2: 如果ip命令失败，尝试ifconfig
+        if [ ${#ipv4_ips[@]} -eq 0 ] && command -v ifconfig &> /dev/null; then
+            log_info "    尝试使用ifconfig获取IPv4地址..."
+            while IFS= read -r line; do
+                if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
+                    ipv4_ips+=("$line")
+                    log_info "     ✅ 发现IPv4地址: $line"
                 fi
             done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1')
         fi
         
-        # 如果还是失败，尝试hostname -I
+        # 方法3: 如果还是失败，尝试hostname -I
         if [ ${#ipv4_ips[@]} -eq 0 ]; then
+            log_info "    尝试使用hostname -I获取IPv4地址..."
             while IFS= read -r line; do
                 if [[ $line =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $line != "127.0.0.1" ]]; then
                     ipv4_ips+=("$line")
+                    log_info "     ✅ 发现IPv4地址: $line"
                 fi
             done < <(hostname -I 2>/dev/null | tr ' ' '\n' | grep -v '127.0.0.1')
         fi
         
-        # 获取IPv6地址 - 改进的获取方法
-        echo "   正在获取IPv6地址..."
-        # 使用ip命令获取所有IPv6地址
-        while IFS= read -r line; do
-            if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
-                ipv6_ips+=("$line")
-            fi
-        done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:')
+        if [ ${#ipv4_ips[@]} -eq 0 ]; then
+            log_warning "     ⚠️  未发现IPv4地址"
+        fi
         
-        # 如果ip命令失败，尝试ifconfig
-        if [ ${#ipv6_ips[@]} -eq 0 ]; then
+        # 获取IPv6地址 - 改进的获取方法
+        log_info "   正在获取IPv6地址..."
+        
+        # 方法1: 使用ip命令获取所有IPv6地址
+        if command -v ip &> /dev/null; then
             while IFS= read -r line; do
                 if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
                     ipv6_ips+=("$line")
+                    log_info "     ✅ 发现IPv6地址: $line"
+                fi
+            done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:')
+        else
+            log_warning "     ip命令不可用"
+        fi
+        
+        # 方法2: 如果ip命令失败，尝试ifconfig
+        if [ ${#ipv6_ips[@]} -eq 0 ] && command -v ifconfig &> /dev/null; then
+            log_info "    尝试使用ifconfig获取IPv6地址..."
+            while IFS= read -r line; do
+                if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
+                    ipv6_ips+=("$line")
+                    log_info "     ✅ 发现IPv6地址: $line"
                 fi
             done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | grep -v '::1' | grep -v '^fe80:')
+        fi
+        
+        if [ ${#ipv6_ips[@]} -eq 0 ]; then
+            log_warning "     ⚠️  未发现IPv6地址"
         fi
         
         # 显示访问地址
