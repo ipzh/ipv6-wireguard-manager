@@ -4,7 +4,21 @@
 # 支持多种安装方式，自动检测系统环境，去除硬编码
 # 企业级VPN管理平台
 
-set -e
+set -e  # 遇到错误立即退出
+set -u  # 使用未定义变量时退出
+set -o pipefail  # 管道中任何命令失败都会导致整个管道失败
+
+# 错误处理函数
+handle_error() {
+    local exit_code=$?
+    local line_number=$1
+    log_error "脚本在第 $line_number 行执行失败，退出码: $exit_code"
+    log_info "请检查上述错误信息并重试"
+    exit $exit_code
+}
+
+# 设置错误陷阱
+trap 'handle_error $LINENO' ERR
 
 # Color definitions
 RED='\033[0;31m'
@@ -647,36 +661,46 @@ run_native_installation() {
 # 最小化安装
 run_minimal_installation() {
     log_info "使用最小化安装方式..."
+    echo ""
     
     # 安装最小系统依赖
     if [ "$SKIP_DEPS" = false ]; then
+        log_step "步骤 1/7: 安装系统依赖"
         install_minimal_dependencies
     fi
     
     # 创建服务用户
+    log_step "步骤 2/7: 创建服务用户"
     create_service_user
     
     # 下载项目
+    log_step "步骤 3/7: 下载项目代码"
     download_project
     
     # 安装核心依赖
+    log_step "步骤 4/7: 安装Python依赖"
     install_core_dependencies
     
     # 配置最小化MySQL数据库
+    log_step "步骤 5/7: 配置MySQL数据库"
     configure_minimal_mysql_database
     
     # 创建简单服务
     if [ "$SKIP_SERVICE" = false ]; then
+        log_step "步骤 6/7: 创建系统服务"
         create_simple_service
     fi
     
     # 启动服务
+    log_step "步骤 7/7: 启动服务"
     start_minimal_services
     
     # 运行环境检查
+    log_info "运行最终环境检查..."
     run_environment_check
     
-    log_success "最小化安装完成"
+    echo ""
+    log_success "最小化安装完成！"
 }
 
 # 安装Docker
@@ -896,15 +920,36 @@ EOF
 install_core_dependencies() {
     log_info "安装核心依赖..."
     
-    cd "$INSTALL_DIR/backend"
+    cd "$INSTALL_DIR/backend" || {
+        log_error "无法进入后端目录: $INSTALL_DIR/backend"
+        exit 1
+    }
     
     # 创建虚拟环境
-    python$PYTHON_VERSION -m venv venv
-    source venv/bin/activate
+    log_info "创建Python虚拟环境..."
+    if ! python$PYTHON_VERSION -m venv venv; then
+        log_error "创建虚拟环境失败"
+        exit 1
+    fi
+    
+    # 激活虚拟环境
+    source venv/bin/activate || {
+        log_error "激活虚拟环境失败"
+        exit 1
+    }
     
     # 安装核心Python依赖
-    pip install --upgrade pip
-    pip install -r requirements-minimal.txt
+    log_info "升级pip..."
+    if ! pip install --upgrade pip; then
+        log_error "升级pip失败"
+        exit 1
+    fi
+    
+    log_info "安装Python依赖包..."
+    if ! pip install -r requirements-minimal.txt; then
+        log_error "安装Python依赖失败"
+        exit 1
+    fi
     
     log_success "核心依赖安装完成"
 }
@@ -945,13 +990,29 @@ configure_minimal_mysql_database() {
     log_info "配置最小化MySQL数据库（低内存优化）..."
     
     # 启动MySQL
-    systemctl enable mysql
-    systemctl start mysql
+    log_info "启动MySQL服务..."
+    if ! systemctl enable mysql; then
+        log_error "启用MySQL服务失败"
+        exit 1
+    fi
+    
+    if ! systemctl start mysql; then
+        log_error "启动MySQL服务失败"
+        exit 1
+    fi
     
     # 等待MySQL启动
+    log_info "等待MySQL服务启动..."
     sleep 5
     
+    # 检查MySQL是否正常运行
+    if ! systemctl is-active --quiet mysql; then
+        log_error "MySQL服务未正常运行"
+        exit 1
+    fi
+    
     # 创建数据库和用户
+    log_info "创建数据库和用户..."
     mysql -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || log_info "数据库ipv6wgm已存在"
     mysql -e "CREATE USER IF NOT EXISTS '$SERVICE_USER'@'localhost' IDENTIFIED BY 'password';" 2>/dev/null || log_info "用户$SERVICE_USER已存在"
     mysql -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$SERVICE_USER'@'localhost';" 2>/dev/null || log_info "权限已设置"
@@ -978,13 +1039,31 @@ join_buffer_size = 128K
 EOF
     
     # 重启MySQL应用配置
-    systemctl restart mysql
+    log_info "重启MySQL应用配置..."
+    if ! systemctl restart mysql; then
+        log_error "重启MySQL失败"
+        exit 1
+    fi
     sleep 3
     
-    cd "$INSTALL_DIR/backend"
-    source venv/bin/activate
+    # 检查MySQL是否正常运行
+    if ! systemctl is-active --quiet mysql; then
+        log_error "MySQL重启后未正常运行"
+        exit 1
+    fi
+    
+    cd "$INSTALL_DIR/backend" || {
+        log_error "无法进入后端目录: $INSTALL_DIR/backend"
+        exit 1
+    }
+    
+    source venv/bin/activate || {
+        log_error "激活虚拟环境失败"
+        exit 1
+    }
     
     # 创建环境变量文件（低内存优化）
+    log_info "创建环境变量文件..."
     cat > .env << EOF
 # 数据库配置 - 低内存优化
 DATABASE_URL=mysql://$SERVICE_USER:password@localhost:3306/ipv6wgm
@@ -1007,7 +1086,11 @@ MAX_WORKERS=2
 EOF
     
     # 初始化数据库
-    python scripts/init_database_mysql.py
+    log_info "初始化数据库..."
+    if ! python scripts/init_database_mysql.py; then
+        log_error "数据库初始化失败"
+        exit 1
+    fi
     
     log_success "最小化MySQL数据库配置完成"
 }
@@ -1099,10 +1182,11 @@ create_simple_service() {
     log_info "创建简单服务..."
     
     # 创建简单的systemd服务文件
+    log_info "创建systemd服务文件..."
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager (Minimal)
-After=network.target
+After=network.target mysql.service
 
 [Service]
 Type=exec
@@ -1119,9 +1203,22 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
     
+    if [ ! -f /etc/systemd/system/ipv6-wireguard-manager.service ]; then
+        log_error "创建服务文件失败"
+        exit 1
+    fi
+    
     # 重新加载systemd
-    systemctl daemon-reload
-    systemctl enable ipv6-wireguard-manager
+    log_info "重新加载systemd配置..."
+    if ! systemctl daemon-reload; then
+        log_error "重新加载systemd配置失败"
+        exit 1
+    fi
+    
+    if ! systemctl enable ipv6-wireguard-manager; then
+        log_error "启用服务失败"
+        exit 1
+    fi
     
     log_success "简单服务创建完成"
 }
@@ -1225,12 +1322,29 @@ start_minimal_services() {
     log_info "启动最小服务..."
     
     # 启动应用服务
-    systemctl start ipv6-wireguard-manager
+    log_info "启动IPv6 WireGuard Manager服务..."
+    if ! systemctl start ipv6-wireguard-manager; then
+        log_error "启动服务失败"
+        log_info "查看服务日志:"
+        journalctl -u ipv6-wireguard-manager --no-pager -n 20
+        exit 1
+    fi
     
     # 等待服务启动
+    log_info "等待服务启动..."
     sleep 5
     
     # 检查服务状态
+    if ! systemctl is-active --quiet ipv6-wireguard-manager; then
+        log_error "服务启动后未正常运行"
+        log_info "查看服务状态:"
+        systemctl status ipv6-wireguard-manager --no-pager
+        log_info "查看服务日志:"
+        journalctl -u ipv6-wireguard-manager --no-pager -n 20
+        exit 1
+    fi
+    
+    log_info "服务状态:"
     systemctl status ipv6-wireguard-manager --no-pager
     
     log_success "最小服务启动完成"
@@ -1240,12 +1354,23 @@ start_minimal_services() {
 run_environment_check() {
     log_info "运行环境检查..."
     
-    cd "$INSTALL_DIR/backend"
+    cd "$INSTALL_DIR/backend" || {
+        log_error "无法进入后端目录: $INSTALL_DIR/backend"
+        exit 1
+    }
     
     # 激活虚拟环境并运行检查
     if [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
-        python scripts/check_environment.py
+        log_info "激活虚拟环境并运行环境检查..."
+        source venv/bin/activate || {
+            log_error "激活虚拟环境失败"
+            exit 1
+        }
+        
+        if ! python scripts/check_environment.py; then
+            log_error "环境检查失败"
+            exit 1
+        fi
     else
         log_warning "虚拟环境不存在，跳过环境检查"
     fi
