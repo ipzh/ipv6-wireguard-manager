@@ -97,6 +97,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "[::]:80:80"
+      - "[::]:443:443"
     volumes:
       - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
@@ -283,6 +285,9 @@ volumes:
 networks:
   app-network:
     driver: bridge
+    enable_ipv6: true
     ipam:
+      driver: default
       config:
         - subnet: 172.20.0.0/16
+        - subnet: 2001:db8::/64

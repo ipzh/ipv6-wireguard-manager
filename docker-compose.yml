@@ -59,8 +59,8 @@ services:
       dockerfile: Dockerfile
     container_name: ipv6wgm-frontend
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_WS_URL=ws://localhost:8000/ws
+      - VITE_API_URL=http://backend:8000
+      - VITE_WS_URL=ws://backend:8000
     ports:
       - "3000:80"
     depends_on:
@@ -76,3 +76,9 @@ volumes:
 networks:
   ipv6wgm-network:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/16
+        - subnet: 2001:db8::/64

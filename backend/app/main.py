@@ -44,10 +44,13 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=[
         "*",  # 允许所有主机
+        # IPv4本地访问
         "localhost",
         "127.0.0.1",
+        # IPv6本地访问
         "::1",
-        # 内网IP段
+        "[::1]",
+        # 内网IPv4段
         "172.16.*",
         "172.17.*",
         "172.18.*",
@@ -65,7 +68,10 @@ app.add_middleware(
         "172.30.*",
         "172.31.*",
         "192.168.*",
-        "10.*"
+        "10.*",
+        # 内网IPv6段（常见内网IPv6）
+        "fd00:*",
+        "fe80:*"
     ]
 )
 

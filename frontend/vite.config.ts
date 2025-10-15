@@ -20,6 +20,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // 监听所有IPv4和IPv6接口
     port: 3000,
     proxy: {
       '/api': {

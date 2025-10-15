@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # 安全配置
     ALGORITHM: str = "HS256"
     BACKEND_CORS_ORIGINS: List[str] = [
+        # IPv4本地访问
         "http://localhost:3000", 
         "http://localhost:8080", 
         "http://localhost:5173",
@@ -57,15 +58,31 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8080", 
         "http://127.0.0.1:5173",
         "http://127.0.0.1",
-        # 内网IP支持
-        "http://172.16.0.0/12",  # 172.16.0.0-172.31.255.255
-        "http://192.168.0.0/16", # 192.168.0.0-192.168.255.255
-        "http://10.0.0.0/8",     # 10.0.0.0-10.255.255.255
-        # IPv6支持
-        "http://[::1]",
+        # IPv6本地访问
         "http://[::1]:3000",
         "http://[::1]:8080",
         "http://[::1]:5173",
+        "http://[::1]",
+        # 内网IPv4支持
+        "http://172.16.0.0/12",  # 172.16.0.0-172.31.255.255
+        "http://192.168.0.0/16", # 192.168.0.0-192.168.255.255
+        "http://10.0.0.0/8",     # 10.0.0.0-10.255.255.255
+        # 内网IPv6支持（常见内网IPv6段）
+        "http://[fd00::]/8",     # ULA (Unique Local Address)
+        "http://[fe80::]/10",    # Link-local
+        # HTTPS支持
+        "https://localhost:3000",
+        "https://localhost:8080", 
+        "https://localhost:5173",
+        "https://localhost",
+        "https://127.0.0.1:3000",
+        "https://127.0.0.1:8080",
+        "https://127.0.0.1:5173", 
+        "https://127.0.0.1",
+        "https://[::1]:3000",
+        "https://[::1]:8080",
+        "https://[::1]:5173",
+        "https://[::1]",
         # 允许所有来源（生产环境建议限制）
         "*"
     ]

@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
+import { getApiBaseUrl, config } from '../utils/config'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE_URL = getApiBaseUrl()
 
 class ApiClient {
   private client: AxiosInstance
@@ -8,7 +9,7 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/api/v1`,
-      timeout: 10000,
+      timeout: config.apiTimeout,
       headers: {
         'Content-Type': 'application/json',
       },

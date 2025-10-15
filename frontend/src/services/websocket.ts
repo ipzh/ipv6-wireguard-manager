@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { getWebSocketBaseUrl, config } from '../utils/config';
 
 export interface WebSocketMessage {
   type: string;
@@ -23,13 +24,13 @@ class WebSocketService extends EventEmitter {
   private isConnecting = false;
   private isConnected = false;
 
-  constructor(config: WebSocketConfig) {
+  constructor(wsConfig: WebSocketConfig) {
     super();
     this.config = {
       reconnectInterval: 5000,
       maxReconnectAttempts: 10,
       connectionType: 'general',
-      ...config,
+      ...wsConfig,
     };
   }
 
@@ -43,7 +44,9 @@ class WebSocketService extends EventEmitter {
       this.isConnecting = true;
 
       try {
-        const wsUrl = `${this.config.url}/api/v1/ws/${this.config.userId}?connection_type=${this.config.connectionType}`;
+        // 使用动态URL或配置的URL
+        const baseUrl = this.config.url || getWebSocketBaseUrl()
+        const wsUrl = `${baseUrl}/api/v1/ws/${this.config.userId}?connection_type=${this.config.connectionType}`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
