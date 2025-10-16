@@ -103,6 +103,8 @@ create_necessary_directories() {
         "$INSTALL_DIR/backups"
         "$INSTALL_DIR/config"
         "$INSTALL_DIR/data"
+        "$INSTALL_DIR/wireguard"
+        "$INSTALL_DIR/wireguard/clients"
     )
     
     for directory in "${directories[@]}"; do

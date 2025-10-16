@@ -119,6 +119,9 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 修复权限问题
 ./fix_permissions.sh
+
+# 快速修复WireGuard权限问题
+./quick_fix_wireguard_permissions.sh
 ```
 
 ## 📋 系统要求

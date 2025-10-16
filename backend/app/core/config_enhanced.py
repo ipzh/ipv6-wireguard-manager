@@ -161,8 +161,8 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: List[str] = [".conf", ".key", ".crt", ".pem", ".txt", ".log"]
     
     # WireGuard配置
-    WIREGUARD_CONFIG_DIR: str = "/etc/wireguard"
-    WIREGUARD_CLIENTS_DIR: str = "/etc/wireguard/clients"
+    WIREGUARD_CONFIG_DIR: str = "/opt/ipv6-wireguard-manager/wireguard"
+    WIREGUARD_CLIENTS_DIR: str = "/opt/ipv6-wireguard-manager/wireguard/clients"
     
     # 监控配置
     ENABLE_METRICS: bool = True
@@ -283,7 +283,22 @@ class Settings(BaseSettings):
         
         for directory in directories:
             if directory:
-                Path(directory).mkdir(parents=True, exist_ok=True)
+                try:
+                    Path(directory).mkdir(parents=True, exist_ok=True)
+                except PermissionError as e:
+                    # 如果权限不足，记录警告但不中断启动
+                    import logging
+                    logging.warning(f"无法创建目录 {directory}: {e}")
+                    # 尝试使用临时目录作为备选
+                    if directory == self.UPLOAD_DIR:
+                        self.UPLOAD_DIR = "/tmp/ipv6-wireguard-uploads"
+                        Path(self.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+                    elif directory == self.WIREGUARD_CONFIG_DIR:
+                        self.WIREGUARD_CONFIG_DIR = "/tmp/ipv6-wireguard-config"
+                        Path(self.WIREGUARD_CONFIG_DIR).mkdir(parents=True, exist_ok=True)
+                    elif directory == self.WIREGUARD_CLIENTS_DIR:
+                        self.WIREGUARD_CLIENTS_DIR = "/tmp/ipv6-wireguard-clients"
+                        Path(self.WIREGUARD_CLIENTS_DIR).mkdir(parents=True, exist_ok=True)
     
     def _check_file_permissions(self):
         """检查文件权限"""
