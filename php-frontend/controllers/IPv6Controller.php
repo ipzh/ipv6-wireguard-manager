@@ -5,8 +5,8 @@
 class IPv6Controller {
     private $apiClient;
 
-    public function __construct(ApiClient $apiClient) {
-        $this->apiClient = $apiClient;
+    public function __construct(ApiClient $apiClient = null) {
+        $this->apiClient = $apiClient ?: new ApiClient();
     }
 
     /**

@@ -5,8 +5,8 @@
 class UsersController {
     private $apiClient;
 
-    public function __construct(ApiClient $apiClient) {
-        $this->apiClient = $apiClient;
+    public function __construct(ApiClient $apiClient = null) {
+        $this->apiClient = $apiClient ?: new ApiClient();
     }
 
     /**
