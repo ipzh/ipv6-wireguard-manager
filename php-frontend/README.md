@@ -76,7 +76,6 @@
 ```
 php-frontend/
 ├── index.php              # 入口文件
-├── .htaccess              # Apache重写规则
 ├── config/
 │   └── config.php         # 配置文件
 ├── classes/
@@ -299,9 +298,9 @@ try {
    - 检查网络连接
 
 2. **页面404错误**
-   - 确认Apache/Nginx配置正确
-   - 检查 `.htaccess` 文件
-   - 确认URL重写模块已启用
+   - 确认Nginx配置正确
+   - 检查Nginx重写规则
+   - 确认PHP-FPM服务正常
 
 3. **权限错误**
    - 检查文件权限

@@ -86,6 +86,10 @@ sudo systemctl disable apache2
 # 卸载Apache
 sudo apt-get remove --purge -y apache2 apache2-utils apache2-bin apache2-data
 sudo apt-get autoremove -y
+
+# 删除Apache配置文件
+sudo rm -f /opt/ipv6-wireguard-manager/php-frontend/.htaccess
+sudo rm -rf /etc/apache2
 ```
 
 ### PHP-FPM问题修复

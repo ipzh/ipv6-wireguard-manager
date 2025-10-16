@@ -135,6 +135,42 @@ uninstall_apache() {
     echo ""
 }
 
+# 删除Apache配置文件
+remove_apache_configs() {
+    log_section "删除Apache配置文件"
+    
+    # 删除.htaccess文件
+    local htaccess_files=(
+        "/opt/ipv6-wireguard-manager/php-frontend/.htaccess"
+        "/var/www/html/.htaccess"
+        "/var/www/.htaccess"
+    )
+    
+    for file in "${htaccess_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            log_info "删除Apache配置文件: $file"
+            rm -f "$file"
+            log_success "✓ 已删除: $file"
+        fi
+    done
+    
+    # 删除Apache配置目录
+    local apache_config_dirs=(
+        "/etc/apache2"
+        "/etc/httpd"
+    )
+    
+    for dir in "${apache_config_dirs[@]}"; do
+        if [[ -d "$dir" ]]; then
+            log_info "删除Apache配置目录: $dir"
+            rm -rf "$dir"
+            log_success "✓ 已删除: $dir"
+        fi
+    done
+    
+    echo ""
+}
+
 # 安装PHP-FPM
 install_php_fpm() {
     log_section "安装PHP-FPM"
@@ -334,6 +370,9 @@ main() {
     
     # 卸载Apache
     uninstall_apache
+    
+    # 删除Apache配置文件
+    remove_apache_configs
     
     # 安装PHP-FPM
     install_php_fpm

@@ -154,6 +154,9 @@ python3 deep_code_analysis.py
 # Debian 12 API服务修复
 ./fix_debian12_api_service.sh
 
+# 清理Apache配置文件
+./cleanup_apache_configs.sh
+
 # 测试诊断工具
 ./test_diagnosis_tools.sh
 ```
