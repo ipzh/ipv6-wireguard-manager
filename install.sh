@@ -1055,6 +1055,21 @@ install_minimal_dependencies() {
                 exit 1
             fi
             
+            # 安装PHP和PHP-FPM
+            log_info "安装PHP和PHP-FPM..."
+            if apt-get install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip; then
+                log_success "PHP安装成功"
+            else
+                log_error "PHP安装失败"
+                log_info "请手动安装PHP："
+                log_info "  Ubuntu/Debian: sudo apt-get install php php-fpm"
+                log_info "  或者添加PHP软件源："
+                log_info "  sudo apt-get install software-properties-common"
+                log_info "  sudo add-apt-repository ppa:ondrej/php"
+                log_info "  sudo apt-get update"
+                exit 1
+            fi
+            
             # 确保只安装nginx，不安装apache
             apt-get install -y nginx
             
@@ -1276,16 +1291,47 @@ EOF
     
     # 检测PHP-FPM服务名称
     php_fpm_service=""
+    
+    # 尝试多种可能的服务名称
     if systemctl list-units --type=service | grep -q "php$PHP_VERSION-fpm"; then
         php_fpm_service="php$PHP_VERSION-fpm"
-    elif systemctl list-units --type=service | grep -q "php-fpm"; then
-        php_fpm_service="php-fpm"
     elif systemctl list-units --type=service | grep -q "php${PHP_VERSION/./}-fpm"; then
         php_fpm_service="php${PHP_VERSION/./}-fpm"
+    elif systemctl list-units --type=service | grep -q "php8.2-fpm"; then
+        php_fpm_service="php8.2-fpm"
+    elif systemctl list-units --type=service | grep -q "php8.1-fpm"; then
+        php_fpm_service="php8.1-fpm"
+    elif systemctl list-units --type=service | grep -q "php8.0-fpm"; then
+        php_fpm_service="php8.0-fpm"
+    elif systemctl list-units --type=service | grep -q "php7.4-fpm"; then
+        php_fpm_service="php7.4-fpm"
+    elif systemctl list-units --type=service | grep -q "php-fpm"; then
+        php_fpm_service="php-fpm"
     else
+        # 尝试通过包管理器获取已安装的PHP-FPM包名
+        if command -v apt &>/dev/null; then
+            php_fpm_package=$(dpkg -l | grep php-fpm | head -n 1 | awk '{print $2}')
+            if [[ -n "$php_fpm_package" ]]; then
+                php_fpm_service="$php_fpm_package"
+            fi
+        elif command -v yum &>/dev/null || command -v dnf &>/dev/null; then
+            php_fpm_package=$(rpm -qa | grep php-fpm | head -n 1)
+            if [[ -n "$php_fpm_package" ]]; then
+                php_fpm_service="$php_fpm_package"
+            fi
+        fi
+    fi
+    
+    if [[ -z "$php_fpm_service" ]]; then
         log_error "无法找到PHP-FPM服务"
+        log_info "请手动启动PHP-FPM服务："
+        log_info "  Ubuntu/Debian: sudo systemctl start php8.2-fpm (或对应版本)"
+        log_info "  CentOS/RHEL: sudo systemctl start php-fpm"
+        log_info "  Arch Linux: sudo systemctl start php-fpm"
         return 1
     fi
+    
+    log_info "找到PHP-FPM服务: $php_fpm_service"
     
     if systemctl is-active --quiet $php_fpm_service 2>/dev/null; then
         log_info "PHP-FPM服务已在运行"
@@ -1296,6 +1342,7 @@ EOF
             log_success "PHP-FPM服务启动成功"
         else
             log_error "PHP-FPM服务启动失败"
+            log_info "尝试手动启动: sudo systemctl start $php_fpm_service"
             return 1
         fi
     fi
