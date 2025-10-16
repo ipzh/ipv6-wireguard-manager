@@ -82,6 +82,7 @@ $router = new Router();
 
 // 定义路由
 $router->addRoute('GET', '/', 'DashboardController@index');
+$router->addRoute('GET', '/dashboard/realtime', 'DashboardController@getRealtimeData');
 $router->addRoute('GET', '/login', 'AuthController@showLogin');
 $router->addRoute('POST', '/login', 'AuthController@login');
 $router->addRoute('GET', '/logout', 'AuthController@logout');

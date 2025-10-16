@@ -1,5 +1,32 @@
 <?php
-$stats = $this->getStatistics($dashboardData);
+// 计算统计信息
+$stats = [
+    'totalServers' => count($dashboardData['servers']),
+    'activeServers' => 0,
+    'totalClients' => count($dashboardData['clients']),
+    'activeClients' => 0,
+    'totalBgpAnnouncements' => count($dashboardData['bgpAnnouncements']),
+    'systemStatus' => 'unknown'
+];
+
+// 统计活跃服务器
+foreach ($dashboardData['servers'] as $server) {
+    if (($server['status'] ?? '') === 'running') {
+        $stats['activeServers']++;
+    }
+}
+
+// 统计活跃客户端
+foreach ($dashboardData['clients'] as $client) {
+    if (($client['status'] ?? '') === 'connected') {
+        $stats['activeClients']++;
+    }
+}
+
+// 系统状态
+if ($dashboardData['apiStatus']) {
+    $stats['systemStatus'] = $dashboardData['apiStatus']['status'] ?? 'unknown';
+}
 ?>
 
 <!-- 统计卡片 -->
@@ -269,7 +296,7 @@ $stats = $this->getStatistics($dashboardData);
                     <div class="list-group-item px-0">
                         <div class="d-flex w-100 justify-content-between">
                             <h6 class="mb-1">
-                                <span class="badge bg-<?= $this->getLogLevelColor($log['level'] ?? 'info') ?> me-2">
+                                <span class="badge bg-<?= getLogLevelColor($log['level'] ?? 'info') ?> me-2">
                                     <?= strtoupper($log['level'] ?? 'INFO') ?>
                                 </span>
                                 <?= htmlspecialchars($log['message'] ?? '') ?>

@@ -10,14 +10,21 @@ class DashboardController {
         $this->auth = new Auth();
         $this->apiClient = new ApiClient();
         
-        // 要求用户登录
-        $this->auth->requireLogin();
+        // 检查用户登录状态，但不强制要求
+        // $this->auth->requireLogin();
     }
     
     /**
      * 显示仪表板
      */
     public function index() {
+        // 检查用户是否已登录
+        if (!$this->auth->isLoggedIn()) {
+            // 如果未登录，显示登录提示
+            $this->showLoginPrompt();
+            return;
+        }
+        
         try {
             // 获取仪表板数据
             $dashboardData = $this->getDashboardData();
@@ -106,16 +113,51 @@ class DashboardController {
     public function getRealtimeData() {
         try {
             $data = $this->getDashboardData();
+            header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
                 'data' => $data
             ]);
         } catch (Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
             echo json_encode([
                 'success' => false,
                 'message' => $e->getMessage()
             ]);
         }
+    }
+    
+    /**
+     * 显示登录提示
+     */
+    private function showLoginPrompt() {
+        $pageTitle = '需要登录';
+        $showSidebar = false;
+        
+        include 'views/layout/header.php';
+        echo '<div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-body text-center">
+                            <div class="mb-4">
+                                <i class="bi bi-shield-lock text-primary" style="font-size: 4rem;"></i>
+                            </div>
+                            <h5 class="card-title">需要登录</h5>
+                            <p class="card-text">请先登录以访问IPv6 WireGuard管理控制台。</p>
+                            <div class="d-grid gap-2">
+                                <a href="/login" class="btn btn-primary">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>前往登录
+                                </a>
+                                <small class="text-muted">默认账户: admin / admin123</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>';
+        include 'views/layout/footer.php';
     }
     
     /**
