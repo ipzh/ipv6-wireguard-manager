@@ -139,7 +139,7 @@ metadata = MetaData()
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """获取异步数据库会话"""
     if not AsyncSessionLocal:
-        raise RuntimeError("异步数据库会话不可用，请检查asyncpg驱动是否安装")
+        raise RuntimeError("异步数据库会话不可用，请检查aiomysql驱动是否安装")
     
     async with AsyncSessionLocal() as session:
         try:

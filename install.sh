@@ -96,6 +96,23 @@ SKIP_DEPS=false
 SKIP_DB=false
 SKIP_SERVICE=false
 SKIP_FRONTEND=false
+SKIP_MONITORING=false
+SKIP_LOGGING=false
+SKIP_BACKUP=false
+SKIP_SECURITY=false
+SKIP_OPTIMIZATION=false
+
+# 可选功能
+ENABLE_DOCKER=false
+ENABLE_REDIS=false
+ENABLE_MONITORING=false
+ENABLE_LOGGING=false
+ENABLE_BACKUP=false
+ENABLE_SECURITY=false
+ENABLE_OPTIMIZATION=false
+ENABLE_SSL=false
+ENABLE_FIREWALL=false
+ENABLE_SELINUX=false
 
 # 系统信息检测
 detect_system() {
@@ -369,16 +386,8 @@ parse_arguments() {
                 PYTHON_VERSION="$2"
                 shift 2
                 ;;
-            --node)
-                NODE_VERSION="$2"
-                shift 2
-                ;;
             --mysql)
                 MYSQL_VERSION="$2"
-                shift 2
-                ;;
-            --postgres)
-                POSTGRES_VERSION="$2"
                 shift 2
                 ;;
             --redis)
@@ -417,6 +426,78 @@ parse_arguments() {
                 SKIP_FRONTEND=true
                 shift
                 ;;
+            --skip-monitoring)
+                SKIP_MONITORING=true
+                shift
+                ;;
+            --skip-logging)
+                SKIP_LOGGING=true
+                shift
+                ;;
+            --skip-backup)
+                SKIP_BACKUP=true
+                shift
+                ;;
+            --skip-security)
+                SKIP_SECURITY=true
+                shift
+                ;;
+            --skip-optimization)
+                SKIP_OPTIMIZATION=true
+                shift
+                ;;
+            --enable-docker)
+                ENABLE_DOCKER=true
+                shift
+                ;;
+            --enable-redis)
+                ENABLE_REDIS=true
+                shift
+                ;;
+            --enable-monitoring)
+                ENABLE_MONITORING=true
+                shift
+                ;;
+            --enable-logging)
+                ENABLE_LOGGING=true
+                shift
+                ;;
+            --enable-backup)
+                ENABLE_BACKUP=true
+                shift
+                ;;
+            --enable-security)
+                ENABLE_SECURITY=true
+                shift
+                ;;
+            --enable-optimization)
+                ENABLE_OPTIMIZATION=true
+                shift
+                ;;
+            --enable-ssl)
+                ENABLE_SSL=true
+                shift
+                ;;
+            --enable-firewall)
+                ENABLE_FIREWALL=true
+                shift
+                ;;
+            --enable-selinux)
+                ENABLE_SELINUX=true
+                shift
+                ;;
+            --enable-all)
+                ENABLE_DOCKER=true
+                ENABLE_REDIS=true
+                ENABLE_MONITORING=true
+                ENABLE_LOGGING=true
+                ENABLE_BACKUP=true
+                ENABLE_SECURITY=true
+                ENABLE_OPTIMIZATION=true
+                ENABLE_SSL=true
+                ENABLE_FIREWALL=true
+                shift
+                ;;
             --auto)
                 SILENT=true
                 shift
@@ -441,6 +522,25 @@ parse_arguments() {
     INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
     WEB_PORT="${WEB_PORT:-$DEFAULT_PORT}"
     API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
+    
+    # 生产环境自动启用安全功能
+    if [[ "$PRODUCTION" = true ]]; then
+        ENABLE_SECURITY=true
+        ENABLE_SSL=true
+        ENABLE_FIREWALL=true
+        ENABLE_BACKUP=true
+        ENABLE_MONITORING=true
+        ENABLE_LOGGING=true
+        log_info "生产环境模式，自动启用安全功能"
+    fi
+    
+    # 性能模式自动启用优化
+    if [[ "$PERFORMANCE" = true ]]; then
+        ENABLE_OPTIMIZATION=true
+        ENABLE_REDIS=true
+        ENABLE_MONITORING=true
+        log_info "性能模式，自动启用优化功能"
+    fi
     
     # 如果没有指定安装类型，自动选择
     if [ -z "$INSTALL_TYPE" ]; then
@@ -503,9 +603,7 @@ show_help() {
     echo "  --user USER         服务用户 (默认: ipv6wgm)"
     echo "  --group GROUP       服务组 (默认: ipv6wgm)"
     echo "  --python VERSION    Python版本 (默认: 3.11)"
-    echo "  --node VERSION      Node.js版本 (默认: 18)"
     echo "  --mysql VERSION     MySQL版本 (默认: 8.0)"
-    echo "  --postgres VERSION  PostgreSQL版本 (默认: 15)"
     echo "  --redis VERSION     Redis版本 (默认: 7)"
     echo "  --silent            静默安装 (无交互)"
     echo "  --performance       启用性能优化"
@@ -515,7 +613,26 @@ show_help() {
     echo "  --skip-db           跳过数据库安装"
     echo "  --skip-service      跳过服务安装"
     echo "  --skip-frontend     跳过前端安装"
+    echo "  --skip-monitoring   跳过监控配置"
+    echo "  --skip-logging      跳过日志配置"
+    echo "  --skip-backup       跳过备份配置"
+    echo "  --skip-security     跳过安全配置"
+    echo "  --skip-optimization 跳过性能优化"
     echo "  --auto              自动选择安装类型"
+    echo ""
+    echo "可选功能:"
+    echo "  --enable-docker     启用Docker支持"
+    echo "  --enable-redis      启用Redis缓存"
+    echo "  --enable-monitoring 启用系统监控"
+    echo "  --enable-logging    启用高级日志"
+    echo "  --enable-backup     启用自动备份"
+    echo "  --enable-security   启用安全加固"
+    echo "  --enable-optimization 启用性能优化"
+    echo "  --enable-ssl        启用SSL/TLS"
+    echo "  --enable-firewall   启用防火墙配置"
+    echo "  --enable-selinux    启用SELinux"
+    echo "  --enable-all        启用所有可选功能"
+    echo ""
     echo "  --help, -h          显示此帮助信息"
     echo "  --version, -v       显示版本信息"
     echo ""
@@ -526,6 +643,10 @@ show_help() {
     echo "  $0 --silent --performance            # 静默安装并优化"
     echo "  $0 --production native               # 生产环境原生安装"
     echo "  $0 --debug minimal                   # 调试模式最小化安装"
+    echo "  $0 --enable-all                      # 启用所有可选功能"
+    echo "  $0 --production --enable-security    # 生产环境+安全加固"
+    echo "  $0 --enable-monitoring --enable-backup # 监控+备份"
+    echo "  $0 --enable-ssl --enable-firewall    # SSL+防火墙"
     echo ""
     echo "快速安装:"
     echo "  curl -fsSL $PROJECT_REPO/raw/main/install.sh | bash"
@@ -719,12 +840,8 @@ run_minimal_installation() {
     
     # 构建前端（如果启用）
     if [ "$SKIP_FRONTEND" = false ]; then
-        log_step "步骤 4.5/7: 构建前端"
-        log_info "开始构建前端..."
-        if ! build_frontend; then
-            log_error "前端构建失败"
-            exit 1
-        fi
+        log_step "步骤 4.5/7: 前端已迁移到PHP"
+        log_info "前端已迁移到PHP，请使用 deploy_php_frontend.sh 脚本部署"
         log_info "前端构建完成"
     else
         log_info "跳过前端构建"
@@ -954,71 +1071,13 @@ install_application_dependencies() {
     pip install --upgrade pip
     pip install -r requirements.txt
     
-    # 安装前端依赖（如果启用）
-    if [ "$SKIP_FRONTEND" = false ]; then
-        cd "$INSTALL_DIR/frontend"
-        npm install
-        npm run build
-    fi
+    # 前端已迁移到PHP，不再需要npm构建
     
     log_success "应用依赖安装完成"
 }
 
 # 构建前端
-build_frontend() {
-    log_info "构建前端..."
-    
-    cd "$INSTALL_DIR/frontend" || {
-        log_error "无法进入前端目录: $INSTALL_DIR/frontend"
-        return 1
-    }
-    
-    # 检查Node.js是否已安装
-    if ! command -v node &> /dev/null; then
-        log_info "安装Node.js..."
-        case $PACKAGE_MANAGER in
-            "apt")
-                curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-                apt-get install -y nodejs
-                ;;
-            "yum"|"dnf")
-                curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-                $PACKAGE_MANAGER install -y nodejs
-                ;;
-            "pacman")
-                pacman -S --noconfirm nodejs npm
-                ;;
-            "zypper")
-                zypper install -y nodejs npm
-                ;;
-        esac
-    fi
-    
-    # 检查npm是否可用
-    if ! command -v npm &> /dev/null; then
-        log_error "npm不可用，无法构建前端"
-        return 1
-    fi
-    
-    # 安装前端依赖
-    log_info "安装前端依赖..."
-    if ! npm install; then
-        log_error "前端依赖安装失败"
-        return 1
-    fi
-    
-    # 构建前端
-    log_info "构建前端项目..."
-    if ! npm run build; then
-        log_error "前端构建失败"
-        return 1
-    fi
-    
-    # 设置权限
-    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/frontend"
-    
-    log_success "前端构建完成"
-}
+# 前端已迁移到PHP，不再需要构建函数
 
 # 创建环境变量文件
 create_environment_file() {
@@ -1383,27 +1442,7 @@ server {
     listen [::]:$WEB_PORT;
     server_name _;
     
-    # 前端静态文件
-    location / {
-        root $INSTALL_DIR/frontend/dist;
-        try_files \$uri \$uri/ /index.html;
-        
-        # 添加CORS头
-        add_header Access-Control-Allow-Origin *;
-        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
-        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
-        
-        # 处理预检请求
-        if (\$request_method = 'OPTIONS') {
-            add_header Access-Control-Allow-Origin *;
-            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
-            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization";
-            add_header Access-Control-Max-Age 1728000;
-            add_header Content-Type 'text/plain; charset=utf-8';
-            add_header Content-Length 0;
-            return 204;
-        }
-    }
+    # 注意：前端已迁移到PHP，请使用 deploy_php_frontend.sh 部署
     
     # 后端API
     location /api/ {
@@ -1451,9 +1490,8 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
     
-    # 静态资源缓存
+    # 静态资源缓存（PHP前端）
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
-        root $INSTALL_DIR/frontend/dist;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }

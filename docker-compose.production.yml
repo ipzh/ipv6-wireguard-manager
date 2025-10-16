@@ -73,54 +73,14 @@ services:
       retries: 3
       start_period: 40s
 
-  # 前端Web服务
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.production
-    container_name: ipv6-wireguard-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - ipv6-wireguard-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Nginx反向代理
-  nginx:
-    image: nginx:alpine
-    container_name: ipv6-wireguard-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "[::]:80:80"
-      - "[::]:443:443"
-    volumes:
-      - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - ipv6-wireguard-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # 注意：前端服务已迁移到PHP，不再使用Docker容器
+  # 请使用 deploy_php_frontend.sh 脚本部署PHP前端
+  # Nginx配置请参考 php-frontend/nginx.conf
 
 volumes:
   mysql_data:
     driver: local
   redis_data:
-    driver: local
-  nginx_logs:
     driver: local
 
 networks:
