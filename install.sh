@@ -838,13 +838,17 @@ run_minimal_installation() {
     fi
     log_info "Python依赖安装完成"
     
-    # 构建前端（如果启用）
+    # 部署PHP前端（如果启用）
     if [ "$SKIP_FRONTEND" = false ]; then
-        log_step "步骤 4.5/7: 前端已迁移到PHP"
-        log_info "前端已迁移到PHP，请使用 deploy_php_frontend.sh 脚本部署"
-        log_info "前端构建完成"
+        log_step "步骤 4.5/7: 部署PHP前端"
+        log_info "开始部署PHP前端..."
+        if ! deploy_php_frontend; then
+            log_error "PHP前端部署失败"
+            exit 1
+        fi
+        log_info "PHP前端部署完成"
     else
-        log_info "跳过前端构建"
+        log_info "跳过PHP前端部署"
     fi
     
     # 配置最小化MySQL数据库
@@ -956,9 +960,9 @@ install_system_dependencies() {
     esac
 }
 
-# 安装最小依赖（仅MySQL）
+# 安装最小依赖（包括PHP和MySQL）
 install_minimal_dependencies() {
-    log_info "安装最小依赖（仅MySQL）..."
+    log_info "安装最小依赖（包括PHP和MySQL）..."
     
     case $PACKAGE_MANAGER in
         "apt")
@@ -991,22 +995,70 @@ install_minimal_dependencies() {
                 log_info "  或者: sudo apt-get install mysql-server"
                 exit 1
             fi
+            
+            # 安装PHP和PHP-FPM
+            log_info "安装PHP和PHP-FPM..."
+            if apt-get install -y php$PHP_VERSION php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-curl php$PHP_VERSION-json php$PHP_VERSION-mbstring php$PHP_VERSION-mysql php$PHP_VERSION-xml php$PHP_VERSION-zip; then
+                log_success "PHP $PHP_VERSION 安装成功"
+            else
+                log_error "PHP安装失败"
+                log_info "请手动安装PHP："
+                log_info "  Ubuntu/Debian: sudo apt-get install php php-fpm"
+                exit 1
+            fi
+            
             apt-get install -y nginx
             apt-get install -y git curl wget
             ;;
         "yum"|"dnf")
             $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip
             $PACKAGE_MANAGER install -y mysql-server mysql
+            
+            # 安装PHP和PHP-FPM
+            log_info "安装PHP和PHP-FPM..."
+            if $PACKAGE_MANAGER install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip; then
+                log_success "PHP安装成功"
+            else
+                log_error "PHP安装失败"
+                log_info "请手动安装PHP："
+                log_info "  CentOS/RHEL: sudo yum install php php-fpm"
+                exit 1
+            fi
+            
             $PACKAGE_MANAGER install -y nginx
-            $PACKAGE_MANAGER install -y git curl wget
+            $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
             ;;
         "pacman")
             pacman -S --noconfirm python python-pip mysql nginx
+            
+            # 安装PHP和PHP-FPM
+            log_info "安装PHP和PHP-FPM..."
+            if pacman -S --noconfirm php php-fpm; then
+                log_success "PHP安装成功"
+            else
+                log_error "PHP安装失败"
+                log_info "请手动安装PHP："
+                log_info "  Arch Linux: sudo pacman -S php php-fpm"
+                exit 1
+            fi
+            
             pacman -S --noconfirm git curl wget
             ;;
         "zypper")
             zypper install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip
             zypper install -y mysql mysql-server
+            
+            # 安装PHP和PHP-FPM
+            log_info "安装PHP和PHP-FPM..."
+            if zypper install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip; then
+                log_success "PHP安装成功"
+            else
+                log_error "PHP安装失败"
+                log_info "请手动安装PHP："
+                log_info "  openSUSE: sudo zypper install php php-fpm"
+                exit 1
+            fi
+            
             zypper install -y nginx
             zypper install -y git curl wget
             ;;
@@ -1078,6 +1130,90 @@ install_application_dependencies() {
 
 # 构建前端
 # 前端已迁移到PHP，不再需要构建函数
+
+# 部署PHP前端
+deploy_php_frontend() {
+    log_info "部署PHP前端文件..."
+    
+    # 检查PHP前端目录是否存在
+    local php_frontend_dir="$INSTALL_DIR/php-frontend"
+    if [[ ! -d "$php_frontend_dir" ]]; then
+        log_error "PHP前端目录不存在: $php_frontend_dir"
+        log_info "请确保项目已正确下载"
+        return 1
+    fi
+    
+    # 创建Web目录
+    local web_dir="/var/www/html"
+    if [[ ! -d "$web_dir" ]]; then
+        log_info "创建Web目录: $web_dir"
+        mkdir -p "$web_dir"
+    fi
+    
+    # 复制PHP前端文件
+    log_info "复制PHP前端文件到Web目录..."
+    cp -r "$php_frontend_dir"/* "$web_dir/"
+    
+    # 创建配置文件
+    log_info "创建前端配置文件..."
+    mkdir -p "$web_dir/config"
+    cat > "$web_dir/config/config.php" << EOF
+<?php
+// 应用配置
+define('APP_NAME', 'IPv6 WireGuard Manager');
+define('APP_VERSION', '3.0.0');
+define('APP_DEBUG', false);
+
+// API配置
+define('API_BASE_URL', 'http://localhost:$API_PORT/api/v1');
+define('API_TIMEOUT', 30);
+
+// 会话配置
+define('SESSION_LIFETIME', 3600);
+
+// 分页配置
+define('DEFAULT_PAGE_SIZE', 20);
+define('MAX_PAGE_SIZE', 100);
+
+// 安全配置
+define('CSRF_TOKEN_NAME', '_token');
+define('PASSWORD_MIN_LENGTH', 8);
+
+// 错误处理
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// 时区设置
+date_default_timezone_set('Asia/Shanghai');
+
+// 字符编码
+mb_internal_encoding('UTF-8');
+mb_http_output('UTF-8');
+?>
+EOF
+    
+    # 设置权限
+    chown -R "www-data:www-data" "$web_dir"
+    chmod -R 755 "$web_dir"
+    
+    # 启动PHP-FPM服务
+    log_info "启动PHP-FPM服务..."
+    if systemctl is-active --quiet php$PHP_VERSION-fpm 2>/dev/null; then
+        log_info "PHP-FPM服务已在运行"
+    else
+        systemctl enable php$PHP_VERSION-fpm
+        systemctl start php$PHP_VERSION-fpm
+        if systemctl is-active --quiet php$PHP_VERSION-fpm; then
+            log_success "PHP-FPM服务启动成功"
+        else
+            log_error "PHP-FPM服务启动失败"
+            return 1
+        fi
+    fi
+    
+    log_success "PHP前端部署完成"
+    return 0
+}
 
 # 创建环境变量文件
 create_environment_file() {
@@ -1442,7 +1578,56 @@ server {
     listen [::]:$WEB_PORT;
     server_name _;
     
-    # 注意：前端已迁移到PHP，请使用 deploy_php_frontend.sh 部署
+    # 网站根目录
+    root /var/www/html;
+    index index.php index.html index.htm;
+    
+    # 字符集
+    charset utf-8;
+    
+    # 日志配置
+    access_log /var/log/nginx/ipv6-wireguard-manager_access.log;
+    error_log /var/log/nginx/ipv6-wireguard-manager_error.log;
+    
+    # 安全头设置
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    
+    # 客户端最大上传大小
+    client_max_body_size 10M;
+    
+    # 超时设置
+    client_body_timeout 60s;
+    client_header_timeout 60s;
+    keepalive_timeout 65s;
+    
+    # Gzip压缩
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml;
+    
+    # PHP文件处理
+    location ~ \.php$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
     
     # 后端API
     location /api/ {
@@ -1490,10 +1675,15 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
     
-    # 静态资源缓存（PHP前端）
+    # 静态资源缓存
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+    
+    # 默认路由处理
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
     }
 }
 EOF
