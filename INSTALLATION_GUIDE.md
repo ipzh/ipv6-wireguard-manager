@@ -1,710 +1,331 @@
-# IPv6 WireGuard Manager 安装指南
+# IPv6 WireGuard Manager - 安装指南
 
-> 📖 **详细安装指南** - 支持所有主流Linux发行版，IPv6/IPv4双栈网络
+## 📋 概述
 
-## 📋 目录
-
-- [系统要求](#系统要求)
-- [快速安装](#快速安装)
-- [详细安装步骤](#详细安装步骤)
-- [Docker安装](#docker安装)
-- [配置说明](#配置说明)
-- [故障排除](#故障排除)
-- [卸载指南](#卸载指南)
-
-## 🖥️ 系统要求
-
-### 最低要求
-
-| 组件 | 要求 |
-|------|------|
-| **操作系统** | Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+, RHEL 8+, Fedora 38+, Arch Linux, openSUSE 15+) |
-| **内存** | 512MB RAM (最小化安装) |
-| **存储** | 1GB 可用空间 |
-| **网络** | IPv4网络连接 |
-| **CPU** | 1核心 |
-
-### 推荐配置
-
-| 组件 | 要求 |
-|------|------|
-| **内存** | 2GB+ RAM |
-| **存储** | 5GB+ 可用空间 |
-| **网络** | IPv6/IPv4双栈网络 |
-| **CPU** | 2+ 核心 |
-
-### 支持的发行版
-
-| 发行版 | 版本 | 包管理器 | 支持状态 | 测试状态 |
-|--------|------|----------|----------|----------|
-| Ubuntu | 20.04+ | APT | ✅ 完全支持 | ✅ 已测试 |
-| Debian | 11+ | APT | ✅ 完全支持 | ✅ 已测试 |
-| CentOS | 8+ | YUM | ✅ 完全支持 | ✅ 已测试 |
-| RHEL | 8+ | YUM | ✅ 完全支持 | ✅ 已测试 |
-| Fedora | 38+ | DNF | ✅ 完全支持 | ✅ 已测试 |
-| Arch Linux | Latest | Pacman | ✅ 完全支持 | ✅ 已测试 |
-| openSUSE | 15+ | Zypper | ✅ 完全支持 | ✅ 已测试 |
+IPv6 WireGuard Manager 提供了智能化的安装脚本，支持多种Linux系统，自动检测系统环境并选择最佳安装方式。
 
 ## 🚀 快速安装
 
 ### 一键安装（推荐）
 
 ```bash
-# 自动选择最佳安装方式
+# 智能安装 - 自动检测系统并选择最佳安装方式
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+
+# 静默安装 - 推荐生产环境
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
+
+# 指定安装类型
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type minimal --silent
 ```
 
-### 指定安装方式
+### 本地安装
 
 ```bash
-# Docker安装（推荐新手）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s docker
+# 下载安装脚本
+wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
+chmod +x install.sh
 
-# 原生安装（推荐VPS）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s native
-
-# 最小化安装（低内存）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s minimal
+# 运行安装
+./install.sh
 ```
 
-### 自定义安装
+## ⚙️ 安装选项
+
+### 基本选项
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `--type TYPE` | 安装类型 (docker\|native\|minimal) | 自动选择 |
+| `--dir DIR` | 安装目录 | `/opt/ipv6-wireguard-manager` |
+| `--port PORT` | Web端口 | `80` |
+| `--api-port PORT` | API端口 | `8000` |
+
+### 功能选项
+
+| 选项 | 说明 |
+|------|------|
+| `--silent` | 静默安装，不显示交互界面 |
+| `--production` | 生产环境安装 |
+| `--performance` | 性能优化安装 |
+| `--debug` | 调试模式 |
+
+### 跳过选项
+
+| 选项 | 说明 |
+|------|------|
+| `--skip-deps` | 跳过依赖安装 |
+| `--skip-db` | 跳过数据库配置 |
+| `--skip-service` | 跳过服务创建 |
+| `--skip-frontend` | 跳过前端部署 |
+
+## 🖥️ 安装类型
+
+### 1. 原生安装 (native)
+- **适用场景**: 开发环境、性能要求高的环境
+- **优点**: 性能最佳、资源占用低、启动快速
+- **缺点**: 依赖系统环境、配置复杂
+- **要求**: 内存 ≥ 2GB，磁盘 ≥ 5GB
 
 ```bash
-# 指定安装目录和端口
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --dir /opt/my-app --port 8080
-
-# 生产环境安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production native
-
-# 静默安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent --performance
+./install.sh --type native
 ```
 
-## 📝 详细安装步骤
-
-### 1. 系统准备
-
-#### 检查系统信息
+### 2. 最小化安装 (minimal)
+- **适用场景**: 资源受限环境、测试环境
+- **优点**: 资源占用最低、启动最快
+- **缺点**: 功能受限、性能一般
+- **要求**: 内存 ≥ 1GB，磁盘 ≥ 3GB
 
 ```bash
-# 检查操作系统
+./install.sh --type minimal
+```
+
+### 3. Docker安装 (docker)
+- **适用场景**: 生产环境、需要隔离的环境
+- **优点**: 完全隔离、易于管理、可移植性强
+- **缺点**: 资源占用较高、启动较慢
+- **要求**: 内存 ≥ 4GB，磁盘 ≥ 10GB
+
+```bash
+./install.sh --type docker
+```
+
+## 🖥️ 支持的系统
+
+### 完全支持
+- **Ubuntu**: 18.04, 20.04, 22.04, 24.04
+- **Debian**: 9, 10, 11, 12
+- **CentOS**: 7, 8, 9
+- **RHEL**: 7, 8, 9
+- **Fedora**: 30+
+- **Arch Linux**: 最新版本
+- **openSUSE**: 15+
+
+### 部分支持
+- **Gentoo**: 需要手动配置
+- **Alpine Linux**: 基础支持
+
+## 📦 支持的包管理器
+
+- **APT**: Ubuntu/Debian
+- **YUM/DNF**: CentOS/RHEL/Fedora
+- **Pacman**: Arch Linux
+- **Zypper**: openSUSE
+- **Emerge**: Gentoo
+- **APK**: Alpine Linux
+
+## 🔧 安装示例
+
+### 生产环境安装
+
+```bash
+# 生产环境 + 静默安装
+./install.sh --production --silent
+
+# 自定义目录和端口
+./install.sh --production --dir /opt/ipv6wgm --port 8080 --api-port 9000
+```
+
+### 开发环境安装
+
+```bash
+# 开发环境 + 调试模式
+./install.sh --type native --debug
+
+# 跳过某些步骤
+./install.sh --type native --skip-deps --skip-db
+```
+
+### 资源受限环境
+
+```bash
+# 最小化安装
+./install.sh --type minimal --silent
+
+# 自定义配置
+./install.sh --type minimal --dir /opt/ipv6wgm --skip-monitoring
+```
+
+## 🔍 安装前检查
+
+### 系统兼容性测试
+
+```bash
+# 运行系统兼容性测试
+./test_system_compatibility.sh
+```
+
+测试内容包括：
+- 操作系统检测
+- 包管理器检测
+- Python环境检查
+- 数据库支持检查
+- Web服务器检查
+- PHP环境检查
+- 网络连接测试
+- 系统服务检查
+- 权限检查
+
+### 手动检查
+
+```bash
+# 检查系统信息
 cat /etc/os-release
-
-# 检查内存
+uname -a
 free -h
-
-# 检查磁盘空间
 df -h
 
-# 检查网络连接
+# 检查包管理器
+which apt-get yum dnf pacman zypper emerge apk
+
+# 检查Python
+python3 --version
+pip3 --version
+
+# 检查网络
 ping -c 1 8.8.8.8
-ping6 -c 1 2001:4860:4860::8888  # IPv6测试（可选）
+ping6 -c 1 2001:4860:4860::8888
 ```
 
-#### 更新系统
+## 📋 安装步骤
+
+### 自动安装流程
+
+1. **系统检测** - 检测操作系统、架构、包管理器
+2. **依赖安装** - 安装Python、MySQL、Nginx、PHP等依赖
+3. **用户创建** - 创建服务用户和组
+4. **代码下载** - 从GitHub下载项目代码
+5. **依赖配置** - 安装Python依赖包
+6. **数据库配置** - 创建数据库和用户
+7. **前端部署** - 部署PHP前端
+8. **服务配置** - 配置Nginx和systemd服务
+9. **服务启动** - 启动所有服务
+10. **环境检查** - 验证安装是否成功
+
+### 手动安装步骤
+
+如果自动安装失败，可以手动执行以下步骤：
 
 ```bash
-# Ubuntu/Debian
-sudo apt update && sudo apt upgrade -y
-
-# CentOS/RHEL
-sudo yum update -y
-
-# Fedora
-sudo dnf update -y
-
-# Arch Linux
-sudo pacman -Syu
-
-# openSUSE
-sudo zypper refresh && sudo zypper update -y
-```
-
-### 2. 安装系统依赖
-
-#### Ubuntu/Debian
-
-```bash
-# 安装基础依赖
-sudo apt install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    software-properties-common \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    lsb-release
-
-# 安装Python 3.11
-sudo add-apt-repository ppa:deadsnakes/ppa -y
+# 1. 安装系统依赖
 sudo apt update
-sudo apt install -y python3.11 python3.11-venv python3.11-dev
+sudo apt install -y python3.11 python3.11-venv mysql-server nginx php8.1-fpm git curl wget
 
-# 安装Node.js 18
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 安装PostgreSQL
-sudo apt install -y postgresql-15 postgresql-contrib-15
-
-# 安装Redis
-sudo apt install -y redis-server
-
-# 安装Nginx
-sudo apt install -y nginx
-
-# 安装WireGuard
-sudo apt install -y wireguard
-```
-
-#### CentOS/RHEL
-
-```bash
-# 安装EPEL仓库
-sudo yum install -y epel-release
-
-# 安装基础依赖
-sudo yum install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    ca-certificates \
-    gcc \
-    gcc-c++ \
-    make \
-    postgresql-devel \
-    python3-devel \
-    libffi-devel \
-    openssl-devel
-
-# 安装Python 3
-sudo yum install -y python3 python3-pip python3-devel
-
-# 安装Node.js 18
-curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-sudo yum install -y nodejs
-
-# 安装PostgreSQL
-sudo yum install -y postgresql-server postgresql-contrib
-
-# 安装Redis
-sudo yum install -y redis
-
-# 安装Nginx
-sudo yum install -y nginx
-
-# 安装WireGuard
-sudo yum install -y wireguard-tools
-```
-
-#### Fedora
-
-```bash
-# 安装基础依赖
-sudo dnf install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    ca-certificates \
-    gcc \
-    gcc-c++ \
-    make \
-    postgresql-devel \
-    python3-devel \
-    libffi-devel \
-    openssl-devel
-
-# 安装Python 3
-sudo dnf install -y python3 python3-pip python3-devel
-
-# 安装Node.js 18
-curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-sudo dnf install -y nodejs
-
-# 安装PostgreSQL
-sudo dnf install -y postgresql-server postgresql-contrib
-
-# 安装Redis
-sudo dnf install -y redis
-
-# 安装Nginx
-sudo dnf install -y nginx
-
-# 安装WireGuard
-sudo dnf install -y wireguard-tools
-```
-
-#### Arch Linux
-
-```bash
-# 更新包列表
-sudo pacman -Sy
-
-# 安装基础依赖
-sudo pacman -S --noconfirm \
-    curl \
-    wget \
-    git \
-    unzip \
-    ca-certificates \
-    base-devel \
-    postgresql-libs \
-    libffi \
-    openssl
-
-# 安装Python
-sudo pacman -S --noconfirm python python-pip
-
-# 安装Node.js
-sudo pacman -S --noconfirm nodejs npm
-
-# 安装PostgreSQL
-sudo pacman -S --noconfirm postgresql
-
-# 安装Redis
-sudo pacman -S --noconfirm redis
-
-# 安装Nginx
-sudo pacman -S --noconfirm nginx
-
-# 安装WireGuard
-sudo pacman -S --noconfirm wireguard-tools
-```
-
-#### openSUSE
-
-```bash
-# 更新包列表
-sudo zypper refresh
-
-# 安装基础依赖
-sudo zypper install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    ca-certificates \
-    patterns-devel-C-C++ \
-    postgresql-devel \
-    python3-devel \
-    libffi-devel \
-    openssl-devel
-
-# 安装Python 3
-sudo zypper install -y python3 python3-pip python3-devel
-
-# 安装Node.js 18
-curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-sudo zypper install -y nodejs
-
-# 安装PostgreSQL
-sudo zypper install -y postgresql-server postgresql-contrib
-
-# 安装Redis
-sudo zypper install -y redis
-
-# 安装Nginx
-sudo zypper install -y nginx
-
-# 安装WireGuard
-sudo zypper install -y wireguard-tools
-```
-
-### 3. 下载项目
-
-```bash
-# 克隆项目
-git clone https://github.com/ipzh/ipv6-wireguard-manager.git
-cd ipv6-wireguard-manager
-```
-
-### 4. 安装后端
-
-```bash
-cd backend
-
-# 创建虚拟环境
-python3.11 -m venv venv
-source venv/bin/activate
-
-# 安装Python依赖
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-### 5. 安装前端
-
-```bash
-cd ../frontend
-
-# 安装Node.js依赖
-npm install
-
-# 构建前端
-npm run build
-```
-
-### 6. 配置数据库
-
-```bash
-# 启动PostgreSQL
-sudo systemctl enable postgresql
-sudo systemctl start postgresql
-
-# 创建数据库和用户
-sudo -u postgres psql -c "CREATE DATABASE ipv6wgm;"
-sudo -u postgres psql -c "CREATE USER ipv6wgm WITH PASSWORD 'password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ipv6wgm TO ipv6wgm;"
-
-# 启动Redis
-sudo systemctl enable redis
-sudo systemctl start redis
-```
-
-### 7. 配置Nginx
-
-```bash
-# 创建Nginx配置
-sudo tee /etc/nginx/sites-available/ipv6-wireguard-manager > /dev/null << 'EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name _;
-    
-    # 前端静态文件
-    location / {
-        root /opt/ipv6-wireguard-manager/frontend/dist;
-        try_files $uri $uri/ /index.html;
-    }
-    
-    # 后端API
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    # WebSocket支持
-    location /ws/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-EOF
-
-# 启用站点
-sudo ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
-
-# 测试配置
-sudo nginx -t
-
-# 重启Nginx
-sudo systemctl enable nginx
-sudo systemctl restart nginx
-```
-
-### 8. 创建系统服务
-
-```bash
-# 创建服务用户
+# 2. 创建服务用户
 sudo useradd -r -s /bin/false -d /opt/ipv6-wireguard-manager ipv6wgm
 
-# 移动项目到安装目录
-sudo mkdir -p /opt/ipv6-wireguard-manager
-sudo cp -r . /opt/ipv6-wireguard-manager/
+# 3. 下载项目
+sudo git clone https://github.com/ipzh/ipv6-wireguard-manager.git /opt/ipv6-wireguard-manager
 sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
 
-# 创建systemd服务文件
-sudo tee /etc/systemd/system/ipv6-wireguard-manager.service > /dev/null << 'EOF'
-[Unit]
-Description=IPv6 WireGuard Manager
-After=network.target postgresql.service redis.service
-Wants=postgresql.service redis.service
+# 4. 安装Python依赖
+cd /opt/ipv6-wireguard-manager
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
 
-[Service]
-Type=exec
-User=ipv6wgm
-Group=ipv6wgm
-WorkingDirectory=/opt/ipv6-wireguard-manager/backend
-Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
-RestartSec=10
+# 5. 配置数据库
+sudo mysql -e "CREATE DATABASE ipv6wgm; CREATE USER 'ipv6wgm'@'localhost' IDENTIFIED BY 'password'; GRANT ALL PRIVILEGES ON ipv6wgm.* TO 'ipv6wgm'@'localhost';"
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# 6. 部署前端
+sudo cp -r php-frontend/* /var/www/html/
+sudo chown -R www-data:www-data /var/www/html/
 
-# 重新加载systemd
+# 7. 配置Nginx
+sudo cp php-frontend/nginx.conf /etc/nginx/sites-available/ipv6-wireguard-manager
+sudo ln -s /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+
+# 8. 创建系统服务
+sudo cp install/ipv6-wireguard-manager.service /etc/systemd/system/
 sudo systemctl daemon-reload
-
-# 启用服务
 sudo systemctl enable ipv6-wireguard-manager
+sudo systemctl start ipv6-wireguard-manager
 ```
 
-### 9. 启动服务
+## ✅ 安装验证
+
+### 自动验证
 
 ```bash
-# 启动应用服务
-sudo systemctl start ipv6-wireguard-manager
+# 运行安装验证脚本
+./verify_installation.sh
+```
 
+验证内容包括：
+- 系统服务状态检查
+- 端口监听检查
+- 数据库连接测试
+- Web服务测试
+- API服务测试
+- 文件权限检查
+- 配置文件检查
+- 日志文件检查
+- 性能测试
+
+### 手动验证
+
+```bash
 # 检查服务状态
 sudo systemctl status ipv6-wireguard-manager
+sudo systemctl status nginx
+sudo systemctl status mysql
+sudo systemctl status php8.1-fpm
+
+# 检查端口监听
+sudo netstat -tlnp | grep -E ":(80|8000) "
+
+# 测试Web访问
+curl -f http://localhost/
+
+# 测试API访问
+curl -f http://localhost:8000/api/v1/health
+
+# 检查日志
+sudo journalctl -u ipv6-wireguard-manager -f
 ```
 
-## 🐳 Docker安装
-
-### 安装Docker
-
-```bash
-# Ubuntu/Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-
-# CentOS/RHEL
-sudo yum install -y docker
-sudo systemctl enable docker
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-
-# Fedora
-sudo dnf install -y docker
-sudo systemctl enable docker
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-
-# Arch Linux
-sudo pacman -S docker
-sudo systemctl enable docker
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-
-# openSUSE
-sudo zypper install -y docker
-sudo systemctl enable docker
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-```
-
-### 安装Docker Compose
-
-```bash
-# 下载Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-# 设置执行权限
-sudo chmod +x /usr/local/bin/docker-compose
-
-# 验证安装
-docker-compose --version
-```
-
-### 启动Docker服务
-
-```bash
-# 克隆项目
-git clone https://github.com/ipzh/ipv6-wireguard-manager.git
-cd ipv6-wireguard-manager
-
-# 开发环境
-docker-compose up -d
-
-# 生产环境
-docker-compose -f docker-compose.production.yml up -d
-```
-
-## ⚙️ 配置说明
-
-### 环境变量配置
-
-#### 后端配置
-
-创建 `backend/.env` 文件：
-
-```bash
-# 数据库配置
-DATABASE_URL=postgresql://ipv6wgm:password@localhost:5432/ipv6wgm
-REDIS_URL=redis://localhost:6379/0
-
-# 服务器配置
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
-DEBUG=false
-
-# 安全配置
-SECRET_KEY=your-secret-key-here
-ACCESS_TOKEN_EXPIRE_MINUTES=10080
-
-# 性能配置
-MAX_WORKERS=4
-DATABASE_POOL_SIZE=20
-DATABASE_MAX_OVERFLOW=30
-```
-
-#### 前端配置
-
-创建 `frontend/.env` 文件：
-
-```bash
-# API配置（自动检测，无需修改）
-VITE_API_URL=http://localhost:8000
-VITE_WS_URL=ws://localhost:8000
-
-# 应用配置
-VITE_APP_NAME=IPv6 WireGuard Manager
-VITE_APP_VERSION=3.0.0
-VITE_DEBUG=false
-
-# 功能开关
-VITE_ENABLE_WEBSOCKET=true
-VITE_ENABLE_MONITORING=true
-VITE_ENABLE_BGP=true
-```
-
-### 网络配置
-
-#### IPv6/IPv4双栈支持
-
-项目自动支持IPv6/IPv4双栈网络：
-
-- **后端**: 监听所有接口 (`0.0.0.0`)
-- **前端**: 自动检测网络协议
-- **CORS**: 支持IPv6和IPv4访问
-- **Nginx**: 同时监听IPv4和IPv6端口
-
-#### 防火墙配置
-
-```bash
-# UFW配置
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw allow 8000/tcp
-sudo ufw enable
-
-# iptables配置
-sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 8000 -j ACCEPT
-```
-
-## 🔧 故障排除
+## 🚨 故障排除
 
 ### 常见问题
 
-#### 1. 前端无法访问
-
-**症状**: 浏览器显示无法访问或空白页面
-
-**解决方案**:
-
+#### 1. PHP-FPM服务启动失败
 ```bash
-# 检查Nginx状态
-sudo systemctl status nginx
+# 运行PHP-FPM修复脚本
+./fix_php_fpm.sh
 
-# 检查端口监听
-sudo netstat -tuln | grep :80
-
-# 检查Nginx配置
-sudo nginx -t
-
-# 检查前端文件
-ls -la /opt/ipv6-wireguard-manager/frontend/dist/
-
-# 重启Nginx
-sudo systemctl restart nginx
+# 或手动修复
+sudo systemctl start php8.1-fpm
+sudo systemctl enable php8.1-fpm
 ```
 
-#### 2. 后端API连接失败
-
-**症状**: 前端无法连接到后端API
-
-**解决方案**:
-
+#### 2. 数据库连接失败
 ```bash
-# 检查后端服务
-sudo systemctl status ipv6-wireguard-manager
+# 检查MySQL服务
+sudo systemctl status mysql
+sudo systemctl restart mysql
 
-# 检查端口监听
-sudo netstat -tuln | grep :8000
-
-# 检查后端日志
-sudo journalctl -u ipv6-wireguard-manager -f
-
-# 测试API连接
-curl http://localhost:8000/health
+# 测试连接
+mysql -u ipv6wgm -p -e "SELECT 1;"
 ```
 
-#### 3. 数据库连接失败
-
-**症状**: 后端无法连接数据库
-
-**解决方案**:
-
+#### 3. 端口占用问题
 ```bash
-# 检查PostgreSQL状态
-sudo systemctl status postgresql
+# 检查端口占用
+sudo netstat -tlnp | grep :80
+sudo lsof -i :80
 
-# 检查数据库连接
-sudo -u postgres psql -c "SELECT 1;"
-
-# 检查用户权限
-sudo -u postgres psql -c "SELECT * FROM pg_user WHERE usename='ipv6wgm';"
-
-# 检查数据库
-sudo -u postgres psql -c "SELECT datname FROM pg_database WHERE datname='ipv6wgm';"
+# 杀死占用进程
+sudo kill -9 <PID>
 ```
 
-#### 4. IPv6连接问题
-
-**症状**: IPv6地址无法访问
-
-**解决方案**:
-
+#### 4. 权限问题
 ```bash
-# 检查IPv6支持
-ping6 -c 1 2001:4860:4860::8888
-
-# 检查IPv6配置
-ip -6 addr show
-
-# 检查Nginx IPv6配置
-sudo nginx -t
-
-# 检查防火墙IPv6规则
-sudo ip6tables -L
-```
-
-### 诊断工具
-
-项目提供了多个诊断工具：
-
-```bash
-# 系统兼容性检查
-./check-linux-compatibility.sh
-
-# 双栈支持验证
-./verify-dual-stack-support.sh
-
-# 数据库健康检查
-python3 -c "from backend.app.core.database_health import get_database_health; print(get_database_health())"
-
-# 网络连接测试
-curl -4 http://localhost:8000/health  # IPv4
-curl -6 http://localhost:8000/health  # IPv6
+# 设置正确的文件权限
+sudo chown -R www-data:www-data /var/www/html/
+sudo chmod -R 755 /var/www/html/
+sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
 ```
 
 ### 日志查看
@@ -714,82 +335,53 @@ curl -6 http://localhost:8000/health  # IPv6
 sudo journalctl -u ipv6-wireguard-manager -f
 
 # Nginx日志
-sudo tail -f /var/log/nginx/access.log
 sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
 
-# PostgreSQL日志
-sudo tail -f /var/log/postgresql/postgresql-15-main.log
-
-# Redis日志
-sudo tail -f /var/log/redis/redis-server.log
+# 系统日志
+sudo journalctl -f
 ```
 
-## 🗑️ 卸载指南
-
-### 完全卸载
+### 重新安装
 
 ```bash
 # 停止服务
 sudo systemctl stop ipv6-wireguard-manager
-sudo systemctl disable ipv6-wireguard-manager
 
-# 删除服务文件
-sudo rm -f /etc/systemd/system/ipv6-wireguard-manager.service
-sudo systemctl daemon-reload
+# 备份数据
+sudo mysqldump -u ipv6wgm -p ipv6wgm > backup.sql
 
-# 删除Nginx配置
-sudo rm -f /etc/nginx/sites-enabled/ipv6-wireguard-manager
-sudo rm -f /etc/nginx/sites-available/ipv6-wireguard-manager
-sudo systemctl restart nginx
-
-# 删除应用文件
+# 清理安装
 sudo rm -rf /opt/ipv6-wireguard-manager
+sudo rm -f /etc/nginx/sites-enabled/ipv6-wireguard-manager
+sudo rm -f /etc/systemd/system/ipv6-wireguard-manager.service
 
-# 删除服务用户
-sudo userdel ipv6wgm
-
-# 删除数据库（可选）
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS ipv6wgm;"
-sudo -u postgres psql -c "DROP USER IF EXISTS ipv6wgm;"
+# 重新安装
+./install.sh --type minimal --silent
 ```
 
-### 保留数据卸载
+## 📚 相关文档
 
-```bash
-# 备份数据库
-sudo -u postgres pg_dump ipv6wgm > ipv6wgm_backup.sql
+- [生产部署指南](PRODUCTION_DEPLOYMENT_GUIDE.md)
+- [故障排除手册](TROUBLESHOOTING_MANUAL.md)
+- [API参考文档](docs/API_REFERENCE_DETAILED.md)
+- [用户手册](docs/USER_MANUAL.md)
+- [安装脚本总结](INSTALLATION_SCRIPT_SUMMARY.md)
 
-# 停止服务
-sudo systemctl stop ipv6-wireguard-manager
-sudo systemctl disable ipv6-wireguard-manager
+## 🆘 获取帮助
 
-# 删除服务文件
-sudo rm -f /etc/systemd/system/ipv6-wireguard-manager.service
-sudo systemctl daemon-reload
+### 在线资源
+- GitHub仓库: https://github.com/ipzh/ipv6-wireguard-manager
+- 问题反馈: https://github.com/ipzh/ipv6-wireguard-manager/issues
+- 文档中心: https://github.com/ipzh/ipv6-wireguard-manager/wiki
 
-# 删除Nginx配置
-sudo rm -f /etc/nginx/sites-enabled/ipv6-wireguard-manager
-sudo rm -f /etc/nginx/sites-available/ipv6-wireguard-manager
-sudo systemctl restart nginx
-
-# 删除应用文件
-sudo rm -rf /opt/ipv6-wireguard-manager
-
-# 删除服务用户
-sudo userdel ipv6wgm
-
-# 注意：数据库和用户保留，可以稍后恢复
-```
-
-## 📞 获取帮助
-
-如果遇到问题，可以通过以下方式获取帮助：
-
-- **项目地址**: https://github.com/ipzh/ipv6-wireguard-manager
-- **问题反馈**: https://github.com/ipzh/ipv6-wireguard-manager/issues
-- **讨论区**: https://github.com/ipzh/ipv6-wireguard-manager/discussions
-- **文档**: https://github.com/ipzh/ipv6-wireguard-manager/wiki
+### 社区支持
+- 技术讨论: GitHub Discussions
+- 问题报告: GitHub Issues
+- 功能请求: GitHub Issues
 
 ---
 
-**🎉 安装完成后，访问 http://localhost 开始使用IPv6 WireGuard Manager！**
+**IPv6 WireGuard Manager 安装指南** - 让部署变得简单可靠！🚀
+
+通过本指南，您可以在任何支持的Linux系统上成功安装和部署IPv6 WireGuard Manager。

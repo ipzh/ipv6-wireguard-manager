@@ -58,48 +58,70 @@
 ### 一键安装
 
 ```bash
-# 完整功能安装（推荐）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --enable-all
+# 智能安装（自动检测系统并选择最佳安装方式）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 
-# 生产环境安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production --enable-security
+# 静默安装（推荐生产环境）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
 
-# 开发环境安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --debug --enable-monitoring
+# 指定安装类型
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type minimal --silent
 ```
 
 ### 安装选项
 
 ```bash
-# 基础安装
-./install.sh --type full
+# 原生安装（推荐开发环境）
+./install.sh --type native
 
 # 最小化安装（低内存环境）
 ./install.sh --type minimal
 
-# 生产环境 + 安全加固
-./install.sh --production --enable-security --enable-ssl
-
-# 开发环境 + 监控
-./install.sh --debug --enable-monitoring
+# 生产环境安装
+./install.sh --production --silent
 
 # 自定义配置
-./install.sh --dir /opt/my-app --port 8080 --api-port 9000
+./install.sh --dir /opt/ipv6wgm --port 8080 --api-port 9000
+
+# 跳过某些步骤
+./install.sh --skip-deps --skip-db
+```
+
+### 系统兼容性测试
+
+```bash
+# 运行系统兼容性测试
+./test_system_compatibility.sh
+
+# 验证安装
+./verify_installation.sh
+
+# 修复PHP-FPM问题
+./fix_php_fpm.sh
 ```
 
 ## 📋 系统要求
 
 ### 最低要求
-- **内存**: 512MB
-- **磁盘**: 2GB
+- **内存**: 1GB
+- **磁盘**: 3GB
 - **CPU**: 1核心
-- **系统**: Ubuntu 18.04+, Debian 9+, CentOS 7+
+- **系统**: 支持多种Linux发行版
 
 ### 推荐配置
 - **内存**: 2GB+
-- **磁盘**: 10GB+
-- **CPU**: 2核心+
-- **系统**: Ubuntu 20.04+, Debian 11+, CentOS 8+
+- **磁盘**: 5GB+
+
+### 支持的系统
+- **Ubuntu**: 18.04, 20.04, 22.04, 24.04
+- **Debian**: 9, 10, 11, 12
+- **CentOS**: 7, 8, 9
+- **RHEL**: 7, 8, 9
+- **Fedora**: 30+
+- **Arch Linux**: 最新版本
+- **openSUSE**: 15+
+- **Gentoo**: 需要手动配置
+- **Alpine Linux**: 基础支持
 
 ## 🌐 访问地址
 
