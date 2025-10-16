@@ -1036,6 +1036,38 @@ install_cli_tool() {
     log_info "使用方法: ipv6-wireguard-manager help"
 }
 
+# 创建必要的目录并设置权限
+create_directories_and_permissions() {
+    log_info "创建必要的目录并设置权限..."
+    
+    # 创建必要的目录
+    local directories=(
+        "$INSTALL_DIR/uploads"
+        "$INSTALL_DIR/logs"
+        "$INSTALL_DIR/temp"
+        "$INSTALL_DIR/backups"
+        "$INSTALL_DIR/config"
+        "$INSTALL_DIR/data"
+    )
+    
+    for directory in "${directories[@]}"; do
+        mkdir -p "$directory"
+        chown "$SERVICE_USER:$SERVICE_GROUP" "$directory"
+        chmod 755 "$directory"
+        log_info "✓ 创建目录: $directory"
+    done
+    
+    # 设置安装目录权限
+    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR"
+    find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
+    find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
+    find "$INSTALL_DIR" -name "*.py" -exec chmod 755 {} \;
+    find "$INSTALL_DIR" -name "*.sh" -exec chmod 755 {} \;
+    find "$INSTALL_DIR/venv/bin" -type f -exec chmod 755 {} \;
+    
+    log_success "目录和权限设置完成"
+}
+
 # 启动服务
 start_services() {
     log_info "启动服务..."
@@ -1208,6 +1240,7 @@ main() {
                 configure_nginx
             fi
             if [[ "$SKIP_SERVICE" = false ]]; then
+                create_directories_and_permissions
                 create_system_service
                 install_cli_tool
             fi
@@ -1230,6 +1263,7 @@ main() {
                 configure_nginx
             fi
             if [[ "$SKIP_SERVICE" = false ]]; then
+                create_directories_and_permissions
                 create_system_service
                 install_cli_tool
             fi

@@ -157,7 +157,7 @@ class Settings(BaseSettings):
     
     # 文件上传配置
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    UPLOAD_DIR: str = "uploads"
+    UPLOAD_DIR: str = "/opt/ipv6-wireguard-manager/uploads"
     ALLOWED_EXTENSIONS: List[str] = [".conf", ".key", ".crt", ".pem", ".txt", ".log"]
     
     # WireGuard配置

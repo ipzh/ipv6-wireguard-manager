@@ -116,6 +116,9 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 测试CLI工具
 ./test_cli_tool.sh
+
+# 修复权限问题
+./fix_permissions.sh
 ```
 
 ## 📋 系统要求
