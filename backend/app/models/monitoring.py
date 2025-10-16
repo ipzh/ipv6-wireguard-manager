@@ -2,10 +2,8 @@
 监控和日志相关模型
 """
 from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, BigInteger, Numeric
-from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
 
 from ..core.database import Base
 
@@ -14,11 +12,11 @@ class SystemMetric(Base):
     """系统指标模型"""
     __tablename__ = "system_metrics"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     metric_name = Column(String(100), nullable=False, index=True)
     metric_value = Column(Numeric(15, 4), nullable=False)
     metric_unit = Column(String(20), nullable=True)
-    tags = Column(JSONB, nullable=True)
+    tags = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self):
@@ -29,13 +27,13 @@ class AuditLog(Base):
     """审计日志模型"""
     __tablename__ = "audit_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     action = Column(String(100), nullable=False, index=True)
     resource_type = Column(String(50), nullable=True)
-    resource_id = Column(UUID(as_uuid=True), nullable=True)
-    details = Column(JSONB, nullable=True)
-    ip_address = Column(INET, nullable=True)
+    resource_id = Column(Integer, nullable=True)
+    details = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -50,9 +48,9 @@ class OperationLog(Base):
     """操作日志模型"""
     __tablename__ = "operation_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     operation_type = Column(String(50), nullable=False, index=True)
-    operation_data = Column(JSONB, nullable=False)
+    operation_data = Column(Text, nullable=False)
     status = Column(String(20), nullable=False)  # 'success', 'failed', 'pending'
     error_message = Column(Text, nullable=True)
     execution_time = Column(Integer, nullable=True)  # 毫秒

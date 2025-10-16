@@ -28,7 +28,7 @@ async def get_cluster_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get cluster status: {str(e)}")
 
-@router.get("/nodes", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/nodes", response_model=None)
 @rate_limit
 async def get_cluster_nodes():
     """获取集群节点列表"""
@@ -38,7 +38,7 @@ async def get_cluster_nodes():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get cluster nodes: {str(e)}")
 
-@router.get("/nodes/healthy", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/nodes/healthy", response_model=None)
 @rate_limit
 async def get_healthy_nodes():
     """获取健康节点列表"""
@@ -48,7 +48,7 @@ async def get_healthy_nodes():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get healthy nodes: {str(e)}")
 
-@router.get("/nodes/{node_id}", response_model=Dict[str, Any], response_model=None)
+@router.get("/nodes/{node_id}", response_model=None)
 @rate_limit
 async def get_node(node_id: str):
     """获取特定节点信息"""
@@ -61,7 +61,7 @@ async def get_node(node_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get node: {str(e)}")
 
-@router.post("/nodes", response_model=Dict[str, Any], response_model=None)
+@router.post("/nodes", response_model=None)
 @leader_only
 @rate_limit
 async def add_node(node_data: Dict[str, Any]):
@@ -87,7 +87,7 @@ async def add_node(node_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add node: {str(e)}")
 
-@router.delete("/nodes/{node_id}", response_model=Dict[str, Any], response_model=None)
+@router.delete("/nodes/{node_id}", response_model=None)
 @leader_only
 @rate_limit
 async def remove_node(node_id: str):
@@ -106,7 +106,7 @@ async def remove_node(node_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove node: {str(e)}")
 
-@router.post("/nodes/{node_id}/health-check", response_model=Dict[str, Any], response_model=None)
+@router.post("/nodes/{node_id}/health-check", response_model=None)
 @rate_limit
 async def check_node_health(node_id: str):
     """检查节点健康状态"""
@@ -128,7 +128,7 @@ async def check_node_health(node_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check node health: {str(e)}")
 
-@router.post("/nodes/health-check-all", response_model=Dict[str, Any], response_model=None)
+@router.post("/nodes/health-check-all", response_model=None)
 @rate_limit
 async def check_all_nodes_health():
     """检查所有节点健康状态"""
@@ -147,7 +147,7 @@ async def check_all_nodes_health():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check all nodes health: {str(e)}")
 
-@router.get("/leader", response_model=Dict[str, Any], response_model=None)
+@router.get("/leader", response_model=None)
 @rate_limit
 async def get_leader_info():
     """获取领导者信息"""
@@ -172,7 +172,7 @@ async def get_leader_info():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get leader info: {str(e)}")
 
-@router.post("/leader/elect", response_model=Dict[str, Any], response_model=None)
+@router.post("/leader/elect", response_model=None)
 @rate_limit
 async def elect_leader():
     """触发领导者选举"""
@@ -187,7 +187,7 @@ async def elect_leader():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to elect leader: {str(e)}")
 
-@router.get("/load-balancer", response_model=Dict[str, Any], response_model=None)
+@router.get("/load-balancer", response_model=None)
 @rate_limit
 async def get_load_balancer_info():
     """获取负载均衡器信息"""
@@ -202,7 +202,7 @@ async def get_load_balancer_info():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get load balancer info: {str(e)}")
 
-@router.put("/load-balancer/strategy", response_model=Dict[str, Any], response_model=None)
+@router.put("/load-balancer/strategy", response_model=None)
 @leader_only
 @rate_limit
 async def update_load_balancer_strategy(strategy: str = Query(..., description="负载均衡策略")):
@@ -221,7 +221,7 @@ async def update_load_balancer_strategy(strategy: str = Query(..., description="
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update load balancer strategy: {str(e)}")
 
-@router.post("/load-balancer/select-node", response_model=Dict[str, Any], response_model=None)
+@router.post("/load-balancer/select-node", response_model=None)
 @rate_limit
 async def select_node_for_request(
     strategy: Optional[str] = Query(None, description="负载均衡策略")
@@ -243,7 +243,7 @@ async def select_node_for_request(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to select node: {str(e)}")
 
-@router.get("/services", response_model=Dict[str, Any], response_model=None)
+@router.get("/services", response_model=None)
 @rate_limit
 async def get_services():
     """获取服务注册信息"""
@@ -254,7 +254,7 @@ async def get_services():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get services: {str(e)}")
 
-@router.post("/services/register", response_model=Dict[str, Any], response_model=None)
+@router.post("/services/register", response_model=None)
 @rate_limit
 async def register_service(service_data: Dict[str, Any]):
     """注册服务"""
@@ -289,7 +289,7 @@ async def register_service(service_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to register service: {str(e)}")
 
-@router.delete("/services/{service_name}", response_model=Dict[str, Any], response_model=None)
+@router.delete("/services/{service_name}", response_model=None)
 @rate_limit
 async def unregister_service(service_name: str):
     """注销服务"""
@@ -306,7 +306,7 @@ async def unregister_service(service_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to unregister service: {str(e)}")
 
-@router.post("/sync", response_model=Dict[str, Any], response_model=None)
+@router.post("/sync", response_model=None)
 @rate_limit
 async def sync_cluster_data(sync_data: Dict[str, Any]):
     """同步集群数据"""
@@ -329,7 +329,7 @@ async def sync_cluster_data(sync_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync data: {str(e)}")
 
-@router.post("/tasks/distribute", response_model=Dict[str, Any], response_model=None)
+@router.post("/tasks/distribute", response_model=None)
 @leader_only
 @rate_limit
 async def distribute_task(task_data: Dict[str, Any]):
@@ -351,7 +351,7 @@ async def distribute_task(task_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to distribute task: {str(e)}")
 
-@router.get("/metrics", response_model=Dict[str, Any], response_model=None)
+@router.get("/metrics", response_model=None)
 @rate_limit
 async def get_cluster_metrics():
     """获取集群指标"""
@@ -373,7 +373,7 @@ async def get_cluster_metrics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get cluster metrics: {str(e)}")
 
-@router.post("/start", response_model=Dict[str, Any], response_model=None)
+@router.post("/start", response_model=None)
 @rate_limit
 async def start_cluster_services():
     """启动集群服务"""
@@ -387,7 +387,7 @@ async def start_cluster_services():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start cluster services: {str(e)}")
 
-@router.get("/config", response_model=Dict[str, Any], response_model=None)
+@router.get("/config", response_model=None)
 @rate_limit
 async def get_cluster_config():
     """获取集群配置"""

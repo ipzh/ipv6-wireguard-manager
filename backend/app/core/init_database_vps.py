@@ -64,7 +64,7 @@ class VPSDatabaseInitializer:
                     # 检查网络连接
                     import socket
                     try:
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
                         sock.settimeout(5)  # 5秒超时
                         result = sock.connect_ex((hostname, port))
                         sock.close()

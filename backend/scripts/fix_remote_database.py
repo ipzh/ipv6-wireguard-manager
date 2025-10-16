@@ -64,7 +64,7 @@ class RemoteDatabaseFixer:
         # 检查网络连接
         logger.info("🔌 检查网络连接...")
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
             sock.settimeout(10)  # 10秒超时
             result = sock.connect_ex((hostname, port))
             sock.close()

@@ -28,7 +28,7 @@ async def get_all_backups():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backups: {str(e)}")
 
-@router.get("/backups/{backup_id}", response_model=Dict[str, Any], response_model=None)
+@router.get("/backups/{backup_id}", response_model=None)
 @rate_limit
 async def get_backup(backup_id: str):
     """获取特定备份信息"""
@@ -41,7 +41,7 @@ async def get_backup(backup_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup: {str(e)}")
 
-@router.post("/backups/create", response_model=Dict[str, Any], response_model=None)
+@router.post("/backups/create", response_model=None)
 @leader_only
 @rate_limit
 async def create_backup(
@@ -74,7 +74,7 @@ async def create_backup(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create backup: {str(e)}")
 
-@router.post("/backups/{backup_id}/restore", response_model=Dict[str, Any], response_model=None)
+@router.post("/backups/{backup_id}/restore", response_model=None)
 @leader_only
 @rate_limit
 async def restore_backup(
@@ -103,7 +103,7 @@ async def restore_backup(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to restore backup: {str(e)}")
 
-@router.delete("/backups/{backup_id}", response_model=Dict[str, Any], response_model=None)
+@router.delete("/backups/{backup_id}", response_model=None)
 @leader_only
 @rate_limit
 async def delete_backup(backup_id: str):
@@ -144,7 +144,7 @@ async def download_backup(backup_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to download backup: {str(e)}")
 
-@router.get("/schedules", response_model=Dict[str, Any], response_model=None)
+@router.get("/schedules", response_model=None)
 @rate_limit
 async def get_backup_schedules():
     """获取备份计划"""
@@ -154,7 +154,7 @@ async def get_backup_schedules():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup schedules: {str(e)}")
 
-@router.post("/schedules", response_model=Dict[str, Any], response_model=None)
+@router.post("/schedules", response_model=None)
 @leader_only
 @rate_limit
 async def create_backup_schedule(schedule_data: Dict[str, Any]):
@@ -173,7 +173,7 @@ async def create_backup_schedule(schedule_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create backup schedule: {str(e)}")
 
-@router.put("/schedules/{schedule_name}", response_model=Dict[str, Any], response_model=None)
+@router.put("/schedules/{schedule_name}", response_model=None)
 @leader_only
 @rate_limit
 async def update_backup_schedule(schedule_name: str, schedule_data: Dict[str, Any]):
@@ -194,7 +194,7 @@ async def update_backup_schedule(schedule_name: str, schedule_data: Dict[str, An
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update backup schedule: {str(e)}")
 
-@router.delete("/schedules/{schedule_name}", response_model=Dict[str, Any], response_model=None)
+@router.delete("/schedules/{schedule_name}", response_model=None)
 @leader_only
 @rate_limit
 async def delete_backup_schedule(schedule_name: str):
@@ -209,7 +209,7 @@ async def delete_backup_schedule(schedule_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete backup schedule: {str(e)}")
 
-@router.post("/schedules/{schedule_name}/run", response_model=Dict[str, Any], response_model=None)
+@router.post("/schedules/{schedule_name}/run", response_model=None)
 @leader_only
 @rate_limit
 async def run_backup_schedule(schedule_name: str):
@@ -229,7 +229,7 @@ async def run_backup_schedule(schedule_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to run backup schedule: {str(e)}")
 
-@router.get("/stats", response_model=Dict[str, Any], response_model=None)
+@router.get("/stats", response_model=None)
 @rate_limit
 async def get_backup_statistics():
     """获取备份统计"""
@@ -239,7 +239,7 @@ async def get_backup_statistics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup statistics: {str(e)}")
 
-@router.post("/cleanup", response_model=Dict[str, Any], response_model=None)
+@router.post("/cleanup", response_model=None)
 @leader_only
 @rate_limit
 async def cleanup_old_backups():
@@ -253,7 +253,7 @@ async def cleanup_old_backups():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to cleanup old backups: {str(e)}")
 
-@router.get("/types", response_model=List[str], response_model=None)
+@router.get("/types", response_model=None)
 @rate_limit
 async def get_backup_types():
     """获取支持的备份类型"""
@@ -262,7 +262,7 @@ async def get_backup_types():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup types: {str(e)}")
 
-@router.get("/status", response_model=Dict[str, Any], response_model=None)
+@router.get("/status", response_model=None)
 @rate_limit
 async def get_backup_status():
     """获取备份状态"""
@@ -279,7 +279,7 @@ async def get_backup_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get backup status: {str(e)}")
 
-@router.post("/verify/{backup_id}", response_model=Dict[str, Any], response_model=None)
+@router.post("/verify/{backup_id}", response_model=None)
 @rate_limit
 async def verify_backup(backup_id: str):
     """验证备份完整性"""
@@ -305,7 +305,7 @@ async def verify_backup(backup_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to verify backup: {str(e)}")
 
-@router.get("/export", response_model=Dict[str, Any], response_model=None)
+@router.get("/export", response_model=None)
 @rate_limit
 async def export_backup_list():
     """导出备份列表"""
@@ -321,7 +321,7 @@ async def export_backup_list():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to export backup list: {str(e)}")
 
-@router.post("/import", response_model=Dict[str, Any], response_model=None)
+@router.post("/import", response_model=None)
 @leader_only
 @rate_limit
 async def import_backup_list(import_data: Dict[str, Any]):

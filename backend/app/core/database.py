@@ -58,13 +58,29 @@ if settings.DATABASE_URL.startswith("mysql://"):
             
             # 测试连接
             import asyncio
+            
             async def test_async_connection():
+                """测试异步数据库连接"""
                 try:
-                    async with async_engine.connect() as conn:
-                        await conn.execute(text("SELECT 1"))
-                    return True
-                except Exception:
+                    import asyncio
+                    # 检查是否在事件循环中
+                    try:
+                        loop = asyncio.get_running_loop()
+                        logger.warning("在事件循环中，跳过异步连接测试")
+                        return False
+                    except RuntimeError:
+                        # 不在事件循环中，可以安全测试
+                        pass
+                    
+                    if async_engine:
+                        async with async_engine.begin() as conn:
+                            await conn.execute(text("SELECT 1"))
+                        return True
+                except Exception as e:
+                    logger.error(f"异步连接测试失败: {e}")
                     return False
+                return False
+
             
             # 在Windows上使用不同的策略
             if os.name == 'nt':
@@ -73,8 +89,8 @@ if settings.DATABASE_URL.startswith("mysql://"):
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     connection_ok = executor.submit(asyncio.run, test_async_connection()).result()
             else:
-                # Linux环境，直接运行
-                connection_ok = asyncio.run(test_async_connection())
+                # Linux环境，跳过异步连接测试
+                connection_ok = False  # 在事件循环中无法调用asyncio.run
             
             if not connection_ok:
                 print("警告: 异步数据库连接测试失败，使用同步模式")

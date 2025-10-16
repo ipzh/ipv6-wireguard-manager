@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, field_validator
@@ -15,7 +14,7 @@ class SystemMetricCreate(SystemMetricBase):
     pass
 
 class SystemMetric(SystemMetricBase):
-    id: uuid.UUID
+    id: int
     timestamp: datetime
 
     class Config:
@@ -23,10 +22,10 @@ class SystemMetric(SystemMetricBase):
 
 # Audit Log Schemas
 class AuditLogBase(BaseModel):
-    user_id: Optional[uuid.UUID] = None
+    user_id: Optional[int] = None
     action: str
     resource_type: Optional[str] = None
-    resource_id: Optional[uuid.UUID] = None
+    resource_id: Optional[int] = None
     details: Optional[Dict[str, Any]] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
@@ -35,7 +34,7 @@ class AuditLogCreate(AuditLogBase):
     pass
 
 class AuditLog(AuditLogBase):
-    id: uuid.UUID
+    id: int
     timestamp: datetime
 
     class Config:
@@ -61,7 +60,7 @@ class OperationLogCreate(OperationLogBase):
     pass
 
 class OperationLog(OperationLogBase):
-    id: uuid.UUID
+    id: int
     timestamp: datetime
 
     class Config:
@@ -84,7 +83,7 @@ class ServiceStatus(BaseModel):
     last_check: datetime
 
 class AlertRule(BaseModel):
-    id: uuid.UUID
+    id: int
     name: str
     metric_name: str
     threshold: float
@@ -94,8 +93,8 @@ class AlertRule(BaseModel):
     created_at: datetime
 
 class Alert(BaseModel):
-    id: uuid.UUID
-    rule_id: uuid.UUID
+    id: int
+    rule_id: int
     message: str
     severity: str
     status: str  # 'active', 'resolved', 'acknowledged'

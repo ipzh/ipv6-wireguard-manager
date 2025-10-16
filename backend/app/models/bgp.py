@@ -2,10 +2,8 @@
 BGP相关模型：会话与宣告
 """
 from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Enum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
 import enum
 
 from ..core.database import Base
@@ -35,7 +33,7 @@ class OperationType(str, enum.Enum):
 class BGPSession(Base):
     __tablename__ = "bgp_sessions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     neighbor = Column(String(128), nullable=False)  # 对等体地址（IPv4/IPv6）
     remote_as = Column(Integer, nullable=False)
@@ -59,8 +57,8 @@ class BGPSession(Base):
 class BGPAnnouncement(Base):
     __tablename__ = "bgp_announcements"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("bgp_sessions.id"), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("bgp_sessions.id"), nullable=True)
 
     prefix = Column(String(128), nullable=False)  # 形如 192.0.2.0/24 或 2001:db8::/32
     asn = Column(Integer, nullable=True)  # 可选，通常由会话remote_as决定
@@ -77,8 +75,8 @@ class BGPAnnouncement(Base):
 class BGPOperation(Base):
     __tablename__ = "bgp_operations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("bgp_sessions.id"), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("bgp_sessions.id"), nullable=True)
     operation_type = Column(Enum(OperationType), nullable=False)
     status = Column(String(20), nullable=False)  # SUCCESS, FAILED, PENDING
     message = Column(Text, nullable=True)

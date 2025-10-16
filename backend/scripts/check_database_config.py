@@ -58,7 +58,7 @@ def check_database_config():
                 hostname = parsed_url.hostname
                 port = parsed_url.port or 5432
                 
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
                 sock.settimeout(10)
                 result = sock.connect_ex((hostname, port))
                 sock.close()

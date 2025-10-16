@@ -2,7 +2,7 @@
 用户和权限相关模型
 """
 from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Table
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -14,8 +14,8 @@ from ..core.database import Base
 user_roles = Table(
     'user_roles',
     Base.metadata,
-    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
-    Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', Integer, ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True),
 )
 
 
@@ -23,7 +23,7 @@ class User(Base):
     """用户模型"""
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
@@ -47,10 +47,10 @@ class Role(Base):
     """角色模型"""
     __tablename__ = "roles"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    permissions = Column(JSONB, nullable=False, default=dict)
+    permissions = Column(Text, nullable=False, default="{}")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # 关系
@@ -64,9 +64,9 @@ class UserRole(Base):
     """用户角色关联模型（备用）"""
     __tablename__ = "user_role_relations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    role_id = Column(UUID(as_uuid=True), ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    role_id = Column(Integer, ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self):

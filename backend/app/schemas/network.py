@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
@@ -32,7 +31,7 @@ class NetworkInterfaceUpdate(NetworkInterfaceBase):
     mtu: Optional[int] = None
 
 class NetworkInterface(NetworkInterfaceBase):
-    id: uuid.UUID
+    id: int
     is_up: bool
     created_at: datetime
     updated_at: datetime
@@ -77,7 +76,7 @@ class FirewallRuleUpdate(FirewallRuleBase):
     priority: Optional[int] = None
 
 class FirewallRule(FirewallRuleBase):
-    id: uuid.UUID
+    id: int
     is_active: bool
     created_at: datetime
     updated_at: datetime

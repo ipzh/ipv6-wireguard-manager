@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
@@ -41,7 +40,7 @@ class WireGuardServerUpdate(WireGuardServerBase):
     mtu: Optional[int] = None
 
 class WireGuardServer(WireGuardServerBase):
-    id: uuid.UUID
+    id: int
     private_key: str
     public_key: str
     config_file_path: Optional[str] = None
@@ -54,7 +53,7 @@ class WireGuardServer(WireGuardServerBase):
 
 # WireGuard Client Schemas
 class WireGuardClientBase(BaseModel):
-    server_id: uuid.UUID
+    server_id: int
     name: str
     description: Optional[str] = None
     ipv4_address: Optional[str] = None
@@ -73,7 +72,7 @@ class WireGuardClientCreate(WireGuardClientBase):
     pass
 
 class WireGuardClientUpdate(WireGuardClientBase):
-    server_id: Optional[uuid.UUID] = None
+    server_id: Optional[int] = None
     name: Optional[str] = None
     description: Optional[str] = None
     ipv4_address: Optional[str] = None
@@ -82,7 +81,7 @@ class WireGuardClientUpdate(WireGuardClientBase):
     persistent_keepalive: Optional[int] = None
 
 class WireGuardClient(WireGuardClientBase):
-    id: uuid.UUID
+    id: int
     private_key: str
     public_key: str
     qr_code: Optional[str] = None

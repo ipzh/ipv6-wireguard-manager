@@ -12,7 +12,7 @@ from sqlalchemy.future import select
 import logging
 
 from ..models.alert import Alert
-from ..core.config import settings
+from ..core.config_enhanced import settings
 
 logger = logging.getLogger(__name__)
 

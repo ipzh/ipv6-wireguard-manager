@@ -14,7 +14,7 @@ import logging
 
 from ..models.alert import Alert, AlertRule
 from ..schemas.alert import AlertCreate
-from ..core.config import settings
+from ..core.config_enhanced import settings
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import hashlib
 
 from ..core.security import verify_password, get_password_hash
 from ..models.user import User, Role
-from ..schemas.user import UserCreate, UserUpdate
+from ...schemas.user import UserCreate, UserUpdate
 
 class UserService:
     """用户服务类"""

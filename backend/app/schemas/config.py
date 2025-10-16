@@ -4,7 +4,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
-import uuid
 
 
 class ConfigVersionBase(BaseModel):
@@ -18,9 +17,9 @@ class ConfigVersionBase(BaseModel):
 
 class ConfigVersion(ConfigVersionBase):
     """配置版本模式"""
-    id: uuid.UUID
+    id: int
     is_active: bool = False
-    created_by: Optional[uuid.UUID] = None
+    created_by: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -39,8 +38,8 @@ class BackupRecordBase(BaseModel):
 
 class BackupRecord(BackupRecordBase):
     """备份记录模式"""
-    id: uuid.UUID
-    created_by: Optional[uuid.UUID] = None
+    id: int
+    created_by: Optional[int] = None
     created_at: datetime
 
     class Config:

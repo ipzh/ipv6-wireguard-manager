@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from ..models.alert import Alert, AlertRule
 from ..schemas.alert import AlertCreate, AlertRuleCreate, AlertRuleUpdate
-from ..core.config import settings
+from ..core.config_enhanced import settings
 import logging
 
 logger = logging.getLogger(__name__)

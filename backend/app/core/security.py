@@ -10,7 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config_enhanced import settings
-from ..schemas.user import User
+from ...schemas.user import User
 
 # 密码加密上下文 - 使用pbkdf2_sha256避免bcrypt版本兼容性问题
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

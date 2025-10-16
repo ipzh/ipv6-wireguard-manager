@@ -30,7 +30,7 @@ async def get_dashboard_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
 
-@router.get("/metrics/system", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/metrics/system", response_model=None)
 @rate_limit
 async def get_system_metrics(
     hours: int = Query(24, description="获取最近几小时的指标", ge=1, le=168)
@@ -54,7 +54,7 @@ async def get_system_metrics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get system metrics: {str(e)}")
 
-@router.get("/metrics/application", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/metrics/application", response_model=None)
 @rate_limit
 async def get_application_metrics(
     hours: int = Query(24, description="获取最近几小时的指标", ge=1, le=168)
@@ -79,7 +79,7 @@ async def get_application_metrics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get application metrics: {str(e)}")
 
-@router.get("/alerts/active", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/alerts/active", response_model=None)
 @rate_limit
 async def get_active_alerts():
     """获取活跃告警"""
@@ -89,7 +89,7 @@ async def get_active_alerts():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get active alerts: {str(e)}")
 
-@router.get("/alerts/history", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/alerts/history", response_model=None)
 @rate_limit
 async def get_alert_history(
     hours: int = Query(24, description="获取最近几小时的告警历史", ge=1, le=168)
@@ -101,7 +101,7 @@ async def get_alert_history(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get alert history: {str(e)}")
 
-@router.get("/alerts/rules", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/alerts/rules", response_model=None)
 @rate_limit
 async def get_alert_rules():
     """获取告警规则"""
@@ -111,7 +111,7 @@ async def get_alert_rules():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get alert rules: {str(e)}")
 
-@router.post("/alerts/rules", response_model=Dict[str, Any], response_model=None)
+@router.post("/alerts/rules", response_model=None)
 @rate_limit
 async def create_alert_rule(rule_data: Dict[str, Any]):
     """创建告警规则"""
@@ -134,7 +134,7 @@ async def create_alert_rule(rule_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create alert rule: {str(e)}")
 
-@router.put("/alerts/rules/{rule_id}", response_model=Dict[str, Any], response_model=None)
+@router.put("/alerts/rules/{rule_id}", response_model=None)
 @rate_limit
 async def update_alert_rule(rule_id: str, rule_data: Dict[str, Any]):
     """更新告警规则"""
@@ -157,7 +157,7 @@ async def update_alert_rule(rule_id: str, rule_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update alert rule: {str(e)}")
 
-@router.delete("/alerts/rules/{rule_id}", response_model=Dict[str, Any], response_model=None)
+@router.delete("/alerts/rules/{rule_id}", response_model=None)
 @rate_limit
 async def delete_alert_rule(rule_id: str):
     """删除告警规则"""
@@ -167,7 +167,7 @@ async def delete_alert_rule(rule_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete alert rule: {str(e)}")
 
-@router.post("/alerts/{rule_id}/acknowledge", response_model=Dict[str, Any], response_model=None)
+@router.post("/alerts/{rule_id}/acknowledge", response_model=None)
 @rate_limit
 async def acknowledge_alert(rule_id: str, user: str = Query(..., description="确认用户")):
     """确认告警"""
@@ -177,7 +177,7 @@ async def acknowledge_alert(rule_id: str, user: str = Query(..., description="�
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to acknowledge alert: {str(e)}")
 
-@router.post("/alerts/{rule_id}/suppress", response_model=Dict[str, Any], response_model=None)
+@router.post("/alerts/{rule_id}/suppress", response_model=None)
 @rate_limit
 async def suppress_alert(
     rule_id: str, 
@@ -190,7 +190,7 @@ async def suppress_alert(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to suppress alert: {str(e)}")
 
-@router.get("/health", response_model=Dict[str, Any], response_model=None)
+@router.get("/health", response_model=None)
 @rate_limit
 async def health_check():
     """健康检查"""
@@ -223,7 +223,7 @@ async def health_check():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
-@router.get("/cluster/status", response_model=Dict[str, Any], response_model=None)
+@router.get("/cluster/status", response_model=None)
 @cluster_aware
 @rate_limit
 async def get_cluster_status():
@@ -234,7 +234,7 @@ async def get_cluster_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get cluster status: {str(e)}")
 
-@router.post("/cluster/sync", response_model=Dict[str, Any], response_model=None)
+@router.post("/cluster/sync", response_model=None)
 @rate_limit
 async def sync_cluster_data(sync_data: Dict[str, Any]):
     """同步集群数据"""
@@ -250,7 +250,7 @@ async def sync_cluster_data(sync_data: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync data: {str(e)}")
 
-@router.get("/performance", response_model=Dict[str, Any], response_model=None)
+@router.get("/performance", response_model=None)
 @rate_limit
 async def get_performance_stats():
     """获取性能统计"""
@@ -260,7 +260,7 @@ async def get_performance_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get performance stats: {str(e)}")
 
-@router.post("/metrics/collect", response_model=Dict[str, Any], response_model=None)
+@router.post("/metrics/collect", response_model=None)
 @rate_limit
 async def collect_metrics_now():
     """立即收集指标"""
@@ -284,7 +284,7 @@ async def collect_metrics_now():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to collect metrics: {str(e)}")
 
-@router.get("/metrics/{metric_name}", response_model=List[Dict[str, Any]], response_model=None)
+@router.get("/metrics/{metric_name}", response_model=None)
 @rate_limit
 async def get_metric_history(
     metric_name: str,
@@ -297,7 +297,7 @@ async def get_metric_history(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get metric history: {str(e)}")
 
-@router.get("/alerts/stats", response_model=Dict[str, Any], response_model=None)
+@router.get("/alerts/stats", response_model=None)
 @rate_limit
 async def get_alert_statistics():
     """获取告警统计"""

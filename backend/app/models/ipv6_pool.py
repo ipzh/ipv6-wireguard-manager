@@ -2,10 +2,8 @@
 IPv6前缀池模型
 """
 from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Enum
-from sqlalchemy.dialects.postgresql import UUID, INET
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
 import enum
 
 from ..core.database import Base
@@ -22,7 +20,7 @@ class PoolStatus(str, enum.Enum):
 class IPv6PrefixPool(Base):
     __tablename__ = "ipv6_prefix_pools"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
     prefix = Column(String(128), nullable=False)  # 如 2001:db8::/48
     prefix_length = Column(Integer, nullable=False)  # 如 64
@@ -47,10 +45,10 @@ class IPv6PrefixPool(Base):
 class IPv6Allocation(Base):
     __tablename__ = "ipv6_allocations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    pool_id = Column(UUID(as_uuid=True), ForeignKey("ipv6_prefix_pools.id"), nullable=False)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("wireguard_clients.id"), nullable=True)
-    server_id = Column(UUID(as_uuid=True), ForeignKey("wireguard_servers.id"), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pool_id = Column(Integer, ForeignKey("ipv6_prefix_pools.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("wireguard_clients.id"), nullable=True)
+    server_id = Column(Integer, ForeignKey("wireguard_servers.id"), nullable=True)
     
     allocated_prefix = Column(String(128), nullable=False)  # 分配的前缀
     allocated_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -66,8 +64,8 @@ class IPv6Allocation(Base):
 class IPv6Whitelist(Base):
     __tablename__ = "ipv6_whitelist"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    pool_id = Column(UUID(as_uuid=True), ForeignKey("ipv6_prefix_pools.id"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pool_id = Column(Integer, ForeignKey("ipv6_prefix_pools.id"), nullable=False)
     prefix = Column(String(128), nullable=False)  # 白名单前缀
     description = Column(Text, nullable=True)
     enabled = Column(Boolean, default=True)
@@ -81,13 +79,13 @@ class IPv6Whitelist(Base):
 class BGPAlert(Base):
     __tablename__ = "bgp_alerts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     alert_type = Column(String(50), nullable=False)  # RPKI_INVALID, PREFIX_LIMIT, etc.
     severity = Column(String(20), nullable=False)  # INFO, WARNING, ERROR, CRITICAL
     message = Column(Text, nullable=False)
     prefix = Column(String(128), nullable=True)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("bgp_sessions.id"), nullable=True)
-    pool_id = Column(UUID(as_uuid=True), ForeignKey("ipv6_prefix_pools.id"), nullable=True)
+    session_id = Column(Integer, ForeignKey("bgp_sessions.id"), nullable=True)
+    pool_id = Column(Integer, ForeignKey("ipv6_prefix_pools.id"), nullable=True)
     
     is_resolved = Column(Boolean, default=False)
     resolved_at = Column(DateTime(timezone=True), nullable=True)

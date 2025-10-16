@@ -169,12 +169,12 @@ class Settings(BaseSettings):
     
     # 文件上传配置
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    UPLOAD_DIR: str = "/opt/ipv6-wireguard-manager/uploads"
+    UPLOAD_DIR: str = "uploads"
     ALLOWED_EXTENSIONS: List[str] = [".conf", ".key", ".crt", ".pem", ".txt", ".log"]
     
     # WireGuard配置
-    WIREGUARD_CONFIG_DIR: str = "/opt/ipv6-wireguard-manager/wireguard"
-    WIREGUARD_CLIENTS_DIR: str = "/opt/ipv6-wireguard-manager/wireguard/clients"
+    WIREGUARD_CONFIG_DIR: str = "wireguard"
+    WIREGUARD_CLIENTS_DIR: str = "wireguard/clients"
     
     # 监控配置
     ENABLE_METRICS: bool = True

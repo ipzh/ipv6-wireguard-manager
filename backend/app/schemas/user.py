@@ -4,7 +4,6 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-import uuid
 
 
 class UserBase(BaseModel):
@@ -31,7 +30,7 @@ class UserUpdate(BaseModel):
 
 class UserInDBBase(UserBase):
     """数据库用户基础模式"""
-    id: uuid.UUID
+    id: int
     last_login: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
@@ -72,7 +71,7 @@ class RoleUpdate(BaseModel):
 
 class Role(RoleBase):
     """角色模式"""
-    id: uuid.UUID
+    id: int
     created_at: datetime
 
     class Config:
