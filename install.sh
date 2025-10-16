@@ -899,6 +899,18 @@ configure_nginx() {
     
     # 创建Nginx配置
     cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
+# 上游服务器组，支持IPv4和IPv6双栈
+upstream backend_api {
+    # IPv6优先，IPv4作为备选
+    server [::1]:$API_PORT max_fails=3 fail_timeout=30s;
+    server 127.0.0.1:$API_PORT backup max_fails=3 fail_timeout=30s;
+    
+    # 健康检查
+    keepalive 32;
+    keepalive_requests 100;
+    keepalive_timeout 60s;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -919,13 +931,10 @@ server {
         try_files \$uri =404;
     }
     
-    # API代理配置 - 将 /api/* 请求代理到后端
+    # API代理配置 - 将 /api/* 请求代理到后端，支持IPv4和IPv6双栈
     location /api/ {
-        # 移除 /api 前缀，转发到后端
-        rewrite ^/api/(.*)$ /\$1 break;
-        
-        # 代理到后端API服务
-        proxy_pass http://127.0.0.1:$API_PORT/api/v1/;
+        # 定义上游服务器组，支持IPv4和IPv6双栈
+        proxy_pass http://backend_api;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -939,6 +948,11 @@ server {
         proxy_connect_timeout 30s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
+        
+        # 错误处理
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        proxy_next_upstream_tries 3;
+        proxy_next_upstream_timeout 10s;
         
         # CORS头
         add_header Access-Control-Allow-Origin * always;
@@ -1211,7 +1225,7 @@ wait_for_docker_services() {
     
     # 等待后端API启动
     log_info "等待后端API启动..."
-    while ! curl -f http://localhost:$API_PORT/api/v1/health &>/dev/null; do
+    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; do
         sleep 5
     done
     log_success "后端API已启动"
@@ -1251,7 +1265,7 @@ User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host :: --port $API_PORT
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT
 Restart=always
 RestartSec=10
 
@@ -1365,7 +1379,7 @@ run_environment_check() {
     local api_retry_delay=3
     
     while [[ $api_retry_count -lt $api_max_retries ]]; do
-        if curl -f http://localhost:$API_PORT/api/v1/health &>/dev/null; then
+        if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
             log_success "✓ API服务正常"
             return 0
         else
