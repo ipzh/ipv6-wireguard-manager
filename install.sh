@@ -1021,6 +1021,21 @@ EOF
     log_success "系统服务创建完成"
 }
 
+# 安装CLI管理工具
+install_cli_tool() {
+    log_info "安装CLI管理工具..."
+    
+    # 复制CLI工具到系统路径
+    cp "$INSTALL_DIR/ipv6-wireguard-manager" "/usr/local/bin/"
+    chmod +x "/usr/local/bin/ipv6-wireguard-manager"
+    
+    # 创建符号链接（可选）
+    ln -sf "/usr/local/bin/ipv6-wireguard-manager" "/usr/bin/ipv6-wireguard-manager" 2>/dev/null || true
+    
+    log_success "CLI管理工具安装完成"
+    log_info "使用方法: ipv6-wireguard-manager help"
+}
+
 # 启动服务
 start_services() {
     log_info "启动服务..."
@@ -1194,6 +1209,7 @@ main() {
             fi
             if [[ "$SKIP_SERVICE" = false ]]; then
                 create_system_service
+                install_cli_tool
             fi
             start_services
             ;;
@@ -1215,6 +1231,7 @@ main() {
             fi
             if [[ "$SKIP_SERVICE" = false ]]; then
                 create_system_service
+                install_cli_tool
             fi
             start_services
             ;;

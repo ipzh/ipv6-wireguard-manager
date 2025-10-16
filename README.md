@@ -113,6 +113,9 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 快速修复服务
 ./quick_fix_service.sh
+
+# 测试CLI工具
+./test_cli_tool.sh
 ```
 
 ## 📋 系统要求
@@ -194,6 +197,8 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 ## 🔧 管理命令
 
+IPv6 WireGuard Manager 提供了完整的CLI管理工具，安装后可直接使用：
+
 ```bash
 # 服务管理
 ipv6-wireguard-manager start      # 启动服务
@@ -203,9 +208,31 @@ ipv6-wireguard-manager status     # 查看状态
 
 # 系统管理
 ipv6-wireguard-manager logs       # 查看日志
+ipv6-wireguard-manager logs -f    # 实时查看日志
 ipv6-wireguard-manager update     # 更新系统
 ipv6-wireguard-manager backup     # 创建备份
 ipv6-wireguard-manager monitor    # 系统监控
+
+# 帮助信息
+ipv6-wireguard-manager help       # 显示帮助
+ipv6-wireguard-manager version    # 显示版本
+```
+
+### 命令示例
+
+```bash
+# 查看服务状态
+ipv6-wireguard-manager status
+
+# 实时查看日志
+ipv6-wireguard-manager logs -f
+
+# 创建命名备份
+ipv6-wireguard-manager backup --name daily-backup
+
+# 系统监控
+ipv6-wireguard-manager monitor
+```
 ```
 
 ## 📚 文档
