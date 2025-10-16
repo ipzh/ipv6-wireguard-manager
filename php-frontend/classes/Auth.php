@@ -14,7 +14,7 @@ class Auth {
      */
     public function login($username, $password) {
         try {
-            $response = $this->apiClient->post('/auth/login', [
+            $response = $this->apiClient->post('/auth/login-json', [
                 'username' => $username,
                 'password' => $password
             ]);
