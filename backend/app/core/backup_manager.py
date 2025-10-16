@@ -18,7 +18,15 @@ import subprocess
 import hashlib
 
 from .config_enhanced import settings
-from .performance_enhanced import performance_manager
+
+# 尝试导入performance_enhanced，如果失败则使用降级模式
+try:
+    from .performance_enhanced import performance_manager
+    PERFORMANCE_ENHANCED_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_ENHANCED_AVAILABLE = False
+    performance_manager = None
+    logger.warning("性能增强模块不可用，使用降级模式")
 
 logger = logging.getLogger(__name__)
 

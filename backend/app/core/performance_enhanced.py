@@ -15,8 +15,16 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
 from sqlalchemy import event, text
-import aioredis
 from fastapi import Request, Response
+
+# 尝试导入aioredis，如果失败则使用本地缓存
+try:
+    import aioredis
+    AIREDIS_AVAILABLE = True
+except (ImportError, TypeError) as e:
+    AIREDIS_AVAILABLE = False
+    aioredis = None
+    logging.warning(f"aioredis导入失败: {e}，将使用本地缓存")
 
 from .config_enhanced import settings, PerformanceConfig
 
@@ -34,6 +42,18 @@ class DatabaseConnectionPool:
     def _initialize_pool(self):
         """初始化连接池"""
         try:
+            # 检查数据库URL和驱动
+            db_url = settings.DATABASE_URL
+            if not db_url:
+                raise ValueError("DATABASE_URL未配置")
+            
+            # 如果是MySQL且aiomysql不可用，则跳过异步连接池初始化
+            if "mysql" in db_url and not aiomysql_available:
+                logger.warning("aiomysql驱动不可用，跳过异步数据库连接池初始化")
+                self.engine = None
+                self.session_factory = None
+                return
+            
             # 创建异步引擎
             self.engine = create_async_engine(
                 settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://"),
@@ -67,11 +87,14 @@ class DatabaseConnectionPool:
             
         except Exception as e:
             logger.error(f"Failed to initialize database connection pool: {e}")
-            raise
+            self.engine = None
+            self.session_factory = None
     
     def _setup_pool_events(self):
         """设置连接池事件监听器"""
-        
+        if not self.engine:
+            return
+            
         @event.listens_for(self.engine.sync_engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             """设置连接参数"""
@@ -93,6 +116,9 @@ class DatabaseConnectionPool:
     @asynccontextmanager
     async def get_session(self):
         """获取数据库会话"""
+        if not self.session_factory:
+            raise RuntimeError("数据库会话工厂不可用，请检查数据库配置和驱动")
+            
         async with self.session_factory() as session:
             try:
                 yield session
@@ -105,12 +131,18 @@ class DatabaseConnectionPool:
     
     async def execute_query(self, query: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """执行查询"""
+        if not self.session_factory:
+            raise RuntimeError("数据库会话工厂不可用，请检查数据库配置和驱动")
+            
         async with self.get_session() as session:
             result = await session.execute(text(query), params or {})
             return [dict(row) for row in result]
     
     async def execute_update(self, query: str, params: Dict[str, Any] = None) -> int:
         """执行更新"""
+        if not self.session_factory:
+            raise RuntimeError("数据库会话工厂不可用，请检查数据库配置和驱动")
+            
         async with self.get_session() as session:
             result = await session.execute(text(query), params or {})
             await session.commit()
@@ -137,6 +169,20 @@ class DatabaseConnectionPool:
             await self.engine.dispose()
             logger.info("Database connection pool closed")
 
+# 创建全局性能管理器实例
+try:
+    # 检查aiomysql是否可用
+    try:
+        import aiomysql
+        aiomysql_available = True
+    except ImportError:
+        aiomysql_available = False
+        
+    performance_manager = DatabaseConnectionPool(PerformanceConfig())
+except Exception as e:
+    logger.error(f"Failed to initialize performance manager: {e}")
+    performance_manager = None
+
 class CacheManager:
     """缓存管理器"""
     
@@ -148,7 +194,7 @@ class CacheManager:
     
     def _initialize_cache(self):
         """初始化缓存"""
-        if settings.USE_REDIS and settings.REDIS_URL:
+        if settings.USE_REDIS and settings.REDIS_URL and AIREDIS_AVAILABLE:
             try:
                 self.redis_client = aioredis.from_url(
                     settings.REDIS_URL,
@@ -457,7 +503,18 @@ class PerformanceManager:
         }
 
 # 创建全局性能管理器实例
-performance_manager = PerformanceManager()
+try:
+    # 检查aiomysql是否可用
+    try:
+        import aiomysql
+        aiomysql_available = True
+    except ImportError:
+        aiomysql_available = False
+        
+    performance_manager = PerformanceManager()
+except Exception as e:
+    logger.error(f"Failed to initialize performance manager: {e}")
+    performance_manager = None
 
 # 装饰器
 def monitor_performance(func):

@@ -2,21 +2,22 @@
 健康检查端点
 """
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 import redis
 import logging
 from typing import Dict, Any
 
-from ....core.database import get_db
+from app.core.deps import get_async_db
 
 # 导入缓存和性能监控（如果可用）
 try:
-    from ....core.cache import cache_manager
+    from app.core.cache import cache_manager
 except ImportError:
     cache_manager = None
 
 try:
-    from ....core.query_optimizer import performance_monitor
+    from app.core.query_optimizer import performance_monitor
 except ImportError:
     performance_monitor = None
 
@@ -33,7 +34,7 @@ async def health_check() -> Dict[str, Any]:
     }
 
 @router.get("/health/detailed", response_model=None)
-async def detailed_health_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
+async def detailed_health_check(db: AsyncSession = Depends(get_async_db)) -> Dict[str, Any]:
     """详细健康检查"""
     health_status = {
         "status": "healthy",
@@ -43,7 +44,7 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> Dict[str, Any]
     
     # 数据库健康检查
     try:
-        db.execute("SELECT 1")
+        await db.execute(text("SELECT 1"))
         health_status["components"]["database"] = {
             "status": "healthy",
             "message": "Database connection successful"

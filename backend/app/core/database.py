@@ -2,6 +2,7 @@
 数据库配置和连接管理
 """
 import os
+import logging
 from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from typing import AsyncGenerator
 
 from .config_enhanced import settings
+
+logger = logging.getLogger(__name__)
 
 # 可选导入Redis（仅在需要时导入）
 try:
@@ -113,37 +116,57 @@ if async_engine:
 else:
     AsyncSessionLocal = None
 
+# 可选导入pymysql
+try:
+    import pymysql
+    PYMYSQL_AVAILABLE = True
+except ImportError:
+    PYMYSQL_AVAILABLE = False
+    pymysql = None
+
 # 创建同步数据库引擎（用于Alembic迁移）- 仅支持MySQL
 # 使用pymysql驱动而不是MySQLdb
 sync_db_url = settings.DATABASE_URL
 if sync_db_url.startswith("mysql://"):
-    sync_db_url = sync_db_url.replace("mysql://", "mysql+pymysql://")
+    if PYMYSQL_AVAILABLE:
+        sync_db_url = sync_db_url.replace("mysql://", "mysql+pymysql://")
+    else:
+        print("警告: pymysql驱动未安装，无法创建同步数据库引擎")
+        sync_engine = None
+        sync_connect_args = {}
 
-sync_connect_args = {
-    "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
-    "charset": "utf8mb4",
-    "autocommit": False
-}
+if PYMYSQL_AVAILABLE and sync_db_url.startswith("mysql+pymysql://"):
+    sync_connect_args = {
+        "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
+        "charset": "utf8mb4",
+        "autocommit": False
+    }
 
-sync_engine = create_engine(
-    sync_db_url,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
-    pool_recycle=settings.DATABASE_POOL_RECYCLE,
-    echo=settings.DEBUG,
-    connect_args=sync_connect_args
-)
+    sync_engine = create_engine(
+        sync_db_url,
+        pool_size=settings.DATABASE_POOL_SIZE,
+        max_overflow=settings.DATABASE_MAX_OVERFLOW,
+        pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+        pool_recycle=settings.DATABASE_POOL_RECYCLE,
+        echo=settings.DEBUG,
+        connect_args=sync_connect_args
+    )
+else:
+    sync_engine = None
+    sync_connect_args = {}
 
 # 为了向后兼容，导出engine别名
 engine = sync_engine
 
 # 创建同步会话工厂
-SessionLocal = sessionmaker(
-    bind=sync_engine,
-    autocommit=False,
-    autoflush=False,
-)
+if sync_engine:
+    SessionLocal = sessionmaker(
+        bind=sync_engine,
+        autocommit=False,
+        autoflush=False,
+    )
+else:
+    SessionLocal = None
 
 # 创建基础模型类
 Base = declarative_base()
@@ -166,6 +189,9 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
 
 def get_sync_db():
     """获取同步数据库会话"""
+    if not SessionLocal:
+        raise RuntimeError("同步数据库会话不可用，请检查pymysql驱动是否安装")
+        
     db = SessionLocal()
     try:
         yield db
@@ -208,21 +234,28 @@ async def init_db():
         if not check_and_fix_database():
             print("警告: 数据库健康检查发现问题，继续尝试初始化...")
         
-        if not async_engine:
-            # 如果异步引擎不可用，使用同步引擎
+        if async_engine:
+            # 使用异步引擎初始化
+            async with async_engine.begin() as conn:
+                # 创建所有表
+                await conn.run_sync(Base.metadata.create_all)
+        elif sync_engine:
+            # 使用同步引擎初始化
             print("警告: 异步数据库引擎不可用，使用同步模式")
             Base.metadata.create_all(bind=sync_engine)
+        else:
+            print("错误: 数据库引擎不可用，无法初始化数据库")
             return
-        
-        async with async_engine.begin() as conn:
-            # 创建所有表
-            await conn.run_sync(Base.metadata.create_all)
+            
     except Exception as e:
         print(f"数据库初始化失败: {e}")
         print("尝试使用同步模式初始化数据库...")
         try:
-            Base.metadata.create_all(bind=sync_engine)
-            print("同步模式数据库初始化成功")
+            if sync_engine:
+                Base.metadata.create_all(bind=sync_engine)
+                print("同步模式数据库初始化成功")
+            else:
+                print("错误: 同步数据库引擎也不可用")
         except Exception as sync_error:
             print(f"同步模式数据库初始化也失败: {sync_error}")
             raise

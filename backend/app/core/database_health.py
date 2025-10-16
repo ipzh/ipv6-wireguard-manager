@@ -8,8 +8,16 @@ import logging
 from typing import Optional, Dict, Any
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
-import pymysql
-from pymysql import sql
+
+# 可选导入MySQL
+try:
+    import pymysql
+    from pymysql import sql
+    MYSQL_AVAILABLE = True
+except ImportError:
+    MYSQL_AVAILABLE = False
+    pymysql = None
+    sql = None
 
 from .config import settings
 
@@ -57,6 +65,11 @@ class DatabaseHealthChecker:
             "details": {}
         }
         
+        if not MYSQL_AVAILABLE:
+            result["error"] = "MySQL驱动(pymysql)未安装"
+            result["status"] = "driver_missing"
+            return result
+        
         try:
             # 解析数据库URL
             from urllib.parse import urlparse
@@ -76,18 +89,40 @@ class DatabaseHealthChecker:
                 result["details"]["version"] = version
                 
                 # 检查数据库大小
-                size_result = conn.execute(text("""
-                    SELECT pg_size_pretty(pg_database_size(current_database()))
-                """))
-                size = size_result.fetchone()[0]
-                result["details"]["size"] = size
+                try:
+                    size_result = conn.execute(text("""
+                        SELECT pg_size_pretty(pg_database_size(current_database()))
+                    """))
+                    size = size_result.fetchone()[0]
+                    result["details"]["size"] = size
+                except Exception:
+                    # 如果PostgreSQL特定查询失败，尝试MySQL特定查询
+                    try:
+                        size_result = conn.execute(text("""
+                            SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'DB Size in MB' 
+                            FROM information_schema.tables 
+                            WHERE table_schema = DATABASE()
+                        """))
+                        size = size_result.fetchone()[0]
+                        result["details"]["size"] = f"{size} MB"
+                    except Exception:
+                        result["details"]["size"] = "未知"
                 
                 # 检查连接数
-                conn_result = conn.execute(text("""
-                    SELECT count(*) FROM pg_stat_activity 
-                    WHERE datname = current_database()
-                """))
-                connections = conn_result.fetchone()[0]
+                try:
+                    conn_result = conn.execute(text("""
+                        SELECT count(*) FROM pg_stat_activity 
+                        WHERE datname = current_database()
+                    """))
+                    connections = conn_result.fetchone()[0]
+                except Exception:
+                    # 如果PostgreSQL特定查询失败，尝试MySQL特定查询
+                    try:
+                        conn_result = conn.execute(text("SHOW STATUS LIKE 'Threads_connected'"))
+                        connections = conn_result.fetchone()[1]
+                    except Exception:
+                        connections = "未知"
+                
                 result["details"]["connections"] = connections
                 
                 # 检查表是否存在
@@ -181,12 +216,16 @@ class DatabaseHealthChecker:
     
     def _create_mysql_database(self) -> bool:
         """创建MySQL数据库"""
+        if not MYSQL_AVAILABLE:
+            logger.error("MySQL驱动(pymysql)未安装，无法创建数据库")
+            return False
+            
         try:
             from urllib.parse import urlparse
             parsed = urlparse(self.database_url)
             
             # 连接到默认数据库
-            default_db_url = f"mysql://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port}/postgres"
+            default_db_url = f"mysql://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port}/mysql"
             
             engine = create_engine(default_db_url)
             
@@ -194,40 +233,30 @@ class DatabaseHealthChecker:
                 # 检查数据库是否存在
                 db_name = parsed.path[1:]  # 移除开头的 '/'
                 
-                result = conn.execute(text("""
-                    SELECT 1 FROM pg_database WHERE datname = :db_name
-                """), {"db_name": db_name})
-                
-                if result.fetchone():
-                    logger.info(f"数据库 {db_name} 已存在")
-                    return True
-                
-                # 创建数据库
-                conn.execute(text("COMMIT"))  # 结束当前事务
-                conn.execute(text(f'CREATE DATABASE "{db_name}"'))
-                logger.info(f"成功创建数据库: {db_name}")
-                
-                # 创建用户（如果不存在）
                 try:
-                    conn.execute(text(f"""
-                        CREATE USER "{parsed.username}" WITH PASSWORD '{parsed.password}'
-                    """))
-                    logger.info(f"成功创建用户: {parsed.username}")
-                except ProgrammingError:
-                    # 用户可能已存在
-                    logger.info(f"用户 {parsed.username} 可能已存在")
-                
-                # 授权
-                conn.execute(text(f"""
-                    GRANT ALL PRIVILEGES ON DATABASE "{db_name}" TO "{parsed.username}"
-                """))
-                logger.info(f"已授权用户 {parsed.username} 访问数据库 {db_name}")
-                
-                return True
+                    result = conn.execute(text("""
+                        SELECT 1 FROM information_schema.schemata 
+                        WHERE schema_name = :db_name
+                    """), {"db_name": db_name})
+                    
+                    if not result.fetchone():
+                        # 创建数据库
+                        conn.execute(text(f"CREATE DATABASE {db_name}"))
+                        conn.commit()
+                        logger.info(f"数据库 {db_name} 创建成功")
+                        return True
+                    else:
+                        logger.info(f"数据库 {db_name} 已存在")
+                        return True
+                        
+                except Exception as e:
+                    logger.error(f"检查或创建数据库失败: {e}")
+                    return False
                 
         except Exception as e:
-            logger.error(f"创建MySQL数据库失败: {e}")
+            logger.error(f"连接到MySQL服务器失败: {e}")
             return False
+
     
     def _create_sqlite_database(self) -> bool:
         """创建SQLite数据库"""

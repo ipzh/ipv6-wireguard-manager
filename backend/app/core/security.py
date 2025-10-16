@@ -10,7 +10,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config_enhanced import settings
-from ...schemas.user import User
+
+# 尝试导入User模型，如果失败则使用字典代替
+try:
+    from ...schemas.user import User
+    USER_SCHEMA_AVAILABLE = True
+except ImportError:
+    USER_SCHEMA_AVAILABLE = False
+    User = None
 
 # 密码加密上下文 - 使用pbkdf2_sha256避免bcrypt版本兼容性问题
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

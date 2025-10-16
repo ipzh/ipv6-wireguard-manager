@@ -13,9 +13,18 @@ from enum import Enum
 import aiohttp
 import hashlib
 from fastapi import HTTPException
+from functools import wraps
 
 from .config_enhanced import settings
-from .performance_enhanced import performance_manager
+
+# 尝试导入performance_enhanced模块
+try:
+    from .performance_enhanced import performance_manager
+    PERFORMANCE_ENHANCED_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"performance_enhanced模块导入失败: {e}，将不使用性能监控功能")
+    performance_manager = None
+    PERFORMANCE_ENHANCED_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +324,20 @@ class ClusterManager:
             # 更新心跳时间
             if is_healthy:
                 node.last_heartbeat = datetime.utcnow()
+        
+        # 如果性能监控可用，记录健康检查指标
+        if PERFORMANCE_ENHANCED_AVAILABLE and performance_manager:
+            try:
+                await performance_manager.record_metric(
+                    "cluster_health_check",
+                    {
+                        "total_nodes": len(nodes),
+                        "healthy_nodes": len(self.get_healthy_nodes()),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"记录集群健康检查指标失败: {e}")
     
     async def elect_leader(self):
         """选举领导者"""

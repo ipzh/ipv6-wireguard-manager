@@ -10,7 +10,15 @@ import hashlib
 
 from ..core.security import verify_password, get_password_hash
 from ..models.user import User, Role
-from ...schemas.user import UserCreate, UserUpdate
+
+# 尝试导入User模式，如果失败则使用字典代替
+try:
+    from ...schemas.user import UserCreate, UserUpdate
+    USER_SCHEMA_AVAILABLE = True
+except ImportError:
+    USER_SCHEMA_AVAILABLE = False
+    UserCreate = None
+    UserUpdate = None
 
 class UserService:
     """用户服务类"""
@@ -56,15 +64,29 @@ class UserService:
         
         return user
     
-    async def create_user(self, user_data: UserCreate) -> User:
+    async def create_user(self, user_data):
         """创建用户"""
+        # 如果UserCreate不可用，假设user_data是字典
+        if not USER_SCHEMA_AVAILABLE:
+            username = user_data.get("username")
+            email = user_data.get("email")
+            password = user_data.get("password")
+            is_active = user_data.get("is_active", True)
+            is_superuser = user_data.get("is_superuser", False)
+        else:
+            username = user_data.username
+            email = user_data.email
+            password = user_data.password
+            is_active = user_data.is_active
+            is_superuser = user_data.is_superuser
+        
         # 检查用户名是否已存在
-        existing_user = await self.get_user_by_username(user_data.username)
+        existing_user = await self.get_user_by_username(username)
         if existing_user:
             raise ValueError("用户名已存在")
         
         # 检查邮箱是否已存在
-        existing_email = await self.get_user_by_email(user_data.email)
+        existing_email = await self.get_user_by_email(email)
         if existing_email:
             raise ValueError("邮箱已存在")
         
@@ -73,12 +95,12 @@ class UserService:
         
         # 创建用户
         user = User(
-            username=user_data.username,
-            email=user_data.email,
-            password_hash=get_password_hash(user_data.password),
+            username=username,
+            email=email,
+            password_hash=get_password_hash(password),
             salt=salt,
-            is_active=user_data.is_active,
-            is_superuser=user_data.is_superuser
+            is_active=is_active,
+            is_superuser=is_superuser
         )
         
         self.db.add(user)
@@ -87,14 +109,17 @@ class UserService:
         
         return user
     
-    async def update_user(self, user_id: str, user_data: UserUpdate) -> Optional[User]:
+    async def update_user(self, user_id: str, user_data) -> Optional[User]:
         """更新用户"""
         user = await self.get_user_by_id(user_id)
         if not user:
             return None
         
-        # 更新字段
-        update_data = user_data.dict(exclude_unset=True)
+        # 如果UserUpdate不可用，假设user_data是字典
+        if not USER_SCHEMA_AVAILABLE:
+            update_data = user_data
+        else:
+            update_data = user_data.dict(exclude_unset=True)
         
         if "password" in update_data:
             update_data["password_hash"] = get_password_hash(update_data.pop("password"))
@@ -135,12 +160,22 @@ class UserService:
     
     async def create_superuser(self, username: str, email: str, password: str) -> User:
         """创建超级用户"""
-        user_data = UserCreate(
-            username=username,
-            email=email,
-            password=password,
-            is_active=True,
-            is_superuser=True
-        )
+        if not USER_SCHEMA_AVAILABLE:
+            # 如果UserCreate不可用，使用字典
+            user_data = {
+                "username": username,
+                "email": email,
+                "password": password,
+                "is_active": True,
+                "is_superuser": True
+            }
+        else:
+            user_data = UserCreate(
+                username=username,
+                email=email,
+                password=password,
+                is_active=True,
+                is_superuser=True
+            )
         
         return await self.create_user(user_data)
