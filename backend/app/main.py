@@ -75,35 +75,12 @@ async def startup_event():
     """应用启动事件"""
     logger.info("Starting IPv6 WireGuard Manager...")
     
-    # 使用增强的数据库初始化
+    # 简化的数据库初始化
     try:
-        from .core.database_health import check_and_fix_database
-        
-        # 先检查并修复数据库问题（使用超时机制）
-        logger.info("Checking database health...")
-        import asyncio
-        
-        # 异步执行数据库检查，避免阻塞
-        async def check_db():
-            return check_and_fix_database()
-        
-        try:
-            # 设置超时时间为30秒
-            result = await asyncio.wait_for(asyncio.to_thread(check_db), timeout=30.0)
-            if not result:
-                logger.warning("Database health check found issues, continuing with initialization...")
-        except asyncio.TimeoutError:
-            logger.warning("Database health check timed out, continuing with initialization...")
-        except Exception as e:
-            logger.error(f"Database health check failed: {e}")
-        
-        # 初始化数据库
         await init_db()
         logger.info("Database initialization completed")
-        
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
-        # 继续启动应用，但记录错误
         logger.warning("Application starting with database issues")
     
     logger.info("Application started successfully")

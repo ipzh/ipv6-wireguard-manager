@@ -45,8 +45,7 @@ async def get_logs(
     level: Optional[str] = None,
     source: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    db: AsyncSession = Depends(get_async_db)
+    end_date: Optional[str] = None
 ):
     """获取日志列表"""
     try:
@@ -93,7 +92,7 @@ async def get_logs(
 
 
 @router.get("/{log_id}", response_model=None)
-async def get_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
+async def get_log(log_id: str):
     """获取单个日志"""
     try:
         # 模拟查找特定日志
@@ -112,7 +111,7 @@ async def get_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
 
 
 @router.delete("/{log_id}")
-async def delete_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
+async def delete_log(log_id: str):
     """删除日志"""
     try:
         # 模拟删除操作
@@ -122,7 +121,7 @@ async def delete_log(log_id: str, db: AsyncSession = Depends(get_async_db)):
 
 
 @router.delete("/")
-async def clear_logs(db: AsyncSession = Depends(get_async_db)):
+async def clear_logs():
     """清空所有日志"""
     try:
         # 模拟清空操作
@@ -132,7 +131,7 @@ async def clear_logs(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/health/check")
-async def logs_health_check(db: AsyncSession = Depends(get_async_db)):
+async def logs_health_check():
     """日志服务健康检查"""
     try:
         return {

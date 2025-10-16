@@ -28,7 +28,7 @@ router = APIRouter()
 
 
 @router.get("/pools", response_model=None)
-async def get_ipv6_pools(db: AsyncSession = Depends(get_async_db)):
+async def get_ipv6_pools():
     """获取IPv6前缀池列表"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -62,8 +62,7 @@ async def get_ipv6_pools(db: AsyncSession = Depends(get_async_db)):
 
 @router.post("/pools", response_model=None)
 async def create_ipv6_pool(
-    pool_data: Dict[str, Any],
-    db: AsyncSession = Depends(get_async_db)
+    pool_data: Dict[str, Any]
 ):
     """创建IPv6前缀池"""
     try:
@@ -91,7 +90,7 @@ async def create_ipv6_pool(
 
 
 @router.get("/pools/{pool_id}", response_model=None)
-async def get_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
+async def get_ipv6_pool(pool_id: str):
     """获取单个IPv6前缀池"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -123,8 +122,7 @@ async def get_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
 @router.put("/pools/{pool_id}", response_model=None)
 async def update_ipv6_pool(
     pool_id: str,
-    pool_data: Dict[str, Any],
-    db: AsyncSession = Depends(get_async_db)
+    pool_data: Dict[str, Any]
 ):
     """更新IPv6前缀池"""
     try:
@@ -156,7 +154,7 @@ async def update_ipv6_pool(
 
 
 @router.delete("/pools/{pool_id}", response_model=None)
-async def delete_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db)):
+async def delete_ipv6_pool(pool_id: str):
     """删除IPv6前缀池"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -174,8 +172,7 @@ async def delete_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_async_db
 
 @router.get("/allocations", response_model=None)
 async def get_ipv6_allocations(
-    pool_id: str = None,
-    db: AsyncSession = Depends(get_async_db)
+    pool_id: str = None
 ):
     """获取IPv6分配列表"""
     try:
@@ -209,8 +206,7 @@ async def get_ipv6_allocations(
 
 @router.post("/allocations/allocate", response_model=None)
 async def allocate_ipv6_prefix(
-    allocation_data: Dict[str, Any],
-    db: AsyncSession = Depends(get_async_db)
+    allocation_data: Dict[str, Any]
 ):
     """分配IPv6前缀"""
     try:
@@ -240,7 +236,7 @@ async def allocate_ipv6_prefix(
 
 
 @router.post("/allocations/{allocation_id}/release", response_model=None)
-async def release_ipv6_prefix(allocation_id: str, db: AsyncSession = Depends(get_async_db)):
+async def release_ipv6_prefix(allocation_id: str):
     """释放IPv6前缀"""
     try:
         ipv6_service = IPv6PoolService(db)

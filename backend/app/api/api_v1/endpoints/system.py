@@ -51,7 +51,7 @@ class ProcessInfo(BaseModel):
 
 
 @router.get("/info", response_model=None)
-async def get_system_info(db: AsyncSession = Depends(get_async_db)):
+async def get_system_info():
     """获取系统信息"""
     try:
         # 获取系统信息
@@ -83,7 +83,7 @@ async def get_system_info(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/processes", response_model=None)
-async def get_system_processes(db: AsyncSession = Depends(get_async_db)):
+async def get_system_processes():
     """获取系统进程列表"""
     try:
         processes = []
@@ -109,7 +109,7 @@ async def get_system_processes(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.post("/restart", response_model=None)
-async def restart_system(db: AsyncSession = Depends(get_async_db)):
+async def restart_system():
     """重启系统（模拟）"""
     try:
         # 在实际生产环境中，这里应该调用系统重启命令
@@ -127,7 +127,7 @@ async def restart_system(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.post("/shutdown", response_model=None)
-async def shutdown_system(db: AsyncSession = Depends(get_async_db)):
+async def shutdown_system():
     """关闭系统（模拟）"""
     try:
         # 在实际生产环境中，这里应该调用系统关机命令
@@ -145,7 +145,7 @@ async def shutdown_system(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/health/check")
-async def system_health_check(db: AsyncSession = Depends(get_async_db)):
+async def system_health_check():
     """系统健康检查"""
     try:
         # 检查关键系统指标

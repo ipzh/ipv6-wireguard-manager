@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 @router.get("/interfaces", response_model=None)
-async def get_network_interfaces(db: AsyncSession = Depends(get_async_db)):
+async def get_network_interfaces():
     """获取网络接口信息"""
     try:
         interfaces = []
@@ -88,7 +88,7 @@ async def get_network_interfaces(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/status", response_model=None)
-async def get_network_status(db: AsyncSession = Depends(get_async_db)):
+async def get_network_status():
     """获取网络状态"""
     try:
         # 获取网络连接状态
@@ -133,7 +133,7 @@ async def get_network_status(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/connections", response_model=None)
-async def get_network_connections(db: AsyncSession = Depends(get_async_db)):
+async def get_network_connections():
     """获取网络连接信息"""
     try:
         connections = psutil.net_connections(kind='inet')
