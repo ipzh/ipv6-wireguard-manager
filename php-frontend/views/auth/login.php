@@ -685,11 +685,17 @@
         });
 
         function checkApiStatus() {
-            fetch('/api/status')
-                .then(response => response.json())
+            // 使用API代理端点
+            fetch('/api/health')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     const statusDiv = document.getElementById('apiStatus');
-                    if (data.success) {
+                    if (data.success !== false && data.status === 'healthy') {
                         statusDiv.innerHTML = `
                             <i class="bi bi-check-circle status-success"></i>
                             <span class="status-success">API连接正常</span>
@@ -698,7 +704,7 @@
                     } else {
                         statusDiv.innerHTML = `
                             <i class="bi bi-x-circle status-error"></i>
-                            <span class="status-error">API连接失败</span>
+                            <span class="status-error">API状态异常</span>
                         `;
                         window.apiConnected = false;
                     }
@@ -707,9 +713,10 @@
                     const statusDiv = document.getElementById('apiStatus');
                     statusDiv.innerHTML = `
                         <i class="bi bi-x-circle status-error"></i>
-                        <span class="status-error">API连接失败</span>
+                        <span class="status-error">API连接失败: ${error.message}</span>
                     `;
                     window.apiConnected = false;
+                    console.error('API连接错误:', error);
                 });
         }
 

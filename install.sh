@@ -862,13 +862,12 @@ deploy_php_frontend() {
     log_info "部署PHP前端..."
     
     # 创建Web目录
-    local web_dir="/var/www/html"
+    local web_dir="$INSTALL_DIR/php-frontend"
     if [[ ! -d "$web_dir" ]]; then
         mkdir -p "$web_dir"
     fi
     
-    # 复制PHP前端文件
-    cp -r "$INSTALL_DIR/php-frontend"/* "$web_dir/"
+    # PHP前端文件已经在正确位置，无需复制
     
     # 设置权限
     chown -R www-data:www-data "$web_dir"
@@ -904,27 +903,124 @@ server {
     listen 80;
     listen [::]:80;
     server_name _;
-    root /var/www/html;
+    root $INSTALL_DIR/php-frontend;
     index index.php index.html;
     
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
+    # 安全头
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    
+    # 静态文件缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
     }
     
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php$PHP_VERSION-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
-    }
-    
+    # API代理配置 - 将 /api/* 请求代理到后端
     location /api/ {
-        proxy_pass http://127.0.0.1:$API_PORT;
+        # 移除 /api 前缀，转发到后端
+        rewrite ^/api/(.*)$ /\$1 break;
+        
+        # 代理到后端API服务
+        proxy_pass http://127.0.0.1:$API_PORT/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        
+        # 超时设置
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        
+        # CORS头
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+        
+        # 处理预检请求
+        if (\$request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain charset=UTF-8';
+            add_header Content-Length 0;
+            return 204;
+        }
     }
+    
+    # PHP文件处理
+    location ~ \.php$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php/php$PHP_VERSION-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+        
+        # 超时设置
+        fastcgi_connect_timeout 60s;
+        fastcgi_send_timeout 60s;
+        fastcgi_read_timeout 60s;
+        
+        # 缓冲设置
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
+    }
+    
+    # 前端路由处理 - 支持单页应用路由
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    
+    # 禁止访问敏感文件
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    location ~ /(config|logs|backup)/ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # 禁止访问PHP配置文件
+    location ~ \.(ini|conf|log)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # 文件上传大小限制
+    client_max_body_size 10M;
+    
+    # Gzip压缩
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml;
 }
 EOF
     

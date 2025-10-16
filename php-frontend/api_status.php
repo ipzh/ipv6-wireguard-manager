@@ -1,83 +1,68 @@
 <?php
 /**
- * API连接状态检测页面
+ * API状态检查页面
  */
-require_once 'config/config.php';
-require_once 'includes/ApiClient.php';
 
 // 设置JSON响应头
-header('Content-Type: application/json');
-header('Cache-Control: no-cache, no-store, must-revalidate');
+header("Content-Type: application/json; charset=utf-8");
 
-try {
-    $apiClient = new ApiClient();
-    
-    // 获取详细的连接状态
-    $connectionStatus = $apiClient->getConnectionStatus();
-    $healthCheck = $apiClient->healthCheck();
-    $apiStatus = $apiClient->getApiStatus();
-    
-    // 获取系统信息
-    $systemInfo = null;
-    try {
-        $systemResponse = $apiClient->get('/debug/system-info');
-        $systemInfo = $systemResponse['data'];
-    } catch (Exception $e) {
-        // 忽略系统信息获取失败
-    }
-    
-    // 获取数据库状态
-    $databaseStatus = null;
-    try {
-        $dbResponse = $apiClient->get('/debug/database-status');
-        $databaseStatus = $dbResponse['data'];
-    } catch (Exception $e) {
-        // 忽略数据库状态获取失败
-    }
-    
-    $response = [
-        'timestamp' => time(),
-        'datetime' => date('Y-m-d H:i:s'),
-        'api_config' => [
-            'base_url' => API_BASE_URL,
-            'timeout' => API_TIMEOUT
-        ],
-        'connection_status' => $connectionStatus,
-        'health_check' => $healthCheck,
-        'api_status' => $apiStatus,
-        'system_info' => $systemInfo,
-        'database_status' => $databaseStatus,
-        'overall_status' => [
-            'healthy' => $connectionStatus['connected'] && $healthCheck['status'] === 'healthy',
-            'connected' => $connectionStatus['connected'],
-            'response_time' => $connectionStatus['response_time'] ?? 0,
-            'last_check' => time()
-        ]
-    ];
-    
-    // 设置HTTP状态码
-    http_response_code($response['overall_status']['healthy'] ? 200 : 503);
-    
-    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    
-} catch (Exception $e) {
-    $errorResponse = [
-        'timestamp' => time(),
-        'datetime' => date('Y-m-d H:i:s'),
-        'error' => true,
-        'message' => 'API连接检测失败: ' . $e->getMessage(),
-        'api_config' => [
-            'base_url' => API_BASE_URL,
-            'timeout' => API_TIMEOUT
-        ],
-        'overall_status' => [
-            'healthy' => false,
-            'connected' => false,
-            'error' => $e->getMessage()
-        ]
-    ];
-    
-    http_response_code(503);
-    echo json_encode($errorResponse, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+// 引入配置
+if (file_exists("config/config.php")) {
+    require_once "config/config.php";
+} else {
+    define("API_BASE_URL", "http://localhost:8000/api/v1");
 }
+
+// 检查API连接
+function checkApiConnection() {
+    $apiUrl = API_BASE_URL . "/health";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Accept: application/json",
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        return [
+            "success" => false,
+            "error" => "连接失败: " . $error,
+            "http_code" => 0,
+            "backend_url" => $apiUrl
+        ];
+    }
+    
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        return [
+            "success" => true,
+            "data" => $data,
+            "http_code" => $httpCode,
+            "backend_url" => $apiUrl
+        ];
+    } else {
+        return [
+            "success" => false,
+            "error" => "HTTP错误: " . $httpCode,
+            "http_code" => $httpCode,
+            "response" => substr($response, 0, 200),
+            "backend_url" => $apiUrl
+        ];
+    }
+}
+
+// 执行检查
+$result = checkApiConnection();
+
+// 输出结果
+echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 ?>

@@ -2,113 +2,177 @@
 /**
  * API连接测试脚本
  */
-require_once 'php-frontend/includes/ApiClient.php';
 
 echo "🔍 IPv6 WireGuard Manager - API连接测试\n";
 echo "=====================================\n\n";
 
-// 测试配置
-$testUrls = [
-    'http://localhost:8000/api/v1',
-    'http://127.0.0.1:8000/api/v1',
-    'http://backend:8000/api/v1',
-    'http://172.20.0.2:8000/api/v1'  // Docker网络IP
-];
+// 颜色定义
+function colorize($text, $color = 'white') {
+    $colors = [
+        'red' => "\033[31m",
+        'green' => "\033[32m",
+        'yellow' => "\033[33m",
+        'blue' => "\033[34m",
+        'white' => "\033[37m",
+        'reset' => "\033[0m"
+    ];
+    return $colors[$color] . $text . $colors['reset'];
+}
 
+// 1. 检查配置文件
+echo colorize("📋 1. 检查配置文件", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+if (file_exists('php-frontend/config/config.php')) {
+    require_once 'php-frontend/config/config.php';
+    echo colorize("✅ 配置文件加载成功", 'green') . "\n";
+    echo "API_BASE_URL: " . (defined('API_BASE_URL') ? API_BASE_URL : '未定义') . "\n";
+    echo "APP_DEBUG: " . (defined('APP_DEBUG') && APP_DEBUG ? '开启' : '关闭') . "\n";
+} else {
+    echo colorize("❌ 配置文件不存在", 'red') . "\n";
+    define('API_BASE_URL', 'http://localhost:8000/api/v1');
+}
+
+// 2. 测试API端点
+echo colorize("\n🌐 2. 测试API端点", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+$apiUrl = API_BASE_URL;
 $endpoints = [
-    '/health',
-    '/health/detailed',
-    '/debug/ping'
+    '/health' => '健康检查',
+    '/health/detailed' => '详细健康检查',
+    '/auth/health' => '认证健康检查',
+    '/status' => '状态检查'
 ];
 
-echo "📋 测试配置:\n";
-echo "API基础URL: " . (getenv('API_BASE_URL') ?: 'http://localhost:8000/api/v1') . "\n";
-echo "测试端点: " . implode(', ', $endpoints) . "\n\n";
-
-// 创建API客户端
-$apiClient = new ApiClient();
-
-echo "🧪 开始API连接测试...\n\n";
-
-foreach ($testUrls as $baseUrl) {
-    echo "📍 测试URL: $baseUrl\n";
-    echo str_repeat('-', 50) . "\n";
+foreach ($endpoints as $endpoint => $description) {
+    echo "测试 $description ($endpoint)... ";
     
-    // 创建新的API客户端实例
-    $testClient = new ApiClient($baseUrl, 10, 1, true); // 启用调试模式
+    $url = $apiUrl . $endpoint;
     
-    foreach ($endpoints as $endpoint) {
-        echo "  🔗 测试端点: $endpoint\n";
-        
-        try {
-            $startTime = microtime(true);
-            $response = $testClient->get($endpoint);
-            $endTime = microtime(true);
-            
-            $responseTime = round(($endTime - $startTime) * 1000, 2);
-            
-            echo "    ✅ 成功 - 状态码: {$response['status']}, 响应时间: {$responseTime}ms\n";
-            
-            if (isset($response['data']['status'])) {
-                echo "    📊 服务状态: {$response['data']['status']}\n";
-            }
-            
-        } catch (Exception $e) {
-            echo "    ❌ 失败 - 错误: " . $e->getMessage() . "\n";
+    // 使用cURL测试
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: application/json',
+        'Content-Type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        echo colorize("❌ cURL错误: $error", 'red') . "\n";
+    } elseif ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if ($data) {
+            echo colorize("✅ 成功 (HTTP $httpCode)", 'green') . "\n";
+            echo "  响应: " . json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
+        } else {
+            echo colorize("⚠️ 响应不是JSON格式", 'yellow') . "\n";
+            echo "  响应: " . substr($response, 0, 100) . "...\n";
         }
-        
-        echo "\n";
-    }
-    
-    echo "\n";
-}
-
-// 测试默认API客户端
-echo "🔧 测试默认API客户端...\n";
-echo str_repeat('-', 50) . "\n";
-
-try {
-    $healthCheck = $apiClient->healthCheck();
-    echo "健康检查: " . json_encode($healthCheck, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
-} catch (Exception $e) {
-    echo "健康检查失败: " . $e->getMessage() . "\n\n";
-}
-
-try {
-    $connectionStatus = $apiClient->getConnectionStatus();
-    echo "连接状态: " . json_encode($connectionStatus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
-} catch (Exception $e) {
-    echo "连接状态检查失败: " . $e->getMessage() . "\n\n";
-}
-
-try {
-    $apiStatus = $apiClient->getApiStatus();
-    echo "API状态: " . json_encode($apiStatus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
-} catch (Exception $e) {
-    echo "API状态检查失败: " . $e->getMessage() . "\n\n";
-}
-
-// 网络连接测试
-echo "🌐 网络连接测试...\n";
-echo str_repeat('-', 50) . "\n";
-
-$testHosts = [
-    'localhost:8000',
-    '127.0.0.1:8000',
-    'backend:8000'
-];
-
-foreach ($testHosts as $host) {
-    echo "测试主机: $host\n";
-    
-    $connection = @fsockopen($host, 8000, $errno, $errstr, 5);
-    if ($connection) {
-        echo "  ✅ 端口8000可连接\n";
-        fclose($connection);
     } else {
-        echo "  ❌ 端口8000不可连接 - $errstr ($errno)\n";
+        echo colorize("❌ HTTP错误: $httpCode", 'red') . "\n";
+        echo "  响应: " . substr($response, 0, 200) . "\n";
     }
 }
 
-echo "\n🎯 测试完成！\n";
+// 3. 测试后端服务状态
+echo colorize("\n🔧 3. 测试后端服务状态", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+// 检查后端服务是否运行
+$backendUrl = str_replace('/api/v1', '', $apiUrl);
+echo "检查后端服务 ($backendUrl)... ";
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $backendUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+curl_setopt($ch, CURLOPT_NOBODY, true); // 只获取头部
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
+curl_close($ch);
+
+if ($error) {
+    echo colorize("❌ 后端服务不可达: $error", 'red') . "\n";
+} elseif ($httpCode) {
+    echo colorize("✅ 后端服务运行中 (HTTP $httpCode)", 'green') . "\n";
+} else {
+    echo colorize("❌ 后端服务无响应", 'red') . "\n";
+}
+
+// 4. 测试端口连接
+echo colorize("\n🔌 4. 测试端口连接", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+$parsedUrl = parse_url($apiUrl);
+$host = $parsedUrl['host'];
+$port = $parsedUrl['port'] ?? 8000;
+
+echo "测试端口连接 ($host:$port)... ";
+
+$connection = @fsockopen($host, $port, $errno, $errstr, 5);
+if ($connection) {
+    echo colorize("✅ 端口连接成功", 'green') . "\n";
+    fclose($connection);
+} else {
+    echo colorize("❌ 端口连接失败: $errstr ($errno)", 'red') . "\n";
+}
+
+// 5. 检查系统服务
+echo colorize("\n⚙️ 5. 检查系统服务", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+// 检查systemd服务状态
+$services = ['ipv6-wireguard-manager', 'nginx', 'mysql', 'mariadb'];
+foreach ($services as $service) {
+    echo "检查服务 $service... ";
+    
+    $output = [];
+    $returnCode = 0;
+    exec("systemctl is-active $service 2>/dev/null", $output, $returnCode);
+    
+    if ($returnCode === 0 && !empty($output)) {
+        $status = $output[0];
+        if ($status === 'active') {
+            echo colorize("✅ 运行中", 'green') . "\n";
+        } else {
+            echo colorize("⚠️ 状态: $status", 'yellow') . "\n";
+        }
+    } else {
+        echo colorize("❌ 未运行或不存在", 'red') . "\n";
+    }
+}
+
+// 6. 生成诊断报告
+echo colorize("\n📋 6. 诊断报告", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+echo "API连接问题可能的原因:\n";
+echo "1. 后端服务未启动\n";
+echo "2. 端口被占用或防火墙阻止\n";
+echo "3. API端点路径错误\n";
+echo "4. 网络连接问题\n";
+echo "5. 后端服务配置错误\n";
+
+echo colorize("\n🔧 修复建议:", 'yellow') . "\n";
+echo "1. 检查后端服务状态: sudo systemctl status ipv6-wireguard-manager\n";
+echo "2. 启动后端服务: sudo systemctl start ipv6-wireguard-manager\n";
+echo "3. 检查端口监听: sudo netstat -tlnp | grep 8000\n";
+echo "4. 查看后端日志: sudo journalctl -u ipv6-wireguard-manager -f\n";
+echo "5. 检查防火墙: sudo ufw status\n";
+
+echo "\n" . str_repeat('=', 50) . "\n";
+echo "测试完成时间: " . date('Y-m-d H:i:s') . "\n";
 ?>

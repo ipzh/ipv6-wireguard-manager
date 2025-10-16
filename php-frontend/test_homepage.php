@@ -217,24 +217,42 @@ if (file_exists('config/config.php')) {
             resultDiv.style.display = 'block';
             contentDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">检查中...</span></div><p class="mt-2">正在检查API状态...</p></div>';
             
-            // 模拟API检查
-            fetch('/api/v1/health')
-                .then(response => response.json())
+            // 使用API代理端点
+            fetch('/api/health')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    contentDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle me-2"></i>
-                            <strong>API连接正常</strong><br>
-                            <small>响应时间: ${new Date().toLocaleTimeString()}</small>
-                        </div>
-                    `;
+                    if (data.success !== false && data.status === 'healthy') {
+                        contentDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>API连接正常</strong><br>
+                                <small>服务: ${data.service || 'IPv6 WireGuard Manager'}</small><br>
+                                <small>版本: ${data.version || '3.0.0'}</small><br>
+                                <small>响应时间: ${new Date().toLocaleTimeString()}</small>
+                            </div>
+                        `;
+                    } else {
+                        contentDiv.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>API状态异常</strong><br>
+                                <small>错误: ${data.error || data.message || '未知错误'}</small>
+                            </div>
+                        `;
+                    }
                 })
                 .catch(error => {
                     contentDiv.innerHTML = `
                         <div class="alert alert-danger">
                             <i class="bi bi-x-circle me-2"></i>
                             <strong>API连接失败</strong><br>
-                            <small>错误: ${error.message}</small>
+                            <small>错误: ${error.message}</small><br>
+                            <small>请检查后端服务是否运行</small>
                         </div>
                     `;
                 });

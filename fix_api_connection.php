@@ -1,12 +1,10 @@
 <?php
 /**
- * API连接问题诊断和修复脚本
+ * API连接修复脚本
  */
-require_once 'php-frontend/config/config.php';
-require_once 'php-frontend/includes/ApiClient.php';
 
-echo "🔧 IPv6 WireGuard Manager - API连接问题诊断和修复\n";
-echo "===============================================\n\n";
+echo "🔧 IPv6 WireGuard Manager - API连接修复\n";
+echo "=====================================\n\n";
 
 // 颜色定义
 function colorize($text, $color = 'white') {
@@ -21,205 +19,296 @@ function colorize($text, $color = 'white') {
     return $colors[$color] . $text . $colors['reset'];
 }
 
-// 检查步骤
-$checks = [
-    'config' => '检查配置文件',
-    'network' => '检查网络连接',
-    'backend' => '检查后端服务',
-    'api' => '检查API端点',
-    'fix' => '尝试修复问题'
+// 1. 修复前端API调用问题
+echo colorize("🔧 1. 修复前端API调用", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+// 修复test_homepage.php中的API检查
+$testFile = 'php-frontend/test_homepage.php';
+if (file_exists($testFile)) {
+    $content = file_get_contents($testFile);
+    
+    // 查找并替换API检查函数
+    $oldApiCheck = 'fetch(\'/api/v1/health\')';
+    $newApiCheck = 'fetch(\'<?= defined("API_BASE_URL") ? API_BASE_URL : "http://localhost:8000/api/v1" ?>/health\')';
+    
+    if (strpos($content, $oldApiCheck) !== false) {
+        $content = str_replace($oldApiCheck, $newApiCheck, $content);
+        file_put_contents($testFile, $content);
+        echo colorize("✅ 修复了test_homepage.php中的API调用", 'green') . "\n";
+    } else {
+        echo colorize("⚠️ test_homepage.php中未找到需要修复的API调用", 'yellow') . "\n";
+    }
+} else {
+    echo colorize("❌ test_homepage.php文件不存在", 'red') . "\n";
+}
+
+// 2. 创建API代理端点
+echo colorize("\n🌐 2. 创建API代理端点", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+$apiProxyContent = '<?php
+/**
+ * API代理端点 - 解决跨域和路径问题
+ */
+
+// 设置CORS头
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Content-Type: application/json; charset=utf-8");
+
+// 处理预检请求
+if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+    http_response_code(200);
+    exit;
+}
+
+// 引入配置
+if (file_exists("config/config.php")) {
+    require_once "config/config.php";
+} else {
+    define("API_BASE_URL", "http://localhost:8000/api/v1");
+}
+
+// 获取请求路径
+$requestUri = $_SERVER["REQUEST_URI"];
+$path = parse_url($requestUri, PHP_URL_PATH);
+
+// 移除/api前缀
+$apiPath = preg_replace("#^/api#", "", $path);
+
+// 构建后端API URL
+$backendUrl = API_BASE_URL . $apiPath;
+
+// 如果有查询参数，添加到URL
+if (!empty($_SERVER["QUERY_STRING"])) {
+    $backendUrl .= "?" . $_SERVER["QUERY_STRING"];
+}
+
+// 准备请求数据
+$requestData = null;
+if ($_SERVER["REQUEST_METHOD"] === "POST" || $_SERVER["REQUEST_METHOD"] === "PUT") {
+    $requestData = file_get_contents("php://input");
+}
+
+// 设置请求头
+$headers = [
+    "Content-Type: application/json",
+    "Accept: application/json"
 ];
 
-foreach ($checks as $key => $description) {
-    echo colorize("📋 步骤: $description", 'blue') . "\n";
-    echo str_repeat('-', 50) . "\n";
-    
-    switch ($key) {
-        case 'config':
-            checkConfig();
-            break;
-        case 'network':
-            checkNetwork();
-            break;
-        case 'backend':
-            checkBackend();
-            break;
-        case 'api':
-            checkAPI();
-            break;
-        case 'fix':
-            tryFix();
-            break;
-    }
-    
-    echo "\n";
+// 如果有Authorization头，传递它
+if (isset($_SERVER["HTTP_AUTHORIZATION"])) {
+    $headers[] = "Authorization: " . $_SERVER["HTTP_AUTHORIZATION"];
 }
 
-function checkConfig() {
-    echo "检查配置文件...\n";
+// 初始化cURL
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $backendUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+// 设置请求方法
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER["REQUEST_METHOD"]);
+
+// 如果有请求数据，设置它
+if ($requestData) {
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $requestData);
+}
+
+// 执行请求
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
+curl_close($ch);
+
+// 处理响应
+if ($error) {
+    http_response_code(500);
+    echo json_encode([
+        "success" => false,
+        "error" => "API连接失败: " . $error,
+        "message" => "无法连接到后端API服务"
+    ]);
+} else {
+    // 设置HTTP状态码
+    http_response_code($httpCode);
     
-    $configFile = 'php-frontend/config/config.php';
-    if (file_exists($configFile)) {
-        echo colorize("✅ 配置文件存在", 'green') . "\n";
-        
-        // 检查API_BASE_URL
-        $config = file_get_contents($configFile);
-        if (strpos($config, 'API_BASE_URL') !== false) {
-            echo colorize("✅ API_BASE_URL配置存在", 'green') . "\n";
-            echo "当前配置: " . API_BASE_URL . "\n";
-        } else {
-            echo colorize("❌ API_BASE_URL配置缺失", 'red') . "\n";
-        }
+    // 尝试解析JSON响应
+    $jsonData = json_decode($response, true);
+    if ($jsonData !== null) {
+        echo json_encode($jsonData, JSON_UNESCAPED_UNICODE);
     } else {
-        echo colorize("❌ 配置文件不存在", 'red') . "\n";
+        // 如果不是JSON，返回错误信息
+        echo json_encode([
+            "success" => false,
+            "error" => "API响应格式错误",
+            "message" => "后端返回了非JSON格式的响应",
+            "raw_response" => substr($response, 0, 200)
+        ]);
+    }
+}
+?>';
+
+// 确保目录存在
+if (!is_dir('php-frontend/api')) {
+    mkdir('php-frontend/api', 0755, true);
+}
+
+// 创建API代理文件
+file_put_contents('php-frontend/api/index.php', $apiProxyContent);
+echo colorize("✅ 创建了API代理端点: php-frontend/api/index.php", 'green') . "\n";
+
+// 3. 修复前端API调用路径
+echo colorize("\n🔗 3. 修复前端API调用路径", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+// 修复登录页面的API调用
+$loginFile = 'php-frontend/views/auth/login.php';
+if (file_exists($loginFile)) {
+    $content = file_get_contents($loginFile);
+    
+    // 替换API调用路径
+    $oldApiCall = 'fetch(apiUrl + \'/health\')';
+    $newApiCall = 'fetch(\'/api/health\')';
+    
+    if (strpos($content, $oldApiCall) !== false) {
+        $content = str_replace($oldApiCall, $newApiCall, $content);
+        file_put_contents($loginFile, $content);
+        echo colorize("✅ 修复了登录页面的API调用路径", 'green') . "\n";
     }
 }
 
-function checkNetwork() {
-    echo "检查网络连接...\n";
+// 修复test_homepage.php的API调用
+if (file_exists($testFile)) {
+    $content = file_get_contents($testFile);
     
-    $hosts = [
-        'localhost:8000',
-        '127.0.0.1:8000',
-        'backend:8000'
-    ];
+    // 替换API调用路径
+    $oldApiCall = 'fetch(\'<?= defined("API_BASE_URL") ? API_BASE_URL : "http://localhost:8000/api/v1" ?>/health\')';
+    $newApiCall = 'fetch(\'/api/health\')';
     
-    foreach ($hosts as $host) {
-        echo "测试 $host... ";
-        
-        $connection = @fsockopen($host, 8000, $errno, $errstr, 5);
-        if ($connection) {
-            echo colorize("✅ 可连接", 'green') . "\n";
-            fclose($connection);
-        } else {
-            echo colorize("❌ 不可连接 - $errstr", 'red') . "\n";
-        }
+    if (strpos($content, $oldApiCall) !== false) {
+        $content = str_replace($oldApiCall, $newApiCall, $content);
+        file_put_contents($testFile, $content);
+        echo colorize("✅ 修复了test_homepage.php的API调用路径", 'green') . "\n";
     }
 }
 
-function checkBackend() {
-    echo "检查后端服务...\n";
+// 4. 创建.htaccess文件支持API路由
+echo colorize("\n📝 4. 创建.htaccess文件", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+$htaccessContent = 'RewriteEngine On
+
+# API代理路由
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# 前端路由
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]';
+
+file_put_contents('php-frontend/.htaccess', $htaccessContent);
+echo colorize("✅ 创建了.htaccess文件", 'green') . "\n";
+
+// 5. 创建简单的API状态检查页面
+echo colorize("\n📊 5. 创建API状态检查页面", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+$apiStatusContent = '<?php
+/**
+ * API状态检查页面
+ */
+
+// 设置JSON响应头
+header("Content-Type: application/json; charset=utf-8");
+
+// 引入配置
+if (file_exists("config/config.php")) {
+    require_once "config/config.php";
+} else {
+    define("API_BASE_URL", "http://localhost:8000/api/v1");
+}
+
+// 检查API连接
+function checkApiConnection() {
+    $apiUrl = API_BASE_URL . "/health";
     
-    // 检查后端进程
-    $processes = [];
-    if (function_exists('exec')) {
-        exec('ps aux | grep uvicorn', $processes);
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Accept: application/json",
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        return [
+            "success" => false,
+            "error" => "连接失败: " . $error,
+            "http_code" => 0
+        ];
     }
     
-    if (!empty($processes)) {
-        echo colorize("✅ 发现后端进程", 'green') . "\n";
-        foreach ($processes as $process) {
-            if (strpos($process, 'uvicorn') !== false) {
-                echo "  $process\n";
-            }
-        }
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        return [
+            "success" => true,
+            "data" => $data,
+            "http_code" => $httpCode
+        ];
     } else {
-        echo colorize("❌ 未发现后端进程", 'red') . "\n";
-    }
-    
-    // 检查systemd服务
-    if (function_exists('exec')) {
-        exec('systemctl is-active ipv6-wireguard-manager 2>/dev/null', $serviceStatus);
-        if (!empty($serviceStatus)) {
-            echo "systemd服务状态: " . $serviceStatus[0] . "\n";
-        }
+        return [
+            "success" => false,
+            "error" => "HTTP错误: " . $httpCode,
+            "http_code" => $httpCode,
+            "response" => substr($response, 0, 200)
+        ];
     }
 }
 
-function checkAPI() {
-    echo "检查API端点...\n";
-    
-    $apiClient = new ApiClient();
-    
-    $endpoints = [
-        '/health',
-        '/health/detailed',
-        '/debug/ping'
-    ];
-    
-    foreach ($endpoints as $endpoint) {
-        echo "测试 $endpoint... ";
-        
-        try {
-            $response = $apiClient->get($endpoint);
-            echo colorize("✅ 正常 (状态码: {$response['status']})", 'green') . "\n";
-        } catch (Exception $e) {
-            echo colorize("❌ 失败 - " . $e->getMessage(), 'red') . "\n";
-        }
-    }
-}
+// 执行检查
+$result = checkApiConnection();
 
-function tryFix() {
-    echo "尝试修复问题...\n";
-    
-    $fixes = [
-        'restart_backend' => '重启后端服务',
-        'check_firewall' => '检查防火墙设置',
-        'update_config' => '更新配置文件',
-        'test_alternative_urls' => '测试备用URL'
-    ];
-    
-    foreach ($fixes as $fix => $description) {
-        echo "尝试: $description... ";
-        
-        switch ($fix) {
-            case 'restart_backend':
-                if (function_exists('exec')) {
-                    exec('sudo systemctl restart ipv6-wireguard-manager 2>/dev/null', $output, $returnCode);
-                    if ($returnCode === 0) {
-                        echo colorize("✅ 重启成功", 'green') . "\n";
-                        sleep(3); // 等待服务启动
-                    } else {
-                        echo colorize("❌ 重启失败", 'red') . "\n";
-                    }
-                } else {
-                    echo colorize("⚠️ 无法执行系统命令", 'yellow') . "\n";
-                }
-                break;
-                
-            case 'check_firewall':
-                echo colorize("⚠️ 请手动检查防火墙设置", 'yellow') . "\n";
-                break;
-                
-            case 'update_config':
-                // 尝试更新配置文件
-                $configFile = 'php-frontend/config/config.php';
-                if (file_exists($configFile)) {
-                    echo colorize("✅ 配置文件已存在", 'green') . "\n";
-                } else {
-                    echo colorize("❌ 配置文件不存在", 'red') . "\n";
-                }
-                break;
-                
-            case 'test_alternative_urls':
-                $alternativeUrls = [
-                    'http://127.0.0.1:8000/api/v1',
-                    'http://localhost:8000/api/v1',
-                    'http://backend:8000/api/v1'
-                ];
-                
-                foreach ($alternativeUrls as $url) {
-                    echo "  测试 $url... ";
-                    $testClient = new ApiClient($url, 5, 1);
-                    try {
-                        $response = $testClient->get('/health');
-                        echo colorize("✅ 可用", 'green') . "\n";
-                        echo "  建议更新API_BASE_URL为: $url\n";
-                        break;
-                    } catch (Exception $e) {
-                        echo colorize("❌ 不可用", 'red') . "\n";
-                    }
-                }
-                break;
-        }
-    }
-}
+// 输出结果
+echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+?>';
 
-echo colorize("🎯 诊断完成！", 'blue') . "\n";
-echo "\n建议操作:\n";
-echo "1. 检查后端服务是否正在运行\n";
-echo "2. 确认防火墙允许8000端口访问\n";
-echo "3. 检查API_BASE_URL配置是否正确\n";
-echo "4. 查看后端服务日志: sudo journalctl -u ipv6-wireguard-manager -f\n";
-echo "5. 访问API状态页面: http://your-domain/api_status.php\n";
+file_put_contents('php-frontend/api_status.php', $apiStatusContent);
+echo colorize("✅ 创建了API状态检查页面: php-frontend/api_status.php", 'green') . "\n";
+
+// 6. 生成修复报告
+echo colorize("\n📋 6. 修复报告", 'blue') . "\n";
+echo str_repeat('-', 50) . "\n";
+
+echo "修复完成！主要修复内容:\n";
+echo "1. ✅ 创建了API代理端点 (php-frontend/api/index.php)\n";
+echo "2. ✅ 修复了前端API调用路径\n";
+echo "3. ✅ 创建了.htaccess文件支持API路由\n";
+echo "4. ✅ 创建了API状态检查页面\n";
+
+echo colorize("\n🎯 测试建议:", 'blue') . "\n";
+echo "1. 访问 http://localhost/php-frontend/api_status.php 检查API状态\n";
+echo "2. 访问 http://localhost/php-frontend/test_homepage.php 测试功能\n";
+echo "3. 访问 http://localhost/php-frontend/login 测试登录页面\n";
+
+echo colorize("\n🔧 如果仍有问题:", 'yellow') . "\n";
+echo "1. 检查后端服务是否运行: sudo systemctl status ipv6-wireguard-manager\n";
+echo "2. 检查端口8000是否监听: sudo netstat -tlnp | grep 8000\n";
+echo "3. 查看后端日志: sudo journalctl -u ipv6-wireguard-manager -f\n";
+echo "4. 检查防火墙设置: sudo ufw status\n";
+
+echo "\n" . str_repeat('=', 50) . "\n";
+echo "修复完成时间: " . date('Y-m-d H:i:s') . "\n";
 ?>
