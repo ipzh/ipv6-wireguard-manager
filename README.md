@@ -122,6 +122,18 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 快速修复WireGuard权限问题
 ./quick_fix_wireguard_permissions.sh
+
+# 深度API服务诊断
+./deep_api_diagnosis.sh
+
+# 代码层面分析
+python3 deep_code_analysis.py
+
+# 综合诊断（推荐）
+./comprehensive_api_diagnosis.sh
+
+# 测试诊断工具
+./test_diagnosis_tools.sh
 ```
 
 ## 📋 系统要求
