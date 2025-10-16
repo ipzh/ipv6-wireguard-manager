@@ -1844,11 +1844,13 @@ show_installation_complete() {
         # 方法1: 使用ip命令获取所有IPv6地址
         if command -v ip &> /dev/null; then
             while IFS= read -r line; do
-                if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
-                    ipv6_ips+=("$line")
-                    log_info "     ✅ 发现IPv6地址: $line"
+                # 提取IPv6地址（去除前缀部分）
+                ipv6_addr=$(echo "$line" | cut -d'/' -f1)
+                if [[ $ipv6_addr =~ ^[0-9a-fA-F:]+$ ]] && [[ $ipv6_addr != "::1" ]] && [[ ! $ipv6_addr =~ ^fe80: ]]; then
+                    ipv6_ips+=("$ipv6_addr")
+                    log_info "     ✅ 发现IPv6地址: $ipv6_addr"
                 fi
-            done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:')
+            done < <(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+/[0-9]+' 2>/dev/null | grep -v '::1' | grep -v '^fe80:')
         else
             log_warning "     ip命令不可用"
         fi
@@ -1857,11 +1859,13 @@ show_installation_complete() {
         if [ ${#ipv6_ips[@]} -eq 0 ] && command -v ifconfig &> /dev/null; then
             log_info "    尝试使用ifconfig获取IPv6地址..."
             while IFS= read -r line; do
-                if [[ $line =~ ^[0-9a-fA-F:]+$ ]] && [[ $line != "::1" ]] && [[ ! $line =~ ^fe80: ]]; then
-                    ipv6_ips+=("$line")
-                    log_info "     ✅ 发现IPv6地址: $line"
+                # 提取IPv6地址（去除前缀部分）
+                ipv6_addr=$(echo "$line" | cut -d'/' -f1)
+                if [[ $ipv6_addr =~ ^[0-9a-fA-F:]+$ ]] && [[ $ipv6_addr != "::1" ]] && [[ ! $ipv6_addr =~ ^fe80: ]]; then
+                    ipv6_ips+=("$ipv6_addr")
+                    log_info "     ✅ 发现IPv6地址: $ipv6_addr"
                 fi
-            done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | grep -v '::1' | grep -v '^fe80:')
+            done < <(ifconfig 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+/[0-9]+' | grep -v '::1' | grep -v '^fe80:')
         fi
         
         if [ ${#ipv6_ips[@]} -eq 0 ]; then
