@@ -74,6 +74,7 @@ require_once 'controllers/IPv6Controller.php';
 require_once 'controllers/MonitoringController.php';
 require_once 'controllers/LogsController.php';
 require_once 'controllers/UsersController.php';
+require_once 'controllers/ProfileController.php';
 require_once 'controllers/SystemController.php';
 require_once 'controllers/NetworkController.php';
 
@@ -172,6 +173,14 @@ $router->addRoute('GET', '/users/{id}/reset-password', 'UsersController@resetPas
 $router->addRoute('POST', '/users/{id}/reset-password', 'UsersController@resetPassword');
 $router->addRoute('GET', '/users/{id}/activity', 'UsersController@activity');
 $router->addRoute('POST', '/users/batch', 'UsersController@batch');
+
+// 个人资料管理
+$router->addRoute('GET', '/profile', 'ProfileController@index');
+$router->addRoute('POST', '/profile', 'ProfileController@update');
+$router->addRoute('GET', '/profile/settings', 'ProfileController@settings');
+$router->addRoute('GET', '/profile/change-password', 'ProfileController@changePassword');
+$router->addRoute('POST', '/profile/change-password', 'ProfileController@updatePassword');
+$router->addRoute('GET', '/profile/security', 'ProfileController@security');
 
 // 系统管理
 $router->addRoute('GET', '/system/info', 'SystemController@info');

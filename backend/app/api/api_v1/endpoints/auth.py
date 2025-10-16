@@ -16,7 +16,7 @@ async def login(
     """用户登录"""
     try:
         # 简化的认证逻辑
-        if form_data.username == "admin" and form_data.password == "admin":
+        if form_data.username == "admin" and form_data.password == "admin123":
             user = {"id": 1, "username": "admin", "email": "admin@example.com"}
         else:
             user = None
@@ -54,7 +54,7 @@ async def login_json(credentials: Dict[str, str]):
         username = credentials.get("username")
         password = credentials.get("password")
         
-        if username == "admin" and password == "admin":
+        if username == "admin" and password == "admin123":
             user = {"id": 1, "username": "admin", "email": "admin@example.com"}
         else:
             raise HTTPException(

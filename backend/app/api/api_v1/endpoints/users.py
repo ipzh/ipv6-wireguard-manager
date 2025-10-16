@@ -46,6 +46,46 @@ async def update_user(user_id: int, user_data: Dict[str, Any]):
         "message": "用户更新成功"
     }
 
+@router.put("/{user_id}/password", response_model=None)
+async def change_password(user_id: int, password_data: Dict[str, Any]):
+    """修改用户密码"""
+    old_password = password_data.get("old_password")
+    new_password = password_data.get("new_password")
+    
+    # 简化的密码验证逻辑
+    if user_id == 1:  # admin用户
+        if old_password != "admin123":
+            raise HTTPException(status_code=400, detail="原密码错误")
+    
+    return {
+        "message": "密码修改成功",
+        "user_id": user_id
+    }
+
+@router.get("/profile/me", response_model=None)
+async def get_current_user_profile():
+    """获取当前用户资料"""
+    return {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "full_name": "系统管理员",
+        "is_active": True,
+        "created_at": "2024-01-01T00:00:00Z",
+        "last_login": "2024-01-15T10:30:00Z"
+    }
+
+@router.put("/profile/me", response_model=None)
+async def update_current_user_profile(profile_data: Dict[str, Any]):
+    """更新当前用户资料"""
+    return {
+        "id": 1,
+        "username": profile_data.get("username", "admin"),
+        "email": profile_data.get("email", "admin@example.com"),
+        "full_name": profile_data.get("full_name", "系统管理员"),
+        "message": "个人资料更新成功"
+    }
+
 @router.delete("/{user_id}", response_model=None)
 async def delete_user(user_id: int):
     """删除用户"""
