@@ -327,7 +327,7 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  --type TYPE          安装类型 (docker|native|minimal)"
+    echo "  --type TYPE          安装类型 (native|minimal)"
     echo "  --dir DIR            安装目录 (默认: $DEFAULT_INSTALL_DIR)"
     echo "  --port PORT          Web端口 (默认: $DEFAULT_PORT)"
     echo "  --api-port PORT      API端口 (默认: $DEFAULT_API_PORT)"
@@ -345,7 +345,6 @@ show_help() {
     echo "示例:"
     echo "  $0 --type minimal --silent"
     echo "  $0 --type native --production --dir /opt/ipv6wgm"
-    echo "  $0 --type docker --port 8080 --api-port 8001"
     echo ""
     echo "支持的Linux系统:"
     echo "  - Ubuntu 18.04+"
@@ -355,6 +354,12 @@ show_help() {
     echo "  - Fedora 30+"
     echo "  - Arch Linux"
     echo "  - openSUSE 15+"
+    echo ""
+    echo "安装类型说明:"
+    echo "  native   - 原生安装，推荐用于生产环境和开发环境"
+    echo "  minimal  - 最小化安装，推荐用于资源受限环境"
+    echo ""
+    echo "注意: Docker安装暂未实现"
 }
 
 # 选择安装类型
@@ -377,55 +382,46 @@ select_install_type() {
             log_info "自动选择的安装类型: native"
             log_info "选择理由: 内存2-4GB，推荐原生安装（平衡性能和资源）"
         else
-            INSTALL_TYPE="docker"
+            INSTALL_TYPE="native"
             log_info "检测到非交互模式，自动选择安装类型..."
-            log_info "自动选择的安装类型: docker"
-            log_info "选择理由: 内存充足，推荐Docker安装（最佳隔离和可移植性）"
+            log_info "自动选择的安装类型: native"
+            log_info "选择理由: 内存充足，但Docker安装暂未实现，使用原生安装"
         fi
         return 0
     fi
     
     # 交互模式
     log_info "请选择安装类型:"
-    echo "1) Docker安装 - 推荐用于生产环境"
-    echo "   优点: 完全隔离、易于管理、可移植性强"
-    echo "   缺点: 资源占用较高、启动较慢"
-    echo "   要求: 内存 ≥ 4GB，磁盘 ≥ 10GB"
-    echo ""
-    echo "2) 原生安装 - 推荐用于开发环境"
+    echo "1) 原生安装 - 推荐用于生产环境和开发环境"
     echo "   优点: 性能最佳、资源占用低、启动快速"
     echo "   缺点: 依赖系统环境、配置复杂"
     echo "   要求: 内存 ≥ 2GB，磁盘 ≥ 5GB"
     echo ""
-    echo "3) 最小化安装 - 推荐用于资源受限环境"
+    echo "2) 最小化安装 - 推荐用于资源受限环境"
     echo "   优点: 资源占用最低、启动最快"
     echo "   缺点: 功能受限、性能一般"
     echo "   要求: 内存 ≥ 1GB，磁盘 ≥ 3GB"
+    echo ""
+    echo "注意: Docker安装暂未实现，请选择原生安装或最小化安装"
     echo ""
     
     # 根据系统资源推荐
     if [[ $MEMORY_MB -lt 2048 ]]; then
         log_warning "⚠️ 系统内存不足2GB，强烈推荐选择最小化安装"
-        recommended="3"
-    elif [[ $MEMORY_MB -lt 4096 ]]; then
-        log_info "💡 系统内存2-4GB，推荐选择原生安装"
         recommended="2"
     else
-        log_info "💡 系统内存充足，推荐选择Docker安装"
+        log_info "💡 系统内存充足，推荐选择原生安装"
         recommended="1"
     fi
     
     echo ""
-    read -p "请输入选择 (1-3) [推荐: $recommended]: " choice
+    read -p "请输入选择 (1-2) [推荐: $recommended]: " choice
     
     case $choice in
         1|"")
-            INSTALL_TYPE="docker"
-            ;;
-        2)
             INSTALL_TYPE="native"
             ;;
-        3)
+        2)
             INSTALL_TYPE="minimal"
             ;;
         *)
