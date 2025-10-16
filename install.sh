@@ -999,12 +999,50 @@ install_minimal_dependencies() {
             
             # 安装PHP和PHP-FPM
             log_info "安装PHP和PHP-FPM..."
+            
+            # 首先尝试安装指定版本的PHP
+            php_installed=false
             if apt-get install -y php$PHP_VERSION php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-curl php$PHP_VERSION-json php$PHP_VERSION-mbstring php$PHP_VERSION-mysql php$PHP_VERSION-xml php$PHP_VERSION-zip; then
                 log_success "PHP $PHP_VERSION 安装成功"
+                php_installed=true
             else
-                log_error "PHP安装失败"
-                log_info "请手动安装PHP："
+                log_warning "PHP $PHP_VERSION 安装失败，尝试安装默认PHP版本..."
+                
+                # 尝试安装默认PHP版本
+                if apt-get install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip; then
+                    log_success "PHP默认版本安装成功"
+                    # 更新PHP_VERSION变量为实际安装的版本
+                    PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
+                    log_info "检测到PHP版本: $PHP_VERSION"
+                    php_installed=true
+                else
+                    # 尝试查找可用的PHP版本
+                    log_info "查找可用的PHP版本..."
+                    available_versions=$(apt-cache search ^php[0-9]+\.[0-9]+$ | grep -oP 'php\K[0-9]+\.[0-9]+' | sort -V | tail -5)
+                    
+                    if [[ -n "$available_versions" ]]; then
+                        log_info "可用的PHP版本: $available_versions"
+                        for version in $available_versions; do
+                            log_info "尝试安装PHP $version..."
+                            if apt-get install -y php$version php$version-fpm php$version-cli php$version-curl php$version-json php$version-mbstring php$version-mysql php$version-xml php$version-zip; then
+                                log_success "PHP $version 安装成功"
+                                PHP_VERSION=$version
+                                php_installed=true
+                                break
+                            fi
+                        done
+                    fi
+                fi
+            fi
+            
+            if [[ "$php_installed" = false ]]; then
+                log_error "无法安装PHP，请检查软件源或手动安装"
+                log_info "手动安装命令："
                 log_info "  Ubuntu/Debian: sudo apt-get install php php-fpm"
+                log_info "  或者添加PHP软件源："
+                log_info "  sudo apt-get install software-properties-common"
+                log_info "  sudo add-apt-repository ppa:ondrej/php"
+                log_info "  sudo apt-get update"
                 exit 1
             fi
             
