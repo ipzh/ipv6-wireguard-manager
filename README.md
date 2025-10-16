@@ -157,6 +157,12 @@ python3 deep_code_analysis.py
 # 清理Apache配置文件
 ./cleanup_apache_configs.sh
 
+# 修复Apache依赖问题
+./fix_apache_dependency_issue.sh
+
+# 仅安装PHP-FPM（避免Apache依赖）
+./install_php_fpm_only.sh
+
 # 测试诊断工具
 ./test_diagnosis_tools.sh
 ```

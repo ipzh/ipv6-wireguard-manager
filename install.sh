@@ -608,49 +608,100 @@ install_php() {
     
     case $PACKAGE_MANAGER in
         "apt")
-            # 尝试安装指定版本的PHP
-            if apt-get install -y php$PHP_VERSION php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-curl php$PHP_VERSION-json php$PHP_VERSION-mbstring php$PHP_VERSION-mysql php$PHP_VERSION-xml php$PHP_VERSION-zip 2>/dev/null; then
-                log_success "PHP $PHP_VERSION 安装成功"
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
+            
+            # 先安装PHP-FPM核心包
+            if apt-get install -y php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-common 2>/dev/null; then
+                log_success "PHP $PHP_VERSION-FPM 核心包安装成功"
             else
-                # 尝试安装默认PHP版本
-                if apt-get install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip 2>/dev/null; then
-                    log_success "PHP默认版本安装成功"
+                # 尝试安装默认版本
+                if apt-get install -y php-fpm php-cli php-common 2>/dev/null; then
+                    log_success "PHP默认版本-FPM 核心包安装成功"
                     PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
                 else
-                    log_error "PHP安装失败"
+                    log_error "PHP-FPM核心包安装失败"
                     exit 1
                 fi
             fi
+            
+            # 安装PHP扩展（逐个安装，避免触发Apache依赖）
+            local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+            for ext in "${php_extensions[@]}"; do
+                if apt-get install -y php$PHP_VERSION-$ext 2>/dev/null; then
+                    log_success "✓ PHP扩展 $ext 安装成功"
+                else
+                    log_warning "⚠ PHP扩展 $ext 安装失败，尝试默认版本"
+                    apt-get install -y php-$ext 2>/dev/null || true
+                fi
+            done
+            
+            log_success "PHP $PHP_VERSION-FPM 安装完成（无Apache依赖）"
             ;;
         "yum"|"dnf")
-            if $PACKAGE_MANAGER install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip 2>/dev/null; then
-                log_success "PHP安装成功"
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
+            if $PACKAGE_MANAGER install -y php-fpm php-cli php-common 2>/dev/null; then
+                log_success "PHP-FPM核心包安装成功"
+                
+                # 安装PHP扩展
+                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+                for ext in "${php_extensions[@]}"; do
+                    $PACKAGE_MANAGER install -y php-$ext 2>/dev/null || true
+                done
+                
+                log_success "PHP-FPM安装完成（无Apache依赖）"
             else
-                log_error "PHP安装失败"
+                log_error "PHP-FPM安装失败"
                 exit 1
             fi
             ;;
         "pacman")
-            if pacman -S --noconfirm php php-fpm 2>/dev/null; then
-                log_success "PHP安装成功"
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
+            if pacman -S --noconfirm php-fpm php-cli 2>/dev/null; then
+                log_success "PHP-FPM安装成功"
+                
+                # 安装PHP扩展
+                pacman -S --noconfirm php-curl php-mbstring php-sqlite 2>/dev/null || true
+                
+                log_success "PHP-FPM安装完成（无Apache依赖）"
             else
-                log_error "PHP安装失败"
+                log_error "PHP-FPM安装失败"
                 exit 1
             fi
             ;;
         "zypper")
-            if zypper install -y php php-fpm php-cli php-curl php-json php-mbstring php-mysql php-xml php-zip 2>/dev/null; then
-                log_success "PHP安装成功"
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
+            if zypper install -y php-fpm php-cli php-common 2>/dev/null; then
+                log_success "PHP-FPM核心包安装成功"
+                
+                # 安装PHP扩展
+                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+                for ext in "${php_extensions[@]}"; do
+                    zypper install -y php-$ext 2>/dev/null || true
+                done
+                
+                log_success "PHP-FPM安装完成（无Apache依赖）"
             else
-                log_error "PHP安装失败"
+                log_error "PHP-FPM安装失败"
                 exit 1
             fi
             ;;
         "emerge")
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
             emerge -q dev-lang/php:8.1
+            emerge -q dev-php/php-fpm
+            log_success "PHP-FPM安装完成（无Apache依赖）"
             ;;
         "apk")
-            apk add php php-fpm php-cli php-curl php-json php-mbstring php-mysqlnd php-xml php-zip
+            # 安装PHP-FPM（避免Apache依赖）
+            log_info "安装PHP-FPM（避免Apache依赖）..."
+            apk add php-fpm php-cli php-common
+            apk add php-curl php-json php-mbstring php-mysqlnd php-xml php-zip
+            log_success "PHP-FPM安装完成（无Apache依赖）"
             ;;
     esac
 }

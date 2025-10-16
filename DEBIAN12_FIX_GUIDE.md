@@ -20,9 +20,47 @@
 ./test_system_compatibility.sh
 ```
 
-### 步骤2: 修复Debian 12环境问题
+### 步骤2: 预防Apache依赖问题
 
-运行环境修复脚本，解决Apache和PHP-FPM问题：
+**推荐方式**: 使用专门的PHP-FPM安装脚本，避免Apache依赖：
+
+```bash
+# 设置执行权限
+chmod +x install_php_fpm_only.sh
+
+# 仅安装PHP-FPM（避免Apache依赖）
+./install_php_fpm_only.sh
+```
+
+这个脚本会：
+- ✅ 检测系统环境
+- ✅ 清理现有Apache包
+- ✅ 安装PHP-FPM（无Apache依赖）
+- ✅ 配置PHP-FPM服务
+- ✅ 验证安装结果
+
+### 步骤3: 修复Apache依赖问题（如果已发生）
+
+如果PHP安装时已经自动安装了Apache，运行修复脚本：
+
+```bash
+# 设置执行权限
+chmod +x fix_apache_dependency_issue.sh
+
+# 运行Apache依赖问题修复
+./fix_apache_dependency_issue.sh
+```
+
+这个脚本会：
+- ✅ 停止并卸载Apache相关包
+- ✅ 重新安装PHP（仅FPM版本，无Apache模块）
+- ✅ 配置PHP-FPM服务
+- ✅ 确保Nginx正常运行
+- ✅ 检查端口冲突
+
+### 步骤4: 修复Debian 12环境问题
+
+运行环境修复脚本，解决其他环境问题：
 
 ```bash
 # 设置执行权限
@@ -33,12 +71,12 @@ chmod +x fix_debian12_environment.sh
 ```
 
 这个脚本会：
-- ✅ 停止并卸载Apache
-- ✅ 安装PHP-FPM
+- ✅ 清理Apache配置文件
+- ✅ 安装缺失的PHP-FPM
 - ✅ 确保Nginx正常运行
 - ✅ 检查端口冲突
 
-### 步骤3: 修复API服务
+### 步骤5: 修复API服务
 
 运行API服务修复脚本：
 
@@ -57,7 +95,7 @@ chmod +x fix_debian12_api_service.sh
 - ✅ 测试应用启动
 - ✅ 启动API服务
 
-### 步骤4: 验证修复结果
+### 步骤6: 验证修复结果
 
 运行系统兼容性测试验证修复：
 
@@ -77,20 +115,52 @@ chmod +x fix_debian12_api_service.sh
 
 **问题**: 系统意外安装了Apache，与Nginx冲突
 
+**原因**: 在安装PHP时，系统自动安装了Apache作为依赖，包括：
+- `apache2` - Apache主包
+- `apache2-bin` - Apache二进制文件
+- `apache2-utils` - Apache工具
+- `libapache2-mod-php8.2` - PHP Apache模块
+
 **解决方案**:
 ```bash
+# 方法1: 使用专门的修复脚本（推荐）
+./fix_apache_dependency_issue.sh
+
+# 方法2: 仅安装PHP-FPM（避免Apache依赖）
+./install_php_fpm_only.sh
+
+# 方法3: 手动修复
 # 停止Apache服务
 sudo systemctl stop apache2
 sudo systemctl disable apache2
 
-# 卸载Apache
-sudo apt-get remove --purge -y apache2 apache2-utils apache2-bin apache2-data
+# 卸载Apache相关包
+sudo apt-get remove --purge -y apache2 apache2-utils apache2-bin apache2-data libapache2-mod-php8.2
 sudo apt-get autoremove -y
+
+# 重新安装PHP（仅FPM版本）
+sudo apt-get install -y php8.2-fpm php8.2-cli php8.2-common php8.2-curl php8.2-json php8.2-mbstring php8.2-mysql php8.2-xml php8.2-zip
 
 # 删除Apache配置文件
 sudo rm -f /opt/ipv6-wireguard-manager/php-frontend/.htaccess
 sudo rm -rf /etc/apache2
 ```
+
+### 预防Apache依赖问题
+
+**问题**: 如何在安装时就避免Apache作为依赖被安装
+
+**解决方案**: 使用精确的包安装方式
+```bash
+# 避免使用 php 包（会触发Apache依赖）
+# ❌ 错误方式: apt-get install -y php php-fpm
+
+# ✅ 正确方式: 只安装PHP-FPM相关包
+apt-get install -y php8.2-fpm php8.2-cli php8.2-common
+apt-get install -y php8.2-curl php8.2-json php8.2-mbstring php8.2-mysql php8.2-xml php8.2-zip
+```
+
+**安装脚本已更新**: 主安装脚本 `install.sh` 已修改为使用精确的包安装方式，避免触发Apache依赖。
 
 ### PHP-FPM问题修复
 
