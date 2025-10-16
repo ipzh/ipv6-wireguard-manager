@@ -293,98 +293,254 @@
 </div>
 
 <script>
+// 全局错误处理
+window.addEventListener('error', function(e) {
+    console.error('JavaScript错误:', e.error);
+    showMessage('页面发生错误，请刷新页面重试', 'error');
+});
+
+// HTML转义函数
+function escapeHtml(text) {
+    if (typeof text !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 复制到剪贴板
+function copyToClipboard(text) {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('已复制到剪贴板', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            fallbackCopyToClipboard(text);
+        }
+    } catch (error) {
+        console.error('复制到剪贴板错误:', error);
+        showMessage('复制失败', 'error');
+    }
+}
+
+// 备用复制方法
+function fallbackCopyToClipboard(text) {
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showMessage('已复制到剪贴板', 'success');
+    } catch (error) {
+        console.error('备用复制方法失败:', error);
+        showMessage('复制失败', 'error');
+    }
+}
+
+// 显示消息
+function showMessage(message, type = 'info') {
+    try {
+        // 检查是否存在消息容器
+        let messageContainer = document.getElementById('messageContainer');
+        if (!messageContainer) {
+            messageContainer = document.createElement('div');
+            messageContainer.id = 'messageContainer';
+            messageContainer.style.position = 'fixed';
+            messageContainer.style.top = '20px';
+            messageContainer.style.right = '20px';
+            messageContainer.style.zIndex = '9999';
+            document.body.appendChild(messageContainer);
+        }
+        
+        const alertClass = {
+            'success': 'alert-success',
+            'error': 'alert-danger',
+            'warning': 'alert-warning',
+            'info': 'alert-info'
+        }[type] || 'alert-info';
+        
+        const alertElement = document.createElement('div');
+        alertElement.className = `alert ${alertClass} alert-dismissible fade show`;
+        alertElement.innerHTML = `
+            ${escapeHtml(message)}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        messageContainer.appendChild(alertElement);
+        
+        // 自动隐藏
+        setTimeout(() => {
+            if (alertElement.parentNode) {
+                alertElement.remove();
+            }
+        }, 5000);
+    } catch (error) {
+        console.error('显示消息错误:', error);
+        alert(message); // 备用显示方法
+    }
+}
+
+// 确认删除
+function confirmDelete(message) {
+    try {
+        return confirm(message || '确定要删除吗？此操作不可撤销。');
+    } catch (error) {
+        console.error('确认删除错误:', error);
+        return false;
+    }
+}
+
 // 查看服务器详情
 function viewServer(serverId) {
-    const modal = new bootstrap.Modal(document.getElementById('serverDetailModal'));
-    const content = document.getElementById('serverDetailContent');
-    
-    content.innerHTML = `
-        <div class="text-center">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">加载中...</span>
+    try {
+        // 检查DOM元素是否存在
+        const modalElement = document.getElementById('serverDetailModal');
+        const contentElement = document.getElementById('serverDetailContent');
+        
+        if (!modalElement || !contentElement) {
+            throw new Error('找不到服务器详情模态框元素');
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // 显示加载状态
+        contentElement.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
             </div>
-        </div>
-    `;
-    
-    modal.show();
-    
-    fetch(`/wireguard/servers/${serverId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const server = data.data;
-                content.innerHTML = `
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>基本信息</h6>
-                            <table class="table table-sm">
-                                <tr><td>名称:</td><td>${server.name}</td></tr>
-                                <tr><td>接口:</td><td><code>${server.interface}</code></td></tr>
-                                <tr><td>监听端口:</td><td>${server.listen_port}</td></tr>
-                                <tr><td>MTU:</td><td>${server.mtu}</td></tr>
-                                <tr><td>状态:</td><td><span class="badge bg-${server.status === 'running' ? 'success' : 'danger'}">${server.status === 'running' ? '运行中' : '已停止'}</span></td></tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <h6>网络配置</h6>
-                            <table class="table table-sm">
-                                <tr><td>IPv4地址:</td><td><code>${server.ipv4_address || '-'}</code></td></tr>
-                                <tr><td>IPv6地址:</td><td><code>${server.ipv6_address || '-'}</code></td></tr>
-                                <tr><td>DNS服务器:</td><td><code>${server.dns_servers ? server.dns_servers.join(', ') : '-'}</code></td></tr>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <h6>公钥</h6>
-                            <div class="input-group">
-                                <input type="text" class="form-control" value="${server.public_key || ''}" readonly>
-                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('${server.public_key || ''}')">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
+        `;
+        
+        modal.show();
+        
+        // 获取服务器数据
+        fetch(`/wireguard/servers/${serverId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const server = data.data;
+                    contentElement.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>基本信息</h6>
+                                <table class="table table-sm">
+                                    <tr><td>名称:</td><td>${escapeHtml(server.name || '')}</td></tr>
+                                    <tr><td>接口:</td><td><code>${escapeHtml(server.interface || '')}</code></td></tr>
+                                    <tr><td>监听端口:</td><td>${escapeHtml(server.listen_port || '')}</td></tr>
+                                    <tr><td>MTU:</td><td>${escapeHtml(server.mtu || '')}</td></tr>
+                                    <tr><td>状态:</td><td><span class="badge bg-${server.status === 'running' ? 'success' : 'danger'}">${server.status === 'running' ? '运行中' : '已停止'}</span></td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>网络配置</h6>
+                                <table class="table table-sm">
+                                    <tr><td>IPv4地址:</td><td><code>${escapeHtml(server.ipv4_address || '-')}</code></td></tr>
+                                    <tr><td>IPv6地址:</td><td><code>${escapeHtml(server.ipv6_address || '-')}</code></td></tr>
+                                    <tr><td>DNS服务器:</td><td><code>${escapeHtml(server.dns_servers ? server.dns_servers.join(', ') : '-')}</code></td></tr>
+                                </table>
                             </div>
                         </div>
-                    </div>
-                `;
-            } else {
-                content.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
-            }
-        })
-        .catch(error => {
-            content.innerHTML = `<div class="alert alert-danger">加载失败: ${error.message}</div>`;
-        });
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6>公钥</h6>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" value="${escapeHtml(server.public_key || '')}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('${escapeHtml(server.public_key || '')}')">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    contentElement.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.message || '加载失败')}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('查看服务器详情错误:', error);
+                contentElement.innerHTML = `<div class="alert alert-danger">加载失败: ${escapeHtml(error.message)}</div>`;
+            });
+    } catch (error) {
+        console.error('查看服务器详情初始化错误:', error);
+        showMessage('初始化查看功能失败: ' + error.message, 'error');
+    }
 }
 
 // 编辑服务器
 function editServer(serverId) {
-    const modal = new bootstrap.Modal(document.getElementById('editServerModal'));
-    const form = document.getElementById('editServerForm');
-    
-    // 获取服务器数据
-    fetch(`/wireguard/servers/${serverId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const server = data.data;
-                document.getElementById('edit_server_id').value = serverId;
-                document.getElementById('edit_name').value = server.name || '';
-                document.getElementById('edit_interface').value = server.interface || '';
-                document.getElementById('edit_listen_port').value = server.listen_port || '';
-                document.getElementById('edit_mtu').value = server.mtu || '';
-                document.getElementById('edit_ipv4_address').value = server.ipv4_address || '';
-                document.getElementById('edit_ipv6_address').value = server.ipv6_address || '';
-                document.getElementById('edit_dns_servers').value = server.dns_servers ? server.dns_servers.join(', ') : '';
-                document.getElementById('edit_is_active').checked = server.is_active || false;
-                
-                form.action = `/wireguard/servers/${serverId}/update`;
-                modal.show();
-            } else {
-                showMessage(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            showMessage('加载服务器信息失败: ' + error.message, 'error');
-        });
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('editServerModal'));
+        const form = document.getElementById('editServerForm');
+        
+        if (!modal || !form) {
+            throw new Error('找不到编辑服务器所需的DOM元素');
+        }
+        
+        // 获取服务器数据
+        fetch(`/wireguard/servers/${serverId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const server = data.data;
+                    
+                    // 设置表单值
+                    const fields = {
+                        'edit_server_id': serverId,
+                        'edit_name': server.name || '',
+                        'edit_interface': server.interface || '',
+                        'edit_listen_port': server.listen_port || '',
+                        'edit_mtu': server.mtu || '',
+                        'edit_ipv4_address': server.ipv4_address || '',
+                        'edit_ipv6_address': server.ipv6_address || '',
+                        'edit_dns_servers': server.dns_servers ? server.dns_servers.join(', ') : '',
+                        'edit_is_active': server.is_active || false
+                    };
+                    
+                    Object.entries(fields).forEach(([fieldId, value]) => {
+                        const element = document.getElementById(fieldId);
+                        if (element) {
+                            if (element.type === 'checkbox') {
+                                element.checked = Boolean(value);
+                            } else {
+                                element.value = value;
+                            }
+                        }
+                    });
+                    
+                    form.action = `/wireguard/servers/${serverId}/update`;
+                    modal.show();
+                } else {
+                    showMessage(data.message || '加载服务器信息失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('编辑服务器错误:', error);
+                showMessage('加载服务器信息失败: ' + error.message, 'error');
+            });
+    } catch (error) {
+        console.error('编辑服务器初始化错误:', error);
+        showMessage('初始化编辑功能失败: ' + error.message, 'error');
+    }
 }
 
 // 删除服务器
@@ -419,32 +575,100 @@ function refreshServers() {
 }
 
 // 表单验证
-document.getElementById('addServerForm').addEventListener('submit', function(e) {
-    const name = document.getElementById('name').value.trim();
-    const ipv4 = document.getElementById('ipv4_address').value.trim();
-    const ipv6 = document.getElementById('ipv6_address').value.trim();
-    
-    if (!name) {
-        e.preventDefault();
-        showMessage('服务器名称不能为空', 'error');
-        return;
-    }
-    
-    if (!ipv4 && !ipv6) {
-        e.preventDefault();
-        showMessage('至少需要配置一个IP地址', 'error');
-        return;
-    }
-});
-
-// 页面加载完成后显示消息
 document.addEventListener('DOMContentLoaded', function() {
-    <?php if (isset($_SESSION['message'])): ?>
-    showMessage('<?= addslashes($_SESSION['message']) ?>', '<?= $_SESSION['message_type'] ?? 'info' ?>');
-    <?php 
-    unset($_SESSION['message']);
-    unset($_SESSION['message_type']);
-    ?>
-    <?php endif; ?>
+    try {
+        // 添加服务器表单验证
+        const addServerForm = document.getElementById('addServerForm');
+        if (addServerForm) {
+            addServerForm.addEventListener('submit', function(e) {
+                try {
+                    const name = document.getElementById('name');
+                    const ipv4 = document.getElementById('ipv4_address');
+                    const ipv6 = document.getElementById('ipv6_address');
+                    
+                    if (!name || !ipv4 || !ipv6) {
+                        e.preventDefault();
+                        showMessage('表单元素缺失，请刷新页面重试', 'error');
+                        return;
+                    }
+                    
+                    const nameValue = name.value.trim();
+                    const ipv4Value = ipv4.value.trim();
+                    const ipv6Value = ipv6.value.trim();
+                    
+                    if (!nameValue) {
+                        e.preventDefault();
+                        showMessage('服务器名称不能为空', 'error');
+                        name.focus();
+                        return;
+                    }
+                    
+                    if (!ipv4Value && !ipv6Value) {
+                        e.preventDefault();
+                        showMessage('至少需要配置一个IP地址', 'error');
+                        ipv4.focus();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('表单验证错误:', error);
+                    e.preventDefault();
+                    showMessage('表单验证失败', 'error');
+                }
+            });
+        }
+        
+        // 编辑服务器表单验证
+        const editServerForm = document.getElementById('editServerForm');
+        if (editServerForm) {
+            editServerForm.addEventListener('submit', function(e) {
+                try {
+                    const name = document.getElementById('edit_name');
+                    const ipv4 = document.getElementById('edit_ipv4_address');
+                    const ipv6 = document.getElementById('edit_ipv6_address');
+                    
+                    if (!name || !ipv4 || !ipv6) {
+                        e.preventDefault();
+                        showMessage('表单元素缺失，请刷新页面重试', 'error');
+                        return;
+                    }
+                    
+                    const nameValue = name.value.trim();
+                    const ipv4Value = ipv4.value.trim();
+                    const ipv6Value = ipv6.value.trim();
+                    
+                    if (!nameValue) {
+                        e.preventDefault();
+                        showMessage('服务器名称不能为空', 'error');
+                        name.focus();
+                        return;
+                    }
+                    
+                    if (!ipv4Value && !ipv6Value) {
+                        e.preventDefault();
+                        showMessage('至少需要配置一个IP地址', 'error');
+                        ipv4.focus();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('编辑表单验证错误:', error);
+                    e.preventDefault();
+                    showMessage('表单验证失败', 'error');
+                }
+            });
+        }
+        
+        // 显示PHP消息
+        <?php if (isset($_SESSION['message'])): ?>
+        showMessage('<?= addslashes($_SESSION['message']) ?>', '<?= $_SESSION['message_type'] ?? 'info' ?>');
+        <?php 
+        unset($_SESSION['message']);
+        unset($_SESSION['message_type']);
+        ?>
+        <?php endif; ?>
+        
+    } catch (error) {
+        console.error('页面初始化错误:', error);
+        showMessage('页面初始化失败，请刷新页面重试', 'error');
+    }
 });
 </script>

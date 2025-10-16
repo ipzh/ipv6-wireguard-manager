@@ -1,228 +1,326 @@
 """
-系统监控API端点
+监控API端点
+提供系统监控、指标收集、告警管理等功能
 """
-import psutil
-import time
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 
-from ....core.database import get_async_db
+from ....core.monitoring_enhanced import (
+    monitoring_dashboard,
+    AlertManager,
+    AlertRule,
+    AlertLevel,
+    AlertStatus,
+    Metric
+)
+from ....core.security_enhanced import security_manager, rate_limit
+from ....core.cluster_manager import cluster_manager, cluster_aware
 
 router = APIRouter()
 
-
-class SystemMetrics(BaseModel):
-    """系统指标模型"""
-    timestamp: str
-    cpu_usage: float
-    memory_usage: float
-    disk_usage: float
-    network_sent: int
-    network_recv: int
-    load_average: Dict[str, float]
-
-
-class Alert(BaseModel):
-    """告警模型"""
-    id: str
-    severity: str  # critical, warning, info
-    message: str
-    source: str
-    timestamp: str
-    resolved: bool
-    details: Optional[Dict[str, Any]] = None
-
-
-class AlertResponse(BaseModel):
-    """告警响应模型"""
-    alerts: List[Alert]
-    total: int
-    critical_count: int
-    warning_count: int
-
-
-# 模拟历史数据存储
-metrics_history = []
-alerts_history = []
-
-
-@router.get("/metrics", response_model=None)
-async def get_system_metrics(db: AsyncSession = Depends(get_async_db)):
-    """获取当前系统指标"""
+@router.get("/dashboard", response_model=Dict[str, Any])
+@rate_limit
+async def get_dashboard_data():
+    """获取监控仪表板数据"""
     try:
-        # 获取当前系统指标
-        cpu_usage = psutil.cpu_percent(interval=1)
-        memory_usage = psutil.virtual_memory().percent
-        disk_usage = psutil.disk_usage('/').percent
-        
-        # 获取网络IO
-        net_io = psutil.net_io_counters()
-        
-        # 获取负载平均值（在Windows上使用模拟值）
-        load_avg = {
-            "1min": psutil.getloadavg()[0] if hasattr(psutil, 'getloadavg') else cpu_usage / 100,
-            "5min": psutil.getloadavg()[1] if hasattr(psutil, 'getloadavg') else cpu_usage / 100 * 0.8,
-            "15min": psutil.getloadavg()[2] if hasattr(psutil, 'getloadavg') else cpu_usage / 100 * 0.6
-        }
-        
-        current_metrics = SystemMetrics(
-            timestamp=datetime.now().isoformat(),
-            cpu_usage=cpu_usage,
-            memory_usage=memory_usage,
-            disk_usage=disk_usage,
-            network_sent=net_io.bytes_sent,
-            network_recv=net_io.bytes_recv,
-            load_average=load_avg
-        )
-        
-        # 存储历史数据（限制为最近100条）
-        metrics_history.append(current_metrics)
-        if len(metrics_history) > 100:
-            metrics_history.pop(0)
-        
-        return current_metrics
+        data = monitoring_dashboard.get_dashboard_data()
+        return JSONResponse(content=data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取系统指标失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
 
-
-@router.get("/metrics/history", response_model=None)
-async def get_metrics_history(
-    hours: int = 24,
-    db: AsyncSession = Depends(get_async_db)
+@router.get("/metrics/system", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_system_metrics(
+    hours: int = Query(24, description="获取最近几小时的指标", ge=1, le=168)
 ):
-    """获取历史系统指标"""
+    """获取系统指标"""
     try:
-        # 如果历史数据为空，生成一些模拟数据
-        if not metrics_history:
-            generate_mock_metrics()
-        
-        # 过滤指定时间范围内的数据
-        cutoff_time = datetime.now() - timedelta(hours=hours)
-        filtered_metrics = [
-            metric for metric in metrics_history 
-            if datetime.fromisoformat(metric.timestamp) >= cutoff_time
+        metrics = []
+        metric_names = [
+            "system.cpu.usage",
+            "system.memory.usage", 
+            "system.disk.usage",
+            "system.network.bytes_sent",
+            "system.network.bytes_recv"
         ]
         
-        return filtered_metrics
+        for metric_name in metric_names:
+            history = monitoring_dashboard.get_metric_history(metric_name, hours)
+            metrics.extend(history)
+        
+        return JSONResponse(content=metrics)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取历史指标失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get system metrics: {str(e)}")
 
-
-@router.get("/alerts", response_model=None)
-async def get_alerts(
-    severity: Optional[str] = None,
-    resolved: Optional[bool] = None,
-    db: AsyncSession = Depends(get_async_db)
+@router.get("/metrics/application", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_application_metrics(
+    hours: int = Query(24, description="获取最近几小时的指标", ge=1, le=168)
 ):
-    """获取告警信息"""
+    """获取应用指标"""
     try:
-        # 如果告警历史为空，生成一些模拟数据
-        if not alerts_history:
-            generate_mock_alerts()
+        metrics = []
+        metric_names = [
+            "app.database.pool_size",
+            "app.database.checked_out",
+            "app.cache.connected_clients",
+            "app.cache.used_memory",
+            "app.task_queue.size",
+            "app.task_queue.workers"
+        ]
         
-        # 过滤告警
-        filtered_alerts = alerts_history
-        if severity:
-            filtered_alerts = [alert for alert in filtered_alerts if alert.severity == severity]
-        if resolved is not None:
-            filtered_alerts = [alert for alert in filtered_alerts if alert.resolved == resolved]
+        for metric_name in metric_names:
+            history = monitoring_dashboard.get_metric_history(metric_name, hours)
+            metrics.extend(history)
         
-        # 统计告警数量
-        critical_count = len([alert for alert in filtered_alerts if alert.severity == "critical"])
-        warning_count = len([alert for alert in filtered_alerts if alert.severity == "warning"])
-        
-        return AlertResponse(
-            alerts=filtered_alerts,
-            total=len(filtered_alerts),
-            critical_count=critical_count,
-            warning_count=warning_count
+        return JSONResponse(content=metrics)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get application metrics: {str(e)}")
+
+@router.get("/alerts/active", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_active_alerts():
+    """获取活跃告警"""
+    try:
+        alerts = monitoring_dashboard.alert_manager.get_active_alerts()
+        return JSONResponse(content=[alert.to_dict() for alert in alerts])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get active alerts: {str(e)}")
+
+@router.get("/alerts/history", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_alert_history(
+    hours: int = Query(24, description="获取最近几小时的告警历史", ge=1, le=168)
+):
+    """获取告警历史"""
+    try:
+        alerts = monitoring_dashboard.alert_manager.get_alert_history(hours)
+        return JSONResponse(content=[alert.to_dict() for alert in alerts])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get alert history: {str(e)}")
+
+@router.get("/alerts/rules", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_alert_rules():
+    """获取告警规则"""
+    try:
+        rules = monitoring_dashboard.alert_manager.get_alert_rules()
+        return JSONResponse(content=[rule.to_dict() for rule in rules])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get alert rules: {str(e)}")
+
+@router.post("/alerts/rules", response_model=Dict[str, Any])
+@rate_limit
+async def create_alert_rule(rule_data: Dict[str, Any]):
+    """创建告警规则"""
+    try:
+        rule = AlertRule(
+            id=rule_data["id"],
+            name=rule_data["name"],
+            metric_name=rule_data["metric_name"],
+            condition=rule_data["condition"],
+            threshold=rule_data["threshold"],
+            level=AlertLevel(rule_data["level"]),
+            enabled=rule_data.get("enabled", True),
+            cooldown_minutes=rule_data.get("cooldown_minutes", 5),
+            description=rule_data.get("description", ""),
+            tags=rule_data.get("tags", {})
         )
+        
+        monitoring_dashboard.alert_manager.add_alert_rule(rule)
+        return JSONResponse(content={"message": "Alert rule created successfully", "rule": rule.to_dict()})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取告警信息失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create alert rule: {str(e)}")
 
-
-@router.post("/alerts/{alert_id}/resolve")
-async def resolve_alert(alert_id: str, db: AsyncSession = Depends(get_async_db)):
-    """解决告警"""
+@router.put("/alerts/rules/{rule_id}", response_model=Dict[str, Any])
+@rate_limit
+async def update_alert_rule(rule_id: str, rule_data: Dict[str, Any]):
+    """更新告警规则"""
     try:
-        # 查找并解决告警
-        for alert in alerts_history:
-            if alert.id == alert_id:
-                alert.resolved = True
-                return {"message": f"告警 {alert_id} 已解决", "success": True}
+        existing_rules = monitoring_dashboard.alert_manager.get_alert_rules()
+        existing_rule = next((rule for rule in existing_rules if rule.id == rule_id), None)
         
-        raise HTTPException(status_code=404, detail=f"告警 {alert_id} 不存在")
+        if not existing_rule:
+            raise HTTPException(status_code=404, detail="Alert rule not found")
+        
+        # 更新规则
+        for key, value in rule_data.items():
+            if hasattr(existing_rule, key):
+                if key == "level":
+                    setattr(existing_rule, key, AlertLevel(value))
+                else:
+                    setattr(existing_rule, key, value)
+        
+        return JSONResponse(content={"message": "Alert rule updated successfully", "rule": existing_rule.to_dict()})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"解决告警失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update alert rule: {str(e)}")
 
-
-@router.get("/health/check")
-async def monitoring_health_check(db: AsyncSession = Depends(get_async_db)):
-    """监控服务健康检查"""
+@router.delete("/alerts/rules/{rule_id}", response_model=Dict[str, Any])
+@rate_limit
+async def delete_alert_rule(rule_id: str):
+    """删除告警规则"""
     try:
-        # 检查监控服务状态
-        cpu_usage = psutil.cpu_percent(interval=1)
-        memory_usage = psutil.virtual_memory().percent
+        monitoring_dashboard.alert_manager.remove_alert_rule(rule_id)
+        return JSONResponse(content={"message": "Alert rule deleted successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete alert rule: {str(e)}")
+
+@router.post("/alerts/{rule_id}/acknowledge", response_model=Dict[str, Any])
+@rate_limit
+async def acknowledge_alert(rule_id: str, user: str = Query(..., description="确认用户")):
+    """确认告警"""
+    try:
+        monitoring_dashboard.alert_manager.acknowledge_alert(rule_id, user)
+        return JSONResponse(content={"message": "Alert acknowledged successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to acknowledge alert: {str(e)}")
+
+@router.post("/alerts/{rule_id}/suppress", response_model=Dict[str, Any])
+@rate_limit
+async def suppress_alert(
+    rule_id: str, 
+    duration_minutes: int = Query(60, description="抑制时长（分钟）", ge=1, le=1440)
+):
+    """抑制告警"""
+    try:
+        monitoring_dashboard.alert_manager.suppress_alert(rule_id, duration_minutes)
+        return JSONResponse(content={"message": f"Alert suppressed for {duration_minutes} minutes"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to suppress alert: {str(e)}")
+
+@router.get("/health", response_model=Dict[str, Any])
+@rate_limit
+async def health_check():
+    """健康检查"""
+    try:
+        # 获取最新指标
+        cpu_metric = monitoring_dashboard.system_collector.get_latest_metric("system.cpu.usage")
+        memory_metric = monitoring_dashboard.system_collector.get_latest_metric("system.memory.usage")
         
-        status = "healthy"
-        if cpu_usage > 95 or memory_usage > 95:
-            status = "warning"
+        # 检查系统状态
+        is_healthy = True
+        issues = []
         
-        return {
-            "status": status,
-            "service": "monitoring",
-            "timestamp": datetime.now().isoformat(),
+        if cpu_metric and cpu_metric.value > 90:
+            is_healthy = False
+            issues.append("CPU usage too high")
+        
+        if memory_metric and memory_metric.value > 95:
+            is_healthy = False
+            issues.append("Memory usage too high")
+        
+        return JSONResponse(content={
+            "status": "healthy" if is_healthy else "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "issues": issues,
             "metrics": {
-                "cpu_usage": cpu_usage,
-                "memory_usage": memory_usage
-            },
-            "message": "监控服务运行正常" if status == "healthy" else "系统资源使用率较高"
-        }
+                "cpu_usage": cpu_metric.value if cpu_metric else None,
+                "memory_usage": memory_metric.value if memory_metric else None
+            }
+        })
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"监控服务异常: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
+@router.get("/cluster/status", response_model=Dict[str, Any])
+@cluster_aware
+@rate_limit
+async def get_cluster_status():
+    """获取集群状态"""
+    try:
+        status = cluster_manager.get_cluster_status()
+        return JSONResponse(content=status)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get cluster status: {str(e)}")
 
-def generate_mock_metrics():
-    """生成模拟指标数据"""
-    global metrics_history
-    base_time = datetime.now() - timedelta(hours=24)
-    
-    for i in range(100):
-        timestamp = base_time + timedelta(minutes=i * 15)
-        metrics_history.append(SystemMetrics(
-            timestamp=timestamp.isoformat(),
-            cpu_usage=20 + (i % 50),
-            memory_usage=30 + (i % 40),
-            disk_usage=10 + (i % 20),
-            network_sent=1000 + i * 100,
-            network_recv=2000 + i * 150,
-            load_average={"1min": 0.5 + (i % 30) / 100, "5min": 0.4 + (i % 25) / 100, "15min": 0.3 + (i % 20) / 100}
-        ))
+@router.post("/cluster/sync", response_model=Dict[str, Any])
+@rate_limit
+async def sync_cluster_data(sync_data: Dict[str, Any]):
+    """同步集群数据"""
+    try:
+        data_type = sync_data.get("data_type")
+        data = sync_data.get("data")
+        source_node = sync_data.get("source_node")
+        
+        # 这里应该实现实际的数据同步逻辑
+        logger.info(f"Received sync data from {source_node}: {data_type}")
+        
+        return JSONResponse(content={"message": "Data synced successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync data: {str(e)}")
 
+@router.get("/performance", response_model=Dict[str, Any])
+@rate_limit
+async def get_performance_stats():
+    """获取性能统计"""
+    try:
+        stats = performance_manager.get_status()
+        return JSONResponse(content=stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get performance stats: {str(e)}")
 
-def generate_mock_alerts():
-    """生成模拟告警数据"""
-    global alerts_history
-    base_time = datetime.now() - timedelta(hours=24)
-    
-    alert_messages = [
-        ("critical", "CPU使用率超过90%"),
-        ("warning", "内存使用率超过80%"),
-        ("info", "磁盘使用率超过70%"),
-        ("critical", "网络连接异常"),
-        ("warning", "服务响应时间过长")
-    ]
-    
-    for i, (severity, message) in enumerate(alert_messages):
-        alerts_history.append(Alert(
-            id=f"alert_{i}",
-            severity=severity,
-            message=message,
-            source="system",
-            timestamp=(base_time + timedelta(hours=i * 6)).isoformat(),
-            resolved=i % 3 == 0,  # 每3个告警解决1个
-            details={"threshold": 90 if severity == "critical" else 80}
-        ))
+@router.post("/metrics/collect", response_model=Dict[str, Any])
+@rate_limit
+async def collect_metrics_now():
+    """立即收集指标"""
+    try:
+        # 收集系统指标
+        system_metrics = await monitoring_dashboard.system_collector.collect_system_metrics()
+        
+        # 收集应用指标
+        app_metrics = await monitoring_dashboard.app_collector.collect_application_metrics()
+        
+        # 评估告警
+        all_metrics = system_metrics + app_metrics
+        monitoring_dashboard.alert_manager.evaluate_metrics(all_metrics)
+        
+        return JSONResponse(content={
+            "message": "Metrics collected successfully",
+            "system_metrics_count": len(system_metrics),
+            "app_metrics_count": len(app_metrics),
+            "total_metrics": len(all_metrics)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to collect metrics: {str(e)}")
+
+@router.get("/metrics/{metric_name}", response_model=List[Dict[str, Any]])
+@rate_limit
+async def get_metric_history(
+    metric_name: str,
+    hours: int = Query(24, description="获取最近几小时的指标", ge=1, le=168)
+):
+    """获取特定指标的历史数据"""
+    try:
+        history = monitoring_dashboard.get_metric_history(metric_name, hours)
+        return JSONResponse(content=history)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get metric history: {str(e)}")
+
+@router.get("/alerts/stats", response_model=Dict[str, Any])
+@rate_limit
+async def get_alert_statistics():
+    """获取告警统计"""
+    try:
+        active_alerts = monitoring_dashboard.alert_manager.get_active_alerts()
+        alert_history = monitoring_dashboard.alert_manager.get_alert_history(24)
+        
+        # 按级别统计
+        level_stats = {}
+        for level in AlertLevel:
+            level_stats[level.value] = len([a for a in alert_history if a.level == level])
+        
+        # 按状态统计
+        status_stats = {}
+        for status in AlertStatus:
+            status_stats[status.value] = len([a for a in alert_history if a.status == status])
+        
+        return JSONResponse(content={
+            "active_alerts_count": len(active_alerts),
+            "total_alerts_24h": len(alert_history),
+            "level_statistics": level_stats,
+            "status_statistics": status_stats,
+            "alert_rules_count": len(monitoring_dashboard.alert_manager.get_alert_rules())
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get alert statistics: {str(e)}")

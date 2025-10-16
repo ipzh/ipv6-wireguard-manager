@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 import time
 import logging
 
-from .core.config import settings
+from .core.config_enhanced import settings
 from .core.database import init_db, close_db
 from .api.api_v1.api import api_router
 

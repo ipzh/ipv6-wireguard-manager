@@ -3,6 +3,56 @@
  * IPv6 WireGuard Manager - PHP前端入口文件
  */
 
+// 检查PHP版本
+if (version_compare(PHP_VERSION, '8.1.0') < 0) {
+    http_response_code(500);
+    die('PHP版本过低，需要PHP 8.1.0或更高版本。当前版本: ' . PHP_VERSION);
+}
+
+// 检查必需扩展
+$requiredExtensions = [
+    'session' => '会话管理',
+    'json' => 'JSON处理',
+    'mbstring' => '多字节字符串处理',
+    'filter' => '数据过滤',
+    'pdo' => '数据库连接',
+    'pdo_mysql' => 'MySQL数据库支持',
+    'curl' => 'HTTP客户端',
+    'openssl' => '加密支持'
+];
+
+$missingExtensions = [];
+foreach ($requiredExtensions as $ext => $description) {
+    if (!extension_loaded($ext)) {
+        $missingExtensions[] = "$ext ($description)";
+    }
+}
+
+if (!empty($missingExtensions)) {
+    http_response_code(500);
+    die('缺少必需的PHP扩展: ' . implode(', ', $missingExtensions));
+}
+
+// 检查PHP配置
+$requiredSettings = [
+    'memory_limit' => '128M',
+    'max_execution_time' => '300',
+    'upload_max_filesize' => '10M',
+    'post_max_size' => '10M'
+];
+
+$configIssues = [];
+foreach ($requiredSettings as $setting => $recommended) {
+    $current = ini_get($setting);
+    if ($setting === 'memory_limit' && $current !== '-1' && intval($current) < intval($recommended)) {
+        $configIssues[] = "$setting 当前值: $current, 推荐值: $recommended";
+    }
+}
+
+if (!empty($configIssues)) {
+    error_log('PHP配置警告: ' . implode(', ', $configIssues));
+}
+
 // 启动会话
 session_start();
 

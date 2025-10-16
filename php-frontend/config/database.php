@@ -4,11 +4,11 @@
  */
 
 // 数据库连接配置
-define('DB_HOST', 'localhost');
-define('DB_PORT', 3306);
-define('DB_NAME', 'ipv6wgm');
-define('DB_USER', 'ipv6wgm');
-define('DB_PASS', 'ipv6wgm_password_' . date('Ymd'));
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_PORT', getenv('DB_PORT') ?: 3306);
+define('DB_NAME', getenv('DB_NAME') ?: 'ipv6wgm');
+define('DB_USER', getenv('DB_USER') ?: 'ipv6wgm');
+define('DB_PASS', getenv('DB_PASS') ?: 'ipv6wgm_password_' . date('Ymd'));
 
 // 数据库连接选项
 define('DB_CHARSET', 'utf8mb4');

@@ -4,13 +4,13 @@
  */
 
 // 应用配置
-define('APP_NAME', 'IPv6 WireGuard Manager');
-define('APP_VERSION', '3.0.0');
-define('APP_DEBUG', true);
+define('APP_NAME', getenv('APP_NAME') ?: 'IPv6 WireGuard Manager');
+define('APP_VERSION', getenv('APP_VERSION') ?: '3.0.0');
+define('APP_DEBUG', filter_var(getenv('APP_DEBUG') ?: true, FILTER_VALIDATE_BOOLEAN));
 
 // API配置
-define('API_BASE_URL', 'http://localhost:8000/api/v1');
-define('API_TIMEOUT', 30);
+define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://localhost:8000/api/v1');
+define('API_TIMEOUT', getenv('API_TIMEOUT') ?: 30);
 
 // 会话配置
 define('SESSION_LIFETIME', 3600); // 1小时
