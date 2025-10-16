@@ -29,8 +29,9 @@ class DatabaseHealthChecker:
     
     def __init__(self):
         self.database_url = settings.DATABASE_URL
-        self.sqlite_url = settings.SQLITE_DATABASE_URL
-        self.use_sqlite_fallback = settings.USE_SQLITE_FALLBACK
+        # 添加SQLite回退配置
+        self.sqlite_url = getattr(settings, 'SQLITE_DATABASE_URL', 'sqlite:///./app.db')
+        self.use_sqlite_fallback = getattr(settings, 'USE_SQLITE_FALLBACK', False)
         self.auto_create_database = settings.AUTO_CREATE_DATABASE
         
     def check_database_connection(self) -> Dict[str, Any]:
