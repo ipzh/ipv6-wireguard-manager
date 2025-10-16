@@ -145,6 +145,15 @@ python3 deep_code_analysis.py
 # 综合诊断（推荐）
 ./comprehensive_api_diagnosis.sh
 
+# 全面API服务修复
+./comprehensive_api_fix.sh
+
+# Debian 12环境修复
+./fix_debian12_environment.sh
+
+# Debian 12 API服务修复
+./fix_debian12_api_service.sh
+
 # 测试诊断工具
 ./test_diagnosis_tools.sh
 ```

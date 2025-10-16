@@ -190,7 +190,7 @@ test_python_environment() {
         log_info "检测到Python版本: $PYTHON_VERSION"
         
         # 检查Python版本是否满足要求
-        if [[ "$PYTHON_VERSION" > "3.8" ]]; then
+        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)" 2>/dev/null; then
             log_success "✓ Python版本满足要求 (>= 3.8)"
             TESTS_PASSED=$((TESTS_PASSED + 1))
         else
