@@ -5,19 +5,19 @@
 ### 完整功能安装 (推荐)
 ```bash
 # 下载并运行完整安装脚本
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --enable-all
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --enable-all
 ```
 
 ### 生产环境安装
 ```bash
 # 生产环境 + 安全加固
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --production --enable-security --enable-ssl
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production --enable-security --enable-ssl
 ```
 
 ### 开发环境安装
 ```bash
 # 开发环境 + 监控
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --debug --enable-monitoring
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --debug --enable-monitoring
 ```
 
 ## 📋 安装选项
@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 ### 1. 企业级部署
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- \
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
   --type full \
   --production \
   --enable-all \
@@ -59,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 ### 2. 开发测试环境
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- \
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
   --type native \
   --debug \
   --enable-monitoring \
@@ -69,7 +69,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 ### 3. 低资源环境
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- \
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
   --type minimal \
   --silent
 ```

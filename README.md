@@ -59,32 +59,32 @@
 
 ```bash
 # 完整功能安装（推荐）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --enable-all
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --enable-all
 
 # 生产环境安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --production --enable-security
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production --enable-security
 
 # 开发环境安装
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_full.sh | bash -s -- --debug --enable-monitoring
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --debug --enable-monitoring
 ```
 
 ### 安装选项
 
 ```bash
 # 基础安装
-./install_full.sh --type full
+./install.sh --type full
 
 # 最小化安装（低内存环境）
-./install_full.sh --type minimal
+./install.sh --type minimal
 
 # 生产环境 + 安全加固
-./install_full.sh --production --enable-security --enable-ssl
+./install.sh --production --enable-security --enable-ssl
 
 # 开发环境 + 监控
-./install_full.sh --debug --enable-monitoring
+./install.sh --debug --enable-monitoring
 
 # 自定义配置
-./install_full.sh --dir /opt/my-app --port 8080 --api-port 9000
+./install.sh --dir /opt/my-app --port 8080 --api-port 9000
 ```
 
 ## 📋 系统要求
