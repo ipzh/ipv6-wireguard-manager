@@ -470,7 +470,49 @@ install_system_dependencies() {
         "apt")
             apt-get update
             apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python$PYTHON_VERSION-dev python3-pip
-            apt-get install -y mysql-server mysql-client
+            
+            # 安装MySQL/MariaDB
+            log_info "安装MySQL/MariaDB..."
+            mysql_installed=false
+            
+            # 检查是否为Debian 12
+            if [[ "$OS_ID" == "debian" && "$OS_VERSION" == "12" ]]; then
+                log_info "检测到Debian 12，优先使用MariaDB"
+                if apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
+                    log_success "MariaDB安装成功（Debian 12推荐）"
+                    mysql_installed=true
+                else
+                    log_error "MariaDB安装失败"
+                    log_info "请运行MySQL修复脚本: ./fix_mysql_install.sh"
+                    exit 1
+                fi
+            else
+                # 尝试安装MySQL 8.0
+                if apt-get install -y mysql-server-8.0 mysql-client-8.0 2>/dev/null; then
+                    log_success "MySQL 8.0安装成功"
+                    mysql_installed=true
+                # 尝试安装默认MySQL
+                elif apt-get install -y mysql-server mysql-client 2>/dev/null; then
+                    log_success "MySQL默认版本安装成功"
+                    mysql_installed=true
+                # 尝试安装MariaDB
+                elif apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
+                    log_success "MariaDB安装成功（MySQL替代方案）"
+                    mysql_installed=true
+                # 尝试安装MySQL 5.7
+                elif apt-get install -y mysql-server-5.7 mysql-client-5.7 2>/dev/null; then
+                    log_success "MySQL 5.7安装成功"
+                    mysql_installed=true
+                else
+                    log_error "无法安装MySQL或MariaDB"
+                    log_info "请运行MySQL修复脚本: ./fix_mysql_install.sh"
+                    log_info "或手动安装数据库："
+                    log_info "  Debian 12: sudo apt-get install mariadb-server"
+                    log_info "  其他系统: sudo apt-get install mysql-server"
+                    exit 1
+                fi
+            fi
+            
             apt-get install -y nginx
             apt-get install -y git curl wget build-essential
             ;;
@@ -624,11 +666,17 @@ install_python_dependencies() {
 configure_database() {
     log_info "配置数据库..."
     
-    # 启动MySQL服务
+    # 启动MySQL/MariaDB服务
     case $PACKAGE_MANAGER in
         "apt")
-            systemctl start mysql
-            systemctl enable mysql
+            # 检查是否为Debian 12（使用MariaDB）
+            if [[ "$OS_ID" == "debian" && "$OS_VERSION" == "12" ]]; then
+                systemctl start mariadb
+                systemctl enable mariadb
+            else
+                systemctl start mysql
+                systemctl enable mysql
+            fi
             ;;
         "yum"|"dnf")
             systemctl start mariadb

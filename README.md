@@ -98,6 +98,9 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 修复PHP-FPM问题
 ./fix_php_fpm.sh
+
+# 修复MySQL安装问题（Debian 12等）
+./quick_fix_mysql.sh
 ```
 
 ## 📋 系统要求
