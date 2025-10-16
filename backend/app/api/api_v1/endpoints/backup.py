@@ -9,16 +9,16 @@ from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 
-from app.core.database import get_async_db
+from ....core.database import get_async_db
 
 # 简化的备份管理，避免依赖不存在的模块
 try:
-    from app.core.backup_manager import backup_manager
+    from ....core.backup_manager import backup_manager
 except ImportError:
     backup_manager = None
 
 try:
-    from app.core.security_enhanced import security_manager, rate_limit
+    from ....core.security_enhanced import security_manager, rate_limit
 except ImportError:
     security_manager = None
     # 简化的装饰器
@@ -26,7 +26,7 @@ except ImportError:
         return func
 
 try:
-    from app.core.cluster_manager import cluster_manager, leader_only
+    from ....core.cluster_manager import cluster_manager, leader_only
 except ImportError:
     cluster_manager = None
     # 简化的装饰器

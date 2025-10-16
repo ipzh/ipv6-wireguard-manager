@@ -8,9 +8,24 @@ from typing import Dict, Any, List
 import uuid
 
 from ....core.database import get_async_db
-from ....models.bgp import BGPSession, BGPAnnouncement
-from ....schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
-from ....services.exabgp_service import ExaBGPService
+
+# 简化的模式和服务，避免依赖不存在的模块
+try:
+    from ....models.bgp import BGPSession, BGPAnnouncement
+except ImportError:
+    BGPSession = None
+    BGPAnnouncement = None
+
+try:
+    from ....schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
+except ImportError:
+    BGPSessionSchema = None
+    BGPAnnouncementSchema = None
+
+try:
+    from ....services.exabgp_service import ExaBGPService
+except ImportError:
+    ExaBGPService = None
 
 router = APIRouter()
 

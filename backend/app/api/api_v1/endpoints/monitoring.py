@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 try:
-    from app.core.deps import get_async_db
+    from ....core.database import get_async_db
     ASYNC_DB_AVAILABLE = True
 except ImportError:
     ASYNC_DB_AVAILABLE = False
@@ -14,7 +14,7 @@ except ImportError:
     async def get_async_db():
         return None
 try:
-    from app.schemas.message import MessageResponse
+    from ....schemas.message import MessageResponse
     MESSAGE_SCHEMA_AVAILABLE = True
 except ImportError:
     MESSAGE_SCHEMA_AVAILABLE = False

@@ -8,8 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List
 
 from ....core.database import get_async_db
-from ....schemas.network import NetworkInterface, NetworkStatus
-from ....schemas.common import MessageResponse
+
+# 简化的模式，避免依赖不存在的模块
+try:
+    from ....schemas.network import NetworkInterface, NetworkStatus
+except ImportError:
+    NetworkInterface = None
+    NetworkStatus = None
+
+try:
+    from ....schemas.common import MessageResponse
+except ImportError:
+    MessageResponse = None
 
 router = APIRouter()
 

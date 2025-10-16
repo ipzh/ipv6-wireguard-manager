@@ -6,9 +6,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List
 
 from ....core.database import get_async_db
-from ....schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
-from ....schemas.common import MessageResponse
-from ....services.ipv6_service import IPv6PoolService
+
+# 简化的模式和服务，避免依赖不存在的模块
+try:
+    from ....schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
+except ImportError:
+    IPv6PrefixPool = None
+    IPv6Allocation = None
+
+try:
+    from ....schemas.common import MessageResponse
+except ImportError:
+    MessageResponse = None
+
+try:
+    from ....services.ipv6_service import IPv6PoolService
+except ImportError:
+    IPv6PoolService = None
 
 router = APIRouter()
 

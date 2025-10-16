@@ -8,16 +8,16 @@ import redis
 import logging
 from typing import Dict, Any
 
-from app.core.deps import get_async_db
+from ....core.database import get_async_db
 
 # 导入缓存和性能监控（如果可用）
 try:
-    from app.core.cache import cache_manager
+    from ....core.cache import cache_manager
 except ImportError:
     cache_manager = None
 
 try:
-    from app.core.query_optimizer import performance_monitor
+    from ....core.query_optimizer import performance_monitor
 except ImportError:
     performance_monitor = None
 

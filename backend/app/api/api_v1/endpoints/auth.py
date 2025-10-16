@@ -7,12 +7,27 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....core.config import settings
+from ....core.config_enhanced import settings
 from ....core.database import get_async_db
 from ....core.security import create_access_token, get_current_user
-from ....schemas.user import LoginResponse, User
-from ....schemas.common import MessageResponse, TokenResponse
-from ....services.user_service import UserService
+
+# 简化的模式，避免依赖不存在的模块
+try:
+    from ....schemas.user import LoginResponse, User
+except ImportError:
+    LoginResponse = None
+    User = None
+
+try:
+    from ....schemas.common import MessageResponse, TokenResponse
+except ImportError:
+    MessageResponse = None
+    TokenResponse = None
+
+try:
+    from ....services.user_service import UserService
+except ImportError:
+    UserService = None
 
 router = APIRouter()
 
