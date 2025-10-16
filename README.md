@@ -163,6 +163,9 @@ python3 deep_code_analysis.py
 # 仅安装PHP-FPM（避免Apache依赖）
 ./install_php_fpm_only.sh
 
+# 智能安装演示
+./smart_install_demo.sh
+
 # 测试诊断工具
 ./test_diagnosis_tools.sh
 ```

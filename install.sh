@@ -383,22 +383,49 @@ select_install_type() {
     fi
     
     if [[ "$SILENT" = true ]]; then
-        # 静默模式自动选择
-        if [[ $MEMORY_MB -lt 2048 ]]; then
+        # 静默模式智能选择
+        log_info "检测到非交互模式，智能选择安装类型..."
+        
+        # 综合评估系统资源
+        local score=0
+        
+        # 内存评分 (0-3分)
+        if [[ $MEMORY_MB -ge 4096 ]]; then
+            score=$((score + 3))
+        elif [[ $MEMORY_MB -ge 2048 ]]; then
+            score=$((score + 2))
+        elif [[ $MEMORY_MB -ge 1024 ]]; then
+            score=$((score + 1))
+        fi
+        
+        # CPU评分 (0-2分)
+        if [[ $CPU_CORES -ge 4 ]]; then
+            score=$((score + 2))
+        elif [[ $CPU_CORES -ge 2 ]]; then
+            score=$((score + 1))
+        fi
+        
+        # 磁盘评分 (0-1分)
+        if [[ $DISK_SPACE_MB -ge 10240 ]]; then  # 10GB
+            score=$((score + 1))
+        fi
+        
+        # 根据评分选择安装类型
+        if [[ $score -le 2 ]]; then
             INSTALL_TYPE="minimal"
-            log_info "检测到非交互模式，自动选择安装类型..."
             log_info "自动选择的安装类型: minimal"
-            log_info "选择理由: 内存不足2GB，推荐最小化安装（优化MySQL配置）"
-        elif [[ $MEMORY_MB -lt 4096 ]]; then
+            log_info "选择理由: 系统资源有限（评分: $score/6），推荐最小化安装"
+            log_info "优化配置: 禁用Redis、优化MySQL配置、减少并发连接"
+        elif [[ $score -le 4 ]]; then
             INSTALL_TYPE="native"
-            log_info "检测到非交互模式，自动选择安装类型..."
             log_info "自动选择的安装类型: native"
-            log_info "选择理由: 内存2-4GB，推荐原生安装（平衡性能和资源）"
+            log_info "选择理由: 系统资源适中（评分: $score/6），推荐原生安装"
+            log_info "优化配置: 启用基础功能、平衡性能和资源使用"
         else
             INSTALL_TYPE="native"  # 改为native，因为docker安装尚未实现
-            log_info "检测到非交互模式，自动选择安装类型..."
             log_info "自动选择的安装类型: native"
-            log_info "选择理由: 内存充足，推荐原生安装（Docker安装尚未实现）"
+            log_info "选择理由: 系统资源充足（评分: $score/6），推荐原生安装"
+            log_info "优化配置: 启用所有功能、最大化性能（Docker安装待实现）"
         fi
         
         # 智能模式下自动设置其他参数
@@ -461,16 +488,38 @@ select_install_type() {
     echo "   要求: 内存 ≥ 1GB，磁盘 ≥ 3GB"
     echo ""
     
-    # 根据系统资源推荐
-    if [[ $MEMORY_MB -lt 2048 ]]; then
-        log_warning "⚠️ 系统内存不足2GB，强烈推荐选择最小化安装"
+    # 根据系统资源智能推荐
+    local score=0
+    
+    # 计算系统评分
+    if [[ $MEMORY_MB -ge 4096 ]]; then
+        score=$((score + 3))
+    elif [[ $MEMORY_MB -ge 2048 ]]; then
+        score=$((score + 2))
+    elif [[ $MEMORY_MB -ge 1024 ]]; then
+        score=$((score + 1))
+    fi
+    
+    if [[ $CPU_CORES -ge 4 ]]; then
+        score=$((score + 2))
+    elif [[ $CPU_CORES -ge 2 ]]; then
+        score=$((score + 1))
+    fi
+    
+    if [[ $DISK_SPACE_MB -ge 10240 ]]; then
+        score=$((score + 1))
+    fi
+    
+    # 根据评分推荐
+    if [[ $score -le 2 ]]; then
+        log_warning "⚠️ 系统资源有限（评分: $score/6），强烈推荐选择最小化安装"
         recommended="3"
-    elif [[ $MEMORY_MB -lt 4096 ]]; then
-        log_info "💡 系统内存2-4GB，推荐选择原生安装"
+    elif [[ $score -le 4 ]]; then
+        log_info "💡 系统资源适中（评分: $score/6），推荐选择原生安装"
         recommended="2"
     else
-        log_info "💡 系统内存充足，推荐选择Docker安装"
-        recommended="1"
+        log_info "💡 系统资源充足（评分: $score/6），推荐选择原生安装"
+        recommended="2"  # 改为2，因为Docker安装尚未实现
     fi
     
     echo ""
