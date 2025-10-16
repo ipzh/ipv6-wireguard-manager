@@ -956,6 +956,15 @@ install_system_dependencies() {
             zypper install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
             zypper install -y mysql mysql-server
             zypper install -y redis nginx
+            
+            # 检查并禁用apache服务（如果存在）
+            if systemctl list-unit-files | grep -q "apache2.service"; then
+                log_info "检测到Apache2服务，正在禁用..."
+                systemctl stop apache2 2>/dev/null || true
+                systemctl disable apache2 2>/dev/null || true
+                log_info "Apache2服务已禁用"
+            fi
+            
             zypper install -y git curl wget gcc gcc-c++ make
             ;;
     esac
@@ -1046,7 +1055,17 @@ install_minimal_dependencies() {
                 exit 1
             fi
             
+            # 确保只安装nginx，不安装apache
             apt-get install -y nginx
+            
+            # 检查并禁用apache服务（如果存在）
+            if systemctl list-unit-files | grep -q "apache2.service"; then
+                log_info "检测到Apache2服务，正在禁用..."
+                systemctl stop apache2 2>/dev/null || true
+                systemctl disable apache2 2>/dev/null || true
+                log_info "Apache2服务已禁用"
+            fi
+            
             apt-get install -y git curl wget
             ;;
         "yum"|"dnf")
@@ -1065,10 +1084,27 @@ install_minimal_dependencies() {
             fi
             
             $PACKAGE_MANAGER install -y nginx
+            
+            # 检查并禁用apache服务（如果存在）
+            if systemctl list-unit-files | grep -q "httpd.service"; then
+                log_info "检测到Apache(httpd)服务，正在禁用..."
+                systemctl stop httpd 2>/dev/null || true
+                systemctl disable httpd 2>/dev/null || true
+                log_info "Apache(httpd)服务已禁用"
+            fi
+            
             $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
             ;;
         "pacman")
             pacman -S --noconfirm python python-pip mysql nginx
+            
+            # 检查并禁用apache服务（如果存在）
+            if systemctl list-unit-files | grep -q "httpd.service"; then
+                log_info "检测到Apache(httpd)服务，正在禁用..."
+                systemctl stop httpd 2>/dev/null || true
+                systemctl disable httpd 2>/dev/null || true
+                log_info "Apache(httpd)服务已禁用"
+            fi
             
             # 安装PHP和PHP-FPM
             log_info "安装PHP和PHP-FPM..."
