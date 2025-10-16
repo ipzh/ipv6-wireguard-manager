@@ -93,6 +93,7 @@ SKIP_DEPS=false
 SKIP_DB=false
 SKIP_SERVICE=false
 SKIP_FRONTEND=false
+AUTO_EXIT=false
 
 # 系统信息检测
 detect_system() {
@@ -303,6 +304,11 @@ parse_arguments() {
                 SKIP_FRONTEND=true
                 shift
                 ;;
+            --auto)
+                SILENT=true
+                AUTO_EXIT=true
+                shift
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -339,6 +345,7 @@ show_help() {
     echo "  --skip-db            跳过数据库配置"
     echo "  --skip-service       跳过服务创建"
     echo "  --skip-frontend      跳过前端部署"
+    echo "  --auto               智能安装模式（自动选择参数并退出）"
     echo "  --help, -h           显示帮助信息"
     echo "  --version, -v        显示版本信息"
     echo ""
@@ -348,6 +355,7 @@ echo "  $0 --type docker             # Docker安装"
 echo "  $0 --type native             # 原生安装"
 echo "  $0 --type minimal            # 最小化安装"
 echo "  $0 --silent                  # 静默安装（自动选择安装类型）"
+echo "  $0 --auto                    # 智能安装（自动选择参数并退出）"
 echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
 echo "  $0 --dev                     # 开发模式安装"
 echo ""
@@ -387,11 +395,51 @@ select_install_type() {
             log_info "自动选择的安装类型: native"
             log_info "选择理由: 内存2-4GB，推荐原生安装（平衡性能和资源）"
         else
-            INSTALL_TYPE="docker"
+            INSTALL_TYPE="native"  # 改为native，因为docker安装尚未实现
             log_info "检测到非交互模式，自动选择安装类型..."
-            log_info "自动选择的安装类型: docker"
-            log_info "选择理由: 内存充足，推荐Docker安装（最佳隔离和可移植性）"
+            log_info "自动选择的安装类型: native"
+            log_info "选择理由: 内存充足，推荐原生安装（Docker安装尚未实现）"
         fi
+        
+        # 智能模式下自动设置其他参数
+        if [[ "$AUTO_EXIT" = true ]]; then
+            # 根据磁盘空间自动设置安装目录
+            if [[ $DISK_SPACE_MB -gt 10240 ]]; then
+                INSTALL_DIR="$DEFAULT_INSTALL_DIR"
+            else
+                # 磁盘空间不足，使用较小的目录
+                INSTALL_DIR="/tmp/ipv6-wireguard-manager"
+                log_info "磁盘空间有限，使用临时安装目录: $INSTALL_DIR"
+            fi
+            
+            # 根据端口占用情况自动设置端口
+            if netstat -tuln 2>/dev/null | grep -q ":$DEFAULT_PORT "; then
+                WEB_PORT="8080"
+                log_info "端口$DEFAULT_PORT已被占用，自动使用端口$WEB_PORT"
+            else
+                WEB_PORT="$DEFAULT_PORT"
+            fi
+            
+            if netstat -tuln 2>/dev/null | grep -q ":$DEFAULT_API_PORT "; then
+                API_PORT="8001"
+                log_info "端口$DEFAULT_API_PORT已被占用，自动使用端口$API_PORT"
+            else
+                API_PORT="$DEFAULT_API_PORT"
+            fi
+            
+            # 根据系统资源自动设置性能参数
+            if [[ $MEMORY_MB -lt 4096 ]]; then
+                PERFORMANCE=true
+                log_info "系统资源有限，启用性能优化模式"
+            fi
+            
+            # 如果是生产环境，自动设置生产模式
+            if [[ "$AUTO_EXIT" = true ]] && [[ $MEMORY_MB -gt 4096 ]]; then
+                PRODUCTION=true
+                log_info "智能模式：自动启用生产环境配置"
+            fi
+        fi
+        
         return 0
     fi
     
@@ -1190,6 +1238,21 @@ show_installation_complete() {
     log_info "  PHP-FPM修复: ./fix_php_fpm.sh"
     echo ""
     log_success "感谢使用IPv6 WireGuard Manager！"
+    
+    # 如果是自动退出模式，显示简短信息后退出
+    if [[ "$AUTO_EXIT" = true ]]; then
+        echo ""
+        log_info "自动退出模式：安装已完成，脚本将自动退出"
+        echo ""
+        log_info "快速启动命令:"
+        if [[ "$INSTALL_TYPE" = "docker" ]]; then
+            log_info "  cd $INSTALL_DIR && docker-compose start"
+        else
+            log_info "  sudo systemctl start ipv6-wireguard-manager"
+        fi
+        echo ""
+        exit 0
+    fi
 }
 
 # 主函数
@@ -1210,15 +1273,29 @@ main() {
     # 设置默认值
     set_defaults
     
-    log_info "安装配置:"
-    log_info "  类型: $INSTALL_TYPE"
-    log_info "  目录: $INSTALL_DIR"
-    log_info "  Web端口: $WEB_PORT"
-    log_info "  API端口: $API_PORT"
-    log_info "  服务用户: $SERVICE_USER"
-    log_info "  Python版本: $PYTHON_VERSION"
-    log_info "  PHP版本: $PHP_VERSION"
-    echo ""
+    # 根据模式显示不同级别的信息
+    if [[ "$AUTO_EXIT" = true ]]; then
+        log_info "智能安装模式：自动配置参数，安装完成后将自动退出"
+        echo ""
+        log_info "自动配置的安装参数:"
+        log_info "  类型: $INSTALL_TYPE"
+        log_info "  目录: $INSTALL_DIR"
+        log_info "  Web端口: $WEB_PORT"
+        log_info "  API端口: $API_PORT"
+        log_info "  性能优化: $PERFORMANCE"
+        log_info "  生产模式: $PRODUCTION"
+        echo ""
+    else
+        log_info "安装配置:"
+        log_info "  类型: $INSTALL_TYPE"
+        log_info "  目录: $INSTALL_DIR"
+        log_info "  Web端口: $WEB_PORT"
+        log_info "  API端口: $API_PORT"
+        log_info "  服务用户: $SERVICE_USER"
+        log_info "  Python版本: $PYTHON_VERSION"
+        log_info "  PHP版本: $PHP_VERSION"
+        echo ""
+    fi
     
     # 执行安装
     case $INSTALL_TYPE in
@@ -1226,7 +1303,11 @@ main() {
             install_docker
             ;;
         "native")
-            log_step "开始原生安装..."
+            if [[ "$AUTO_EXIT" = true ]]; then
+                log_step "开始原生安装（智能模式）..."
+            else
+                log_step "开始原生安装..."
+            fi
             if [[ "$SKIP_DEPS" = false ]]; then
                 install_system_dependencies
                 install_php
@@ -1249,7 +1330,11 @@ main() {
             start_services
             ;;
         "minimal")
-            log_step "开始最小化安装..."
+            if [[ "$AUTO_EXIT" = true ]]; then
+                log_step "开始最小化安装（智能模式）..."
+            else
+                log_step "开始最小化安装..."
+            fi
             if [[ "$SKIP_DEPS" = false ]]; then
                 install_system_dependencies
                 install_php

@@ -55,6 +55,19 @@
 
 ## 🚀 快速开始
 
+### 智能安装（推荐）
+
+```bash
+# 智能安装（自动检测系统并选择最佳安装方式，安装完成后自动退出）
+./smart_install.sh
+
+# 或者使用主安装脚本
+./install.sh --auto
+
+# Windows用户（需要WSL环境）
+smart_install.bat
+```
+
 ### 一键安装
 
 ```bash
