@@ -1065,15 +1065,29 @@ run_environment_check() {
         return 1
     fi
     
-    # 检查API服务
-    if curl -f http://localhost:$API_PORT/api/v1/health &>/dev/null; then
-        log_success "✓ API服务正常"
-    else
-        log_error "✗ API服务异常"
-        return 1
-    fi
+    # 检查API服务（带重试机制）
+    log_info "等待API服务启动..."
+    local api_retry_count=0
+    local api_max_retries=10
+    local api_retry_delay=3
     
-    return 0
+    while [[ $api_retry_count -lt $api_max_retries ]]; do
+        if curl -f http://localhost:$API_PORT/api/v1/health &>/dev/null; then
+            log_success "✓ API服务正常"
+            return 0
+        else
+            api_retry_count=$((api_retry_count + 1))
+            if [[ $api_retry_count -lt $api_max_retries ]]; then
+                log_info "API服务未就绪，等待 ${api_retry_delay} 秒后重试... (${api_retry_count}/${api_max_retries})"
+                sleep $api_retry_delay
+            fi
+        fi
+    done
+    
+    log_error "✗ API服务异常（重试 ${api_max_retries} 次后仍无法连接）"
+    log_info "请检查服务状态: sudo systemctl status ipv6-wireguard-manager"
+    log_info "请查看服务日志: sudo journalctl -u ipv6-wireguard-manager -f"
+    return 1
 }
 
 # 显示安装完成信息

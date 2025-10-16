@@ -101,6 +101,18 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 
 # 修复MySQL安装问题（Debian 12等）
 ./quick_fix_mysql.sh
+
+# 修复API服务问题
+./fix_api_service.sh
+
+# 检查API服务状态
+./check_api_service.sh
+
+# 诊断服务问题
+./diagnose_service.sh
+
+# 快速修复服务
+./quick_fix_service.sh
 ```
 
 ## 📋 系统要求
