@@ -193,5 +193,27 @@ class ApiClient {
             ];
         }
     }
+    
+    /**
+     * 获取API状态 - 兼容Dashboard控制器
+     */
+    public function getApiStatus() {
+        try {
+            $response = $this->get('/health');
+            return [
+                'status' => 'healthy',
+                'connected' => true,
+                'response_time' => $response['status'] === 200 ? 'fast' : 'slow',
+                'data' => $response['data']
+            ];
+        } catch (Exception $e) {
+            return [
+                'status' => 'unhealthy',
+                'connected' => false,
+                'error' => $e->getMessage(),
+                'message' => 'API连接失败: ' . $e->getMessage()
+            ];
+        }
+    }
 }
 ?>

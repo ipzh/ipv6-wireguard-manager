@@ -60,7 +60,7 @@ class DashboardController {
         try {
             // 获取WireGuard服务器
             $serversResponse = $this->apiClient->get('/wireguard/servers');
-            $data['servers'] = $serversResponse['servers'] ?? [];
+            $data['servers'] = $serversResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取服务器列表失败: ' . $e->getMessage());
         }
@@ -68,34 +68,31 @@ class DashboardController {
         try {
             // 获取WireGuard客户端
             $clientsResponse = $this->apiClient->get('/wireguard/clients');
-            $data['clients'] = $clientsResponse['clients'] ?? [];
+            $data['clients'] = $clientsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取客户端列表失败: ' . $e->getMessage());
         }
         
         try {
             // 获取BGP宣告
-            $bgpResponse = $this->apiClient->get('/network/bgp/announcements');
-            $data['bgpAnnouncements'] = $bgpResponse['announcements'] ?? [];
+            $bgpResponse = $this->apiClient->get('/bgp/routes');
+            $data['bgpAnnouncements'] = $bgpResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取BGP宣告失败: ' . $e->getMessage());
         }
         
         try {
             // 获取系统指标
-            $metricsResponse = $this->apiClient->get('/monitoring/metrics');
-            $data['systemMetrics'] = $metricsResponse;
+            $metricsResponse = $this->apiClient->get('/monitoring/metrics/system');
+            $data['systemMetrics'] = $metricsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取系统指标失败: ' . $e->getMessage());
         }
         
         try {
             // 获取最近日志
-            $logsResponse = $this->apiClient->get('/logs', [
-                'page' => 1,
-                'size' => 10
-            ]);
-            $data['recentLogs'] = $logsResponse['logs'] ?? [];
+            $logsResponse = $this->apiClient->get('/logs');
+            $data['recentLogs'] = $logsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取最近日志失败: ' . $e->getMessage());
         }

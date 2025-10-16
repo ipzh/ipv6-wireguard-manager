@@ -13,9 +13,10 @@ class BGPController {
      * BGP会话管理页面
      */
     public function sessions() {
-        $sessionsData = $this->apiClient->get('/bgp/sessions');
-        $sessions = $sessionsData['sessions'] ?? [];
-        $error = $sessionsData['error'] ?? null;
+            $sessionsResponse = $this->apiClient->get('/bgp/sessions');
+            $sessionsData = $sessionsResponse['data'] ?? [];
+        $sessions = $sessionsData;
+        $error = null;
         
         require __DIR__ . '/../views/bgp/sessions.php';
     }
@@ -24,9 +25,10 @@ class BGPController {
      * BGP宣告管理页面
      */
     public function announcements() {
-        $announcementsData = $this->apiClient->get('/bgp/announcements');
-        $announcements = $announcementsData['announcements'] ?? [];
-        $error = $announcementsData['error'] ?? null;
+        $announcementsResponse = $this->apiClient->get('/bgp/routes');
+        $announcementsData = $announcementsResponse['data'] ?? [];
+        $announcements = $announcementsData;
+        $error = null;
         
         require __DIR__ . '/../views/bgp/announcements.php';
     }

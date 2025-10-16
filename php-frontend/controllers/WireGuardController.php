@@ -21,8 +21,8 @@ class WireGuardController {
         try {
             $this->auth->requirePermission('wireguard.view');
             
-            $servers = $this->apiClient->get('/wireguard/servers');
-            $servers = $servers['servers'] ?? [];
+            $serversResponse = $this->apiClient->get('/wireguard/servers');
+            $servers = $serversResponse['data'] ?? [];
             
             $pageTitle = 'WireGuard服务器管理';
             $showSidebar = true;
@@ -43,8 +43,8 @@ class WireGuardController {
         try {
             $this->auth->requirePermission('wireguard.view');
             
-            $clients = $this->apiClient->get('/wireguard/clients');
-            $clients = $clients['clients'] ?? [];
+            $clientsResponse = $this->apiClient->get('/wireguard/clients');
+            $clients = $clientsResponse['data'] ?? [];
             
             $pageTitle = 'WireGuard客户端管理';
             $showSidebar = true;

@@ -13,9 +13,10 @@ class IPv6Controller {
      * IPv6前缀池管理页面
      */
     public function pools() {
-        $poolsData = $this->apiClient->get('/ipv6/pools');
-        $pools = $poolsData['pools'] ?? [];
-        $error = $poolsData['error'] ?? null;
+        $poolsResponse = $this->apiClient->get('/ipv6/pools');
+        $poolsData = $poolsResponse['data'] ?? [];
+        $pools = $poolsData;
+        $error = null;
         
         require __DIR__ . '/../views/ipv6/pools.php';
     }
@@ -24,9 +25,10 @@ class IPv6Controller {
      * IPv6前缀分配管理页面
      */
     public function allocations() {
-        $allocationsData = $this->apiClient->get('/ipv6/allocations');
-        $allocations = $allocationsData['allocations'] ?? [];
-        $error = $allocationsData['error'] ?? null;
+        $allocationsResponse = $this->apiClient->get('/ipv6/allocations');
+        $allocationsData = $allocationsResponse['data'] ?? [];
+        $allocations = $allocationsData;
+        $error = null;
         
         require __DIR__ . '/../views/ipv6/allocations.php';
     }
