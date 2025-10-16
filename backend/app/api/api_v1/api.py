@@ -3,7 +3,7 @@ API v1 路由聚合
 """
 from fastapi import APIRouter
 
-from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health
+from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health, debug
 
 api_router = APIRouter()
 
@@ -42,3 +42,6 @@ api_router.include_router(status.router, prefix="/status", tags=["状态检查"]
 
 # 健康检查路由
 api_router.include_router(health.router, prefix="", tags=["健康检查"])
+
+# 调试和诊断路由
+api_router.include_router(debug.router, prefix="/debug", tags=["调试诊断"])

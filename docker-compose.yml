@@ -1,76 +1,141 @@
 version: '3.8'
 
 services:
-  # MySQL数据库
-  mysql:
-    image: mysql:8.0
-    container_name: ipv6wgm-mysql
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ipv6wgm}
-      MYSQL_USER: ${MYSQL_USER:-ipv6wgm}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf
-    ports:
-      - "3306:3306"
-    networks:
-      - ipv6wgm-network
-    restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password
-
-  # Redis缓存（可选，低内存环境可禁用）
-  redis:
-    image: redis:7-alpine
-    container_name: ipv6wgm-redis
-    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    networks:
-      - ipv6wgm-network
-    restart: unless-stopped
-    profiles:
-      - full  # 仅在完整安装时启用
-
   # 后端API服务
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ipv6wgm-backend
+    container_name: ipv6-wireguard-backend
+    ports:
+      - "8000:8000"
     environment:
-      - DATABASE_URL=mysql://${MYSQL_USER:-ipv6wgm}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-ipv6wgm}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=${DEBUG:-false}
+      - DATABASE_URL=mysql://root:password@mysql:3306/ipv6_wireguard
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    depends_on:
+      mysql:
+        condition: service_healthy
     volumes:
       - ./backend:/app
-      - /etc/wireguard:/etc/wireguard:ro
-    ports:
-      - "${API_PORT:-8000}:8000"
-    depends_on:
-      - mysql
+      - backend_logs:/app/logs
     networks:
-      - ipv6wgm-network
+      - wireguard-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # 注意：前端服务已迁移到PHP，不再使用Docker容器
-  # 请使用 deploy_php_frontend.sh 脚本部署PHP前端
+  # 前端Web服务
+  frontend:
+    build:
+      context: ./php-frontend
+      dockerfile: Dockerfile
+    container_name: ipv6-wireguard-frontend
+    ports:
+      - "80:80"
+    environment:
+      - API_BASE_URL=http://backend:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./php-frontend:/var/www/html
+      - frontend_logs:/var/log/nginx
+    networks:
+      - wireguard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: ipv6-wireguard-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=ipv6_wireguard
+      - MYSQL_USER=wireguard
+      - MYSQL_PASSWORD=wireguard123
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - wireguard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis缓存（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: ipv6-wireguard-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - wireguard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Nginx反向代理（可选）
+  nginx:
+    image: nginx:alpine
+    container_name: ipv6-wireguard-nginx
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - wireguard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   mysql_data:
+    driver: local
   redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+  frontend_logs:
+    driver: local
+  nginx_logs:
+    driver: local
 
 networks:
-  ipv6wgm-network:
+  wireguard-network:
     driver: bridge
-    enable_ipv6: true
     ipam:
-      driver: default
       config:
-        - subnet: 172.18.0.0/16
-        - subnet: 2001:db8::/64
+        - subnet: 172.20.0.0/16

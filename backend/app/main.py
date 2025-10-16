@@ -1,6 +1,7 @@
 """
 IPv6 WireGuard Manager 主应用
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -19,6 +20,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动时执行
+    logger.info("Starting IPv6 WireGuard Manager...")
+    
+    # 简化的数据库初始化
+    try:
+        await init_db()
+        logger.info("Database initialization completed")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        logger.warning("Application starting with database issues")
+    
+    logger.info("Application started successfully")
+    
+    yield
+    
+    # 关闭时执行
+    logger.info("Shutting down IPv6 WireGuard Manager...")
+    await close_db()
+    logger.info("Application shutdown complete")
+
 # 创建FastAPI应用
 app = FastAPI(
     title=settings.APP_NAME,
@@ -27,6 +51,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # 添加CORS中间件
@@ -58,40 +83,51 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理器"""
-    logger.error(f"Global exception: {exc}", exc_info=True)
+    """全局异常处理器 - 增强版本"""
+    # 记录详细的错误信息
+    error_details = {
+        "error_type": type(exc).__name__,
+        "error_message": str(exc),
+        "request_url": str(request.url),
+        "request_method": request.method,
+        "client_ip": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "timestamp": time.time()
+    }
+    
+    logger.error(f"Global exception occurred: {error_details}", exc_info=True)
+    
+    # 根据异常类型返回不同的错误信息
+    if isinstance(exc, ValueError):
+        status_code = 400
+        message = "请求参数错误"
+        error_code = "INVALID_REQUEST"
+    elif isinstance(exc, PermissionError):
+        status_code = 403
+        message = "权限不足"
+        error_code = "PERMISSION_DENIED"
+    elif isinstance(exc, ConnectionError):
+        status_code = 503
+        message = "服务暂时不可用"
+        error_code = "SERVICE_UNAVAILABLE"
+    else:
+        status_code = 500
+        message = "内部服务器错误"
+        error_code = "INTERNAL_SERVER_ERROR"
+    
     return JSONResponse(
-        status_code=500,
+        status_code=status_code,
         content={
             "success": False,
-            "message": "内部服务器错误",
-            "error_code": "INTERNAL_SERVER_ERROR"
+            "message": message,
+            "error_code": error_code,
+            "error_id": f"ERR_{int(time.time())}",
+            "timestamp": time.time()
         }
     )
 
 
-@app.on_event("startup")
-async def startup_event():
-    """应用启动事件"""
-    logger.info("Starting IPv6 WireGuard Manager...")
-    
-    # 简化的数据库初始化
-    try:
-        await init_db()
-        logger.info("Database initialization completed")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        logger.warning("Application starting with database issues")
-    
-    logger.info("Application started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭事件"""
-    logger.info("Shutting down IPv6 WireGuard Manager...")
-    await close_db()
-    logger.info("Application shutdown complete")
+# 旧的on_event处理器已被lifespan替代
 
 
 @app.get("/")

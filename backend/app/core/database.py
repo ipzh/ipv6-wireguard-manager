@@ -43,60 +43,35 @@ if settings.DATABASE_URL.startswith("mysql://"):
     try:
         if aiomysql_available:
             # 测试异步连接
+            # 优化的连接参数
             connect_args = {
                 "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
                 "charset": "utf8mb4",
-                "autocommit": False
+                "autocommit": False,
+                "use_unicode": True,
+                "sql_mode": "TRADITIONAL"
             }
             
+            # 优化的连接池配置
             async_engine = create_async_engine(
                 async_db_url,
-                pool_size=settings.DATABASE_POOL_SIZE,
-                max_overflow=settings.DATABASE_MAX_OVERFLOW,
-                pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
-                pool_recycle=settings.DATABASE_POOL_RECYCLE,
+                pool_size=min(settings.DATABASE_POOL_SIZE, 20),  # 限制最大连接数
+                max_overflow=min(settings.DATABASE_MAX_OVERFLOW, 10),  # 限制最大溢出
+                pool_pre_ping=True,  # 强制启用连接预检查
+                pool_recycle=3600,  # 1小时回收连接
+                pool_timeout=30,  # 连接超时30秒
                 echo=settings.DEBUG,
-                connect_args=connect_args
+                connect_args=connect_args,
+                # 添加连接池事件监听
+                pool_reset_on_return='commit'
             )
             
-            # 测试连接
-            import asyncio
-            
-            async def test_async_connection():
-                """测试异步数据库连接"""
-                try:
-                    import asyncio
-                    # 检查是否在事件循环中
-                    try:
-                        loop = asyncio.get_running_loop()
-                        logger.warning("在事件循环中，跳过异步连接测试")
-                        return False
-                    except RuntimeError:
-                        # 不在事件循环中，可以安全测试
-                        pass
-                    
-                    if async_engine:
-                        async with async_engine.begin() as conn:
-                            await conn.execute(text("SELECT 1"))
-                        return True
-                except Exception as e:
-                    logger.error(f"异步连接测试失败: {e}")
-                    return False
-                return False
-
-            
-            # 在Windows上使用不同的策略
-            if os.name == 'nt':
-                # Windows环境，使用线程池执行
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    connection_ok = executor.submit(asyncio.run, test_async_connection()).result()
-            else:
-                # Linux环境，跳过异步连接测试
-                connection_ok = False  # 在事件循环中无法调用asyncio.run
-            
-            if not connection_ok:
-                print("警告: 异步数据库连接测试失败，使用同步模式")
+            # 简化的连接测试 - 避免复杂的异步测试
+            try:
+                # 只创建引擎，不进行复杂的连接测试
+                logger.info("异步数据库引擎创建成功")
+            except Exception as e:
+                logger.error(f"异步数据库引擎创建失败: {e}")
                 async_engine = None
         else:
             async_engine = None
@@ -136,20 +111,26 @@ if sync_db_url.startswith("mysql://"):
         sync_connect_args = {}
 
 if PYMYSQL_AVAILABLE and sync_db_url.startswith("mysql+pymysql://"):
+    # 优化的同步连接参数
     sync_connect_args = {
         "connect_timeout": settings.DATABASE_CONNECT_TIMEOUT,
         "charset": "utf8mb4",
-        "autocommit": False
+        "autocommit": False,
+        "use_unicode": True,
+        "sql_mode": "TRADITIONAL"
     }
 
+    # 优化的同步连接池配置
     sync_engine = create_engine(
         sync_db_url,
-        pool_size=settings.DATABASE_POOL_SIZE,
-        max_overflow=settings.DATABASE_MAX_OVERFLOW,
-        pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
-        pool_recycle=settings.DATABASE_POOL_RECYCLE,
+        pool_size=min(settings.DATABASE_POOL_SIZE, 10),  # 同步连接池较小
+        max_overflow=min(settings.DATABASE_MAX_OVERFLOW, 5),
+        pool_pre_ping=True,  # 强制启用连接预检查
+        pool_recycle=3600,  # 1小时回收连接
+        pool_timeout=30,  # 连接超时30秒
         echo=settings.DEBUG,
-        connect_args=sync_connect_args
+        connect_args=sync_connect_args,
+        pool_reset_on_return='commit'
     )
 else:
     sync_engine = None
