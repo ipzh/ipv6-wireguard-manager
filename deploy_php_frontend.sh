@@ -103,19 +103,37 @@ check_php_installation() {
         exit 1
     fi
     
-    if ! systemctl is-active --quiet php$PHP_VERSION-fpm 2>/dev/null; then
+    # 检测PHP-FPM服务名称
+    php_fpm_service=""
+    if systemctl list-units --type=service --state=running | grep -q "php$PHP_VERSION-fpm"; then
+        php_fpm_service="php$PHP_VERSION-fpm"
+    elif systemctl list-units --type=service --state=running | grep -q "php-fpm"; then
+        php_fpm_service="php-fpm"
+    elif systemctl list-units --type=service --state=running | grep -q "php${PHP_VERSION/./}-fpm"; then
+        php_fpm_service="php${PHP_VERSION/./}-fpm"
+    fi
+    
+    if [[ -n "$php_fpm_service" ]]; then
+        log_success "PHP-FPM服务 ($php_fpm_service) 运行正常"
+    else
+        # 尝试启动PHP-FPM服务
         log_warning "PHP-FPM服务未运行"
         log_info "尝试启动PHP-FPM服务..."
         
-        if systemctl start php$PHP_VERSION-fpm; then
-            log_success "PHP-FPM服务启动成功"
+        if systemctl start php$PHP_VERSION-fpm 2>/dev/null; then
+            php_fpm_service="php$PHP_VERSION-fpm"
+            log_success "PHP-FPM服务 ($php_fpm_service) 启动成功"
+        elif systemctl start php-fpm 2>/dev/null; then
+            php_fpm_service="php-fpm"
+            log_success "PHP-FPM服务 ($php_fpm_service) 启动成功"
+        elif systemctl start php${PHP_VERSION/./}-fpm 2>/dev/null; then
+            php_fpm_service="php${PHP_VERSION/./}-fpm"
+            log_success "PHP-FPM服务 ($php_fpm_service) 启动成功"
         else
             log_error "无法启动PHP-FPM服务"
             log_info "请手动安装和启动PHP-FPM"
             exit 1
         fi
-    else
-        log_success "PHP-FPM服务运行正常"
     fi
     
     # 检查PHP版本

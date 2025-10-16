@@ -83,6 +83,7 @@ SERVICE_USER="ipv6wgm"
 SERVICE_GROUP="ipv6wgm"
 PYTHON_VERSION="3.11"
 NODE_VERSION="18"
+PHP_VERSION="8.1"
 MYSQL_VERSION="8.0"
 POSTGRES_VERSION="15"
 REDIS_VERSION="7"
@@ -1198,12 +1199,26 @@ EOF
     
     # 启动PHP-FPM服务
     log_info "启动PHP-FPM服务..."
-    if systemctl is-active --quiet php$PHP_VERSION-fpm 2>/dev/null; then
+    
+    # 检测PHP-FPM服务名称
+    php_fpm_service=""
+    if systemctl list-units --type=service | grep -q "php$PHP_VERSION-fpm"; then
+        php_fpm_service="php$PHP_VERSION-fpm"
+    elif systemctl list-units --type=service | grep -q "php-fpm"; then
+        php_fpm_service="php-fpm"
+    elif systemctl list-units --type=service | grep -q "php${PHP_VERSION/./}-fpm"; then
+        php_fpm_service="php${PHP_VERSION/./}-fpm"
+    else
+        log_error "无法找到PHP-FPM服务"
+        return 1
+    fi
+    
+    if systemctl is-active --quiet $php_fpm_service 2>/dev/null; then
         log_info "PHP-FPM服务已在运行"
     else
-        systemctl enable php$PHP_VERSION-fpm
-        systemctl start php$PHP_VERSION-fpm
-        if systemctl is-active --quiet php$PHP_VERSION-fpm; then
+        systemctl enable $php_fpm_service
+        systemctl start $php_fpm_service
+        if systemctl is-active --quiet $php_fpm_service; then
             log_success "PHP-FPM服务启动成功"
         else
             log_error "PHP-FPM服务启动失败"
@@ -1570,6 +1585,29 @@ configure_nginx() {
     log_info "禁用Nginx默认站点..."
     rm -f /etc/nginx/sites-enabled/default
     
+    # 检测PHP-FPM socket路径
+    php_fpm_socket=""
+    if [[ -f "/var/run/php/php$PHP_VERSION-fpm.sock" ]]; then
+        php_fpm_socket="/var/run/php/php$PHP_VERSION-fpm.sock"
+    elif [[ -f "/var/run/php/php-fpm.sock" ]]; then
+        php_fpm_socket="/var/run/php/php-fpm.sock"
+    elif [[ -f "/run/php/php$PHP_VERSION-fpm.sock" ]]; then
+        php_fpm_socket="/run/php/php$PHP_VERSION-fpm.sock"
+    elif [[ -f "/run/php/php-fpm.sock" ]]; then
+        php_fpm_socket="/run/php/php-fpm.sock"
+    elif [[ -f "/var/run/php-fpm/php-fpm.sock" ]]; then
+        php_fpm_socket="/var/run/php-fpm/php-fpm.sock"
+    else
+        # 尝试查找任何PHP-FPM socket文件
+        php_fpm_socket=$(find /var/run /run -name "php*-fpm.sock" 2>/dev/null | head -1)
+        if [[ -z "$php_fpm_socket" ]]; then
+            log_warning "未找到PHP-FPM socket文件，使用默认路径"
+            php_fpm_socket="/var/run/php/php$PHP_VERSION-fpm.sock"
+        fi
+    fi
+    
+    log_info "使用PHP-FPM socket: $php_fpm_socket"
+    
     # 创建Nginx配置
     log_info "创建项目Nginx配置..."
     cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
@@ -1623,7 +1661,7 @@ server {
     location ~ \.php$ {
         try_files \$uri =404;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_pass unix:$php_fpm_socket;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
