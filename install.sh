@@ -1260,6 +1260,21 @@ main() {
     log_info "IPv6 WireGuard Manager - 智能安装脚本 v$SCRIPT_VERSION"
     echo ""
     
+    # 检测是否通过管道执行（curl ... | bash）
+    if [[ -t 0 ]]; then
+        # 交互模式 - 终端是TTY
+        INTERACTIVE_MODE=true
+    else
+        # 非交互模式 - 通过管道执行
+        INTERACTIVE_MODE=false
+        # 自动启用智能安装模式
+        if [[ "$AUTO_EXIT" = false ]]; then
+            AUTO_EXIT=true
+            SILENT=true
+            log_info "检测到非交互模式，自动启用智能安装模式..."
+        fi
+    fi
+    
     # 检测系统
     detect_system
     check_requirements
