@@ -166,6 +166,10 @@ python3 deep_code_analysis.py
 # 智能安装演示
 ./smart_install_demo.sh
 
+# 后端错误检查和修复（需要从GitHub下载）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/backend_error_checker.py | python3 - --backend-path backend --verbose
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fix_backend_errors.py | python3 - --backend-path backend --verbose
+
 # 测试诊断工具
 ./test_diagnosis_tools.sh
 ```
