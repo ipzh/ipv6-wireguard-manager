@@ -327,7 +327,7 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  --type TYPE          安装类型 (native|minimal)"
+    echo "  --type TYPE          安装类型 (docker|native|minimal)"
     echo "  --dir DIR            安装目录 (默认: $DEFAULT_INSTALL_DIR)"
     echo "  --port PORT          Web端口 (默认: $DEFAULT_PORT)"
     echo "  --api-port PORT      API端口 (默认: $DEFAULT_API_PORT)"
@@ -342,10 +342,15 @@ show_help() {
     echo "  --help, -h           显示帮助信息"
     echo "  --version, -v        显示版本信息"
     echo ""
-    echo "示例:"
-    echo "  $0 --type minimal --silent"
-    echo "  $0 --type native --production --dir /opt/ipv6wgm"
-    echo ""
+echo "示例:"
+echo "  $0                           # 交互式安装"
+echo "  $0 --type docker             # Docker安装"
+echo "  $0 --type native             # 原生安装"
+echo "  $0 --type minimal            # 最小化安装"
+echo "  $0 --silent                  # 静默安装（自动选择安装类型）"
+echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
+echo "  $0 --dev                     # 开发模式安装"
+echo ""
     echo "支持的Linux系统:"
     echo "  - Ubuntu 18.04+"
     echo "  - Debian 9+"
@@ -382,46 +387,55 @@ select_install_type() {
             log_info "自动选择的安装类型: native"
             log_info "选择理由: 内存2-4GB，推荐原生安装（平衡性能和资源）"
         else
-            INSTALL_TYPE="native"
+            INSTALL_TYPE="docker"
             log_info "检测到非交互模式，自动选择安装类型..."
-            log_info "自动选择的安装类型: native"
-            log_info "选择理由: 内存充足，但Docker安装暂未实现，使用原生安装"
+            log_info "自动选择的安装类型: docker"
+            log_info "选择理由: 内存充足，推荐Docker安装（最佳隔离和可移植性）"
         fi
         return 0
     fi
     
     # 交互模式
     log_info "请选择安装类型:"
-    echo "1) 原生安装 - 推荐用于生产环境和开发环境"
+    echo "1) Docker安装 - 推荐用于生产环境"
+    echo "   优点: 完全隔离、易于管理、可移植性强"
+    echo "   缺点: 资源占用较高、启动较慢"
+    echo "   要求: 内存 ≥ 4GB，磁盘 ≥ 10GB"
+    echo ""
+    echo "2) 原生安装 - 推荐用于开发环境"
     echo "   优点: 性能最佳、资源占用低、启动快速"
     echo "   缺点: 依赖系统环境、配置复杂"
     echo "   要求: 内存 ≥ 2GB，磁盘 ≥ 5GB"
     echo ""
-    echo "2) 最小化安装 - 推荐用于资源受限环境"
+    echo "3) 最小化安装 - 推荐用于资源受限环境"
     echo "   优点: 资源占用最低、启动最快"
     echo "   缺点: 功能受限、性能一般"
     echo "   要求: 内存 ≥ 1GB，磁盘 ≥ 3GB"
-    echo ""
-    echo "注意: Docker安装暂未实现，请选择原生安装或最小化安装"
     echo ""
     
     # 根据系统资源推荐
     if [[ $MEMORY_MB -lt 2048 ]]; then
         log_warning "⚠️ 系统内存不足2GB，强烈推荐选择最小化安装"
+        recommended="3"
+    elif [[ $MEMORY_MB -lt 4096 ]]; then
+        log_info "💡 系统内存2-4GB，推荐选择原生安装"
         recommended="2"
     else
-        log_info "💡 系统内存充足，推荐选择原生安装"
+        log_info "💡 系统内存充足，推荐选择Docker安装"
         recommended="1"
     fi
     
     echo ""
-    read -p "请输入选择 (1-2) [推荐: $recommended]: " choice
+    read -p "请输入选择 (1-3) [推荐: $recommended]: " choice
     
     case $choice in
         1|"")
-            INSTALL_TYPE="native"
+            INSTALL_TYPE="docker"
             ;;
         2)
+            INSTALL_TYPE="native"
+            ;;
+        3)
             INSTALL_TYPE="minimal"
             ;;
         *)
@@ -733,7 +747,204 @@ EOF
     fi
 }
 
-# 创建系统服务
+# Docker安装
+install_docker() {
+    log_step "开始Docker安装..."
+    
+    # 检查Docker是否已安装
+    if ! command -v docker &> /dev/null; then
+        log_info "安装Docker..."
+        install_docker_engine
+    else
+        log_success "Docker已安装"
+    fi
+    
+    # 检查Docker Compose是否已安装
+    if ! command -v docker-compose &> /dev/null; then
+        log_info "安装Docker Compose..."
+        install_docker_compose
+    else
+        log_success "Docker Compose已安装"
+    fi
+    
+    # 创建安装目录
+    create_directory "$INSTALL_DIR"
+    
+    # 下载项目文件
+    download_project
+    
+    # 创建环境配置文件
+    create_docker_env_file
+    
+    # 构建并启动Docker容器
+    build_and_start_docker
+    
+    # 等待服务启动
+    wait_for_docker_services
+    
+    log_success "Docker安装完成"
+}
+
+# 安装Docker引擎
+install_docker_engine() {
+    case $OS in
+        "ubuntu")
+            # 更新包索引
+            apt-get update
+            
+            # 安装依赖
+            apt-get install -y ca-certificates curl gnupg lsb-release
+            
+            # 添加Docker官方GPG密钥
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            
+            # 添加Docker仓库
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            # 安装Docker Engine
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            
+            # 启动Docker服务
+            systemctl start docker
+            systemctl enable docker
+            ;;
+        "centos"|"rhel"|"fedora")
+            # 安装依赖
+            yum install -y yum-utils
+            
+            # 添加Docker仓库
+            yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            
+            # 安装Docker Engine
+            yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+            
+            # 启动Docker服务
+            systemctl start docker
+            systemctl enable docker
+            ;;
+        *)
+            log_error "不支持的操作系统: $OS"
+            exit 1
+            ;;
+    esac
+    
+    # 将当前用户添加到docker组
+    usermod -aG docker $CURRENT_USER
+    
+    log_success "Docker引擎安装完成"
+}
+
+# 安装Docker Compose
+install_docker_compose() {
+    # 下载Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    
+    # 添加执行权限
+    chmod +x /usr/local/bin/docker-compose
+    
+    # 创建符号链接
+    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+    
+    log_success "Docker Compose安装完成"
+}
+
+# 创建Docker环境配置文件
+create_docker_env_file() {
+    log_info "创建Docker环境配置文件..."
+    
+    # 生成随机密码
+    MYSQL_PASSWORD=$(generate_random_string 16)
+    MYSQL_ROOT_PASSWORD=$(generate_random_string 20)
+    SECRET_KEY=$(generate_random_string 32)
+    
+    cat > "$INSTALL_DIR/.env" << EOF
+# 数据库配置
+MYSQL_DATABASE=ipv6wgm
+MYSQL_USER=ipv6wgm
+MYSQL_PASSWORD=$MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+
+# 应用配置
+SECRET_KEY=$SECRET_KEY
+DEBUG=false
+API_PORT=$API_PORT
+WEB_PORT=$WEB_PORT
+
+# 域名配置
+DOMAIN=$DOMAIN
+SSL_EMAIL=$SSL_EMAIL
+
+# WireGuard配置
+WG_PORT=$WG_PORT
+WG_INTERFACE=$WG_INTERFACE
+WG_MTU=$WG_MTU
+
+# PHP配置
+PHP_VERSION=$PHP_VERSION
+EOF
+    
+    # 导出环境变量
+    export MYSQL_PASSWORD
+    export MYSQL_ROOT_PASSWORD
+    export SECRET_KEY
+    
+    log_success "Docker环境配置文件创建完成"
+}
+
+# 构建并启动Docker容器
+build_and_start_docker() {
+    log_info "构建并启动Docker容器..."
+    
+    cd "$INSTALL_DIR"
+    
+    # 构建并启动容器
+    docker-compose up -d --build
+    
+    log_success "Docker容器启动完成"
+}
+
+# 等待Docker服务启动
+wait_for_docker_services() {
+    log_info "等待Docker服务启动..."
+    
+    cd "$INSTALL_DIR"
+    
+    # 等待MySQL启动
+    log_info "等待MySQL启动..."
+    while ! docker-compose exec mysql mysqladmin ping -h"localhost" --silent; do
+        sleep 2
+    done
+    log_success "MySQL已启动"
+    
+    # 等待后端API启动
+    log_info "等待后端API启动..."
+    while ! curl -f http://localhost:$API_PORT/api/v1/health &>/dev/null; do
+        sleep 5
+    done
+    log_success "后端API已启动"
+    
+    # 部署PHP前端
+    if [[ "$SKIP_FRONTEND" = false ]]; then
+        log_info "部署PHP前端..."
+        chmod +x "$INSTALL_DIR/deploy_php_frontend_docker.sh"
+        
+        # 设置环境变量
+        export WEB_PORT=$WEB_PORT
+        export API_PORT=$API_PORT
+        export PHP_VERSION=$PHP_VERSION
+        
+        # 执行部署脚本
+        "$INSTALL_DIR/deploy_php_frontend_docker.sh"
+        configure_nginx
+    fi
+}
+
+# 生成随机字符串
+generate_random_string() {
+    local length=${1:-16}
+    openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
+}
 create_system_service() {
     log_info "创建系统服务..."
     
@@ -827,20 +1038,40 @@ show_installation_complete() {
     log_info "  API文档: http://localhost:$API_PORT/docs"
     log_info "  API健康检查: http://localhost:$API_PORT/api/v1/health"
     echo ""
-    log_info "服务管理:"
-    log_info "  启动服务: sudo systemctl start ipv6-wireguard-manager"
-    log_info "  停止服务: sudo systemctl stop ipv6-wireguard-manager"
-    log_info "  重启服务: sudo systemctl restart ipv6-wireguard-manager"
-    log_info "  查看状态: sudo systemctl status ipv6-wireguard-manager"
-    echo ""
-    log_info "日志查看:"
-    log_info "  应用日志: sudo journalctl -u ipv6-wireguard-manager -f"
-    log_info "  Nginx日志: sudo tail -f /var/log/nginx/access.log"
-    echo ""
+    
+    if [[ "$INSTALL_TYPE" = "docker" ]]; then
+        log_info "Docker服务管理:"
+        log_info "  查看容器状态: cd $INSTALL_DIR && docker-compose ps"
+        log_info "  启动服务: cd $INSTALL_DIR && docker-compose start"
+        log_info "  停止服务: cd $INSTALL_DIR && docker-compose stop"
+        log_info "  重启服务: cd $INSTALL_DIR && docker-compose restart"
+        log_info "  查看日志: cd $INSTALL_DIR && docker-compose logs -f"
+        echo ""
+        log_info "数据库管理:"
+        log_info "  连接MySQL: cd $INSTALL_DIR && docker-compose exec mysql mysql -u root -p"
+        log_info "  备份数据: cd $INSTALL_DIR && docker-compose exec mysql mysqldump -u root -p ipv6wgm > backup.sql"
+        echo ""
+    else
+        log_info "服务管理:"
+        log_info "  启动服务: sudo systemctl start ipv6-wireguard-manager"
+        log_info "  停止服务: sudo systemctl stop ipv6-wireguard-manager"
+        log_info "  重启服务: sudo systemctl restart ipv6-wireguard-manager"
+        log_info "  查看状态: sudo systemctl status ipv6-wireguard-manager"
+        echo ""
+        log_info "日志查看:"
+        log_info "  应用日志: sudo journalctl -u ipv6-wireguard-manager -f"
+        log_info "  Nginx日志: sudo tail -f /var/log/nginx/access.log"
+        echo ""
+    fi
+    
     log_info "配置文件:"
     log_info "  应用配置: $INSTALL_DIR/.env"
-    log_info "  Nginx配置: /etc/nginx/sites-available/ipv6-wireguard-manager"
-    log_info "  服务配置: /etc/systemd/system/ipv6-wireguard-manager.service"
+    if [[ "$INSTALL_TYPE" = "docker" ]]; then
+        log_info "  Docker配置: $INSTALL_DIR/docker-compose.yml"
+    else
+        log_info "  Nginx配置: /etc/nginx/sites-available/ipv6-wireguard-manager"
+        log_info "  服务配置: /etc/systemd/system/ipv6-wireguard-manager.service"
+    fi
     echo ""
     log_info "辅助工具:"
     log_info "  系统兼容性测试: ./test_system_compatibility.sh"
@@ -881,8 +1112,7 @@ main() {
     # 执行安装
     case $INSTALL_TYPE in
         "docker")
-            log_error "Docker安装暂未实现，请使用原生安装或最小化安装"
-            exit 1
+            install_docker
             ;;
         "native")
             log_step "开始原生安装..."

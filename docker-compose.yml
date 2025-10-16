@@ -1,16 +1,19 @@
+version: '3.8'
+
 services:
   # MySQL数据库
   mysql:
     image: mysql:8.0
     container_name: ipv6wgm-mysql
     environment:
-      MYSQL_DATABASE: ipv6wgm
-      MYSQL_USER: ipv6wgm
-      MYSQL_PASSWORD: password
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ipv6wgm}
+      MYSQL_USER: ${MYSQL_USER:-ipv6wgm}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf
     ports:
       - "3306:3306"
     networks:
@@ -40,15 +43,15 @@ services:
       dockerfile: Dockerfile
     container_name: ipv6wgm-backend
     environment:
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
+      - DATABASE_URL=mysql://${MYSQL_USER:-ipv6wgm}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-ipv6wgm}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-here
-      - DEBUG=true
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG:-false}
     volumes:
       - ./backend:/app
       - /etc/wireguard:/etc/wireguard:ro
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       - mysql
     networks:
