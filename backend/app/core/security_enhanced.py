@@ -23,7 +23,7 @@ pwd_context = CryptContext(
     deprecated="auto",
     argon2__memory_cost=65536,
     argon2__time_cost=4,
-    argon2__threads=3
+    argon2__parallelism=4
 )
 
 # JWT令牌安全方案
