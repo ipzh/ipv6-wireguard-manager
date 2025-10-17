@@ -144,7 +144,21 @@ class ErrorHandlerJWT {
     private function logError($error) {
         $logEntry = json_encode($error, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n" . str_repeat('-', 80) . "\n";
         
-        file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        // 确保日志目录存在
+        $logDir = dirname($this->logFile);
+        if (!is_dir($logDir)) {
+            if (!mkdir($logDir, 0755, true)) {
+                // 如果无法创建目录，使用系统临时目录
+                $this->logFile = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+            }
+        }
+        
+        // 尝试写入日志文件
+        if (!file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX)) {
+            // 如果写入失败，尝试使用系统临时目录
+            $this->logFile = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+            file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+        }
     }
     
     /**

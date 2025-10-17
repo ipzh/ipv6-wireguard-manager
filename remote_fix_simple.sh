@@ -5,7 +5,8 @@
 echo "🔧 远程服务器一键修复 - 简化版"
 
 # 项目目录
-PROJECT_DIR="/tmp/ipv6-wireguard-manager"
+PROJECT_DIR="/opt/ipv6-wireguard-manager"
+FRONTEND_DIR="/var/www/html"
 BACKEND_DIR="$PROJECT_DIR/backend"
 
 # 检查目录

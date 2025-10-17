@@ -594,7 +594,7 @@ class NetworkAddress(Base):
 
 # 导出所有模型
 __all__ = [
-    "User", "Role", "Permission", "UserRole", "RolePermission",
+    "User", "Role", "Permission", "user_roles", "role_permissions",
     "WireGuardServer", "WireGuardClient", "WireGuardStatus",
     "BGPSession", "BGPAnnouncement", "BGPStatus",
     "IPv6Pool", "IPv6Allocation", "IPv6PoolStatus",

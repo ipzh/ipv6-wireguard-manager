@@ -14,7 +14,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 项目目录
-PROJECT_DIR="/tmp/ipv6-wireguard-manager"
+PROJECT_DIR="/opt/ipv6-wireguard-manager"
+FRONTEND_DIR="/var/www/html"
 BACKEND_DIR="$PROJECT_DIR/backend"
 
 # 检查项目目录是否存在

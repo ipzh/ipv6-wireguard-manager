@@ -90,7 +90,7 @@ SecurityEnhancer::startSecureSession();
 SecurityEnhancer::setSecurityHeaders();
 
 // 初始化错误处理器
-ErrorHandlerJWT::init();
+ErrorHandlerJWT::getInstance();
 
 // 初始化路由
 $router = new Router();

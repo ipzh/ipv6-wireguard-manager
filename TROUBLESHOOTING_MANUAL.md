@@ -11,9 +11,80 @@
 - [日志分析](#日志分析)
 - [紧急恢复](#紧急恢复)
 
+## 目录结构说明
+
+### 标准安装目录
+
+```
+/opt/ipv6-wireguard-manager/          # 后端安装目录
+├── backend/                          # 后端Python代码
+├── php-frontend/                     # 前端源码（备份）
+├── venv/                             # Python虚拟环境
+├── logs/                              # 后端日志
+├── config/                            # 配置文件
+├── data/                              # 数据文件
+└── ...
+
+/var/www/html/                        # 前端Web目录
+├── classes/                          # PHP类文件
+├── controllers/                       # 控制器
+├── views/                            # 视图模板
+├── config/                           # 配置文件
+├── logs/                              # 前端日志（777权限）
+├── assets/                           # 静态资源
+├── index.php                         # 主入口文件
+└── index_jwt.php                     # JWT版本入口
+```
+
+### 权限配置
+
+| 目录/文件 | 所有者 | 权限 | 说明 |
+|-----------|--------|------|------|
+| `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
+| `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
+| `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
+
 ## 常见问题
 
-### 1. PHP-FPM服务启动失败
+### 1. 服务路径错误
+
+**问题描述**: `ExecStart=/tmp/ipv6-wireguard-manager/venv/bin/uvicorn` 路径错误
+
+**解决方案**:
+
+```bash
+# 检查当前服务配置
+sudo systemctl cat ipv6-wireguard-manager
+
+# 更新服务配置
+sudo systemctl edit --full ipv6-wireguard-manager
+
+# 或者重新创建服务配置
+sudo tee /etc/systemd/system/ipv6-wireguard-manager.service > /dev/null << EOF
+[Unit]
+Description=IPv6 WireGuard Manager Backend
+After=network.target mysql.service
+
+[Service]
+Type=exec
+User=ipv6wgm
+Group=ipv6wgm
+WorkingDirectory=/opt/ipv6-wireguard-manager
+Environment=PATH=/opt/ipv6-wireguard-manager/venv/bin
+ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 重新加载并启动服务
+sudo systemctl daemon-reload
+sudo systemctl restart ipv6-wireguard-manager
+```
+
+### 2. PHP-FPM服务启动失败
 
 **问题描述**: `Failed to start php-fpm.service: Unit file php-fpm.service not found`
 

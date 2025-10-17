@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 - `--type full` - 完整安装 (推荐)
 - `--type native` - 原生安装
 - `--type minimal` - 最小化安装
-- `--dir /path` - 自定义安装目录
+- `--dir /opt/ipv6-wireguard-manager` - 自定义安装目录（默认）
 - `--port 80` - Web端口
 - `--api-port 8000` - API端口
 
@@ -43,6 +43,39 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 - `--performance` - 性能优化模式
 - `--debug` - 调试模式
 - `--silent` - 静默安装
+
+## 📁 安装目录结构
+
+安装完成后，系统将使用以下目录结构：
+
+```
+/opt/ipv6-wireguard-manager/          # 后端安装目录
+├── backend/                          # 后端Python代码
+├── php-frontend/                     # 前端源码（备份）
+├── venv/                             # Python虚拟环境
+├── logs/                              # 后端日志
+├── config/                            # 配置文件
+├── data/                              # 数据文件
+└── ...
+
+/var/www/html/                        # 前端Web目录
+├── classes/                          # PHP类文件
+├── controllers/                       # 控制器
+├── views/                            # 视图模板
+├── config/                           # 配置文件
+├── logs/                              # 前端日志（777权限）
+├── assets/                           # 静态资源
+├── index.php                         # 主入口文件
+└── index_jwt.php                     # JWT版本入口
+```
+
+## 🔧 权限配置
+
+| 目录/文件 | 所有者 | 权限 | 说明 |
+|-----------|--------|------|------|
+| `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
+| `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
+| `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
 
 ## 🎯 安装示例
 

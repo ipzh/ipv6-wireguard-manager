@@ -59,6 +59,7 @@ SCRIPT_VERSION="3.1.0"
 PROJECT_NAME="IPv6 WireGuard Manager"
 PROJECT_REPO="https://github.com/ipzh/ipv6-wireguard-manager.git"
 DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
+FRONTEND_DIR="/var/www/html"
 DEFAULT_PORT="80"
 DEFAULT_API_PORT="8000"
 
@@ -430,14 +431,9 @@ select_install_type() {
         
         # 智能模式下自动设置其他参数
         if [[ "$AUTO_EXIT" = true ]]; then
-            # 根据磁盘空间自动设置安装目录
-            if [[ $DISK_SPACE_MB -gt 10240 ]]; then
-                INSTALL_DIR="$DEFAULT_INSTALL_DIR"
-            else
-                # 磁盘空间不足，使用较小的目录
-                INSTALL_DIR="/tmp/ipv6-wireguard-manager"
-                log_info "磁盘空间有限，使用临时安装目录: $INSTALL_DIR"
-            fi
+            # 始终使用默认安装目录
+            INSTALL_DIR="$DEFAULT_INSTALL_DIR"
+            log_info "使用默认安装目录: $INSTALL_DIR"
             
             # 根据端口占用情况自动设置端口
             if netstat -tuln 2>/dev/null | grep -q ":$DEFAULT_PORT "; then
@@ -859,19 +855,32 @@ configure_database() {
 
 # 部署PHP前端
 deploy_php_frontend() {
-    log_info "部署PHP前端..."
+    log_info "部署PHP前端到 $FRONTEND_DIR..."
     
-    # 创建Web目录
-    local web_dir="$INSTALL_DIR/php-frontend"
-    if [[ ! -d "$web_dir" ]]; then
-        mkdir -p "$web_dir"
+    # 创建前端目录
+    if [[ ! -d "$FRONTEND_DIR" ]]; then
+        mkdir -p "$FRONTEND_DIR"
     fi
     
-    # PHP前端文件已经在正确位置，无需复制
+    # 复制前端文件到 /var/www/html
+    if [[ -d "$INSTALL_DIR/php-frontend" ]]; then
+        cp -r "$INSTALL_DIR/php-frontend"/* "$FRONTEND_DIR/"
+        log_success "前端文件复制到 $FRONTEND_DIR"
+    else
+        log_error "前端源码目录不存在: $INSTALL_DIR/php-frontend"
+        exit 1
+    fi
+    
+    # 创建日志目录
+    mkdir -p "$FRONTEND_DIR/logs"
+    touch "$FRONTEND_DIR/logs/error.log"
+    touch "$FRONTEND_DIR/logs/access.log"
+    touch "$FRONTEND_DIR/logs/debug.log"
     
     # 设置权限
-    chown -R www-data:www-data "$web_dir"
-    chmod -R 755 "$web_dir"
+    chown -R www-data:www-data "$FRONTEND_DIR"
+    chmod -R 755 "$FRONTEND_DIR"
+    chmod -R 777 "$FRONTEND_DIR/logs"
     
     # 启动PHP-FPM服务
     local php_fpm_service=""
@@ -915,7 +924,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name _;
-    root $INSTALL_DIR/php-frontend;
+    root $FRONTEND_DIR;
     index index.php index.html;
     
     # 安全头

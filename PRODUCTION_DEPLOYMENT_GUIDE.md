@@ -25,6 +25,29 @@ IPv6 WireGuard Manager 是一个企业级的VPN管理平台，支持IPv4/IPv6双
 - **容器化**: 支持Docker部署
 - **高可用**: 支持集群部署
 
+### 目录结构
+
+```
+/opt/ipv6-wireguard-manager/          # 后端安装目录
+├── backend/                          # 后端Python代码
+├── php-frontend/                     # 前端源码（备份）
+├── venv/                             # Python虚拟环境
+├── logs/                              # 后端日志
+├── config/                            # 配置文件
+├── data/                              # 数据文件
+└── ...
+
+/var/www/html/                        # 前端Web目录
+├── classes/                          # PHP类文件
+├── controllers/                       # 控制器
+├── views/                            # 视图模板
+├── config/                           # 配置文件
+├── logs/                              # 前端日志（777权限）
+├── assets/                           # 静态资源
+├── index.php                         # 主入口文件
+└── index_jwt.php                     # JWT版本入口
+```
+
 ## 系统要求
 
 ### 最低配置

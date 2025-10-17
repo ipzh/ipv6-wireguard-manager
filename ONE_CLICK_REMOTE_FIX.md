@@ -36,7 +36,7 @@ chmod +x remote_fix_simple.sh
 
 ```bash
 # 进入项目目录
-cd /tmp/ipv6-wireguard-manager
+cd /opt/ipv6-wireguard-manager
 
 # 备份代码
 cp -r backend backup_$(date +%Y%m%d_%H%M%S)

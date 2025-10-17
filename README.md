@@ -93,12 +93,45 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 # 生产环境安装
 ./install.sh --production --silent
 
-# 自定义配置
-./install.sh --dir /opt/ipv6wgm --port 8080 --api-port 9000
+# 自定义配置（注意：默认安装目录为 /opt/ipv6-wireguard-manager）
+./install.sh --dir /opt/ipv6-wireguard-manager --port 8080 --api-port 9000
 
 # 跳过某些步骤
 ./install.sh --skip-deps --skip-db
 ```
+
+## 📁 安装目录结构
+
+安装完成后，系统将使用以下目录结构：
+
+```
+/opt/ipv6-wireguard-manager/          # 后端安装目录
+├── backend/                          # 后端Python代码
+├── php-frontend/                     # 前端源码（备份）
+├── venv/                             # Python虚拟环境
+├── logs/                              # 后端日志
+├── config/                            # 配置文件
+├── data/                              # 数据文件
+└── ...
+
+/var/www/html/                        # 前端Web目录
+├── classes/                          # PHP类文件
+├── controllers/                       # 控制器
+├── views/                            # 视图模板
+├── config/                           # 配置文件
+├── logs/                              # 前端日志（777权限）
+├── assets/                           # 静态资源
+├── index.php                         # 主入口文件
+└── index_jwt.php                     # JWT版本入口
+```
+
+## 🔧 权限配置
+
+| 目录/文件 | 所有者 | 权限 | 说明 |
+|-----------|--------|------|------|
+| `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
+| `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
+| `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
 
 ### 系统兼容性测试
 

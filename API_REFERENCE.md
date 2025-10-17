@@ -6,6 +6,35 @@
 
 IPv6 WireGuard Manager 提供完整的 RESTful API，支持所有核心功能的程序化访问。所有API都基于HTTP/HTTPS协议，使用JSON格式进行数据交换。
 
+## 📁 部署目录结构
+
+```
+/opt/ipv6-wireguard-manager/          # 后端安装目录
+├── backend/                          # 后端Python代码
+├── php-frontend/                     # 前端源码（备份）
+├── venv/                             # Python虚拟环境
+├── logs/                              # 后端日志
+├── config/                            # 配置文件
+├── data/                              # 数据文件
+└── ...
+
+/var/www/html/                        # 前端Web目录
+├── classes/                          # PHP类文件
+├── controllers/                       # 控制器
+├── views/                            # 视图模板
+├── config/                           # 配置文件
+├── logs/                              # 前端日志（777权限）
+├── assets/                           # 静态资源
+├── index.php                         # 主入口文件
+└── index_jwt.php                     # JWT版本入口
+```
+
+## 🌐 API访问地址
+
+- **后端API**: `http://localhost:8000/api/v1/`
+- **前端Web**: `http://localhost/`
+- **API文档**: `http://localhost:8000/docs`
+
 ### 🌐 双栈网络支持
 
 - ✅ **IPv6/IPv4双栈** - 所有API同时支持IPv6和IPv4访问
