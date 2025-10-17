@@ -64,6 +64,8 @@ require_once 'config/database.php';
 require_once 'classes/ApiClient.php';
 require_once 'classes/Auth.php';
 require_once 'classes/Router.php';
+require_once 'classes/PermissionMiddleware.php';
+require_once 'classes/SecurityHelper.php';
 
 // 引入控制器
 require_once 'controllers/AuthController.php';

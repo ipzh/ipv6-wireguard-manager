@@ -3,24 +3,42 @@
  * 系统监控控制器
  */
 class MonitoringController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * 监控仪表板
      */
     public function index() {
-        $metricsData = $this->apiClient->get('/monitoring/metrics');
-        $alertsData = $this->apiClient->get('/monitoring/alerts');
-        $systemInfoData = $this->apiClient->get('/monitoring/system');
-        
-        $metrics = $metricsData['metrics'] ?? null;
-        $alerts = $alertsData['alerts'] ?? [];
-        $systemInfo = $systemInfoData['system'] ?? null;
-        $error = $metricsData['error'] ?? $alertsData['error'] ?? $systemInfoData['error'] ?? null;
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('monitoring.view');
+            
+            $metricsData = $this->apiClient->get('/monitoring/metrics');
+            $alertsData = $this->apiClient->get('/monitoring/alerts');
+            $systemInfoData = $this->apiClient->get('/monitoring/system');
+            
+            $metrics = $metricsData['metrics'] ?? null;
+            $alerts = $alertsData['alerts'] ?? [];
+            $systemInfo = $systemInfoData['system'] ?? null;
+            $error = $metricsData['error'] ?? $alertsData['error'] ?? $systemInfoData['error'] ?? null;
+            
+        } catch (Exception $e) {
+            $metrics = null;
+            $alerts = [];
+            $systemInfo = null;
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/monitoring/dashboard.php';
     }

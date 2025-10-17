@@ -3,19 +3,35 @@
  * 网络管理控制器
  */
 class NetworkController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * 网络接口管理
      */
     public function interfaces() {
-        $interfacesData = $this->apiClient->get('/network/interfaces');
-        $interfaces = $interfacesData['interfaces'] ?? [];
-        $error = $interfacesData['error'] ?? null;
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('system.view');
+            
+            $interfacesData = $this->apiClient->get('/network/interfaces');
+            $interfaces = $interfacesData['interfaces'] ?? [];
+            $error = $interfacesData['error'] ?? null;
+            
+        } catch (Exception $e) {
+            $interfaces = [];
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/network/interfaces.php';
     }

@@ -3,41 +3,58 @@
  * 日志管理控制器
  */
 class LogsController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * 日志列表
      */
     public function index() {
-        $page = (int)($_GET['page'] ?? 1);
-        $pageSize = (int)($_GET['page_size'] ?? 50);
-        $level = $_GET['level'] ?? '';
-        $source = $_GET['source'] ?? '';
-        $startDate = $_GET['start_date'] ?? '';
-        $endDate = $_GET['end_date'] ?? '';
-        $search = $_GET['search'] ?? '';
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('logs.view');
+            
+            $page = (int)($_GET['page'] ?? 1);
+            $pageSize = (int)($_GET['page_size'] ?? 50);
+            $level = $_GET['level'] ?? '';
+            $source = $_GET['source'] ?? '';
+            $startDate = $_GET['start_date'] ?? '';
+            $endDate = $_GET['end_date'] ?? '';
+            $search = $_GET['search'] ?? '';
 
-        $params = [
-            'page' => $page,
-            'page_size' => $pageSize
-        ];
-        
-        if ($level) $params['level'] = $level;
-        if ($source) $params['source'] = $source;
-        if ($startDate) $params['start_date'] = $startDate;
-        if ($endDate) $params['end_date'] = $endDate;
-        if ($search) $params['search'] = $search;
+            $params = [
+                'page' => $page,
+                'page_size' => $pageSize
+            ];
+            
+            if ($level) $params['level'] = $level;
+            if ($source) $params['source'] = $source;
+            if ($startDate) $params['start_date'] = $startDate;
+            if ($endDate) $params['end_date'] = $endDate;
+            if ($search) $params['search'] = $search;
 
-        $queryString = http_build_query($params);
-        $logsData = $this->apiClient->get("/logs?$queryString");
-        
-        $logs = $logsData['logs'] ?? [];
-        $total = $logsData['total'] ?? 0;
-        $error = $logsData['error'] ?? null;
+            $queryString = http_build_query($params);
+            $logsData = $this->apiClient->get("/logs?$queryString");
+            
+            $logs = $logsData['logs'] ?? [];
+            $total = $logsData['total'] ?? 0;
+            $error = $logsData['error'] ?? null;
+            
+        } catch (Exception $e) {
+            $logs = [];
+            $total = 0;
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/logs/list.php';
     }

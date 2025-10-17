@@ -99,10 +99,15 @@ class Auth {
             'admin' => ['*'], // 管理员拥有所有权限
             'operator' => [
                 'wireguard.manage',
+                'wireguard.view',
                 'bgp.manage',
+                'bgp.view',
                 'ipv6.manage',
+                'ipv6.view',
                 'monitoring.view',
-                'logs.view'
+                'logs.view',
+                'system.view',
+                'users.view'
             ],
             'user' => [
                 'wireguard.view',

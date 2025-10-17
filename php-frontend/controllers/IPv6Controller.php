@@ -3,20 +3,36 @@
  * IPv6前缀池管理控制器
  */
 class IPv6Controller {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * IPv6前缀池管理页面
      */
     public function pools() {
-        $poolsResponse = $this->apiClient->get('/ipv6/pools');
-        $poolsData = $poolsResponse['data'] ?? [];
-        $pools = $poolsData;
-        $error = null;
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('ipv6.view');
+            
+            $poolsResponse = $this->apiClient->get('/ipv6/pools');
+            $poolsData = $poolsResponse['data'] ?? [];
+            $pools = $poolsData;
+            $error = null;
+            
+        } catch (Exception $e) {
+            $pools = [];
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/ipv6/pools.php';
     }

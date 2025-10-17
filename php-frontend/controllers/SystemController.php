@@ -3,19 +3,35 @@
  * 系统管理控制器
  */
 class SystemController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * 系统信息
      */
     public function info() {
-        $systemData = $this->apiClient->get('/system/info');
-        $system = $systemData['system'] ?? null;
-        $error = $systemData['error'] ?? null;
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('system.view');
+            
+            $systemData = $this->apiClient->get('/system/info');
+            $system = $systemData['system'] ?? null;
+            $error = $systemData['error'] ?? null;
+            
+        } catch (Exception $e) {
+            $system = null;
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/system/info.php';
     }

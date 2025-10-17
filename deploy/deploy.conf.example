@@ -1,0 +1,43 @@
+# IPv6 WireGuard Manager 部署配置文件
+# 请复制此文件为 deploy.conf 并修改相应的配置
+
+# 远程服务器配置
+REMOTE_HOST=your-server.com
+REMOTE_USER=root
+REMOTE_PORT=22
+REMOTE_PATH=/var/www/ipv6-wireguard-manager
+
+# 本地配置
+LOCAL_FRONTEND_PATH=php-frontend
+BACKUP_PATH=backups
+LOG_PATH=logs
+
+# 部署选项
+CREATE_BACKUP=true
+RESTART_SERVICES=true
+CLEAR_CACHE=true
+RUN_TESTS=false
+
+# 服务配置
+WEB_SERVER=nginx
+PHP_SERVICE=php8.1-fpm
+
+# SSH配置 (可选)
+# SSH_KEY_PATH=~/.ssh/id_rsa
+# SSH_OPTIONS=-o StrictHostKeyChecking=no
+
+# 部署后执行的自定义命令 (可选)
+# POST_DEPLOY_COMMANDS=echo "部署完成" > /tmp/deploy.log
+
+# 环境特定配置
+# 生产环境
+# PRODUCTION_REMOTE_HOST=prod.example.com
+# PRODUCTION_REMOTE_PATH=/var/www/production
+
+# 测试环境
+# STAGING_REMOTE_HOST=staging.example.com
+# STAGING_REMOTE_PATH=/var/www/staging
+
+# 开发环境
+# DEVELOPMENT_REMOTE_HOST=dev.example.com
+# DEVELOPMENT_REMOTE_PATH=/var/www/development

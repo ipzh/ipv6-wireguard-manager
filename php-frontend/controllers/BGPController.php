@@ -3,20 +3,36 @@
  * BGP管理控制器
  */
 class BGPController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * BGP会话管理页面
      */
     public function sessions() {
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('bgp.view');
+            
             $sessionsResponse = $this->apiClient->get('/bgp/sessions');
             $sessionsData = $sessionsResponse['data'] ?? [];
-        $sessions = $sessionsData;
-        $error = null;
+            $sessions = $sessionsData;
+            $error = null;
+            
+        } catch (Exception $e) {
+            $sessions = [];
+            $error = $e->getMessage();
+        }
         
         require __DIR__ . '/../views/bgp/sessions.php';
     }
