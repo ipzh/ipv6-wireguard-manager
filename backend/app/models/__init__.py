@@ -1,37 +1,38 @@
 """
-数据库模型
+数据库模型 - 统一使用models_complete.py中的模型定义
 """
 from ..core.database import Base
-from .user import User, Role, UserRole
-from .wireguard import WireGuardServer, WireGuardClient, ClientServerRelation
-from .network import NetworkInterface, FirewallRule
-from .bgp import BGPSession, BGPAnnouncement, BGPOperation, SessionStatus, OperationType
-from .ipv6_pool import IPv6PrefixPool, IPv6Allocation, IPv6Whitelist, BGPAlert, PoolStatus
-from .monitoring import SystemMetric, AuditLog
-from .config import ConfigVersion, BackupRecord
+from .models_complete import (
+    User, Role, Permission,
+    WireGuardServer, WireGuardClient,
+    BGPSession, BGPAnnouncement,
+    IPv6Pool, IPv6Allocation,
+    AuditLog, SystemLog,
+    NetworkInterface, NetworkAddress,
+    user_roles, role_permissions,
+    UserRole, WireGuardStatus, BGPStatus, IPv6PoolStatus, LogLevel
+)
 
 __all__ = [
     "Base",
     "User",
     "Role", 
-    "UserRole",
+    "Permission",
     "WireGuardServer",
     "WireGuardClient",
-    "ClientServerRelation",
-    "NetworkInterface",
-    "FirewallRule",
     "BGPSession",
     "BGPAnnouncement",
-    "BGPOperation",
-    "SessionStatus",
-    "OperationType",
-    "IPv6PrefixPool",
+    "IPv6Pool",
     "IPv6Allocation",
-    "IPv6Whitelist",
-    "BGPAlert",
-    "PoolStatus",
-    "SystemMetric",
     "AuditLog",
-    "ConfigVersion",
-    "BackupRecord",
+    "SystemLog",
+    "NetworkInterface",
+    "NetworkAddress",
+    "user_roles",
+    "role_permissions",
+    "UserRole",
+    "WireGuardStatus",
+    "BGPStatus",
+    "IPv6PoolStatus",
+    "LogLevel",
 ]

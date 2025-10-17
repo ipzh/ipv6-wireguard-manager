@@ -3,7 +3,7 @@
 """
 from sqlalchemy import (
     Column, String, Boolean, DateTime, Text, ForeignKey, Table,
-    Integer, Float, JSON, Enum, Index, UniqueConstraint, CheckConstraint
+    Integer, BigInteger, Float, Enum, Index, UniqueConstraint, CheckConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from ..core.database import Base
+from app.core.database import Base
 
 
 # 枚举定义
@@ -499,7 +499,7 @@ class SystemLog(Base):
     line_number = Column(Integer, nullable=True)
     
     # 额外信息
-    extra_data = Column(JSON, nullable=True)  # 额外的结构化数据
+    extra_data = Column(MySQLJSON, nullable=True)  # 额外的结构化数据
     
     # 时间字段
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

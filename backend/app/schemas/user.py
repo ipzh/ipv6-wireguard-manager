@@ -44,6 +44,11 @@ class User(UserInDBBase):
     pass
 
 
+class UserResponse(UserInDBBase):
+    """用户响应模式"""
+    roles: Optional[List[Dict[str, Any]]] = None
+
+
 class UserInDB(UserInDBBase):
     """数据库用户模式"""
     password_hash: str

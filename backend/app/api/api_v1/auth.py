@@ -8,19 +8,20 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from ....core.database import get_db
-from ....core.security_enhanced import (
+from app.core.database import get_db
+from app.core.config import settings
+from app.core.security_enhanced import (
     security_manager, authenticate_user, create_tokens, 
     refresh_access_token, get_current_active_user
 )
-from ....models.models_complete import User
-from ....schemas.auth import (
+from app.models.models_complete import User
+from app.schemas.auth import (
     Token, TokenRefresh, UserLogin, UserResponse, 
     PasswordChange, PasswordReset
 )
-from ....schemas.user import UserCreate, UserUpdate
-from ....services.user_service import UserService
-from ....utils.rate_limit import rate_limit
+from app.schemas.user import UserCreate, UserUpdate
+from app.services.user_service import UserService
+from app.utils.rate_limit import rate_limit
 
 logger = structlog.get_logger()
 router = APIRouter()

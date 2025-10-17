@@ -12,10 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import structlog
 
-from .config import settings
-from ..models.user import User
-from ..models.role import Role, UserRole
-from ..models.permission import Permission, RolePermission
+from app.core.config_enhanced import settings
+from app.models.models_complete import User, Role, UserRole, Permission, RolePermission
 
 logger = structlog.get_logger()
 
