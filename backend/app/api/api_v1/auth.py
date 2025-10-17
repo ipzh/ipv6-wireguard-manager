@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.core.database import get_db
-from app.core.config import settings
+from app.core.config_enhanced import settings
 from app.core.security_enhanced import (
     security_manager, authenticate_user, create_tokens, 
     refresh_access_token, get_current_active_user

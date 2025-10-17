@@ -6,15 +6,15 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 try:
-    from ....core.database import get_async_db
+    from app.core.database import get_db
     ASYNC_DB_AVAILABLE = True
 except ImportError:
     ASYNC_DB_AVAILABLE = False
-    # 如果get_async_db不可用，提供一个默认的依赖
-    async def get_async_db():
+    # 如果get_db不可用，提供一个默认的依赖
+    async def get_db():
         return None
 try:
-    from ....schemas.message import MessageResponse
+    from app.schemas.common import MessageResponse
     MESSAGE_SCHEMA_AVAILABLE = True
 except ImportError:
     MESSAGE_SCHEMA_AVAILABLE = False

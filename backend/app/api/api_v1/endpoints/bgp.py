@@ -7,17 +7,17 @@ from sqlalchemy.future import select
 from typing import Dict, Any, List
 import uuid
 
-from ....core.database import get_async_db
+from app.core.database import get_db
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from ....models.bgp import BGPSession, BGPAnnouncement
+    from app.models.models_complete import BGPSession, BGPAnnouncement
 except ImportError:
     BGPSession = None
     BGPAnnouncement = None
 
 try:
-    from ....schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
+    from app.schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
 except ImportError:
     BGPSessionSchema = None
     BGPAnnouncementSchema = None
