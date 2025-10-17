@@ -53,8 +53,7 @@ if (!empty($configIssues)) {
     error_log('PHP配置警告: ' . implode(', ', $configIssues));
 }
 
-// 启动会话
-session_start();
+// 会话将在SecurityEnhancer中安全启动
 
 // 引入配置
 require_once 'config/config.php';
@@ -91,7 +90,7 @@ SecurityEnhancer::startSecureSession();
 SecurityEnhancer::setSecurityHeaders();
 
 // 初始化错误处理器
-ErrorHandler::init();
+ErrorHandlerJWT::init();
 
 // 初始化路由
 $router = new Router();

@@ -9,7 +9,7 @@ import structlog
 from datetime import datetime, timedelta
 import uuid
 
-from ..models.models_complete import User, Role, Permission, UserRole, RolePermission, AuditLog
+from ..models.models_complete import User, Role, Permission, AuditLog, user_roles, role_permissions
 from ..schemas.user import UserCreate, UserUpdate, UserResponse
 from ..core.security_enhanced import security_manager, init_permissions_and_roles
 from ..utils.audit import audit_log

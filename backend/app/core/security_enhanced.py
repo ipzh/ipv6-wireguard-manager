@@ -13,7 +13,7 @@ from sqlalchemy import select
 import structlog
 
 from .config_enhanced import settings
-from ..models.models_complete import User, Role, UserRole, Permission, RolePermission
+from ..models.models_complete import User, Role, Permission, user_roles, role_permissions
 
 logger = structlog.get_logger()
 

@@ -60,14 +60,7 @@ ini_set('error_log', __DIR__ . '/logs/php_errors.log');
 // 设置时区
 date_default_timezone_set('Asia/Shanghai');
 
-// 设置会话安全
-ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-ini_set('session.use_strict_mode', 1);
-ini_set('session.cookie_samesite', 'Strict');
-
-// 启动会话
-session_start();
+// 会话将在SecurityEnhancer中安全启动
 
 // 设置安全头
 header('X-Content-Type-Options: nosniff');

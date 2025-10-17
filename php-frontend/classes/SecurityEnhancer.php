@@ -89,17 +89,18 @@ class SecurityEnhancer {
      * 安全的会话启动
      */
     public static function startSecureSession() {
-        // 设置安全的会话配置
-        ini_set('session.cookie_httponly', 1);
-        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-        ini_set('session.use_strict_mode', 1);
-        ini_set('session.cookie_samesite', 'Strict');
-        
-        // 设置会话名称
-        session_name('IPV6_WG_SESSION');
-        
-        // 启动会话
+        // 只有在会话未启动时才设置配置
         if (session_status() === PHP_SESSION_NONE) {
+            // 设置安全的会话配置
+            ini_set('session.cookie_httponly', 1);
+            ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
+            ini_set('session.use_strict_mode', 1);
+            ini_set('session.cookie_samesite', 'Strict');
+            
+            // 设置会话名称
+            session_name('IPV6_WG_SESSION');
+            
+            // 启动会话
             session_start();
         }
         
