@@ -34,6 +34,12 @@ class WireGuardController {
             include 'views/layout/footer.php';
             
         } catch (Exception $e) {
+            ErrorHandler::logCustomError('加载服务器列表失败: ' . $e->getMessage(), [
+                'file' => __FILE__,
+                'line' => __LINE__,
+                'method' => 'servers',
+                'user' => $_SESSION['user']['username'] ?? '未登录'
+            ]);
             $this->handleError('加载服务器列表失败: ' . $e->getMessage());
         }
     }
@@ -43,7 +49,7 @@ class WireGuardController {
      */
     public function clients() {
         try {
-            $this->auth->requirePermission('wireguard.view');
+            $this->permissionMiddleware->requirePermission('wireguard.view');
             
             $clientsResponse = $this->apiClient->get('/wireguard/clients');
             $clients = $clientsResponse['data'] ?? [];
@@ -121,7 +127,7 @@ class WireGuardController {
         }
         
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             // 验证CSRF令牌
             if (!$this->auth->verifyCsrfToken($_POST['_token'] ?? '')) {
@@ -168,7 +174,7 @@ class WireGuardController {
      */
     public function getServer($id) {
         try {
-            $this->auth->requirePermission('wireguard.view');
+            $this->permissionMiddleware->requirePermission('wireguard.view');
             
             $server = $this->apiClient->get("/wireguard/servers/{$id}");
             
@@ -190,7 +196,7 @@ class WireGuardController {
      */
     public function getClient($id) {
         try {
-            $this->auth->requirePermission('wireguard.view');
+            $this->permissionMiddleware->requirePermission('wireguard.view');
             
             $client = $this->apiClient->get("/wireguard/clients/{$id}");
             
@@ -217,7 +223,7 @@ class WireGuardController {
         }
         
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             // 验证CSRF令牌
             if (!$this->auth->verifyCsrfToken($_POST['_token'] ?? '')) {
@@ -260,7 +266,7 @@ class WireGuardController {
         }
         
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             // 验证CSRF令牌
             if (!$this->auth->verifyCsrfToken($_POST['_token'] ?? '')) {
@@ -298,7 +304,7 @@ class WireGuardController {
      */
     public function deleteServer($id) {
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             $response = $this->apiClient->delete("/wireguard/servers/{$id}");
             
@@ -320,7 +326,7 @@ class WireGuardController {
      */
     public function deleteClient($id) {
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             $response = $this->apiClient->delete("/wireguard/clients/{$id}");
             
@@ -342,7 +348,7 @@ class WireGuardController {
      */
     public function startServer($id) {
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             $response = $this->apiClient->post("/wireguard/servers/{$id}/start");
             
@@ -364,7 +370,7 @@ class WireGuardController {
      */
     public function stopServer($id) {
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             $response = $this->apiClient->post("/wireguard/servers/{$id}/stop");
             
@@ -386,7 +392,7 @@ class WireGuardController {
      */
     public function exportConfig($id, $type = 'server') {
         try {
-            $this->auth->requirePermission('wireguard.view');
+            $this->permissionMiddleware->requirePermission('wireguard.view');
             
             if ($type === 'server') {
                 $response = $this->apiClient->get("/wireguard/servers/{$id}/config");

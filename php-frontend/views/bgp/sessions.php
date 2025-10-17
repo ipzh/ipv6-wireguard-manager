@@ -1,6 +1,6 @@
 <?php
 // views/bgp/sessions.php
-require_once __DIR__ . '/../views/layout/header.php';
+require_once __DIR__ . '/../layout/header.php';
 ?>
 
 <div class="container">
@@ -222,5 +222,5 @@ require_once __DIR__ . '/../views/layout/header.php';
 </style>
 
 <?php
-require_once __DIR__ . '/../views/layout/footer.php';
+require_once __DIR__ . '/../layout/footer.php';
 ?>

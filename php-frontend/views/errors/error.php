@@ -28,10 +28,9 @@ unset($_SESSION['error_title'], $_SESSION['error_message']);
                         </a>
                     </div>
                     
-                    <?php if (APP_DEBUG): ?>
                     <div class="mt-5">
                         <details class="text-start">
-                            <summary class="btn btn-outline-info">显示调试信息</summary>
+                            <summary class="btn btn-outline-info">显示详细信息</summary>
                             <div class="mt-3 p-3 bg-light rounded">
                                 <h6>错误详情:</h6>
                                 <pre class="small"><?= htmlspecialchars($errorMessage) ?></pre>
@@ -41,12 +40,24 @@ unset($_SESSION['error_title'], $_SESSION['error_message']);
                                     <li>URL: <?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? '') ?></li>
                                     <li>方法: <?= htmlspecialchars($_SERVER['REQUEST_METHOD'] ?? '') ?></li>
                                     <li>时间: <?= date('Y-m-d H:i:s') ?></li>
-                                    <li>用户: <?= htmlspecialchars($this->auth->getCurrentUser()['username'] ?? '未登录') ?></li>
+                                    <li>用户: <?= htmlspecialchars($_SESSION['user']['username'] ?? '未登录') ?></li>
+                                    <li>IP: <?= htmlspecialchars($_SERVER['REMOTE_ADDR'] ?? '') ?></li>
+                                    <li>User-Agent: <?= htmlspecialchars($_SERVER['HTTP_USER_AGENT'] ?? '') ?></li>
                                 </ul>
+                                
+                                <?php if (isset($_SESSION['error_data']) && is_array($_SESSION['error_data'])): ?>
+                                <h6 class="mt-3">调试信息:</h6>
+                                <pre class="small"><?= htmlspecialchars(json_encode($_SESSION['error_data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+                                <?php endif; ?>
+                                
+                                <div class="mt-3">
+                                    <a href="/error/logs" class="btn btn-outline-warning btn-sm">
+                                        <i class="bi bi-list-ul"></i> 查看错误日志
+                                    </a>
+                                </div>
                             </div>
                         </details>
                     </div>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>

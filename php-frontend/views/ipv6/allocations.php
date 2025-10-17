@@ -1,6 +1,6 @@
 <?php
 // views/ipv6/allocations.php
-require_once __DIR__ . '/../views/layout/header.php';
+require_once __DIR__ . '/../layout/header.php';
 ?>
 
 <div class="container">
@@ -265,5 +265,5 @@ code {
 </style>
 
 <?php
-require_once __DIR__ . '/../views/layout/footer.php';
+require_once __DIR__ . '/../layout/footer.php';
 ?>

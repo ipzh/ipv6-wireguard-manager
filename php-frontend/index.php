@@ -66,6 +66,7 @@ require_once 'classes/Auth.php';
 require_once 'classes/Router.php';
 require_once 'classes/PermissionMiddleware.php';
 require_once 'classes/SecurityHelper.php';
+require_once 'classes/ErrorHandler.php';
 
 // 引入控制器
 require_once 'controllers/AuthController.php';
@@ -80,6 +81,9 @@ require_once 'controllers/ProfileController.php';
 require_once 'controllers/SystemController.php';
 require_once 'controllers/NetworkController.php';
 require_once 'controllers/ErrorController.php';
+
+// 初始化错误处理器
+ErrorHandler::init();
 
 // 初始化路由
 $router = new Router();
@@ -97,6 +101,8 @@ $router->addRoute('GET', '/api/status', 'AuthController@checkApiStatus');
 
 // 错误页面路由
 $router->addRoute('GET', '/error', 'ErrorController@showError');
+$router->addRoute('GET', '/error/logs', 'ErrorController@showErrorLogs');
+$router->addRoute('POST', '/error/logs/clear', 'ErrorController@clearErrorLogs');
 
 // WireGuard管理
 $router->addRoute('GET', '/wireguard/servers', 'WireGuardController@servers');

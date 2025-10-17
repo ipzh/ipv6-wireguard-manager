@@ -1,6 +1,6 @@
 <?php
 // views/monitoring/dashboard.php
-require_once __DIR__ . '/../views/layout/header.php';
+require_once __DIR__ . '/../layout/header.php';
 ?>
 
 <div class="container-fluid">
@@ -317,5 +317,5 @@ document.addEventListener('DOMContentLoaded', updateRealtimeData);
 </style>
 
 <?php
-require_once __DIR__ . '/../views/layout/footer.php';
+require_once __DIR__ . '/../layout/footer.php';
 ?>
