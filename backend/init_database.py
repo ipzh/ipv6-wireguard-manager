@@ -11,10 +11,11 @@ from pathlib import Path
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent / "app"))
 
-from app.core.database import init_db, get_async_engine, Base
+from app.core.database import init_db, Base
 from app.core.config_enhanced import settings
 from app.models.models_complete import User, Role, Permission, UserRole, RolePermission
 from app.core.security_enhanced import security_manager
+from sqlalchemy import select, text
 import structlog
 
 logger = structlog.get_logger()
@@ -25,12 +26,8 @@ async def create_tables():
     try:
         logger.info("开始创建数据库表...")
         
-        # 获取异步引擎
-        engine = get_async_engine()
-        
-        # 创建所有表
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        # 初始化数据库（这会创建所有表）
+        await init_db()
         
         logger.info("数据库表创建完成")
         return True
@@ -67,9 +64,9 @@ async def create_initial_data():
 async def create_admin_user():
     """创建默认管理员用户"""
     try:
-        from app.core.database import get_async_session
+        from app.core.database import get_db
         
-        async with get_async_session() as db:
+        async with get_db() as db:
             # 检查是否已存在管理员用户
             existing_admin = await db.execute(
                 select(User).where(User.username == "admin")
@@ -119,9 +116,9 @@ async def verify_database():
     try:
         logger.info("验证数据库连接...")
         
-        from app.core.database import get_async_session
+        from app.core.database import get_db
         
-        async with get_async_session() as db:
+        async with get_db() as db:
             # 测试查询
             result = await db.execute(select(User).limit(1))
             users = result.scalars().all()

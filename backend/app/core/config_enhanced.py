@@ -113,12 +113,6 @@ class Settings(BaseSettings):
     DATABASE_USER: str = Field(default="ipv6wgm")
     DATABASE_PASSWORD: str = Field(default="password")
     DATABASE_NAME: str = Field(default="ipv6wgm")
-    # 环境变量支持
-    DATABASE_HOST: str = Field(default="localhost")
-    DATABASE_PORT: int = Field(default=3306)
-    DATABASE_USER: str = Field(default="ipv6wgm")
-    DATABASE_PASSWORD: str = Field(default="password")
-    DATABASE_NAME: str = Field(default="ipv6wgm")
     DATABASE_POOL_SIZE: int = Field(default=10, ge=1, le=100)
     DATABASE_MAX_OVERFLOW: int = Field(default=20, ge=0, le=200)
     DATABASE_CONNECT_TIMEOUT: int = Field(default=30, ge=5, le=300)

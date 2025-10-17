@@ -10,11 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.core.security_enhanced import SecurityManager
+from app.core.security_enhanced import security_manager
 from app.models.models_complete import User
 
 router = APIRouter()
-security_manager = SecurityManager()
 
 @router.post("/login", response_model=None)
 async def login(
