@@ -12,8 +12,16 @@ try:
     from pydantic_settings import BaseSettings
     from pydantic import field_validator, Field
 except ImportError:
-    # Pydantic 1.x fallback
-    from pydantic_settings import BaseSettings, validator as field_validator, Field
+    try:
+        # Pydantic 1.x fallback
+        from pydantic import BaseSettings, validator as field_validator, Field
+    except ImportError:
+        # 最后的fallback
+        from pydantic import BaseSettings, Field
+        def field_validator(*args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
 
 class SecurityConfig:
     """安全配置类"""

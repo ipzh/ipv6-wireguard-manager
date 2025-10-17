@@ -7,8 +7,8 @@ class AuthController {
     private $apiClient;
     
     public function __construct() {
-        $this->auth = new Auth();
-        $this->apiClient = new ApiClient();
+        $this->auth = new AuthJWT();
+        $this->apiClient = new ApiClientJWT();
     }
     
     /**

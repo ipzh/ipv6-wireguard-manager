@@ -12,7 +12,7 @@ aiomysql==0.2.0
 
 # Redis缓存
 redis==5.0.1
-aioredis==2.0.1
+# aioredis==2.0.1  # 注释掉，使用redis包的内置异步支持
 
 # 认证和安全
 python-jose[cryptography]>=3.3.0

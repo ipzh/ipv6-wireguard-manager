@@ -7,9 +7,9 @@ class IPv6Controller {
     private $apiClient;
     private $permissionMiddleware;
 
-    public function __construct(ApiClient $apiClient = null) {
-        $this->auth = new Auth();
-        $this->apiClient = $apiClient ?: new ApiClient();
+    public function __construct(ApiClientJWT $apiClient = null) {
+        $this->auth = new AuthJWT();
+        $this->apiClient = $apiClient ?: new ApiClientJWT();
         $this->permissionMiddleware = new PermissionMiddleware();
         
         // 要求用户登录

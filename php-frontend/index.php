@@ -62,14 +62,13 @@ require_once 'config/database.php';
 require_once 'config/assets.php';
 
 // 引入核心类
-require_once 'classes/ApiClient.php';
-require_once 'classes/ApiClientOptimized.php';
-require_once 'classes/Auth.php';
+require_once 'classes/ApiClientJWT.php';
+require_once 'classes/AuthJWT.php';
 require_once 'classes/Router.php';
 require_once 'classes/PermissionMiddleware.php';
 require_once 'classes/SecurityHelper.php';
-require_once 'classes/ErrorHandler.php';
-require_once 'classes/InputValidator.php';
+require_once 'classes/ErrorHandlerJWT.php';
+require_once 'classes/InputValidatorJWT.php';
 require_once 'classes/ResponseHandler.php';
 require_once 'classes/SecurityEnhancer.php';
 

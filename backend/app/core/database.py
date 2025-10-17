@@ -18,8 +18,12 @@ try:
     import redis.asyncio as redis
     REDIS_AVAILABLE = True
 except ImportError:
-    REDIS_AVAILABLE = False
-    redis = None
+    try:
+        import redis
+        REDIS_AVAILABLE = True
+    except ImportError:
+        REDIS_AVAILABLE = False
+        redis = None
 
 # 初始化变量
 async_engine = None
@@ -214,6 +218,16 @@ def get_sync_db():
         db.close()
 
 
+def get_db():
+    """获取数据库会话（兼容性函数，优先使用异步，回退到同步）"""
+    if AsyncSessionLocal:
+        # 如果有异步会话，返回异步会话
+        return get_async_db()
+    else:
+        # 否则返回同步会话
+        return get_sync_db()
+
+
 # Redis连接池
 redis_pool = None
 
@@ -243,11 +257,14 @@ async def init_db():
     """初始化数据库"""
     try:
         # 首先检查数据库健康状况
-        from .database_health import check_and_fix_database
-        
-        print("检查数据库健康状况...")
-        if not check_and_fix_database():
-            print("警告: 数据库健康检查发现问题，继续尝试初始化...")
+        try:
+            from .database_health import check_and_fix_database
+            
+            print("检查数据库健康状况...")
+            if not check_and_fix_database():
+                print("警告: 数据库健康检查发现问题，继续尝试初始化...")
+        except ImportError:
+            print("警告: 数据库健康检查模块不可用，跳过健康检查...")
         
         if async_engine:
             # 使用异步引擎初始化
