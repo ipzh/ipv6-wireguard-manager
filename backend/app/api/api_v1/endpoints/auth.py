@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ....core.database import get_db
-from ....core.security_enhanced import security_manager
+from ....core.security_enhanced import security_manager, get_current_user_id, get_current_user
 from ....models.models_complete import User
 
 router = APIRouter()
@@ -111,7 +111,7 @@ async def login_json(credentials: Dict[str, str]):
 
 @router.post("/logout", response_model=None)
 async def logout(
-    token: str = Depends(security_manager.oauth2_scheme)
+    current_user_id: str = Depends(get_current_user_id)
 ):
     """用户登出"""
     try:
@@ -126,7 +126,8 @@ async def logout(
 
 @router.get("/me", response_model=None)
 async def get_current_user_info(
-    current_user: User = Depends(security_manager.get_current_user)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取当前用户信息"""
     return {
@@ -146,7 +147,7 @@ async def refresh_token(
     """刷新访问令牌"""
     try:
         # 验证刷新令牌
-        token_data = security_manager.verify_refresh_token(refresh_token)
+        token_data = security_manager.verify_token(refresh_token, "refresh")
         if not token_data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
