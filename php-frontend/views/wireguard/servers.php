@@ -109,79 +109,108 @@
 
 <!-- 添加服务器模态框 -->
 <div class="modal fade" id="addServerModal" tabindex="-1" aria-labelledby="addServerModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modern-modal">
             <form method="POST" action="/wireguard/servers" id="addServerForm">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addServerModalLabel">添加WireGuard服务器</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header modern-modal-header">
+                    <div class="modal-title-container">
+                        <div class="modal-icon">
+                            <i class="bi bi-plus-circle"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title" id="addServerModalLabel">添加WireGuard服务器</h5>
+                            <p class="modal-subtitle">配置新的WireGuard服务器实例</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close modern-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body modern-modal-body">
                     <input type="hidden" name="_token" value="<?= $this->auth->generateCsrfToken() ?>">
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">服务器名称 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="bi bi-info-circle me-2"></i>
+                            基本信息
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" class="form-control modern-input" id="name" name="name" placeholder="服务器名称" required>
+                                    <label for="name">服务器名称 <span class="text-danger">*</span></label>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="interface" class="form-label">网络接口</label>
-                                <input type="text" class="form-control" id="interface" name="interface" value="wg0">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="listen_port" class="form-label">监听端口</label>
-                                <input type="number" class="form-control" id="listen_port" name="listen_port" value="51820" min="1024" max="65535">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="mtu" class="form-label">MTU</label>
-                                <input type="number" class="form-control" id="mtu" name="mtu" value="1420" min="1280" max="1500">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" class="form-control modern-input" id="interface" name="interface" value="wg0" placeholder="网络接口">
+                                    <label for="interface">网络接口</label>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ipv4_address" class="form-label">IPv4地址</label>
-                                <input type="text" class="form-control" id="ipv4_address" name="ipv4_address" placeholder="10.0.0.1/24">
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="bi bi-gear me-2"></i>
+                            网络配置
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="number" class="form-control modern-input" id="listen_port" name="listen_port" value="51820" min="1024" max="65535" placeholder="监听端口">
+                                    <label for="listen_port">监听端口</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="number" class="form-control modern-input" id="mtu" name="mtu" value="1420" min="1280" max="1500" placeholder="MTU">
+                                    <label for="mtu">MTU</label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ipv6_address" class="form-label">IPv6地址</label>
-                                <input type="text" class="form-control" id="ipv6_address" name="ipv6_address" placeholder="fd00::1/64">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" class="form-control modern-input" id="ipv4_address" name="ipv4_address" placeholder="10.0.0.1/24">
+                                    <label for="ipv4_address">IPv4地址</label>
+                                </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input type="text" class="form-control modern-input" id="ipv6_address" name="ipv6_address" placeholder="fd00::1/64">
+                                    <label for="ipv6_address">IPv6地址</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control modern-input" id="dns_servers" name="dns_servers" placeholder="8.8.8.8, 8.8.4.4">
+                            <label for="dns_servers">DNS服务器</label>
+                            <div class="form-text">多个DNS服务器用逗号分隔</div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="dns_servers" class="form-label">DNS服务器</label>
-                        <input type="text" class="form-control" id="dns_servers" name="dns_servers" placeholder="8.8.8.8, 8.8.4.4">
-                        <div class="form-text">多个DNS服务器用逗号分隔</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="bi bi-toggle-on me-2"></i>
+                            服务器选项
+                        </h6>
+                        <div class="form-check modern-check">
                             <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
                             <label class="form-check-label" for="is_active">
-                                启用服务器
+                                <span class="check-label">启用服务器</span>
+                                <span class="check-description">创建后立即启动服务器</span>
                             </label>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="submit" class="btn btn-primary">创建服务器</button>
+                <div class="modal-footer modern-modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>取消
+                    </button>
+                    <button type="submit" class="btn btn-primary modern-submit-btn">
+                        <i class="bi bi-plus-circle me-2"></i>创建服务器
+                    </button>
                 </div>
             </form>
         </div>
@@ -672,3 +701,368 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<style>
+/* 现代化模态框样式 */
+.modern-modal {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+}
+
+.modern-modal-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    border: none;
+    padding: 2rem;
+    position: relative;
+}
+
+.modern-modal-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+    opacity: 0.3;
+}
+
+.modal-title-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.modal-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    backdrop-filter: blur(10px);
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.modal-subtitle {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    margin: 0;
+    font-weight: 400;
+}
+
+.modern-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.modern-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.modern-modal-body {
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.form-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+}
+
+.modern-input {
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.modern-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-2px);
+}
+
+.modern-input:focus + label {
+    color: var(--primary-color);
+    transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+.form-floating > label {
+    color: var(--secondary-color);
+    transition: all 0.3s ease;
+}
+
+.modern-check {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.modern-check:hover {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: var(--primary-color);
+}
+
+.modern-check .form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    margin-top: 0.125rem;
+    transition: all 0.3s ease;
+}
+
+.modern-check .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.modern-check .form-check-label {
+    display: flex;
+    flex-direction: column;
+    margin-left: 0.75rem;
+}
+
+.check-label {
+    font-weight: 600;
+    color: var(--dark-color);
+    font-size: 0.95rem;
+}
+
+.check-description {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    margin-top: 0.25rem;
+}
+
+.modern-modal-footer {
+    background: rgba(248, 250, 252, 0.8);
+    border: none;
+    padding: 1.5rem 2rem;
+    gap: 1rem;
+}
+
+.modern-submit-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.modern-submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.modern-submit-btn:hover::before {
+    left: 100%;
+}
+
+.modern-submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+}
+
+.btn-outline-secondary {
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.75rem 2rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-2px);
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .modern-modal {
+        background: rgba(30, 41, 59, 0.95);
+    }
+
+    .modern-modal-body {
+        background: rgba(30, 41, 59, 0.8);
+    }
+
+    .form-section {
+        background: rgba(51, 65, 85, 0.5);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .modern-input {
+        background: rgba(51, 65, 85, 0.8);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+    }
+
+    .modern-input:focus {
+        background: rgba(51, 65, 85, 1);
+    }
+
+    .modern-check {
+        background: rgba(51, 65, 85, 0.5);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .check-label {
+        color: #e2e8f0;
+    }
+
+    .check-description {
+        color: #94a3b8;
+    }
+
+    .modern-modal-footer {
+        background: rgba(30, 41, 59, 0.8);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .modern-modal-header {
+        padding: 1.5rem;
+    }
+
+    .modal-title-container {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.75rem;
+    }
+
+    .modal-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+    }
+
+    .modern-modal-body {
+        padding: 1.5rem;
+    }
+
+    .form-section {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modern-modal-footer {
+        padding: 1rem 1.5rem;
+        flex-direction: column;
+    }
+
+    .modern-submit-btn,
+    .btn-outline-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* 动画效果 */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modern-modal {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+/* 表单验证样式 */
+.modern-input.is-invalid {
+    border-color: var(--danger-color);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.modern-input.is-valid {
+    border-color: var(--success-color);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.invalid-feedback {
+    color: var(--danger-color);
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.valid-feedback {
+    color: var(--success-color);
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+</style>

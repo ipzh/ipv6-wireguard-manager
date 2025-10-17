@@ -77,7 +77,13 @@ class Router {
                 if (class_exists($controller)) {
                     $controllerInstance = new $controller();
                     if (method_exists($controllerInstance, $method)) {
-                        $controllerInstance->$method();
+                        // 提取路由参数
+                        $params = $this->extractRouteParams($handler);
+                        if (!empty($params)) {
+                            $controllerInstance->$method(...$params);
+                        } else {
+                            $controllerInstance->$method();
+                        }
                         return;
                     }
                 }
@@ -86,6 +92,30 @@ class Router {
         
         // 如果处理器无效，返回404
         $this->handle404();
+    }
+    
+    /**
+     * 提取路由参数
+     */
+    private function extractRouteParams($handler) {
+        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $path = strtok($path, '?');
+        
+        // 查找匹配的路由
+        foreach ($this->routes as $route) {
+            if ($route['handler'] === $handler && $this->matchPath($route['path'], $path)) {
+                // 提取参数
+                $routePattern = preg_replace('/\{[^}]+\}/', '([^/]+)', $route['path']);
+                $routePattern = '#^' . $routePattern . '$#';
+                
+                if (preg_match($routePattern, $path, $matches)) {
+                    array_shift($matches); // 移除完整匹配
+                    return $matches;
+                }
+            }
+        }
+        
+        return [];
     }
     
     /**

@@ -112,7 +112,17 @@ class ApiClient {
         if ($httpCode >= 400) {
             $errorData = json_decode($response, true);
             $message = $errorData['detail'] ?? $errorData['message'] ?? '请求失败';
-            throw new Exception('API错误 (' . $httpCode . '): ' . $message);
+            
+            // 特殊处理权限错误
+            if ($httpCode === 403) {
+                throw new Exception('权限不足：' . $message);
+            } elseif ($httpCode === 401) {
+                throw new Exception('认证失败：' . $message);
+            } elseif ($httpCode === 404) {
+                throw new Exception('资源不存在：' . $message);
+            } else {
+                throw new Exception('API错误 (' . $httpCode . '): ' . $message);
+            }
         }
         
         $decoded = json_decode($response, true);

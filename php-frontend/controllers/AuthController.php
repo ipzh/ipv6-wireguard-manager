@@ -89,17 +89,60 @@ class AuthController {
      * 检查API连接状态
      */
     public function checkApiStatus() {
+        // 设置JSON响应头
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        
         try {
-            $status = $this->apiClient->getApiStatus();
-            echo json_encode([
-                'success' => true,
-                'status' => $status
+            // 首先尝试直接连接API健康检查端点
+            $healthUrl = API_BASE_URL . '/health';
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $healthUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'Content-Type: application/json'
             ]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+            
+            if ($error) {
+                throw new Exception('连接失败: ' . $error);
+            }
+            
+            if ($httpCode === 200) {
+                $data = json_decode($response, true);
+                echo json_encode([
+                    'success' => true,
+                    'status' => 'healthy',
+                    'data' => $data,
+                    'http_code' => $httpCode,
+                    'backend_url' => $healthUrl
+                ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'status' => 'unhealthy',
+                    'error' => 'HTTP错误: ' . $httpCode,
+                    'http_code' => $httpCode,
+                    'response' => substr($response, 0, 200),
+                    'backend_url' => $healthUrl
+                ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            }
+            
         } catch (Exception $e) {
             echo json_encode([
                 'success' => false,
-                'message' => $e->getMessage()
-            ]);
+                'status' => 'error',
+                'error' => $e->getMessage(),
+                'message' => '无法连接到后端API服务',
+                'backend_url' => API_BASE_URL . '/health'
+            ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         }
     }
 }

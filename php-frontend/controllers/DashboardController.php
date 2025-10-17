@@ -5,13 +5,15 @@
 class DashboardController {
     private $auth;
     private $apiClient;
+    private $permissionMiddleware;
     
     public function __construct() {
         $this->auth = new Auth();
         $this->apiClient = new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
         
         // 检查用户登录状态，但不强制要求
-        // $this->auth->requireLogin();
+        // $this->permissionMiddleware->requireLogin();
     }
     
     /**

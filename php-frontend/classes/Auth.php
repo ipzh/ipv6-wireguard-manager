@@ -137,8 +137,19 @@ class Auth {
         $this->requireLogin();
         
         if (!$this->hasPermission($permission)) {
+            $user = $this->getCurrentUser();
+            $userRole = $user['role'] ?? 'user';
+            $userName = $user['username'] ?? '未知用户';
+            
+            error_log("权限拒绝: 用户 {$userName} (角色: {$userRole}) 尝试访问需要权限 '{$permission}' 的资源");
+            
             http_response_code(403);
-            die('权限不足');
+            die(json_encode([
+                'error' => '权限不足',
+                'message' => "您没有执行此操作的权限。需要权限: {$permission}",
+                'user_role' => $userRole,
+                'required_permission' => $permission
+            ], JSON_UNESCAPED_UNICODE));
         }
     }
     
@@ -177,6 +188,71 @@ class Auth {
     public function verifyCsrfToken($token) {
         return isset($_SESSION['csrf_token']) && 
                hash_equals($_SESSION['csrf_token'], $token);
+    }
+    
+    /**
+     * 获取用户权限列表
+     */
+    public function getUserPermissions() {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return [];
+        }
+        
+        // 超级用户拥有所有权限
+        if ($user['is_superuser'] ?? false) {
+            return ['*'];
+        }
+        
+        // 检查角色权限
+        $role = $user['role'] ?? 'user';
+        
+        $permissions = [
+            'admin' => ['*'], // 管理员拥有所有权限
+            'operator' => [
+                'wireguard.manage',
+                'wireguard.view',
+                'bgp.manage',
+                'bgp.view',
+                'ipv6.manage',
+                'ipv6.view',
+                'monitoring.view',
+                'logs.view',
+                'system.view',
+                'users.view'
+            ],
+            'user' => [
+                'wireguard.view',
+                'monitoring.view'
+            ]
+        ];
+        
+        return $permissions[$role] ?? [];
+    }
+    
+    /**
+     * 检查用户是否为管理员
+     */
+    public function isAdmin() {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return false;
+        }
+        
+        return ($user['is_superuser'] ?? false) || ($user['role'] ?? '') === 'admin';
+    }
+    
+    /**
+     * 检查用户是否为操作员
+     */
+    public function isOperator() {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return false;
+        }
+        
+        $role = $user['role'] ?? 'user';
+        return in_array($role, ['admin', 'operator']);
     }
 }
 ?>

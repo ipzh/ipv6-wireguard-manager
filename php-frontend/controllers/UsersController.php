@@ -3,48 +3,106 @@
  * 用户管理控制器
  */
 class UsersController {
+    private $auth;
     private $apiClient;
+    private $permissionMiddleware;
 
     public function __construct(ApiClient $apiClient = null) {
+        $this->auth = new Auth();
         $this->apiClient = $apiClient ?: new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
 
     /**
      * 用户列表
      */
     public function index() {
-        $usersData = $this->apiClient->get('/users');
-        $users = $usersData['users'] ?? [];
-        $error = $usersData['error'] ?? null;
-        
-        require __DIR__ . '/../views/users/list.php';
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('users.view');
+            
+            $usersData = $this->apiClient->get('/users');
+            $users = $usersData['data'] ?? $usersData['users'] ?? [];
+            $error = $usersData['error'] ?? null;
+            
+            $pageTitle = '用户管理';
+            $showSidebar = true;
+            
+            include 'views/layout/header.php';
+            include 'views/users/list.php';
+            include 'views/layout/footer.php';
+            
+        } catch (Exception $e) {
+            $this->handleError('加载用户列表失败: ' . $e->getMessage());
+        }
     }
 
     /**
      * 创建用户
      */
     public function create() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $data = [
-                'username' => $_POST['username'] ?? '',
-                'email' => $_POST['email'] ?? '',
-                'password' => $_POST['password'] ?? '',
-                'full_name' => $_POST['full_name'] ?? '',
-                'role' => $_POST['role'] ?? 'user',
-                'is_active' => isset($_POST['is_active'])
-            ];
-
-            $result = $this->apiClient->post('/users', $data);
+        try {
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('users.manage');
             
-            if (isset($result['error'])) {
-                $error = $result['error'];
-            } else {
-                header('Location: /users');
-                exit();
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // 验证CSRF令牌
+                $this->permissionMiddleware->verifyCsrfToken($_POST['_token'] ?? '');
+                
+                $data = [
+                    'username' => trim($_POST['username'] ?? ''),
+                    'email' => trim($_POST['email'] ?? ''),
+                    'password' => $_POST['password'] ?? '',
+                    'full_name' => trim($_POST['full_name'] ?? ''),
+                    'role' => $_POST['role'] ?? 'user',
+                    'is_active' => isset($_POST['is_active'])
+                ];
+
+                // 验证输入
+                if (empty($data['username'])) {
+                    throw new Exception('用户名不能为空');
+                }
+                
+                if (empty($data['email'])) {
+                    throw new Exception('邮箱不能为空');
+                }
+                
+                if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                    throw new Exception('邮箱格式不正确');
+                }
+                
+                if (empty($data['password'])) {
+                    throw new Exception('密码不能为空');
+                }
+                
+                if (strlen($data['password']) < 6) {
+                    throw new Exception('密码长度不能少于6位');
+                }
+
+                $result = $this->apiClient->post('/users', $data);
+                
+                if (isset($result['error'])) {
+                    throw new Exception($result['error']);
+                } else {
+                    $this->showMessage('用户创建成功', 'success');
+                    Router::redirect('/users');
+                    return;
+                }
             }
+            
+            $pageTitle = '创建用户';
+            $showSidebar = true;
+            
+            include 'views/layout/header.php';
+            include 'views/users/create.php';
+            include 'views/layout/footer.php';
+            
+        } catch (Exception $e) {
+            $this->handleError('创建用户失败: ' . $e->getMessage());
         }
-        
-        require __DIR__ . '/../views/users/create.php';
     }
 
     /**
@@ -281,6 +339,27 @@ class UsersController {
             header('Location: /users');
             exit();
         }
+    }
+    
+    /**
+     * 显示消息
+     */
+    private function showMessage($message, $type = 'info') {
+        $_SESSION['message'] = $message;
+        $_SESSION['message_type'] = $type;
+    }
+    
+    /**
+     * 处理错误
+     */
+    private function handleError($message) {
+        $pageTitle = '错误';
+        $showSidebar = true;
+        $error = $message;
+        
+        include 'views/layout/header.php';
+        include 'views/errors/error.php';
+        include 'views/layout/footer.php';
     }
 }
 ?>

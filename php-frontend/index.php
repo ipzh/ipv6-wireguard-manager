@@ -77,6 +77,7 @@ require_once 'controllers/UsersController.php';
 require_once 'controllers/ProfileController.php';
 require_once 'controllers/SystemController.php';
 require_once 'controllers/NetworkController.php';
+require_once 'controllers/ErrorController.php';
 
 // 初始化路由
 $router = new Router();
@@ -88,11 +89,28 @@ $router->addRoute('GET', '/login', 'AuthController@showLogin');
 $router->addRoute('POST', '/login', 'AuthController@login');
 $router->addRoute('GET', '/logout', 'AuthController@logout');
 
+// API代理路由
+$router->addRoute('GET', '/api/health', 'AuthController@checkApiStatus');
+$router->addRoute('GET', '/api/status', 'AuthController@checkApiStatus');
+
+// 错误页面路由
+$router->addRoute('GET', '/error', 'ErrorController@showError');
+
 // WireGuard管理
 $router->addRoute('GET', '/wireguard/servers', 'WireGuardController@servers');
 $router->addRoute('GET', '/wireguard/clients', 'WireGuardController@clients');
 $router->addRoute('POST', '/wireguard/servers', 'WireGuardController@createServer');
 $router->addRoute('POST', '/wireguard/clients', 'WireGuardController@createClient');
+$router->addRoute('GET', '/wireguard/servers/{id}', 'WireGuardController@getServer');
+$router->addRoute('GET', '/wireguard/clients/{id}', 'WireGuardController@getClient');
+$router->addRoute('POST', '/wireguard/servers/{id}/update', 'WireGuardController@updateServer');
+$router->addRoute('POST', '/wireguard/clients/{id}/update', 'WireGuardController@updateClient');
+$router->addRoute('GET', '/wireguard/servers/{id}/delete', 'WireGuardController@deleteServer');
+$router->addRoute('GET', '/wireguard/clients/{id}/delete', 'WireGuardController@deleteClient');
+$router->addRoute('GET', '/wireguard/servers/{id}/start', 'WireGuardController@startServer');
+$router->addRoute('GET', '/wireguard/servers/{id}/stop', 'WireGuardController@stopServer');
+$router->addRoute('GET', '/wireguard/servers/{id}/export', 'WireGuardController@exportConfig');
+$router->addRoute('GET', '/wireguard/clients/{id}/export', 'WireGuardController@exportConfig');
 
 // BGP管理
 $router->addRoute('GET', '/bgp/sessions', 'BGPController@sessions');

@@ -5,13 +5,15 @@
 class WireGuardController {
     private $auth;
     private $apiClient;
+    private $permissionMiddleware;
     
     public function __construct() {
         $this->auth = new Auth();
         $this->apiClient = new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
         
         // 要求用户登录
-        $this->auth->requireLogin();
+        $this->permissionMiddleware->requireLogin();
     }
     
     /**
@@ -19,7 +21,7 @@ class WireGuardController {
      */
     public function servers() {
         try {
-            $this->auth->requirePermission('wireguard.view');
+            $this->permissionMiddleware->requirePermission('wireguard.view');
             
             $serversResponse = $this->apiClient->get('/wireguard/servers');
             $servers = $serversResponse['data'] ?? [];
@@ -68,12 +70,11 @@ class WireGuardController {
         }
         
         try {
-            $this->auth->requirePermission('wireguard.manage');
+            // 检查权限
+            $this->permissionMiddleware->requirePermission('wireguard.manage');
             
             // 验证CSRF令牌
-            if (!$this->auth->verifyCsrfToken($_POST['_token'] ?? '')) {
-                throw new Exception('安全令牌验证失败');
-            }
+            $this->permissionMiddleware->verifyCsrfToken($_POST['_token'] ?? '');
             
             $serverData = [
                 'name' => trim($_POST['name'] ?? ''),

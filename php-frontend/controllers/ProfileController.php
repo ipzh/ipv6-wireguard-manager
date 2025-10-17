@@ -9,9 +9,10 @@ class ProfileController {
     public function __construct() {
         $this->auth = new Auth();
         $this->apiClient = new ApiClient();
+        $this->permissionMiddleware = new PermissionMiddleware();
         
         // 要求用户登录
-        $this->auth->requireLogin();
+        $this->permissionMiddleware->requireLogin();
     }
     
     /**
@@ -19,8 +20,22 @@ class ProfileController {
      */
     public function index() {
         try {
-            $profileData = $this->apiClient->get('/users/profile/me');
-            $profile = $profileData;
+            // 获取当前用户信息
+            $currentUser = $this->auth->getCurrentUser();
+            if (!$currentUser) {
+                throw new Exception('用户信息获取失败');
+            }
+            
+            // 尝试从API获取详细资料，如果失败则使用会话中的信息
+            try {
+                $profileData = $this->apiClient->get('/users/profile/me');
+                $profile = $profileData['data'] ?? $profileData;
+            } catch (Exception $e) {
+                // 如果API调用失败，使用会话中的用户信息
+                $profile = $currentUser;
+                error_log('获取用户详细资料失败: ' . $e->getMessage());
+            }
+            
             $error = null;
         } catch (Exception $e) {
             $profile = null;
@@ -28,6 +43,8 @@ class ProfileController {
         }
         
         $pageTitle = '个人资料';
+        $showSidebar = true;
+        
         include 'views/layout/header.php';
         include 'views/profile/index.php';
         include 'views/layout/footer.php';
@@ -42,14 +59,8 @@ class ProfileController {
             exit;
         }
         
-        $csrfToken = $_POST['_token'] ?? '';
-        
         // 验证CSRF令牌
-        if (!$this->auth->verifyCsrfToken($csrfToken)) {
-            $_SESSION['error'] = '安全令牌验证失败';
-            header('Location: /profile');
-            exit;
-        }
+        $this->permissionMiddleware->verifyCsrfToken($_POST['_token'] ?? '');
         
         $data = [
             'username' => trim($_POST['username'] ?? ''),
@@ -120,14 +131,8 @@ class ProfileController {
             exit;
         }
         
-        $csrfToken = $_POST['_token'] ?? '';
-        
         // 验证CSRF令牌
-        if (!$this->auth->verifyCsrfToken($csrfToken)) {
-            $_SESSION['error'] = '安全令牌验证失败';
-            header('Location: /profile/change-password');
-            exit;
-        }
+        $this->permissionMiddleware->verifyCsrfToken($_POST['_token'] ?? '');
         
         $oldPassword = $_POST['old_password'] ?? '';
         $newPassword = $_POST['new_password'] ?? '';
@@ -164,7 +169,11 @@ class ProfileController {
                 'new_password' => $newPassword
             ];
             
-            $result = $this->apiClient->put('/users/1/password', $data);
+            // 获取当前用户ID
+            $currentUser = $this->auth->getCurrentUser();
+            $userId = $currentUser['id'] ?? 1;
+            
+            $result = $this->apiClient->put("/users/{$userId}/password", $data);
             
             if (isset($result['message'])) {
                 $_SESSION['success'] = $result['message'];

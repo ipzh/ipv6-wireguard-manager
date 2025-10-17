@@ -32,86 +32,94 @@ if ($dashboardData['apiStatus']) {
 <!-- 统计卡片 -->
 <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card stats-card stats-card-primary h-100 fade-in-up" style="animation-delay: 0.1s;">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            WireGuard服务器
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="stats-content">
+                        <div class="stats-label">WireGuard服务器</div>
+                        <div class="stats-value">
+                            <span class="stats-number"><?= $stats['activeServers'] ?></span>
+                            <span class="stats-separator">/</span>
+                            <span class="stats-total"><?= $stats['totalServers'] ?></span>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= $stats['activeServers'] ?> / <?= $stats['totalServers'] ?>
-                        </div>
-                        <small class="text-muted">活跃 / 总数</small>
+                        <div class="stats-description">活跃 / 总数</div>
                     </div>
-                    <div class="col-auto">
-                        <i class="bi bi-shield-lock fa-2x text-gray-300"></i>
+                    <div class="stats-icon">
+                        <i class="bi bi-shield-lock"></i>
                     </div>
+                </div>
+                <div class="stats-progress">
+                    <div class="progress-bar" style="width: <?= $stats['totalServers'] > 0 ? ($stats['activeServers'] / $stats['totalServers'] * 100) : 0 ?>%"></div>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-success shadow h-100 py-2">
+        <div class="card stats-card stats-card-success h-100 fade-in-up" style="animation-delay: 0.2s;">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                            WireGuard客户端
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="stats-content">
+                        <div class="stats-label">WireGuard客户端</div>
+                        <div class="stats-value">
+                            <span class="stats-number"><?= $stats['activeClients'] ?></span>
+                            <span class="stats-separator">/</span>
+                            <span class="stats-total"><?= $stats['totalClients'] ?></span>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= $stats['activeClients'] ?> / <?= $stats['totalClients'] ?>
-                        </div>
-                        <small class="text-muted">连接 / 总数</small>
+                        <div class="stats-description">连接 / 总数</div>
                     </div>
-                    <div class="col-auto">
-                        <i class="bi bi-people fa-2x text-gray-300"></i>
+                    <div class="stats-icon">
+                        <i class="bi bi-people"></i>
                     </div>
+                </div>
+                <div class="stats-progress">
+                    <div class="progress-bar" style="width: <?= $stats['totalClients'] > 0 ? ($stats['activeClients'] / $stats['totalClients'] * 100) : 0 ?>%"></div>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-info shadow h-100 py-2">
+        <div class="card stats-card stats-card-info h-100 fade-in-up" style="animation-delay: 0.3s;">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                            BGP宣告
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="stats-content">
+                        <div class="stats-label">BGP宣告</div>
+                        <div class="stats-value">
+                            <span class="stats-number"><?= $stats['totalBgpAnnouncements'] ?></span>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <?= $stats['totalBgpAnnouncements'] ?>
-                        </div>
-                        <small class="text-muted">活跃宣告</small>
+                        <div class="stats-description">活跃宣告</div>
                     </div>
-                    <div class="col-auto">
-                        <i class="bi bi-diagram-3 fa-2x text-gray-300"></i>
+                    <div class="stats-icon">
+                        <i class="bi bi-diagram-3"></i>
                     </div>
+                </div>
+                <div class="stats-progress">
+                    <div class="progress-bar" style="width: 100%"></div>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card stats-card stats-card-warning h-100 fade-in-up" style="animation-delay: 0.4s;">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            系统状态
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            <span class="badge bg-<?= $stats['systemStatus'] === 'healthy' ? 'success' : 'danger' ?>">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="stats-content">
+                        <div class="stats-label">系统状态</div>
+                        <div class="stats-value">
+                            <span class="status-badge status-<?= $stats['systemStatus'] === 'healthy' ? 'success' : 'danger' ?>">
                                 <?= $stats['systemStatus'] === 'healthy' ? '正常' : '异常' ?>
                             </span>
                         </div>
-                        <small class="text-muted">API服务状态</small>
+                        <div class="stats-description">API服务状态</div>
                     </div>
-                    <div class="col-auto">
-                        <i class="bi bi-activity fa-2x text-gray-300"></i>
+                    <div class="stats-icon">
+                        <i class="bi bi-activity"></i>
                     </div>
+                </div>
+                <div class="stats-progress">
+                    <div class="progress-bar" style="width: <?= $stats['systemStatus'] === 'healthy' ? '100' : '0' ?>%"></div>
                 </div>
             </div>
         </div>
@@ -484,6 +492,218 @@ window.addEventListener('beforeunload', function() {
     stopRealTimeUpdate();
 });
 </script>
+
+<style>
+/* 统计卡片样式 */
+.stats-card {
+    position: relative;
+    overflow: hidden;
+    border: none;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+    backdrop-filter: blur(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.stats-card:hover::before {
+    transform: scaleX(1);
+}
+
+.stats-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.stats-card-primary::before {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+}
+
+.stats-card-success::before {
+    background: linear-gradient(90deg, var(--success-color), #059669);
+}
+
+.stats-card-info::before {
+    background: linear-gradient(90deg, var(--info-color), #0891b2);
+}
+
+.stats-card-warning::before {
+    background: linear-gradient(90deg, var(--warning-color), #d97706);
+}
+
+.stats-content {
+    flex: 1;
+}
+
+.stats-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.stats-value {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 0.25rem;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--dark-color);
+    line-height: 1;
+}
+
+.stats-separator {
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--secondary-color);
+    margin: 0 0.25rem;
+}
+
+.stats-total {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.stats-description {
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    font-weight: 400;
+}
+
+.stats-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.stats-card-success .stats-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-color);
+}
+
+.stats-card-info .stats-icon {
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--info-color);
+}
+
+.stats-card-warning .stats-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning-color);
+}
+
+.stats-card:hover .stats-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.stats-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.stats-progress .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-dark));
+    transition: width 0.6s ease;
+}
+
+.stats-card-success .stats-progress .progress-bar {
+    background: linear-gradient(90deg, var(--success-color), #059669);
+}
+
+.stats-card-info .stats-progress .progress-bar {
+    background: linear-gradient(90deg, var(--info-color), #0891b2);
+}
+
+.stats-card-warning .stats-progress .progress-bar {
+    background: linear-gradient(90deg, var(--warning-color), #d97706);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-success {
+    background: linear-gradient(135deg, var(--success-color), #059669);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.status-danger {
+    background: linear-gradient(135deg, var(--danger-color), #dc2626);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .stats-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(30, 41, 59, 0.7));
+    }
+
+    .stats-number {
+        color: #e2e8f0;
+    }
+
+    .stats-label {
+        color: #94a3b8;
+    }
+
+    .stats-description {
+        color: #94a3b8;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 1rem;
+    }
+
+    .stats-number {
+        font-size: 1.5rem;
+    }
+
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}
+</style>
 
 <?php
 // 辅助函数
