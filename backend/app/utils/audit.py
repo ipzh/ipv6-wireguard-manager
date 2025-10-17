@@ -34,7 +34,7 @@ async def audit_log(
         extra_data: 额外数据
     """
     try:
-        from app.models.models_complete import AuditLog
+        from ..models.models_complete import AuditLog
         
         # 获取用户信息
         user_id = None

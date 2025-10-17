@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from app.core.database import Base
+from ..core.database import Base
 
 
 # 枚举定义

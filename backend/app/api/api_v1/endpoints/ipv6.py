@@ -5,22 +5,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List
 
-from app.core.database import get_db
+from ....core.database import get_db
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from app.schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
+    from ....schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
 except ImportError:
     IPv6PrefixPool = None
     IPv6Allocation = None
 
 try:
-    from app.schemas.common import MessageResponse
+    from ....schemas.common import MessageResponse
 except ImportError:
     MessageResponse = None
 
 try:
-    from app.services.ipv6_service import IPv6PoolService
+    from ....services.ipv6_service import IPv6PoolService
 except ImportError:
     IPv6PoolService = None
 

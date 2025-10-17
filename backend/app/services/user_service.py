@@ -9,10 +9,10 @@ import structlog
 from datetime import datetime, timedelta
 import uuid
 
-from app.models.models_complete import User, Role, Permission, UserRole, RolePermission, AuditLog
-from app.schemas.user import UserCreate, UserUpdate, UserResponse
-from app.core.security_enhanced import security_manager, init_permissions_and_roles
-from app.utils.audit import audit_log
+from ..models.models_complete import User, Role, Permission, UserRole, RolePermission, AuditLog
+from ..schemas.user import UserCreate, UserUpdate, UserResponse
+from ..core.security_enhanced import security_manager, init_permissions_and_roles
+from ..utils.audit import audit_log
 
 logger = structlog.get_logger()
 
