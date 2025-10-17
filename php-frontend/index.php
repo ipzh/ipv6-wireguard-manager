@@ -59,14 +59,19 @@ session_start();
 // 引入配置
 require_once 'config/config.php';
 require_once 'config/database.php';
+require_once 'config/assets.php';
 
 // 引入核心类
 require_once 'classes/ApiClient.php';
+require_once 'classes/ApiClientOptimized.php';
 require_once 'classes/Auth.php';
 require_once 'classes/Router.php';
 require_once 'classes/PermissionMiddleware.php';
 require_once 'classes/SecurityHelper.php';
 require_once 'classes/ErrorHandler.php';
+require_once 'classes/InputValidator.php';
+require_once 'classes/ResponseHandler.php';
+require_once 'classes/SecurityEnhancer.php';
 
 // 引入控制器
 require_once 'controllers/AuthController.php';
@@ -81,6 +86,10 @@ require_once 'controllers/ProfileController.php';
 require_once 'controllers/SystemController.php';
 require_once 'controllers/NetworkController.php';
 require_once 'controllers/ErrorController.php';
+
+// 初始化安全增强
+SecurityEnhancer::startSecureSession();
+SecurityEnhancer::setSecurityHeaders();
 
 // 初始化错误处理器
 ErrorHandler::init();

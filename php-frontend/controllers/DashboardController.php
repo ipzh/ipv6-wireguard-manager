@@ -12,8 +12,8 @@ class DashboardController {
         $this->apiClient = new ApiClient();
         $this->permissionMiddleware = new PermissionMiddleware();
         
-        // 检查用户登录状态，但不强制要求
-        // $this->permissionMiddleware->requireLogin();
+        // 要求用户登录
+        $this->permissionMiddleware->requireLogin();
     }
     
     /**

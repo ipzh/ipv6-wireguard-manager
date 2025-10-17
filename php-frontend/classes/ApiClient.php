@@ -1,15 +1,22 @@
 <?php
 /**
- * API客户端封装类
+ * API客户端封装类 - 优化版本
+ * 使用curl替代file_get_contents，提供更好的错误处理和重试机制
  */
 class ApiClient {
     private $baseUrl;
     private $timeout;
     private $token;
+    private $maxRetries;
+    private $retryDelay;
+    private $userAgent;
     
     public function __construct() {
         $this->baseUrl = API_BASE_URL;
-        $this->timeout = API_TIMEOUT;
+        $this->timeout = API_TIMEOUT ?? 30;
+        $this->maxRetries = 3;
+        $this->retryDelay = 1; // 秒
+        $this->userAgent = 'IPv6-WireGuard-Manager/1.0';
         $this->token = $_SESSION['token'] ?? null;
     }
     

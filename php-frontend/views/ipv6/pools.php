@@ -1,6 +1,6 @@
 <?php
 // views/ipv6/pools.php
-require_once __DIR__ . '/../layout/header.php';
+// 注意：此文件由控制器处理布局包含，不需要直接包含header.php
 ?>
 
 <div class="container">
