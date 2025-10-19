@@ -591,6 +591,57 @@
             </button>
         </form>
         
+        <!-- MFA验证表单 -->
+        <form method="POST" action="/mfa-verify" id="mfaForm" class="d-none" novalidate>
+            <input type="hidden" name="_token" value="<?= $this->auth->generateCsrfToken() ?>">
+            <input type="hidden" name="session_id" id="mfaSessionId">
+            
+            <div class="form-group">
+                <label for="mfaCode" class="form-label">验证码</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-shield-check"></i>
+                    </span>
+                    <input type="text" 
+                           class="form-control" 
+                           id="mfaCode" 
+                           name="mfa_code" 
+                           placeholder="请输入6位验证码"
+                           maxlength="6"
+                           pattern="[0-9]{6}"
+                           required
+                           autocomplete="one-time-code">
+                </div>
+                <small class="form-text text-muted">
+                    请输入您的身份验证器应用中的6位数字验证码
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <div class="row">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="backToLogin">
+                            <i class="bi bi-arrow-left me-2"></i>返回登录
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="submit" class="login-btn w-100" id="mfaBtn">
+                            <span class="btn-spinner d-none" id="mfaSpinner"></span>
+                            <i class="bi bi-check-circle me-2"></i>
+                            <span id="mfaText">验证</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="help-text">
+                <small>
+                    <i class="bi bi-info-circle"></i>
+                    如果没有身份验证器，请联系管理员获取备份代码
+                </small>
+            </div>
+        </form>
+        
         <!-- 帮助信息 -->
         <div class="help-text">
             <small>
@@ -641,6 +692,8 @@
             const loginText = document.getElementById('loginText');
             
             loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
                 // 显示加载状态
                 loginBtn.disabled = true;
                 loginSpinner.classList.remove('d-none');
@@ -648,10 +701,37 @@
                 
                 // 如果API连接失败，阻止提交
                 if (!window.apiConnected) {
-                    e.preventDefault();
                     showMessage('API服务连接失败，请检查后端服务状态', 'error');
                     resetLoginButton();
+                    return;
                 }
+                
+                // 提交登录表单
+                const formData = new FormData(loginForm);
+                
+                fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.requires_mfa) {
+                            // 需要MFA验证
+                            showMfaForm(data.session_id);
+                        } else {
+                            // 直接登录成功
+                            window.location.href = '/dashboard';
+                        }
+                    } else {
+                        showMessage(data.message || '登录失败', 'error');
+                        resetLoginButton();
+                    }
+                })
+                .catch(error => {
+                    showMessage('登录请求失败: ' + error.message, 'error');
+                    resetLoginButton();
+                });
             });
             
             // 重置登录按钮状态
@@ -660,6 +740,85 @@
                 loginSpinner.classList.add('d-none');
                 loginText.textContent = '登录';
             }
+            
+            // 显示MFA表单
+            function showMfaForm(sessionId) {
+                document.getElementById('loginForm').classList.add('d-none');
+                document.getElementById('mfaForm').classList.remove('d-none');
+                document.getElementById('mfaSessionId').value = sessionId;
+                document.getElementById('mfaCode').focus();
+                
+                // 重置登录按钮
+                resetLoginButton();
+            }
+            
+            // 返回登录表单
+            function backToLogin() {
+                document.getElementById('mfaForm').classList.add('d-none');
+                document.getElementById('loginForm').classList.remove('d-none');
+                document.getElementById('username').focus();
+            }
+            
+            // MFA表单处理
+            const mfaForm = document.getElementById('mfaForm');
+            const mfaBtn = document.getElementById('mfaBtn');
+            const mfaSpinner = document.getElementById('mfaSpinner');
+            const mfaText = document.getElementById('mfaText');
+            
+            mfaForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // 显示加载状态
+                mfaBtn.disabled = true;
+                mfaSpinner.classList.remove('d-none');
+                mfaText.textContent = '验证中...';
+                
+                const formData = new FormData(mfaForm);
+                
+                fetch('/api/v1/mfa/verify', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/dashboard';
+                    } else {
+                        showMessage(data.message || '验证失败', 'error');
+                        resetMfaButton();
+                    }
+                })
+                .catch(error => {
+                    showMessage('验证请求失败: ' + error.message, 'error');
+                    resetMfaButton();
+                });
+            });
+            
+            // 重置MFA按钮状态
+            function resetMfaButton() {
+                mfaBtn.disabled = false;
+                mfaSpinner.classList.add('d-none');
+                mfaText.textContent = '验证';
+            }
+            
+            // 返回登录按钮事件
+            document.getElementById('backToLogin').addEventListener('click', backToLogin);
+            
+            // MFA验证码自动格式化
+            document.getElementById('mfaCode').addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, ''); // 只保留数字
+                if (value.length > 6) {
+                    value = value.substring(0, 6);
+                }
+                e.target.value = value;
+                
+                // 自动提交
+                if (value.length === 6) {
+                    setTimeout(() => {
+                        mfaForm.submit();
+                    }, 500);
+                }
+            });
             
             // 检查API状态
             checkApiStatus();
@@ -686,7 +845,7 @@
 
         function checkApiStatus() {
             // 使用API代理端点
-            fetch('/api/health')
+            fetch('/api/v1/health')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

@@ -222,6 +222,64 @@ detect_system() {
     log_info "  IPv6支持: $IPV6_SUPPORT"
 }
 
+# 系统路径检测
+detect_system_paths() {
+    log_info "检测系统路径..."
+    
+    # 检测安装目录
+    if [[ -d "/opt" ]]; then
+        DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
+    elif [[ -d "/usr/local" ]]; then
+        DEFAULT_INSTALL_DIR="/usr/local/ipv6-wireguard-manager"
+    else
+        DEFAULT_INSTALL_DIR="$HOME/ipv6-wireguard-manager"
+    fi
+    
+    # 检测Web目录
+    if [[ -d "/var/www/html" ]]; then
+        FRONTEND_DIR="/var/www/html"
+    elif [[ -d "/usr/share/nginx/html" ]]; then
+        FRONTEND_DIR="/usr/share/nginx/html"
+    else
+        FRONTEND_DIR="${DEFAULT_INSTALL_DIR}/web"
+    fi
+    
+    # 检测WireGuard配置目录
+    if [[ -d "/etc/wireguard" ]]; then
+        WIREGUARD_CONFIG_DIR="/etc/wireguard"
+    else
+        WIREGUARD_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/wireguard"
+    fi
+    
+    # 检测Nginx配置目录
+    if [[ -d "/etc/nginx/sites-available" ]]; then
+        NGINX_CONFIG_DIR="/etc/nginx/sites-available"
+    else
+        NGINX_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/nginx"
+    fi
+    
+    # 检测日志目录
+    if [[ -d "/var/log" ]]; then
+        LOG_DIR="/var/log/ipv6-wireguard-manager"
+    else
+        LOG_DIR="${DEFAULT_INSTALL_DIR}/logs"
+    fi
+    
+    # 检测其他目录
+    BIN_DIR="/usr/local/bin"
+    NGINX_LOG_DIR="/var/log/nginx"
+    TEMP_DIR="/tmp/ipv6-wireguard-manager"
+    BACKUP_DIR="${DEFAULT_INSTALL_DIR}/backups"
+    CACHE_DIR="${DEFAULT_INSTALL_DIR}/cache"
+    
+    log_success "系统路径检测完成"
+    log_info "安装目录: $DEFAULT_INSTALL_DIR"
+    log_info "前端目录: $FRONTEND_DIR"
+    log_info "WireGuard配置目录: $WIREGUARD_CONFIG_DIR"
+    log_info "Nginx配置目录: $NGINX_CONFIG_DIR"
+    log_info "日志目录: $LOG_DIR"
+}
+
 # 检查系统要求
 check_requirements() {
     log_info "检查系统要求..."
@@ -263,6 +321,26 @@ parse_arguments() {
                 ;;
             --dir)
                 INSTALL_DIR="$2"
+                shift 2
+                ;;
+            --frontend-dir)
+                FRONTEND_DIR="$2"
+                shift 2
+                ;;
+            --config-dir)
+                WIREGUARD_CONFIG_DIR="$2"
+                shift 2
+                ;;
+            --log-dir)
+                LOG_DIR="$2"
+                shift 2
+                ;;
+            --nginx-dir)
+                NGINX_CONFIG_DIR="$2"
+                shift 2
+                ;;
+            --systemd-dir)
+                SYSTEMD_CONFIG_DIR="$2"
                 shift 2
                 ;;
             --port)
@@ -336,6 +414,11 @@ show_help() {
     echo "选项:"
     echo "  --type TYPE          安装类型 (docker|native|minimal)"
     echo "  --dir DIR            安装目录 (默认: $DEFAULT_INSTALL_DIR)"
+    echo "  --frontend-dir DIR   前端Web目录 (默认: $FRONTEND_DIR)"
+    echo "  --config-dir DIR     WireGuard配置目录 (默认: $WIREGUARD_CONFIG_DIR)"
+    echo "  --log-dir DIR        日志目录 (默认: $LOG_DIR)"
+    echo "  --nginx-dir DIR      Nginx配置目录 (默认: $NGINX_CONFIG_DIR)"
+    echo "  --systemd-dir DIR    Systemd服务目录 (默认: $SYSTEMD_CONFIG_DIR)"
     echo "  --port PORT          Web端口 (默认: $DEFAULT_PORT)"
     echo "  --api-port PORT      API端口 (默认: $DEFAULT_API_PORT)"
     echo "  --silent             静默安装"
@@ -358,7 +441,16 @@ echo "  $0 --type minimal            # 最小化安装"
 echo "  $0 --silent                  # 静默安装（自动选择安装类型）"
 echo "  $0 --auto                    # 智能安装（自动选择参数并退出）"
 echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
+echo "  $0 --frontend-dir /var/www   # 自定义前端目录"
+echo "  $0 --config-dir /etc/wg      # 自定义WireGuard配置目录"
+echo "  $0 --log-dir /var/logs      # 自定义日志目录"
 echo "  $0 --dev                     # 开发模式安装"
+echo ""
+echo "路径配置说明:"
+echo "  所有路径参数都支持环境变量覆盖，例如:"
+echo "  INSTALL_DIR=/custom/path $0"
+echo "  FRONTEND_DIR=/var/www $0"
+echo "  WIREGUARD_CONFIG_DIR=/etc/wg $0"
 echo ""
     echo "支持的Linux系统:"
     echo "  - Ubuntu 18.04+"
@@ -800,6 +892,12 @@ install_python_dependencies() {
     if [[ -f "backend/requirements.txt" ]]; then
         pip install -r backend/requirements.txt
         log_success "Python依赖安装成功"
+        
+        # 安装额外的功能依赖
+        log_info "安装增强功能依赖..."
+        pip install pytest pytest-cov pytest-xdist pytest-html pytest-mock pytest-asyncio
+        pip install flake8 black isort mypy
+        log_success "增强功能依赖安装完成"
     elif [[ -f "backend/requirements-simple.txt" ]]; then
         pip install -r backend/requirements-simple.txt
         log_success "Python依赖安装成功（使用简化版本）"
@@ -1322,6 +1420,81 @@ LOG_FORMAT="json"
 FIRST_SUPERUSER="admin"
 FIRST_SUPERUSER_PASSWORD="admin123"
 FIRST_SUPERUSER_EMAIL="admin@example.com"
+
+# Security Settings
+PASSWORD_MIN_LENGTH=12
+PASSWORD_REQUIRE_UPPERCASE=true
+PASSWORD_REQUIRE_LOWERCASE=true
+PASSWORD_REQUIRE_NUMBERS=true
+PASSWORD_REQUIRE_SPECIAL_CHARS=true
+PASSWORD_HISTORY_COUNT=5
+PASSWORD_EXPIRY_DAYS=90
+
+# MFA Settings
+MFA_TOTP_ISSUER="IPv6 WireGuard Manager"
+MFA_BACKUP_CODES_COUNT=10
+MFA_SMS_ENABLED=false
+MFA_EMAIL_ENABLED=true
+
+# API Security Settings
+RATE_LIMIT_REQUESTS_PER_MINUTE=60
+RATE_LIMIT_REQUESTS_PER_HOUR=1000
+RATE_LIMIT_BURST_LIMIT=10
+MAX_REQUEST_SIZE=10485760
+MAX_HEADER_SIZE=8192
+
+# Monitoring Settings
+PROMETHEUS_ENABLED=true
+PROMETHEUS_PORT=9090
+HEALTH_CHECK_INTERVAL=30
+ALERT_CPU_THRESHOLD=80.0
+ALERT_MEMORY_THRESHOLD=85.0
+ALERT_DISK_THRESHOLD=90.0
+
+# Logging Settings
+LOG_AGGREGATION_ENABLED=true
+ELASTICSEARCH_ENABLED=false
+ELASTICSEARCH_HOSTS=["localhost:9200"]
+LOG_RETENTION_DAYS=30
+
+# Cache Settings
+CACHE_BACKEND="memory"
+CACHE_MAX_SIZE=1000
+CACHE_DEFAULT_TTL=3600
+CACHE_COMPRESSION=false
+
+# Compression Settings
+RESPONSE_COMPRESSION_ENABLED=true
+COMPRESSION_MIN_SIZE=1024
+COMPRESSION_MAX_SIZE=10485760
+COMPRESSION_LEVEL=6
+
+# Path Configuration (Dynamic)
+INSTALL_DIR="$INSTALL_DIR"
+FRONTEND_DIR="$FRONTEND_DIR"
+WIREGUARD_CONFIG_DIR="$WIREGUARD_CONFIG_DIR"
+NGINX_LOG_DIR="$NGINX_LOG_DIR"
+NGINX_CONFIG_DIR="$NGINX_CONFIG_DIR"
+BIN_DIR="$BIN_DIR"
+LOG_DIR="$LOG_DIR"
+TEMP_DIR="$TEMP_DIR"
+BACKUP_DIR="$BACKUP_DIR"
+CACHE_DIR="$CACHE_DIR"
+
+# API Endpoint Configuration (Dynamic)
+API_BASE_URL="http://localhost:$API_PORT/api/v1"
+WEBSOCKET_URL="ws://localhost:$API_PORT/ws/"
+BACKEND_HOST="localhost"
+BACKEND_PORT=$API_PORT
+FRONTEND_PORT=$WEB_PORT
+NGINX_PORT=$WEB_PORT
+
+# Security Configuration (Dynamic)
+DEFAULT_USERNAME="admin"
+DEFAULT_PASSWORD="admin123"
+SESSION_TIMEOUT=1440
+MAX_LOGIN_ATTEMPTS=5
+LOCKOUT_DURATION=15
 EOF
     
     # 设置权限
@@ -1678,6 +1851,7 @@ main() {
     
     # 检测系统
     detect_system
+    detect_system_paths
     check_requirements
     
     # 解析参数

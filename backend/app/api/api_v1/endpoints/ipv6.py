@@ -7,6 +7,8 @@ from typing import Dict, Any, List
 
 from ....core.database import get_db
 
+router = APIRouter()
+
 # 简化的模式和服务，避免依赖不存在的模块
 try:
     from ....schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
@@ -24,11 +26,9 @@ try:
 except ImportError:
     IPv6PoolService = None
 
-router = APIRouter()
-
 
 @router.get("/pools", response_model=None)
-async def get_ipv6_pools():
+async def get_ipv6_pools(db: AsyncSession = Depends(get_db)):
     """获取IPv6前缀池列表"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -62,7 +62,8 @@ async def get_ipv6_pools():
 
 @router.post("/pools", response_model=None)
 async def create_ipv6_pool(
-    pool_data: Dict[str, Any]
+    pool_data: Dict[str, Any],
+    db: AsyncSession = Depends(get_db)
 ):
     """创建IPv6前缀池"""
     try:

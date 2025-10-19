@@ -355,7 +355,7 @@ class ApiClientJWT {
      */
     private function useMockApi($url, $method, $data = null) {
         // 构建模拟API URL
-        $mockUrl = 'http://localhost' . dirname($_SERVER['SCRIPT_NAME']) . '/api_mock_jwt.php' . parse_url($url, PHP_URL_PATH);
+        $mockUrl = 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['SCRIPT_NAME']) . '/api_mock_jwt.php' . parse_url($url, PHP_URL_PATH);
         
         // 设置查询参数
         $query = parse_url($url, PHP_URL_QUERY);

@@ -78,6 +78,7 @@ require_once 'controllers/WireGuardController.php';
 require_once 'controllers/BGPController.php';
 require_once 'controllers/IPv6Controller.php';
 require_once 'controllers/MonitoringController.php';
+require_once 'controllers/SecurityController.php';
 require_once 'controllers/LogsController.php';
 require_once 'controllers/UsersController.php';
 require_once 'controllers/ProfileController.php';
@@ -105,6 +106,13 @@ $router->addRoute('GET', '/logout', 'AuthController@logout');
 // API代理路由
 $router->addRoute('GET', '/api/health', 'AuthController@checkApiStatus');
 $router->addRoute('GET', '/api/status', 'AuthController@checkApiStatus');
+
+// API v1 代理路由
+$router->addRoute('GET', '/api/v1/*', 'api_proxy.php');
+$router->addRoute('POST', '/api/v1/*', 'api_proxy.php');
+$router->addRoute('PUT', '/api/v1/*', 'api_proxy.php');
+$router->addRoute('DELETE', '/api/v1/*', 'api_proxy.php');
+$router->addRoute('PATCH', '/api/v1/*', 'api_proxy.php');
 
 // 错误页面路由
 $router->addRoute('GET', '/error', 'ErrorController@showError');
@@ -160,21 +168,15 @@ $router->addRoute('GET', '/ipv6/allocations/{id}/release', 'IPv6Controller@relea
 $router->addRoute('GET', '/ipv6/statistics', 'IPv6Controller@statistics');
 
 // 监控
-$router->addRoute('GET', '/monitoring', 'MonitoringController@index');
-$router->addRoute('GET', '/monitoring/metrics', 'MonitoringController@metrics');
-$router->addRoute('GET', '/monitoring/alerts', 'MonitoringController@alerts');
-$router->addRoute('GET', '/monitoring/history', 'MonitoringController@history');
-$router->addRoute('GET', '/monitoring/system', 'MonitoringController@system');
-$router->addRoute('GET', '/monitoring/processes', 'MonitoringController@processes');
-$router->addRoute('GET', '/monitoring/network', 'MonitoringController@network');
-$router->addRoute('GET', '/monitoring/disk', 'MonitoringController@disk');
-$router->addRoute('GET', '/monitoring/alerts/create', 'MonitoringController@createAlert');
-$router->addRoute('POST', '/monitoring/alerts/create', 'MonitoringController@createAlert');
-$router->addRoute('GET', '/monitoring/alerts/{id}/edit', 'MonitoringController@editAlert');
-$router->addRoute('POST', '/monitoring/alerts/{id}/edit', 'MonitoringController@editAlert');
-$router->addRoute('GET', '/monitoring/alerts/{id}/delete', 'MonitoringController@deleteAlert');
-$router->addRoute('GET', '/monitoring/alerts/{id}/acknowledge', 'MonitoringController@acknowledgeAlert');
-$router->addRoute('GET', '/monitoring/realtime-data', 'MonitoringController@getRealtimeData');
+$router->addRoute('GET', '/monitoring', 'MonitoringController@dashboard');
+$router->addRoute('GET', '/monitoring/metrics', 'MonitoringController@getMetrics');
+$router->addRoute('GET', '/monitoring/services', 'MonitoringController@getServices');
+$router->addRoute('GET', '/monitoring/performance-history', 'MonitoringController@getPerformanceHistory');
+$router->addRoute('GET', '/monitoring/wireguard', 'MonitoringController@getWireGuardStatus');
+$router->addRoute('GET', '/monitoring/alerts', 'MonitoringController@getAlerts');
+$router->addRoute('GET', '/monitoring/logs', 'MonitoringController@getRecentLogs');
+$router->addRoute('GET', '/monitoring/health', 'MonitoringController@getHealth');
+$router->addRoute('GET', '/monitoring/metrics/prometheus', 'MonitoringController@getPrometheusMetrics');
 
 // 日志
 $router->addRoute('GET', '/logs', 'LogsController@index');
@@ -214,6 +216,16 @@ $router->addRoute('GET', '/profile/settings', 'ProfileController@settings');
 $router->addRoute('GET', '/profile/change-password', 'ProfileController@changePassword');
 $router->addRoute('POST', '/profile/change-password', 'ProfileController@updatePassword');
 $router->addRoute('GET', '/profile/security', 'ProfileController@security');
+
+// 安全设置
+$router->addRoute('GET', '/security', 'SecurityController@index');
+$router->addRoute('POST', '/security/change-password', 'SecurityController@changePassword');
+$router->addRoute('GET', '/security/mfa/setup', 'SecurityController@setupMfa');
+$router->addRoute('POST', '/security/mfa/enable', 'SecurityController@enableMfa');
+$router->addRoute('POST', '/security/mfa/backup-codes', 'SecurityController@generateBackupCodes');
+$router->addRoute('GET', '/security/sessions', 'SecurityController@getSessions');
+$router->addRoute('DELETE', '/security/sessions/{id}', 'SecurityController@terminateSession');
+$router->addRoute('GET', '/security/logs', 'SecurityController@getSecurityLogs');
 
 // 系统管理
 $router->addRoute('GET', '/system/info', 'SystemController@info');

@@ -1,331 +1,341 @@
 # IPv6 WireGuard Manager
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![PHP 8.1+](https://img.shields.io/badge/php-8.1+-green.svg)](https://www.php.net/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
-[![IPv6](https://img.shields.io/badge/IPv6-supported-orange.svg)](https://en.wikipedia.org/wiki/IPv6)
-[![Linux](https://img.shields.io/badge/Linux-supported-lightgrey.svg)](https://www.linux.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/docker-supported-blue.svg)](https://docker.com)
 
-> 🚀 **企业级IPv6 WireGuard VPN管理系统** - 支持IPv6/IPv4双栈网络，集成BGP路由、智能前缀池管理和实时监控功能
+一个现代化的企业级IPv6 WireGuard VPN管理系统，提供完整的VPN服务器和客户端管理功能。
 
-## ✨ 核心特性
+## ✨ 主要特性
 
-### 🌐 双栈网络支持
-- ✅ **IPv6/IPv4双栈网络** - 同时支持IPv6和IPv4协议
-- ✅ **自动协议检测** - 智能检测和适配网络环境
-- ✅ **多主机部署** - 支持在任何主机上部署，无需修改配置
-- ✅ **零配置部署** - 自动检测系统环境并选择最佳安装方式
+### 🔐 VPN管理
+- **WireGuard服务器管理** - 创建、配置和管理WireGuard服务器
+- **客户端管理** - 批量创建、配置和管理VPN客户端
+- **IPv6支持** - 完整的IPv6网络支持和管理
+- **BGP集成** - 支持BGP路由协议和网络配置
+- **网络监控** - 实时网络状态监控和统计
 
-### 🔐 企业级安全
-- ✅ **JWT令牌认证** - 安全的用户认证机制
-- ✅ **基于角色的权限控制** - 细粒度的权限管理
-- ✅ **用户会话管理** - 完整的用户生命周期管理
-- ✅ **安全配置** - 生产级安全配置和最佳实践
+### 🛡️ 安全特性
+- **JWT认证** - 基于JWT的安全认证系统
+- **RBAC权限控制** - 基于角色的访问控制
+- **API安全** - 速率限制、CORS保护、安全头
+- **审计日志** - 完整的操作审计和日志记录
 
-### 🛡️ WireGuard VPN管理
-- ✅ **服务器和客户端配置** - 完整的WireGuard配置管理
-- ✅ **密钥管理** - 安全的密钥生成、存储和管理
-- ✅ **配置文件导出** - 支持多种格式的配置文件导出
-- ✅ **实时连接监控** - 实时监控VPN连接状态和性能
+### 📊 监控和运维
+- **实时监控** - 系统性能、网络状态实时监控
+- **异常监控** - 智能异常检测和告警系统
+- **日志聚合** - 结构化日志记录和分析
+- **健康检查** - 全面的系统健康状态检查
 
-### 🛣️ BGP路由管理
-- ✅ **BGP会话配置** - 完整的BGP会话管理
-- ✅ **路由宣告控制** - 智能的路由宣告和过滤
-- ✅ **自动化路由管理** - 自动化的路由策略管理
-- ✅ **ExaBGP集成** - 与ExaBGP的深度集成
-
-### 📊 IPv6前缀池管理
-- ✅ **智能前缀分配** - 自动化的IPv6前缀分配和回收
-- ✅ **自动BGP宣告** - 自动化的BGP路由宣告
-- ✅ **白名单支持** - 灵活的前缀白名单管理
-- ✅ **RPKI支持** - RPKI验证和路由安全
-
-### 📈 监控和告警
-- ✅ **实时系统监控** - 全面的系统性能监控
-- ✅ **智能异常检测** - 基于机器学习的异常检测
-- ✅ **多级告警系统** - 灵活的告警策略和通知
-- ✅ **性能分析** - 详细的性能分析和报告
-
-### 🚀 生产就绪
-- ✅ **Docker容器化** - 完整的Docker支持
-- ✅ **自动化部署** - 一键安装和配置
-- ✅ **高可用性** - 支持集群和负载均衡
-- ✅ **监控集成** - 与Prometheus、Grafana集成
+### 🔧 技术特性
+- **现代化架构** - FastAPI + React/Vue.js 前后端分离
+- **容器化部署** - Docker和Docker Compose支持
+- **配置管理** - 统一配置管理和环境变量支持
+- **API标准化** - RESTful API设计和版本控制
+- **数据库优化** - 连接池、健康检查、性能优化
 
 ## 🚀 快速开始
 
-### 一键安装（推荐）
+### 环境要求
+
+- **Python**: 3.8+
+- **Node.js**: 16+
+- **MySQL**: 8.0+
+- **Docker**: 20.10+ (可选)
+- **系统**: Linux/macOS/Windows
+
+### 安装方式
+
+#### 1. 自动安装脚本
 
 ```bash
-# 智能安装（自动检测系统并选择最佳安装方式）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+# 下载并运行安装脚本
+curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
 
-# 静默安装（推荐生产环境）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
-
-# 指定安装类型
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type minimal --silent
+# 或使用自定义路径
+curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash -s -- \
+  --install-dir /opt/ipv6-wireguard-manager \
+  --frontend-dir /var/www/html \
+  --config-dir /etc/wireguard \
+  --log-dir /var/log/ipv6-wireguard-manager
 ```
 
-### 安装选项
+#### 2. Docker部署
 
 ```bash
-# 原生安装（推荐开发环境）
-./install.sh --type native
+# 克隆项目
+git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
 
-# 最小化安装（低内存环境）
-./install.sh --type minimal
+# 配置环境变量
+cp env.template .env
+# 编辑 .env 文件
 
-# 生产环境安装
-./install.sh --production --silent
-
-# 自定义配置
-./install.sh --dir /opt/ipv6-wireguard-manager --port 8080 --api-port 9000
-
-# 跳过某些步骤
-./install.sh --skip-deps --skip-db
+# 启动服务
+docker-compose up -d
 ```
 
-## 📁 安装目录结构
+#### 3. 手动安装
 
-安装完成后，系统将使用以下目录结构：
+```bash
+# 克隆项目
+git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
 
-```
-/opt/ipv6-wireguard-manager/          # 后端安装目录
-├── backend/                          # 后端Python代码
-├── php-frontend/                     # 前端源码（备份）
-├── venv/                             # Python虚拟环境
-├── logs/                              # 后端日志
-├── config/                            # 配置文件
-├── data/                              # 数据文件
-└── .env                               # 环境配置文件
+# 安装后端依赖
+cd backend
+pip install -r requirements.txt
 
-/var/www/html/                        # 前端Web目录
-├── classes/                          # PHP类文件
-├── controllers/                       # 控制器
-├── views/                            # 视图模板
-├── config/                           # 配置文件
-├── logs/                              # 前端日志（777权限）
-├── assets/                           # 静态资源
-├── index.php                         # 主入口文件
-└── index_jwt.php                     # JWT版本入口
+# 安装前端依赖
+cd ../php-frontend
+npm install
+
+# 配置数据库
+mysql -u root -p < migrations/init.sql
+
+# 启动服务
+cd ../backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## 🔧 权限配置
+## 📖 详细文档
 
-| 目录/文件 | 所有者 | 权限 | 说明 |
-|-----------|--------|------|------|
-| `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
-| `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
-| `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
-| `/opt/ipv6-wireguard-manager/.env` | `ipv6wgm:ipv6wgm` | `600` | 环境配置文件 |
+### 📚 核心文档
+- [安装指南](docs/INSTALLATION_GUIDE.md) - 详细的安装和配置说明
+- [部署指南](docs/DEPLOYMENT_GUIDE.md) - 生产环境部署指南
+- [API文档](docs/API_DOCUMENTATION.md) - 完整的API参考文档
+- [用户手册](docs/USER_MANUAL.md) - 用户操作指南
+- [开发者指南](docs/DEVELOPER_GUIDE.md) - 开发者文档
 
-## 📋 系统要求
+### 🔧 配置文档
+- [环境配置](docs/ENVIRONMENT_CONFIGURATION.md) - 环境变量配置说明
+- [数据库配置](docs/DATABASE_CONFIGURATION.md) - 数据库配置和优化
+- [安全配置](docs/SECURITY_CONFIGURATION.md) - 安全设置和最佳实践
+- [监控配置](docs/MONITORING_CONFIGURATION.md) - 监控和告警配置
 
-### 最低要求
-- **内存**: 1GB
-- **磁盘**: 3GB
-- **CPU**: 1核心
-- **系统**: 支持多种Linux发行版
+### 🚀 运维文档
+- [系统监控](docs/SYSTEM_MONITORING.md) - 系统监控和性能调优
+- [日志管理](docs/LOG_MANAGEMENT.md) - 日志配置和分析
+- [备份恢复](docs/BACKUP_RECOVERY.md) - 数据备份和恢复
+- [故障排除](docs/TROUBLESHOOTING.md) - 常见问题和解决方案
 
-### 推荐配置
-- **内存**: 2GB+
-- **磁盘**: 5GB+
+## 🏗️ 项目架构
 
-### 支持的系统
-- **Ubuntu**: 18.04, 20.04, 22.04, 24.04
-- **Debian**: 9, 10, 11, 12
-- **CentOS**: 7, 8, 9
-- **RHEL**: 7, 8, 9
-- **Fedora**: 30+
-- **Arch Linux**: 最新版本
-- **openSUSE**: 15+
-- **Gentoo**: 需要手动配置
-- **Alpine Linux**: 基础支持
+### 后端架构
+```
+backend/
+├── app/
+│   ├── core/                 # 核心模块
+│   │   ├── api_router.py    # API路由管理
+│   │   ├── api_paths.py     # API路径常量
+│   │   ├── config.py        # 配置管理
+│   │   ├── database.py      # 数据库管理
+│   │   ├── error_handling.py # 错误处理
+│   │   ├── logging.py       # 日志记录
+│   │   └── exception_monitoring.py # 异常监控
+│   ├── api/                 # API路由
+│   ├── models/              # 数据模型
+│   ├── services/            # 业务逻辑
+│   └── utils/               # 工具函数
+├── migrations/              # 数据库迁移
+├── tests/                   # 测试文件
+└── requirements.txt         # 依赖包
+```
 
-## 🌐 访问地址
+### 前端架构
+```
+php-frontend/
+├── config/                  # 配置文件
+│   ├── api_endpoints.js    # API端点配置
+│   ├── environment.php     # 环境配置
+│   └── api_config.php     # API配置
+├── includes/               # 公共文件
+│   ├── ApiPathManager.php  # API路径管理
+│   └── EnhancedApiClient.php # API客户端
+├── assets/                 # 静态资源
+├── pages/                  # 页面文件
+└── services/               # 服务文件
+```
 
-安装完成后，访问以下地址：
+## 🔌 API接口
 
-- **Web界面**: http://your-server-ip/
-- **API文档**: http://your-server-ip:8000/docs
-- **API健康检查**: http://your-server-ip:8000/api/v1/health
-- **IPv6访问**: http://[your-ipv6-address]/
-
-## 👤 默认账户
-
-- **用户名**: admin
-- **密码**: admin123
-- **邮箱**: admin@example.com
-
-> ⚠️ 首次登录后请立即修改默认密码！
-
-## 🎯 核心功能
+### 认证接口
+- `POST /api/v1/auth/login` - 用户登录
+- `POST /api/v1/auth/logout` - 用户登出
+- `POST /api/v1/auth/refresh` - 刷新令牌
+- `GET /api/v1/auth/me` - 获取当前用户信息
 
 ### WireGuard管理
-- ✅ 服务器和客户端管理
-- ✅ 配置文件生成和编辑
-- ✅ 连接状态监控
-- ✅ 流量统计和分析
+- `GET /api/v1/wireguard/servers` - 获取服务器列表
+- `POST /api/v1/wireguard/servers` - 创建服务器
+- `GET /api/v1/wireguard/servers/{id}` - 获取服务器详情
+- `PUT /api/v1/wireguard/servers/{id}` - 更新服务器
+- `DELETE /api/v1/wireguard/servers/{id}` - 删除服务器
 
-### BGP管理
-- ✅ BGP会话配置和管理
-- ✅ 路由宣告管理
-- ✅ 邻居状态监控
-- ✅ 路由表查看
+### 客户端管理
+- `GET /api/v1/wireguard/clients` - 获取客户端列表
+- `POST /api/v1/wireguard/clients` - 创建客户端
+- `GET /api/v1/wireguard/clients/{id}/config` - 获取客户端配置
+- `GET /api/v1/wireguard/clients/{id}/qr-code` - 获取二维码
 
-### IPv6前缀管理
-- ✅ IPv6前缀池管理
-- ✅ 前缀分配和回收
-- ✅ 使用统计和报告
-- ✅ 自动路由配置
+### 监控接口
+- `GET /api/v1/monitoring/dashboard` - 监控仪表板
+- `GET /api/v1/exceptions/summary` - 异常摘要
+- `GET /api/v1/alerts/active` - 活跃告警
+- `GET /api/v1/health` - 健康检查
 
-### 系统监控
-- ✅ 实时系统监控
-- ✅ 性能指标收集
-- ✅ 告警管理
-- ✅ 日志分析
+## 🐳 Docker支持
 
-### 用户管理
-- ✅ 用户认证和授权
-- ✅ 角色和权限管理
-- ✅ 活动日志记录
-- ✅ 批量操作支持
-
-### 网络管理
-- ✅ 网络接口管理
-- ✅ 路由表管理
-- ✅ 防火墙配置
-- ✅ 网络诊断工具
-
-## 🔧 管理命令
-
-IPv6 WireGuard Manager 提供了完整的CLI管理工具，安装后可直接使用：
-
+### 开发环境
 ```bash
-# 服务管理
-ipv6-wireguard-manager start      # 启动服务
-ipv6-wireguard-manager stop       # 停止服务
-ipv6-wireguard-manager restart    # 重启服务
-ipv6-wireguard-manager status     # 查看状态
-
-# 系统管理
-ipv6-wireguard-manager logs       # 查看日志
-ipv6-wireguard-manager logs -f    # 实时查看日志
-ipv6-wireguard-manager update     # 更新系统
-ipv6-wireguard-manager backup     # 创建备份
-ipv6-wireguard-manager monitor    # 系统监控
-
-# 帮助信息
-ipv6-wireguard-manager help       # 显示帮助
-ipv6-wireguard-manager version    # 显示版本
+docker-compose up -d
 ```
 
-### 命令示例
-
+### 生产环境
 ```bash
-# 查看服务状态
-ipv6-wireguard-manager status
-
-# 实时查看日志
-ipv6-wireguard-manager logs -f
-
-# 创建命名备份
-ipv6-wireguard-manager backup --name daily-backup
-
-# 系统监控
-ipv6-wireguard-manager monitor
+docker-compose -f docker-compose.production.yml up -d
 ```
 
-## 🛠️ 技术栈
+### 微服务架构
+```bash
+docker-compose -f docker-compose.microservices.yml up -d
+```
 
-- **后端**: Python 3.11+ + FastAPI + SQLAlchemy + MySQL
-- **前端**: PHP 8.1+ + Bootstrap 5 + jQuery
-- **数据库**: MySQL 8.0+
-- **Web服务器**: Nginx 1.24+
-- **缓存**: Redis 7+ (可选)
-- **容器化**: Docker + Docker Compose (可选)
+## 🔧 配置说明
 
-## 🔒 安全特性
+### 环境变量
+```bash
+# 数据库配置
+DATABASE_URL=mysql://user:password@localhost:3306/ipv6wgm
 
-- ✅ 基于角色的访问控制
-- ✅ 数据加密存储
-- ✅ 安全HTTP头配置
-- ✅ 防火墙规则管理
-- ✅ SSL/TLS支持
-- ✅ 操作审计日志
+# API配置
+API_V1_STR=/api/v1
+SECRET_KEY=your-secret-key-here
+ACCESS_TOKEN_EXPIRE_MINUTES=11520
 
-## 📈 性能优化
+# 服务器配置
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
 
-- ✅ 数据库连接池优化
-- ✅ Redis缓存支持
-- ✅ 异步请求处理
-- ✅ 多进程负载均衡
-- ✅ 智能资源限制
-- ✅ 性能监控告警
+# 路径配置
+INSTALL_DIR=/opt/ipv6-wireguard-manager
+FRONTEND_DIR=/var/www/html
+CONFIG_DIR=/etc/wireguard
+LOG_DIR=/var/log/ipv6-wireguard-manager
+```
 
-## 🚀 安装脚本功能
+### 配置文件
+- `backend/app/core/config.py` - 主配置文件
+- `php-frontend/config/api_config.php` - 前端API配置
+- `env.template` - 环境变量模板
 
-### 智能安装
-- 自动检测系统环境
-- 智能推荐安装类型
-- 支持多种安装模式
-- 完整的错误处理
+## 📊 监控和日志
 
-### 可选功能
-- Docker支持
-- Redis缓存
-- 系统监控
-- 高级日志
-- 自动备份
-- 安全加固
-- 性能优化
-- SSL/TLS支持
-- 防火墙配置
+### 监控功能
+- **系统监控** - CPU、内存、磁盘使用率
+- **网络监控** - 带宽使用、连接数统计
+- **应用监控** - API响应时间、错误率
+- **数据库监控** - 连接数、查询性能
 
-### 环境模式
-- 开发环境
-- 测试环境
-- 生产环境
-- 最小化环境
+### 日志功能
+- **结构化日志** - JSON格式日志记录
+- **日志轮转** - 自动日志轮转和清理
+- **敏感信息过滤** - 自动过滤密码、令牌等敏感信息
+- **异常监控** - 智能异常检测和告警
 
-## 📚 文档
+### 告警功能
+- **异常告警** - 异常频率过高告警
+- **性能告警** - 系统性能异常告警
+- **安全告警** - 安全事件告警
+- **自定义告警** - 可配置的告警规则
 
-- [安装指南](INSTALLATION_GUIDE.md) - 详细的安装说明
-- [快速安装指南](QUICK_INSTALL_GUIDE.md) - 快速安装步骤
-- [API参考文档](API_REFERENCE.md) - API接口文档
-- [部署配置](DEPLOYMENT_CONFIG.md) - 部署配置说明
-- [生产部署指南](PRODUCTION_DEPLOYMENT_GUIDE.md) - 生产环境部署
-- [CLI管理指南](CLI_MANAGEMENT_GUIDE.md) - 命令行工具使用
-- [API修复总结](API_INTEGRATION_SUMMARY.md) - API修复详情
-- [安装脚本审计报告](INSTALL_SCRIPT_AUDIT_REPORT.md) - 脚本质量报告
+## 🧪 测试
 
-## 🤝 贡献
+### 运行测试
+```bash
+# 后端测试
+cd backend
+python -m pytest tests/
 
-欢迎贡献代码！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详情。
+# 前端测试
+cd php-frontend
+npm test
+
+# 集成测试
+python test_api_standardization.py
+python test_config_management.py
+python test_database_optimization.py
+python test_error_handling_logging.py
+```
+
+### 测试覆盖
+- **单元测试** - 核心功能单元测试
+- **集成测试** - API接口集成测试
+- **性能测试** - 系统性能压力测试
+- **安全测试** - 安全漏洞扫描测试
+
+## 🤝 贡献指南
+
+### 开发环境设置
+```bash
+# 克隆项目
+git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+
+# 创建开发分支
+git checkout -b feature/your-feature
+
+# 安装依赖
+cd backend && pip install -r requirements.txt
+cd ../php-frontend && npm install
+```
+
+### 代码规范
+- **Python**: 遵循PEP 8规范
+- **JavaScript**: 遵循ESLint规范
+- **提交信息**: 使用约定式提交规范
+- **文档**: 使用Markdown格式
+
+### 提交流程
+1. Fork项目
+2. 创建功能分支
+3. 提交代码
+4. 创建Pull Request
+5. 代码审查
+6. 合并代码
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目采用 [MIT许可证](LICENSE)。
 
 ## 🆘 支持
 
-- **项目地址**: https://github.com/ipzh/ipv6-wireguard-manager
-- **问题反馈**: https://github.com/ipzh/ipv6-wireguard-manager/issues
-- **文档**: https://github.com/ipzh/ipv6-wireguard-manager/wiki
+### 获取帮助
+- **文档**: 查看项目文档
+- **Issues**: 提交问题和建议
+- **讨论**: 参与社区讨论
+- **邮件**: 发送邮件到 support@example.com
 
-## 🎉 更新日志
+### 常见问题
+- [安装问题](docs/TROUBLESHOOTING.md#installation)
+- [配置问题](docs/TROUBLESHOOTING.md#configuration)
+- [性能问题](docs/TROUBLESHOOTING.md#performance)
+- [安全问题](docs/TROUBLESHOOTING.md#security)
 
-### v3.0.0 (最新)
-- ✅ 完整的API修复和优化
-- ✅ 智能安装脚本
-- ✅ 企业级功能实现
-- ✅ IPv4/IPv6双栈支持
-- ✅ 安全加固和性能优化
-- ✅ 完整的监控和日志系统
-- ✅ 自动备份和恢复机制
-- ✅ 零错误安装体验
+## 🗺️ 路线图
+
+### 即将发布
+- [ ] WebSocket实时通信
+- [ ] 移动端应用
+- [ ] 多租户支持
+- [ ] 插件系统
+
+### 长期计划
+- [ ] 云原生部署
+- [ ] 机器学习集成
+- [ ] 区块链集成
+- [ ] 边缘计算支持
 
 ---
 

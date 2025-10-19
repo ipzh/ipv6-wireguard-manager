@@ -1,235 +1,143 @@
 <?php
 /**
- * 增强的API客户端 - 使用端点映射
+ * 增强的API客户端
+ * 集成路径管理和验证功能
  */
-require_once 'ApiClient.php';
-require_once '../config/api_endpoints.php';
 
-class EnhancedApiClient extends ApiClient {
-    private $endpoints;
+require_once __DIR__ . '/ApiPathManager.php';
+
+class EnhancedApiClient {
+    private $pathManager;
+    private $timeout;
+    private $retryAttempts;
+    private $retryDelay;
+    private $lastError;
     
-    public function __construct($baseUrl = null, $timeout = 30, $retryCount = 3, $debugMode = false) {
-        parent::__construct($baseUrl, $timeout, $retryCount, $debugMode);
-        $this->endpoints = require '../config/api_endpoints.php';
+    public function __construct() {
+        $this->pathManager = ApiPathManager::getInstance();
+        $this->timeout = Environment::get('api.timeout', 30);
+        $this->retryAttempts = Environment::get('api.retry_attempts', 3);
+        $this->retryDelay = Environment::get('api.retry_delay', 1000);
     }
     
     /**
-     * 获取端点路径
+     * 发送API请求
      */
-    private function getEndpoint($category, $action, $params = []) {
-        if (!isset($this->endpoints[$category][$action])) {
-            throw new Exception("API端点不存在: $category.$action");
+    public function request($method, $category, $action = null, $params = [], $data = null, $version = null) {
+        // 构建URL
+        $url = $this->pathManager->buildUrl($category, $action, $params, $version);
+        
+        // 验证路径
+        $path = parse_url($url, PHP_URL_PATH);
+        $validation = $this->pathManager->validatePath($path);
+        
+        if (!$validation['valid']) {
+            $this->lastError = "无效的API路径: " . implode(', ', $validation['errors']);
+            return false;
         }
         
-        $endpoint = $this->endpoints[$category][$action];
-        
-        // 替换路径参数
-        foreach ($params as $key => $value) {
-            $endpoint = str_replace("{{$key}}", $value, $endpoint);
+        // 记录警告
+        if (!empty($validation['warnings'])) {
+            error_log("API路径警告: " . implode(', ', $validation['warnings']));
         }
         
-        return $endpoint;
-    }
-    
-    /**
-     * 认证相关API
-     */
-    public function authLogin($credentials) {
-        $endpoint = $this->getEndpoint('auth', 'login');
-        return $this->post($endpoint, $credentials);
-    }
-    
-    public function authLogout() {
-        $endpoint = $this->getEndpoint('auth', 'logout');
-        return $this->post($endpoint);
-    }
-    
-    public function authMe() {
-        $endpoint = $this->getEndpoint('auth', 'me');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * WireGuard相关API
-     */
-    public function wireguardGetServers() {
-        $endpoint = $this->getEndpoint('wireguard', 'servers');
-        return $this->get($endpoint);
-    }
-    
-    public function wireguardGetClients() {
-        $endpoint = $this->getEndpoint('wireguard', 'clients');
-        return $this->get($endpoint);
-    }
-    
-    public function wireguardGetConfig() {
-        $endpoint = $this->getEndpoint('wireguard', 'config');
-        return $this->get($endpoint);
-    }
-    
-    public function wireguardUpdateConfig($config) {
-        $endpoint = $this->getEndpoint('wireguard', 'config');
-        return $this->post($endpoint, $config);
-    }
-    
-    public function wireguardGetStatus() {
-        $endpoint = $this->getEndpoint('wireguard', 'status');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * BGP相关API
-     */
-    public function bgpGetSessions() {
-        $endpoint = $this->getEndpoint('bgp', 'sessions');
-        return $this->get($endpoint);
-    }
-    
-    public function bgpGetRoutes() {
-        $endpoint = $this->getEndpoint('bgp', 'routes');
-        return $this->get($endpoint);
-    }
-    
-    public function bgpGetStatus() {
-        $endpoint = $this->getEndpoint('bgp', 'status');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * IPv6相关API
-     */
-    public function ipv6GetPools() {
-        $endpoint = $this->getEndpoint('ipv6', 'pools');
-        return $this->get($endpoint);
-    }
-    
-    public function ipv6GetAllocations() {
-        $endpoint = $this->getEndpoint('ipv6', 'allocations');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 监控相关API
-     */
-    public function monitoringGetDashboard() {
-        $endpoint = $this->getEndpoint('monitoring', 'dashboard');
-        return $this->get($endpoint);
-    }
-    
-    public function monitoringGetSystemMetrics() {
-        $endpoint = $this->getEndpoint('monitoring', 'metrics_system');
-        return $this->get($endpoint);
-    }
-    
-    public function monitoringGetApplicationMetrics() {
-        $endpoint = $this->getEndpoint('monitoring', 'metrics_application');
-        return $this->get($endpoint);
-    }
-    
-    public function monitoringGetActiveAlerts() {
-        $endpoint = $this->getEndpoint('monitoring', 'alerts_active');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 日志相关API
-     */
-    public function logsGetList($params = []) {
-        $endpoint = $this->getEndpoint('logs', 'list');
-        if (!empty($params)) {
-            $endpoint .= '?' . http_build_query($params);
-        }
-        return $this->get($endpoint);
-    }
-    
-    public function logsGetById($logId) {
-        $endpoint = $this->getEndpoint('logs', 'get', ['id' => $logId]);
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 系统相关API
-     */
-    public function systemGetInfo() {
-        $endpoint = $this->getEndpoint('system', 'info');
-        return $this->get($endpoint);
-    }
-    
-    public function systemGetProcesses() {
-        $endpoint = $this->getEndpoint('system', 'processes');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 网络相关API
-     */
-    public function networkGetInterfaces() {
-        $endpoint = $this->getEndpoint('network', 'interfaces');
-        return $this->get($endpoint);
-    }
-    
-    public function networkGetStatus() {
-        $endpoint = $this->getEndpoint('network', 'status');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 调试相关API
-     */
-    public function debugGetSystemInfo() {
-        $endpoint = $this->getEndpoint('debug', 'system_info');
-        return $this->get($endpoint);
-    }
-    
-    public function debugGetComprehensiveCheck() {
-        $endpoint = $this->getEndpoint('debug', 'comprehensive_check');
-        return $this->get($endpoint);
-    }
-    
-    /**
-     * 获取所有可用的端点
-     */
-    public function getAvailableEndpoints() {
-        return $this->endpoints;
-    }
-    
-    /**
-     * 测试所有端点连接
-     */
-    public function testAllEndpoints() {
-        $results = [];
+        // 准备请求
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ]);
         
-        foreach ($this->endpoints as $category => $actions) {
-            $results[$category] = [];
+        // 添加请求数据
+        if ($data !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        }
+        
+        // 添加认证头
+        if (isset($_SESSION['jwt_token'])) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge(
+                curl_getinfo($ch, CURLINFO_HEADER_OUT),
+                ["Authorization: Bearer " . $_SESSION['jwt_token']]
+            ));
+        }
+        
+        // 执行请求（带重试）
+        $attempts = 0;
+        $response = false;
+        
+        while ($attempts < $this->retryAttempts && $response === false) {
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             
-            foreach ($actions as $action => $endpoint) {
-                try {
-                    // 只测试GET端点
-                    if (strpos($endpoint, '{') === false) { // 不包含路径参数
-                        $response = $this->get($endpoint);
-                        $results[$category][$action] = [
-                            'status' => 'success',
-                            'endpoint' => $endpoint,
-                            'response_code' => $response['status']
-                        ];
-                    } else {
-                        $results[$category][$action] = [
-                            'status' => 'skipped',
-                            'endpoint' => $endpoint,
-                            'reason' => 'Contains path parameters'
-                        ];
-                    }
-                } catch (Exception $e) {
-                    $results[$category][$action] = [
-                        'status' => 'error',
-                        'endpoint' => $endpoint,
-                        'error' => $e->getMessage()
-                    ];
+            if ($response === false) {
+                $attempts++;
+                if ($attempts < $this->retryAttempts) {
+                    usleep($this->retryDelay * 1000); // 转换为微秒
                 }
             }
         }
         
-        return $results;
+        if ($response === false) {
+            $this->lastError = curl_error($ch);
+            curl_close($ch);
+            return false;
+        }
+        
+        curl_close($ch);
+        
+        // 解析响应
+        $responseData = json_decode($response, true);
+        
+        if ($responseData === null) {
+            $this->lastError = "无效的JSON响应";
+            return false;
+        }
+        
+        // 检查API错误
+        if ($httpCode >= 400) {
+            $this->lastError = $responseData['detail'] ?? "API请求失败";
+            return false;
+        }
+        
+        return $responseData;
+    }
+    
+    /**
+     * GET请求
+     */
+    public function get($category, $action = null, $params = [], $version = null) {
+        return $this->request('GET', $category, $action, $params, null, $version);
+    }
+    
+    /**
+     * POST请求
+     */
+    public function post($category, $action = null, $data = null, $params = [], $version = null) {
+        return $this->request('POST', $category, $action, $params, $data, $version);
+    }
+    
+    /**
+     * PUT请求
+     */
+    public function put($category, $action = null, $data = null, $params = [], $version = null) {
+        return $this->request('PUT', $category, $action, $params, $data, $version);
+    }
+    
+    /**
+     * DELETE请求
+     */
+    public function delete($category, $action = null, $params = [], $version = null) {
+        return $this->request('DELETE', $category, $action, $params, null, $version);
+    }
+    
+    /**
+     * 获取最后的错误
+     */
+    public function getLastError() {
+        return $this->lastError;
     }
 }
-?>

@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 # 导入所有端点模块
 try:
-    from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health, debug
+    from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health, debug, mfa
 except ImportError as e:
     print(f"Warning: Some endpoint modules could not be imported: {e}")
     # 创建空的模块作为占位符
@@ -25,6 +25,7 @@ except ImportError as e:
     ipv6 = EmptyModule()
     health = EmptyModule()
     debug = EmptyModule()
+    mfa = EmptyModule()
 
 api_router = APIRouter()
 
@@ -66,3 +67,6 @@ api_router.include_router(health.router, prefix="", tags=["健康检查"])
 
 # 调试和诊断路由
 api_router.include_router(debug.router, prefix="/debug", tags=["调试诊断"])
+
+# MFA多因素认证路由
+api_router.include_router(mfa.router, prefix="/mfa", tags=["多因素认证"])

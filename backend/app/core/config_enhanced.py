@@ -7,6 +7,9 @@ import secrets
 from typing import List, Optional, Union
 from pathlib import Path
 
+# 导入路径配置
+from .path_config import path_config
+
 try:
     # Pydantic 2.x
     from pydantic_settings import BaseSettings
@@ -103,6 +106,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     
+    # 路径配置 - 使用路径配置管理器
+    INSTALL_DIR: str = "/opt/ipv6-wireguard-manager"
+    
     # API配置
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
@@ -174,9 +180,58 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     ALLOWED_EXTENSIONS: List[str] = [".conf", ".key", ".crt", ".pem", ".txt", ".log"]
     
-    # WireGuard配置
-    WIREGUARD_CONFIG_DIR: str = "wireguard"
-    WIREGUARD_CLIENTS_DIR: str = "wireguard/clients"
+    # WireGuard配置 - 使用路径配置
+    WIREGUARD_PRIVATE_KEY: Optional[str] = None
+    WIREGUARD_PUBLIC_KEY: Optional[str] = None
+    WIREGUARD_PORT: int = 51820
+    WIREGUARD_INTERFACE: str = "wg0"
+    WIREGUARD_NETWORK: str = "10.0.0.0/24"
+    WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
+    
+    @property
+    def WIREGUARD_CONFIG_DIR(self) -> str:
+        """WireGuard配置目录"""
+        return str(path_config.wireguard_config_dir)
+    
+    @property
+    def WIREGUARD_CLIENTS_DIR(self) -> str:
+        """WireGuard客户端配置目录"""
+        return str(path_config.wireguard_clients_dir)
+    
+    @property
+    def FRONTEND_DIR(self) -> str:
+        """前端Web目录"""
+        return str(path_config.frontend_dir)
+    
+    @property
+    def LOG_FILE(self) -> Optional[str]:
+        """日志文件路径"""
+        return str(path_config.logs_dir / "app.log")
+    
+    @property
+    def BACKUP_DIR(self) -> str:
+        """备份目录"""
+        return str(path_config.backups_dir)
+    
+    @property
+    def NGINX_CONFIG_DIR(self) -> str:
+        """Nginx配置目录"""
+        return str(path_config.nginx_config_dir)
+    
+    @property
+    def NGINX_LOG_DIR(self) -> str:
+        """Nginx日志目录"""
+        return str(path_config.nginx_log_dir)
+    
+    @property
+    def SYSTEMD_CONFIG_DIR(self) -> str:
+        """Systemd服务配置目录"""
+        return str(path_config.systemd_config_dir)
+    
+    @property
+    def BIN_DIR(self) -> str:
+        """二进制文件目录"""
+        return str(path_config.bin_dir)
     
     # 监控配置
     ENABLE_METRICS: bool = True

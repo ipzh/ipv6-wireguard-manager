@@ -9,6 +9,8 @@ import uuid
 
 from ....core.database import get_db
 
+router = APIRouter()
+
 # 简化的模式和服务，避免依赖不存在的模块
 try:
     from ....models.models_complete import BGPSession, BGPAnnouncement
@@ -27,11 +29,9 @@ try:
 except ImportError:
     ExaBGPService = None
 
-router = APIRouter()
-
 
 @router.get("/sessions", response_model=None)
-async def get_bgp_sessions():
+async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
     """获取BGP会话列表"""
     try:
         result = await db.execute(select(BGPSession))

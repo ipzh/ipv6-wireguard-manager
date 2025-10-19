@@ -20,6 +20,13 @@ passlib[argon2,bcrypt]>=1.7.4
 argon2-cffi>=21.0.0
 python-multipart>=0.0.6
 
+# 多因素认证
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+
+# 密码策略增强
+bcrypt>=4.0.0
+
 # 任务队列
 celery==5.3.4
 kombu==5.3.4
@@ -32,6 +39,12 @@ aiohttp==3.9.1
 prometheus-client==0.19.0
 structlog==23.2.0
 
+# 日志聚合和分析
+elasticsearch==8.11.0
+
+# 响应压缩
+brotli==1.1.0
+
 # 工具库
 python-dotenv==1.0.0
 click==8.1.7
@@ -41,7 +54,6 @@ rich==13.7.0
 
 # WireGuard相关
 cryptography>=41.0.0,<47.0.0
-qrcode[pil]==7.4.2
 
 # 系统监控
 psutil==5.9.6

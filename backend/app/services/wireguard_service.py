@@ -21,6 +21,7 @@ from ..schemas.wireguard import (
     WireGuardStatus, WireGuardInterfaceStatus, WireGuardPeerStatus,
     WireGuardConfig, WireGuardPeer
 )
+from ..core.path_config import path_config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,13 +29,27 @@ logger = logging.getLogger(__name__)
 class WireGuardService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.config_dir = "/etc/wireguard"
+        # 使用路径配置管理器获取路径
+        self.config_dir = path_config.wireguard_config_dir
+        self.clients_dir = path_config.wireguard_clients_dir
         self.ensure_config_dir()
 
     def ensure_config_dir(self):
         """确保配置目录存在"""
-        if not os.path.exists(self.config_dir):
-            os.makedirs(self.config_dir, mode=0o700)
+        # 确保主配置目录存在
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        # 确保客户端配置目录存在
+        self.clients_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 设置正确的权限
+        try:
+            os.chmod(self.config_dir, 0o700)
+            os.chmod(self.clients_dir, 0o700)
+            logger.debug(f"WireGuard配置目录权限设置完成: {self.config_dir}")
+        except PermissionError:
+            logger.warning(f"无法设置WireGuard配置目录权限: {self.config_dir}")
+        except Exception as e:
+            logger.error(f"设置WireGuard配置目录权限失败: {e}")
 
     def generate_keypair(self) -> tuple[str, str]:
         """生成WireGuard密钥对"""

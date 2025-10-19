@@ -9,7 +9,7 @@ define('APP_VERSION', getenv('APP_VERSION') ?: '3.0.0');
 define('APP_DEBUG', filter_var(getenv('APP_DEBUG') ?: true, FILTER_VALIDATE_BOOLEAN));
 
 // API配置
-define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://localhost:8000/api/v1');
+define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000/api/v1');
 define('API_TIMEOUT', getenv('API_TIMEOUT') ?: 30);
 
 // 会话配置
