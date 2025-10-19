@@ -13,6 +13,10 @@ IPv6 WireGuard Manager
 ├── backend/                 # 后端服务 (FastAPI)
 │   ├── app/
 │   │   ├── core/           # 核心模块
+│   │   │   ├── unified_config.py    # 统一配置管理
+│   │   │   ├── di_container.py      # 依赖注入容器
+│   │   │   ├── path_config.py       # 路径配置管理
+│   │   │   └── config_enhanced.py   # 增强配置（已修复）
 │   │   ├── api/            # API路由
 │   │   ├── models/         # 数据模型
 │   │   ├── services/       # 业务逻辑
@@ -20,46 +24,263 @@ IPv6 WireGuard Manager
 │   ├── migrations/         # 数据库迁移
 │   ├── tests/              # 测试文件
 │   └── requirements.txt    # 依赖包
-├── php-frontend/           # 前端应用 (PHP)
+├── php-frontend/           # 前端应用 (PHP + JavaScript)
 │   ├── config/             # 配置文件
-│   ├── includes/           # 公共文件
+│   │   └── api_endpoints.js # API端点配置（已修复）
+│   ├── services/           # 服务文件
+│   │   └── api_client.js   # API客户端（已修复）
 │   ├── assets/             # 静态资源
-│   ├── pages/              # 页面文件
-│   └── services/           # 服务文件
+│   │   └── js/theme.js     # 主题管理
+│   ├── pwa/                # PWA支持
+│   │   └── sw.js          # Service Worker
+│   └── includes/           # 公共文件
 ├── docs/                   # 项目文档
+│   ├── FRONTEND_API_GUIDE.md        # 前端API使用指南
+│   ├── BACKEND_CONFIG_GUIDE.md      # 后端配置管理指南
+│   ├── DEPENDENCY_INJECTION_GUIDE.md # 依赖注入使用指南
+│   └── MIGRATION_GUIDE.md           # 迁移指南
 ├── scripts/                # 部署脚本
 └── docker/                 # Docker配置
 ```
 
+### 新架构特性
+
+#### 1. 统一配置管理
+- **文件**: `backend/app/core/unified_config.py`
+- **功能**: 将所有配置合并到一个文件中，简化管理
+- **优势**: 减少配置复杂性，提高维护性
+
+#### 2. 依赖注入容器
+- **文件**: `backend/app/core/di_container.py`
+- **功能**: 管理服务依赖关系，提供更好的测试性
+- **优势**: 解耦组件，支持单例和工厂模式
+
+#### 3. 路径配置工厂
+- **文件**: `backend/app/core/path_config.py`
+- **功能**: 使用工厂函数创建路径配置实例
+- **优势**: 避免全局状态，支持多环境配置
+
+#### 4. 前端API系统
+- **文件**: `php-frontend/config/api_endpoints.js`
+- **功能**: 本地API路径构建器，移除外部依赖
+- **优势**: 提高稳定性，简化部署
+
 ### 技术栈
 
-| 组件 | 技术 | 版本 |
-|------|------|------|
-| **后端框架** | FastAPI | 0.100+ |
-| **数据库** | MySQL | 8.0+ |
-| **ORM** | SQLAlchemy | 2.0+ |
-| **认证** | JWT | PyJWT |
-| **前端** | PHP | 8.1+ |
-| **Web服务器** | Nginx | 1.18+ |
-| **容器化** | Docker | 20.10+ |
-| **监控** | Prometheus | 2.40+ |
+| 组件 | 技术 | 版本 | 说明 |
+|------|------|------|------|
+| **后端框架** | FastAPI | 0.100+ | 现代Python Web框架 |
+| **数据库** | MySQL | 8.0+ | 关系型数据库 |
+| **ORM** | SQLAlchemy | 2.0+ | Python ORM |
+| **认证** | JWT | PyJWT | 无状态认证 |
+| **配置管理** | Pydantic | 2.0+ | 数据验证和设置 |
+| **依赖注入** | 自定义容器 | - | 服务依赖管理 |
+| **前端** | PHP + JavaScript | 8.1+ | 服务端渲染 + 客户端交互 |
+| **API客户端** | Axios | 1.0+ | HTTP客户端库 |
+| **PWA支持** | Service Worker | - | 离线支持和缓存 |
+| **Web服务器** | Nginx | 1.18+ | 反向代理和静态文件服务 |
+| **容器化** | Docker | 20.10+ | 应用容器化 |
+| **监控** | Prometheus | 2.40+ | 指标收集和监控 |
 
 ## 开发环境设置
 
 ### 1. 环境要求
 
+#### 系统要求
+- **操作系统**: Ubuntu 20.04+ / CentOS 8+ / Debian 11+
+- **Python**: 3.9+
+- **Node.js**: 16+ (用于前端构建)
+- **PHP**: 8.1+
+- **MySQL**: 8.0+
+- **Nginx**: 1.18+
+
+#### 开发工具
+- **IDE**: VS Code / PyCharm / PhpStorm
+- **版本控制**: Git 2.30+
+- **容器**: Docker 20.10+ / Docker Compose 2.0+
+- **调试工具**: Chrome DevTools / Firefox DevTools
+
+### 2. 新架构开发设置
+
+#### 后端开发设置
+
 ```bash
-# Python 3.8+
-python --version
+# 1. 克隆项目
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
 
-# Node.js 16+
-node --version
+# 2. 设置Python虚拟环境
+python3 -m venv backend/venv
+source backend/venv/bin/activate
 
-# MySQL 8.0+
-mysql --version
+# 3. 安装依赖
+cd backend
+pip install -r requirements.txt
 
-# Git
-git --version
+# 4. 设置环境变量
+cp ../env.template .env
+# 编辑 .env 文件，设置数据库连接等配置
+
+# 5. 初始化数据库
+python -m alembic upgrade head
+
+# 6. 启动开发服务器
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+#### 前端开发设置
+
+```bash
+# 1. 设置前端环境
+cd php-frontend
+
+# 2. 安装Node.js依赖（如果需要）
+npm install
+
+# 3. 配置API端点
+# 编辑 config/api_endpoints.js
+# 确保 API_CONFIG.BASE_URL 指向正确的后端地址
+
+# 4. 启动PHP开发服务器
+php -S localhost:8080 -t .
+```
+
+#### 依赖注入设置
+
+```python
+# 在应用启动时设置服务
+from app.core.di_container import (
+    register_singleton, register_factory, ServiceNames
+)
+from app.core.unified_config import settings
+from app.core.path_config import create_path_config
+
+def setup_services():
+    """设置所有服务"""
+    # 注册核心服务
+    register_singleton(ServiceNames.CONFIG, settings)
+    
+    # 注册路径配置工厂
+    def create_path_config_service():
+        return create_path_config()
+    
+    register_factory(ServiceNames.PATH_CONFIG, create_path_config_service)
+    
+    # 注册其他服务...
+    print("✅ 所有服务已注册")
+
+# 在 main.py 中调用
+setup_services()
+```
+
+### 3. 开发工具配置
+
+#### VS Code 配置
+
+```json
+// .vscode/settings.json
+{
+    "python.defaultInterpreterPath": "./backend/venv/bin/python",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.formatting.provider": "black",
+    "python.testing.pytestEnabled": true,
+    "files.associations": {
+        "*.js": "javascript",
+        "*.php": "php"
+    },
+    "emmet.includeLanguages": {
+        "php": "html"
+    }
+}
+```
+
+#### 调试配置
+
+```json
+// .vscode/launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: FastAPI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/venv/bin/uvicorn",
+            "args": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+            "cwd": "${workspaceFolder}/backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/backend"
+            }
+        }
+    ]
+}
+```
+
+### 4. 新架构开发流程
+
+#### 后端开发流程
+
+1. **配置管理**
+   ```python
+   # 使用统一配置
+   from app.core.unified_config import settings
+   
+   # 访问配置
+   db_url = settings.DATABASE_URL
+   api_version = settings.API_V1_STR
+   ```
+
+2. **依赖注入**
+   ```python
+   # 注册服务
+   from app.core.di_container import register_singleton, ServiceNames
+   
+   register_singleton(ServiceNames.CONFIG, settings)
+   
+   # 使用服务
+   from app.core.di_container import get_service
+   config = get_service(ServiceNames.CONFIG)
+   ```
+
+3. **路径管理**
+   ```python
+   # 使用工厂函数
+   from app.core.path_config import create_path_config
+   
+   config = create_path_config()
+   wg_dir = config.get_path('wireguard_config_dir')
+   ```
+
+#### 前端开发流程
+
+1. **API配置**
+   ```javascript
+   // 使用新的API配置
+   import { API_CONFIG, buildUrl } from '../config/api_endpoints.js';
+   
+   const userUrl = buildUrl('users.get', { user_id: '123' });
+   ```
+
+2. **API客户端**
+   ```javascript
+   // 使用统一的API客户端
+   import apiClient from '../services/api_client.js';
+   
+   const users = await apiClient.get('users');
+   ```
+
+3. **错误处理**
+   ```javascript
+   // 统一的错误处理
+   try {
+     const data = await apiClient.get('users');
+   } catch (error) {
+     console.error('API错误:', error);
+   }
+   ```
+
+### 5. 测试策略
 ```
 
 ### 2. 项目克隆
