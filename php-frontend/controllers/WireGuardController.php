@@ -34,7 +34,7 @@ class WireGuardController {
             include 'views/layout/footer.php';
             
         } catch (Exception $e) {
-            ErrorHandler::logCustomError('加载服务器列表失败: ' . $e->getMessage(), [
+            ErrorHandlerJWT::logCustomError('加载服务器列表失败: ' . $e->getMessage(), [
                 'file' => __FILE__,
                 'line' => __LINE__,
                 'method' => 'servers',
