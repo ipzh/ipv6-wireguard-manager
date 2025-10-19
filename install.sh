@@ -443,8 +443,7 @@ echo "  $0 --auto                    # 智能安装（自动选择参数并退�
 echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
 echo "  $0 --frontend-dir /var/www   # 自定义前端目录"
 echo "  $0 --config-dir /etc/wg      # 自定义WireGuard配置目录"
-echo "  $0 --log-dir /var/logs      # 自定义日志目录"
-echo "  $0 --dev                     # 开发模式安装"
+echo "  $0 --log-dir /var/logs       # 自定义日志目录"
 echo ""
 echo "路径配置说明:"
 echo "  所有路径参数都支持环境变量覆盖，例如:"
@@ -465,7 +464,7 @@ echo ""
     echo "  native   - 原生安装，推荐用于生产环境和开发环境"
     echo "  minimal  - 最小化安装，推荐用于资源受限环境"
     echo ""
-    echo "注意: Docker安装暂未实现"
+    echo "docker   - 使用Docker Compose部署（需要docker与docker-compose）"
 }
 
 # 选择安装类型
@@ -515,10 +514,10 @@ select_install_type() {
             log_info "选择理由: 系统资源适中（评分: $score/6），推荐原生安装"
             log_info "优化配置: 启用基础功能、平衡性能和资源使用"
         else
-            INSTALL_TYPE="native"  # 改为native，因为docker安装尚未实现
-            log_info "自动选择的安装类型: native"
-            log_info "选择理由: 系统资源充足（评分: $score/6），推荐原生安装"
-            log_info "优化配置: 启用所有功能、最大化性能（Docker安装待实现）"
+            INSTALL_TYPE="docker"
+            log_info "自动选择的安装类型: docker"
+            log_info "选择理由: 系统资源充足（评分: $score/6），推荐Docker部署"
+            log_info "优化配置: 容器化部署、隔离性更好、易于管理"
         fi
         
         # 智能模式下自动设置其他参数
@@ -606,8 +605,8 @@ select_install_type() {
         log_info "💡 系统资源适中（评分: $score/6），推荐选择原生安装"
         recommended="2"
     else
-        log_info "💡 系统资源充足（评分: $score/6），推荐选择原生安装"
-        recommended="2"  # 改为2，因为Docker安装尚未实现
+        log_info "💡 系统资源充足（评分: $score/6），推荐选择Docker安装"
+        recommended="1"
     fi
     
     echo ""
@@ -654,7 +653,13 @@ install_system_dependencies() {
     case $PACKAGE_MANAGER in
         "apt")
             apt-get update
-            apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python$PYTHON_VERSION-dev python3-pip
+            if apt-get install -y python$PYTHON_VERSION python$PYTHON_VERSION-venv python$PYTHON_VERSION-dev python3-pip 2>/dev/null; then
+                log_success "Python $PYTHON_VERSION 安装成功"
+            else
+                log_warning "未找到 Python $PYTHON_VERSION，回退到系统默认Python3"
+                apt-get install -y python3 python3-venv python3-dev python3-pip
+                PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            fi
             
             # 安装MySQL/MariaDB
             log_info "安装MySQL/MariaDB..."
@@ -882,7 +887,11 @@ install_python_dependencies() {
     cd "$INSTALL_DIR"
     
     # 创建虚拟环境
-    python$PYTHON_VERSION -m venv venv
+    local python_bin="python$PYTHON_VERSION"
+    if ! command -v "$python_bin" &>/dev/null; then
+        python_bin="python3"
+    fi
+    "$python_bin" -m venv venv
     source venv/bin/activate
     
     # 升级pip
@@ -985,7 +994,24 @@ deploy_php_frontend() {
     touch "$FRONTEND_DIR/logs/debug.log"
     
     # 设置权限
-    chown -R www-data:www-data "$FRONTEND_DIR"
+    # 动态检测Web服务用户，兼容不同发行版
+    local web_user=""
+    local web_group=""
+    if id -u www-data >/dev/null 2>&1; then
+        web_user="www-data"; web_group="www-data"
+    elif id -u nginx >/dev/null 2>&1; then
+        web_user="nginx"; web_group="nginx"
+    elif id -u apache >/dev/null 2>&1; then
+        web_user="apache"; web_group="apache"
+    elif id -u http >/dev/null 2>&1; then
+        web_user="http"; web_group="http"
+    else
+        # 回退到服务用户，避免脚本因不存在的用户而失败
+        web_user="$SERVICE_USER"; web_group="$SERVICE_GROUP"
+        log_warning "未检测到常见Web用户，使用服务用户: ${web_user}:${web_group}"
+    fi
+
+    chown -R "$web_user":"$web_group" "$FRONTEND_DIR" 2>/dev/null || true
     chmod -R 755 "$FRONTEND_DIR"
     chmod -R 777 "$FRONTEND_DIR/logs"
     
@@ -1013,8 +1039,27 @@ deploy_php_frontend() {
 configure_nginx() {
     log_info "配置Nginx..."
     
+    # 计算Nginx配置路径（兼容不同发行版）
+    local nginx_site_name="ipv6-wireguard-manager"
+    local nginx_sites_available="/etc/nginx/sites-available"
+    local nginx_sites_enabled="/etc/nginx/sites-enabled"
+    local nginx_conf_d="/etc/nginx/conf.d"
+    local nginx_conf_path=""
+
+    if [[ -d "$nginx_sites_available" ]]; then
+        nginx_conf_path="$nginx_sites_available/$nginx_site_name"
+    elif [[ -d "$nginx_conf_d" ]]; then
+        nginx_conf_path="$nginx_conf_d/${nginx_site_name}.conf"
+    elif [[ -d "$NGINX_CONFIG_DIR" ]]; then
+        nginx_conf_path="$NGINX_CONFIG_DIR/${nginx_site_name}.conf"
+    else
+        mkdir -p "$INSTALL_DIR/config/nginx"
+        nginx_conf_path="$INSTALL_DIR/config/nginx/${nginx_site_name}.conf"
+        log_warning "未找到标准Nginx配置目录，配置将写入: $nginx_conf_path"
+    fi
+
     # 创建Nginx配置
-    cat > /etc/nginx/sites-available/ipv6-wireguard-manager << EOF
+    cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
     # IPv6优先，IPv4作为备选
@@ -1028,8 +1073,8 @@ upstream backend_api {
 }
 
 server {
-    listen 80;
-    listen [::]:80;
+    listen $WEB_PORT;
+    listen [::]:$WEB_PORT;
     server_name _;
     root $FRONTEND_DIR;
     index index.php index.html;
@@ -1154,15 +1199,17 @@ server {
 }
 EOF
     
-    # 启用站点
-    ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
+    # 启用站点（Debian/Ubuntu）或直接使用conf.d（RHEL/CentOS等）
+    if [[ -d "$nginx_sites_available" && -d "$nginx_sites_enabled" ]]; then
+        ln -sf "$nginx_conf_path" "$nginx_sites_enabled/$nginx_site_name"
+        rm -f "$nginx_sites_enabled/default" 2>/dev/null || true
+    fi
     
     # 测试配置
     if nginx -t; then
         systemctl restart nginx
         systemctl enable nginx
-        log_success "Nginx配置完成"
+        log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
     else
         log_error "Nginx配置错误"
         exit 1
@@ -1583,8 +1630,8 @@ create_system_service() {
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager Backend
-After=network.target mysql.service
-Wants=mysql.service
+After=network.target mysql.service mariadb.service mysqld.service
+Wants=mysql.service mariadb.service mysqld.service
 
 [Service]
 Type=simple
