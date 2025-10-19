@@ -8,21 +8,35 @@ class ErrorHandlerJWT {
     private $debugMode;
     
     private function __construct() {
-        $this->logFile = __DIR__ . '/../logs/error.log';
         $this->debugMode = defined('DEBUG') && DEBUG;
-        
-        // 确保日志目录存在
-        $logDir = dirname($this->logFile);
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
-        }
-        
+        $this->logFile = $this->determineLogFilePath();
+
         // 设置错误处理
         set_error_handler([$this, 'handleError']);
         set_exception_handler([$this, 'handleException']);
         register_shutdown_function([$this, 'handleShutdown']);
     }
-    
+
+    /**
+     * 确定可写的日志文件路径，优先使用项目日志目录，不可写时回退到系统临时目录
+     */
+    private function determineLogFilePath() {
+        $default = __DIR__ . '/../logs/error.log';
+        $logDir = dirname($default);
+
+        // 如果目录存在或可创建，并且目录/文件可写，则使用默认路径
+        if (is_dir($logDir) || @mkdir($logDir, 0755, true)) {
+            if (is_writable($logDir)) {
+                if (!file_exists($default) || is_writable($default)) {
+                    return $default;
+                }
+            }
+        }
+
+        // 回退到系统临时目录，避免权限问题导致的报错
+        return sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+    }
+
     public static function getInstance() {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -143,24 +157,37 @@ class ErrorHandlerJWT {
      */
     private function logError($error) {
         $logEntry = json_encode($error, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n" . str_repeat('-', 80) . "\n";
-        
-        // 确保日志目录存在
+
+        // 确保日志目录存在，不可写时回退到临时目录（避免触发PHP Warning）
         $logDir = dirname($this->logFile);
         if (!is_dir($logDir)) {
-            if (!mkdir($logDir, 0755, true)) {
-                // 如果无法创建目录，使用系统临时目录
-                $this->logFile = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+            @mkdir($logDir, 0755, true);
+        }
+
+        $needsFallback = false;
+        if (!is_dir($logDir) || !is_writable($logDir)) {
+            $needsFallback = true;
+        } elseif (file_exists($this->logFile) && !is_writable($this->logFile)) {
+            $needsFallback = true;
+        }
+
+        if ($needsFallback) {
+            $this->logFile = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+        }
+
+        // 使用@抑制可能的警告，避免递归错误处理
+        if (@file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX) === false) {
+            $fallback = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
+            if ($this->logFile !== $fallback) {
+                $this->logFile = $fallback;
+                @file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+            } else {
+                // 最后尝试使用PHP系统错误日志
+                error_log($logEntry);
             }
         }
-        
-        // 尝试写入日志文件
-        if (!file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX)) {
-            // 如果写入失败，尝试使用系统临时目录
-            $this->logFile = sys_get_temp_dir() . '/ipv6-wireguard-error.log';
-            file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
-        }
     }
-    
+
     /**
      * 显示错误页面
      */
