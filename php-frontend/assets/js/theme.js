@@ -226,7 +226,7 @@ class AnimationEnhancer {
     addRippleEffect() {
         document.addEventListener('click', (e) => {
             const button = e.target.closest('.btn, .card, .list-group-item');
-            if (button && !button.classList.contains('no-ripple')) {
+            if (button && button.classList && !button.classList.contains('no-ripple')) {
                 this.createRipple(e, button);
             }
         });
@@ -262,13 +262,13 @@ class AnimationEnhancer {
     addHoverEffects() {
         // 卡片悬停效果
         document.addEventListener('mouseenter', (e) => {
-            if (e.target.classList.contains('card')) {
+            if (e.target && e.target.classList && e.target.classList.contains('card')) {
                 e.target.style.transform = 'translateY(-2px)';
             }
         }, true);
         
         document.addEventListener('mouseleave', (e) => {
-            if (e.target.classList.contains('card')) {
+            if (e.target && e.target.classList && e.target.classList.contains('card')) {
                 e.target.style.transform = 'translateY(0)';
             }
         }, true);

@@ -1,4 +1,4 @@
-                </div>
+</div>
             </div>
         </div>
     </div>
@@ -89,12 +89,18 @@
             const body = document.body;
             const sidebar = document.getElementById('sidebar');
             
-            if (body.classList.contains('sidebar-collapsed')) {
+            if (body && body.classList && body.classList.contains('sidebar-collapsed')) {
                 body.classList.remove('sidebar-collapsed');
-                sidebar.classList.add('show');
+                if (sidebar && sidebar.classList) {
+                    sidebar.classList.add('show');
+                }
             } else {
-                body.classList.add('sidebar-collapsed');
-                sidebar.classList.remove('show');
+                if (body && body.classList) {
+                    body.classList.add('sidebar-collapsed');
+                }
+                if (sidebar && sidebar.classList) {
+                    sidebar.classList.remove('show');
+                }
             }
         }
         
@@ -215,20 +221,24 @@
         function initPageAnimations() {
             // 为页面内容添加过渡动画
             const content = document.querySelector('.content');
-            if (content) {
+            if (content && content.classList) {
                 content.classList.add('page-transition');
             }
 
             // 为卡片添加悬停效果
             const cards = document.querySelectorAll('.card');
             cards.forEach(card => {
-                card.classList.add('card-hover');
+                if (card && card.classList) {
+                    card.classList.add('card-hover');
+                }
             });
 
             // 为表格行添加动画延迟
             const tableRows = document.querySelectorAll('table tbody tr');
             tableRows.forEach((row, index) => {
-                row.style.animationDelay = `${index * 0.1}s`;
+                if (row) {
+                    row.style.animationDelay = `${index * 0.1}s`;
+                }
             });
         }
 
@@ -239,33 +249,43 @@
             // 为按钮添加点击波纹效果
             const buttons = document.querySelectorAll('.btn');
             buttons.forEach(button => {
-                button.addEventListener('click', function(e) {
-                    createRippleEffect(e, this);
-                });
+                if (button) {
+                    button.addEventListener('click', function(e) {
+                        createRippleEffect(e, this);
+                    });
+                }
             });
 
             // 为输入框添加焦点效果
             const inputs = document.querySelectorAll('.form-control');
             inputs.forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.parentElement.classList.add('focused');
-                });
-                
-                input.addEventListener('blur', function() {
-                    this.parentElement.classList.remove('focused');
-                });
+                if (input) {
+                    input.addEventListener('focus', function() {
+                        if (this.parentElement && this.parentElement.classList) {
+                            this.parentElement.classList.add('focused');
+                        }
+                    });
+                    
+                    input.addEventListener('blur', function() {
+                        if (this.parentElement && this.parentElement.classList) {
+                            this.parentElement.classList.remove('focused');
+                        }
+                    });
+                }
             });
 
             // 为链接添加悬停效果
             const links = document.querySelectorAll('a');
             links.forEach(link => {
-                link.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-2px)';
-                });
-                
-                link.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0)';
-                });
+                if (link) {
+                    link.addEventListener('mouseenter', function() {
+                        this.style.transform = 'translateY(-2px)';
+                    });
+                    
+                    link.addEventListener('mouseleave', function() {
+                        this.style.transform = 'translateY(0)';
+                    });
+                }
             });
         }
 
@@ -273,6 +293,8 @@
          * 创建波纹效果
          */
         function createRippleEffect(event, element) {
+            if (!element || !event) return;
+            
             const ripple = document.createElement('span');
             const rect = element.getBoundingClientRect();
             const size = Math.max(rect.width, rect.height);
@@ -282,14 +304,18 @@
             ripple.style.width = ripple.style.height = size + 'px';
             ripple.style.left = x + 'px';
             ripple.style.top = y + 'px';
-            ripple.classList.add('ripple');
+            if (ripple.classList) {
+                ripple.classList.add('ripple');
+            }
             
             element.style.position = 'relative';
             element.style.overflow = 'hidden';
             element.appendChild(ripple);
             
             setTimeout(() => {
-                ripple.remove();
+                if (ripple) {
+                    ripple.remove();
+                }
             }, 600);
         }
 
@@ -300,7 +326,7 @@
             if (typeof element === 'string') {
                 element = document.querySelector(element);
             }
-            if (element) {
+            if (element && element.classList) {
                 element.classList.add('loading');
                 element.style.pointerEvents = 'none';
                 
@@ -324,7 +350,7 @@
             if (typeof element === 'string') {
                 element = document.querySelector(element);
             }
-            if (element) {
+            if (element && element.classList) {
                 element.classList.remove('loading');
                 element.style.pointerEvents = 'auto';
                 

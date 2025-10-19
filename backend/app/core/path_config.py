@@ -6,16 +6,18 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 import os
 import logging
-from .config_enhanced import settings
 
 logger = logging.getLogger(__name__)
 
 class PathConfig:
     """路径配置管理类，支持环境变量覆盖和自定义路径"""
     
-    def __init__(self):
+    def __init__(self, install_dir: Optional[str] = None):
         # 基础安装目录，支持环境变量覆盖
-        self.base_dir = Path(os.getenv("INSTALL_DIR", "/opt/ipv6-wireguard-manager"))
+        if install_dir:
+            self.base_dir = Path(install_dir)
+        else:
+            self.base_dir = Path(os.getenv("INSTALL_DIR", "/opt/ipv6-wireguard-manager"))
         
         # 应用内部目录
         self.config_dir = self.base_dir / "config"
