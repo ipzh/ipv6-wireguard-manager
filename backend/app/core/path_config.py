@@ -213,22 +213,31 @@ class PathConfig:
         
         return validation_result
 
-# 创建全局路径配置实例
-path_config = PathConfig()
+# 路径配置工厂函数
+def create_path_config(install_dir: Optional[str] = None) -> PathConfig:
+    """创建路径配置实例的工厂函数"""
+    return PathConfig(install_dir)
 
-# 便捷函数
-def get_path(path_name: str) -> Optional[Path]:
+# 便捷函数 - 使用工厂函数而不是全局实例
+def get_path(path_name: str, install_dir: Optional[str] = None) -> Optional[Path]:
     """获取指定名称的路径（便捷函数）"""
-    return path_config.get_path(path_name)
+    config = create_path_config(install_dir)
+    return config.get_path(path_name)
 
-def update_path(path_name: str, new_path: str):
+def update_path(path_name: str, new_path: str, install_dir: Optional[str] = None):
     """更新指定路径（便捷函数）"""
-    path_config.update_path(path_name, new_path)
+    config = create_path_config(install_dir)
+    config.update_path(path_name, new_path)
 
-def ensure_path_exists(path_name: str) -> bool:
+def ensure_path_exists(path_name: str, install_dir: Optional[str] = None) -> bool:
     """确保指定路径存在（便捷函数）"""
-    return path_config.ensure_path_exists(path_name)
+    config = create_path_config(install_dir)
+    return config.ensure_path_exists(path_name)
 
-def validate_paths() -> Dict[str, Any]:
+def validate_paths(install_dir: Optional[str] = None) -> Dict[str, Any]:
     """验证所有路径（便捷函数）"""
-    return path_config.validate_all_paths()
+    config = create_path_config(install_dir)
+    return config.validate_all_paths()
+
+# 为了向后兼容，保留全局实例（但建议使用工厂函数）
+path_config = PathConfig()

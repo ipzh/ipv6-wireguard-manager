@@ -113,10 +113,7 @@
     </div>
 
     <script type="module">
-        import { initApiPathBuilder } from './public/js/ApiPathBuilder.js';
-        
-        // 初始化API路径构建器
-        const apiPathBuilder = initApiPathBuilder('http://localhost:8000/api');
+        import { apiPathBuilder } from './config/api_endpoints.js';
         
         // 测试结果
         let testResults = {};

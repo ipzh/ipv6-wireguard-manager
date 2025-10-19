@@ -1,37 +1,17 @@
 /**
- * 统一的API客户端 - 使用统一API路径构建器
+ * 统一的API客户端 - 简化版本
  * 提供统一的请求处理、错误处理和认证
  */
 
 import axios from 'axios';
-import { 
-  getDefaultApiPathBuilder,
-  validateApiPath,
-  buildApiPath,
-  apiPathExists
-} from '../public/js/ApiPathBuilder.js';
+import { apiPathBuilder, API_CONFIG } from '../config/api_endpoints.js';
 
 // 创建axios实例
 const apiClient = axios.create({
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: API_CONFIG.TIMEOUT,
+  headers: API_CONFIG.DEFAULT_HEADERS,
+  baseURL: API_CONFIG.BASE_URL,
 });
-
-// API路径构建器实例
-let apiPathBuilder = null;
-
-// 初始化API路径构建器
-function initApiPathBuilder(baseUrl = '') {
-  if (!apiPathBuilder) {
-    apiPathBuilder = getDefaultApiPathBuilder(baseUrl);
-    
-    // 设置axios基础URL
-    apiClient.defaults.baseURL = apiPathBuilder.baseUrl;
-  }
-  return apiPathBuilder;
-}
 
 // 请求拦截器 - 添加认证token
 apiClient.interceptors.request.use(
@@ -62,8 +42,7 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
-          const pathBuilder = initApiPathBuilder();
-          const refreshUrl = pathBuilder.buildUrl('auth.refresh');
+          const refreshUrl = apiPathBuilder.buildUrl('auth.refresh');
           
           const response = await axios.post(refreshUrl, {
             refresh_token: refreshToken,
@@ -93,7 +72,11 @@ apiClient.interceptors.response.use(
 class ApiClient {
   constructor(baseUrl = '') {
     // 初始化API路径构建器
-    this.apiPathBuilder = initApiPathBuilder(baseUrl);
+    this.apiPathBuilder = apiPathBuilder;
+    if (baseUrl) {
+      this.apiPathBuilder.setApiBaseUrl(baseUrl);
+      apiClient.defaults.baseURL = baseUrl;
+    }
   }
   
   // 通用请求方法
