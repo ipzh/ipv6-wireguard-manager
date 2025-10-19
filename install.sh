@@ -1070,14 +1070,14 @@ server {
         proxy_next_upstream_tries 3;
         proxy_next_upstream_timeout 10s;
         
-        # CORS头
-        add_header Access-Control-Allow-Origin * always;
+        # CORS头 - 支持环境变量配置
+        add_header Access-Control-Allow-Origin "${BACKEND_ALLOWED_ORIGINS:-http://localhost:$WEB_PORT}" always;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
         
         # 处理预检请求
         if (\$request_method = 'OPTIONS') {
-            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Origin "${BACKEND_ALLOWED_ORIGINS:-http://localhost:$WEB_PORT}" always;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
             add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
             add_header Access-Control-Max-Age 1728000;
@@ -1481,7 +1481,7 @@ NGINX_PORT=$WEB_PORT
 
 # Security Configuration (Dynamic)
 DEFAULT_USERNAME="admin"
-DEFAULT_PASSWORD="admin123"
+DEFAULT_PASSWORD="$admin_password"
 SESSION_TIMEOUT=1440
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_DURATION=15
@@ -1751,8 +1751,11 @@ show_installation_complete() {
     
     log_info "初始登录信息:"
     log_info "  用户名: admin"
-    log_info "  密码: 请查看 $INSTALL_DIR/.env 中的 FIRST_SUPERUSER_PASSWORD（已生成强随机密码），并请尽快修改"
+    log_info "  密码: $admin_password"
     log_info "  邮箱: admin@example.com"
+    echo ""
+    log_warning "⚠️  重要：请立即登录并修改默认密码！"
+    log_warning "⚠️  此密码仅显示一次，请妥善保存！"
     echo ""
     
     if [[ "$INSTALL_TYPE" = "docker" ]]; then

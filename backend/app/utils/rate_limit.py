@@ -2,10 +2,9 @@
 速率限制工具 - 提供API请求速率限制功能
 """
 import time
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
 from functools import wraps
 from fastapi import HTTPException, Request, status
-import redis.asyncio as redis
 
 from ..core.logging import get_logger
 
