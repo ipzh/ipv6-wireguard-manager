@@ -275,7 +275,7 @@ Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
 Environment=INSTALL_DIR=/opt/ipv6-wireguard-manager
 Environment=LOG_DIR=/var/log/ipv6-wireguard-manager
 Environment=CONFIG_DIR=/etc/wireguard
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host :: --port 8000
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
@@ -818,7 +818,7 @@ sudo nano /etc/systemd/system/ipv6-wireguard-manager.service
 
 ```ini
 [Service]
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host :: --port 8000 --workers 4
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 Environment=PATH_BUILDER_WORKERS=4
 ```
 
@@ -1168,7 +1168,7 @@ sudo nano /etc/systemd/system/ipv6-wireguard-manager.service
 
 ```ini
 [Service]
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host :: --port 8000 --workers 4
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### 3. 安全加固

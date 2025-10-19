@@ -1640,7 +1640,7 @@ Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host :: --port $API_PORT --workers 1
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
 Restart=always
 RestartSec=10
 StandardOutput=journal

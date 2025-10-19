@@ -57,7 +57,40 @@ check_port_listening() {
     
     log_info "检查 $description 端口 $port ($protocol) 监听状态..."
     
-    if netstat -tuln | grep -q ":$port "; then
+    # 尝试使用多种方法检查端口
+    local port_found=false
+    
+    # 方法1: 使用 netstat (如果可用)
+    if command -v netstat >/dev/null 2>&1; then
+        if netstat -tuln | grep -q ":$port "; then
+            port_found=true
+        fi
+    # 方法2: 使用 ss (如果可用)
+    elif command -v ss >/dev/null 2>&1; then
+        if ss -tuln | grep -q ":$port "; then
+            port_found=true
+        fi
+    # 方法3: 使用 lsof (如果可用)
+    elif command -v lsof >/dev/null 2>&1; then
+        if lsof -i ":$port" >/dev/null 2>&1; then
+            port_found=true
+        fi
+    # 方法4: 使用 telnet 测试连接
+    elif command -v telnet >/dev/null 2>&1; then
+        if echo "quit" | timeout 2 telnet localhost "$port" >/dev/null 2>&1; then
+            port_found=true
+        fi
+    # 方法5: 使用 nc (netcat)
+    elif command -v nc >/dev/null 2>&1; then
+        if nc -z localhost "$port" >/dev/null 2>&1; then
+            port_found=true
+        fi
+    else
+        log_warning "无法找到合适的工具检查端口状态 (netstat, ss, lsof, telnet, nc)"
+        return 1
+    fi
+    
+    if [[ "$port_found" == "true" ]]; then
         log_success "$description 端口 $port ($protocol) 正在监听"
         return 0
     else
@@ -91,7 +124,41 @@ check_ipv6_connectivity() {
     
     log_info "检查 $service_name IPv6 连接性..."
     
+    # 首先检查系统是否支持IPv6
+    if ! command -v ip >/dev/null 2>&1; then
+        log_warning "无法检查IPv6支持状态 (ip命令不可用)"
+        return 1
+    fi
+    
+    # 检查是否有IPv6地址
+    local ipv6_addresses=$(ip -6 addr show | grep -c "inet6")
+    if [[ $ipv6_addresses -eq 0 ]]; then
+        log_warning "$service_name IPv6 连接失败 (系统未配置IPv6地址)"
+        return 1
+    fi
+    
+    # 尝试多种IPv6连接方法
+    local ipv6_connected=false
+    
+    # 方法1: 使用 ::1 (localhost IPv6)
     if curl -6 -s --connect-timeout 5 "http://[::1]:$port$path" >/dev/null 2>&1; then
+        ipv6_connected=true
+    # 方法2: 使用系统IPv6地址
+    elif command -v ip >/dev/null 2>&1; then
+        local system_ipv6=$(ip -6 addr show | grep "inet6" | grep -v "::1" | head -1 | awk '{print $2}' | cut -d'/' -f1)
+        if [[ -n "$system_ipv6" ]]; then
+            if curl -6 -s --connect-timeout 5 "http://[$system_ipv6]:$port$path" >/dev/null 2>&1; then
+                ipv6_connected=true
+            fi
+        fi
+    # 方法3: 使用 nc (netcat) 测试IPv6连接
+    elif command -v nc >/dev/null 2>&1; then
+        if nc -6 -z ::1 "$port" >/dev/null 2>&1; then
+            ipv6_connected=true
+        fi
+    fi
+    
+    if [[ "$ipv6_connected" == "true" ]]; then
         log_success "$service_name IPv6 连接正常"
         return 0
     else

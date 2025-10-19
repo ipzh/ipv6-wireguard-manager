@@ -7,9 +7,6 @@ import secrets
 from typing import List, Optional, Union
 from pathlib import Path
 
-# 导入路径配置
-from .path_config import path_config
-
 try:
     # Pydantic 2.x
     from pydantic_settings import BaseSettings
@@ -185,46 +182,64 @@ class Settings(BaseSettings):
     @property
     def WIREGUARD_CONFIG_DIR(self) -> str:
         """WireGuard配置目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.wireguard_config_dir)
     
     @property
     def WIREGUARD_CLIENTS_DIR(self) -> str:
         """WireGuard客户端配置目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.wireguard_clients_dir)
     
     @property
     def FRONTEND_DIR(self) -> str:
         """前端Web目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.frontend_dir)
     
     @property
     def LOG_FILE(self) -> Optional[str]:
         """日志文件路径"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.logs_dir / "app.log")
     
     @property
     def BACKUP_DIR(self) -> str:
         """备份目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.backups_dir)
     
     @property
     def NGINX_CONFIG_DIR(self) -> str:
         """Nginx配置目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.nginx_config_dir)
     
     @property
     def NGINX_LOG_DIR(self) -> str:
         """Nginx日志目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.nginx_log_dir)
     
     @property
     def SYSTEMD_CONFIG_DIR(self) -> str:
         """Systemd服务配置目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.systemd_config_dir)
     
     @property
     def BIN_DIR(self) -> str:
         """二进制文件目录"""
+        from .path_config import PathConfig
+        path_config = PathConfig(self.INSTALL_DIR)
         return str(path_config.bin_dir)
     
     # 监控配置

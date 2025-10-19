@@ -243,7 +243,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/opt/ipv6-wireguard-manager
 Environment=PATH=/opt/ipv6-wireguard-manager/venv/bin
-ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --host :: --port 8000
+ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
