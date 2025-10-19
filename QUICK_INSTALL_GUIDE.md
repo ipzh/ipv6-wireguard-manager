@@ -177,7 +177,7 @@ sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
 
 - **GitHub仓库**: https://github.com/ipzh/ipv6-wireguard-manager
 - **问题反馈**: https://github.com/ipzh/ipv6-wireguard-manager/issues
-- **文档中心**: https://github.com/ipzh/ipv6-wireguard-manager/wiki
+- **文档中心**: https://github.com/ipzh/ipv6-wireguard-manager/tree/main/docs
 
 ---
 

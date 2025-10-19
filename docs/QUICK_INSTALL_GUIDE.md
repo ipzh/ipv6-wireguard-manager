@@ -250,7 +250,7 @@ sudo systemctl restart ipv6-wireguard-manager
 
 ## 技术支持
 
-- **文档**: [完整文档](https://github.com/ipzh/ipv6-wireguard-manager/docs)
+- **文档**: [完整文档](https://github.com/ipzh/ipv6-wireguard-manager/tree/main/docs)
 - **问题反馈**: [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues)
 - **社区讨论**: [GitHub Discussions](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
 

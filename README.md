@@ -318,9 +318,9 @@ cd ../php-frontend && npm install
 ## 🆘 支持
 
 ### 获取帮助
-- **文档**: 查看项目文档
-- **Issues**: 提交问题和建议
-- **讨论**: 参与社区讨论
+- **文档**: [完整文档](https://github.com/ipzh/ipv6-wireguard-manager/tree/main/docs)
+- **Issues**: [提交问题和建议](https://github.com/ipzh/ipv6-wireguard-manager/issues)
+- **讨论**: [参与社区讨论](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
 - **邮件**: 发送邮件到 support@example.com
 
 ### 常见问题

@@ -355,7 +355,7 @@ class IPv6WireGuardManagerCLI:
 
 {Colors.WHITE}更多信息:{Colors.NC}
     项目主页: https://github.com/ipzh/ipv6-wireguard-manager
-    文档: https://github.com/ipzh/ipv6-wireguard-manager/docs
+    文档: https://github.com/ipzh/ipv6-wireguard-manager/tree/main/docs
 """
         print(help_text)
     
