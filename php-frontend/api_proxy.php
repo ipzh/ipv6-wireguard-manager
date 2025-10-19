@@ -3,6 +3,9 @@
  * API代理 - 将前端请求转发到后端API
  */
 
+// 引入SSL安全配置
+require_once __DIR__ . '/includes/ssl_security.php';
+
 // 设置JSON响应头
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, no-store, must-revalidate');
@@ -53,11 +56,12 @@ curl_setopt_array($ch, [
     CURLOPT_HTTPHEADER => $headers,
     CURLOPT_TIMEOUT => 30,
     CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => false,
-    CURLOPT_SSL_VERIFYHOST => false,
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_MAXREDIRS => 3
 ]);
+
+// 应用安全的SSL配置
+applySecureSSLConfig($ch);
 
 if ($data) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);

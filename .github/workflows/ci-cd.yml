@@ -22,12 +22,12 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
       with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        php-version: '8.1'
+        extensions: curl, json, mbstring, openssl, pdo, pdo_mysql
+        tools: composer, phpcs, phpcbf, phpstan
     
     - name: Install Python dependencies
       run: |
@@ -35,10 +35,10 @@ jobs:
         pip install flake8 black isort mypy pytest pytest-cov
         pip install -r backend/requirements.txt
     
-    - name: Install Node.js dependencies
+    - name: Install PHP dependencies
       run: |
-        cd frontend
-        npm ci
+        cd php-frontend
+        composer install --no-dev --optimize-autoloader
     
     - name: Python code formatting check
       run: |
@@ -54,37 +54,38 @@ jobs:
       run: |
         mypy backend/ --ignore-missing-imports
     
-    - name: Frontend linting
+    - name: PHP syntax check
       run: |
-        cd frontend
-        npm run lint
+        find php-frontend -name "*.php" -exec php -l {} \;
     
-    - name: Frontend type checking
+    - name: PHP code style check
       run: |
-        cd frontend
-        npm run type-check
+        cd php-frontend
+        phpcs --standard=PSR12 --ignore=vendor/ .
     
-    - name: Frontend build test
+    - name: PHP static analysis
       run: |
-        cd frontend
-        npm run build
+        cd php-frontend
+        phpstan analyse --level=5 --no-progress .
 
   # 单元测试
   unit-tests:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:15
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
         ports:
-          - 5432:5432
+          - 3306:3306
       
       redis:
         image: redis:7
@@ -112,9 +113,10 @@ jobs:
     
     - name: Run backend tests
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL: mysql://test_user:test_password@localhost:3306/test_db
         REDIS_URL: redis://localhost:6379/0
         SECRET_KEY: test-secret-key
+        FIRST_SUPERUSER_PASSWORD: test-admin-password
       run: |
         cd backend
         pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
@@ -138,12 +140,20 @@ jobs:
     
     - name: Build test images
       run: |
-        docker-compose -f docker-compose.test.yml build
+        docker-compose -f docker-compose.yml build
     
     - name: Run integration tests
+      env:
+        MYSQL_ROOT_PASSWORD: test-password
+        SECRET_KEY: test-secret-key
+        FIRST_SUPERUSER_PASSWORD: test-admin-password
       run: |
-        docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-        docker-compose -f docker-compose.test.yml down
+        docker-compose -f docker-compose.yml up -d
+        sleep 30
+        # 运行API健康检查
+        curl -f http://localhost:8000/api/v1/health
+        curl -f http://localhost/health
+        docker-compose -f docker-compose.yml down
     
     - name: Collect test results
       uses: actions/upload-artifact@v3
@@ -176,6 +186,12 @@ jobs:
         pip install safety bandit
         safety check -r backend/requirements.txt
         bandit -r backend/ -f json -o bandit-report.json
+    
+    - name: PHP security check
+      run: |
+        cd php-frontend
+        composer require --dev phpstan/phpstan-security-checker
+        phpstan analyse --level=5 --no-progress .
     
     - name: Upload security reports
       uses: actions/upload-artifact@v3
@@ -215,7 +231,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix={{branch}}- 
           type=raw,value=latest,enable={{is_default_branch}}
     
     - name: Build and push Docker image

@@ -155,11 +155,6 @@ class Settings(BaseSettings):
         "http://[::1]:8080",
         "http://[::1]:5173",
         "http://[::1]",
-        "http://172.16.0.0/12",
-        "http://192.168.0.0/16",
-        "http://10.0.0.0/8",
-        "http://[fd00::]/8",
-        "http://[fe80::]/10",
         "https://localhost:3000",
         "https://localhost:8080",
         "https://localhost:5173",
@@ -171,8 +166,7 @@ class Settings(BaseSettings):
         "https://[::1]:3000",
         "https://[::1]:8080",
         "https://[::1]:5173",
-        "https://[::1]",
-        "*"
+        "https://[::1]"
     ]
     
     # 文件上传配置
@@ -264,7 +258,7 @@ class Settings(BaseSettings):
     
     # 超级用户配置
     FIRST_SUPERUSER: str = "admin"
-    FIRST_SUPERUSER_PASSWORD: str = "admin123"
+    FIRST_SUPERUSER_PASSWORD: Optional[str] = None  # 必须通过环境变量设置
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
     
     # 配置验证
@@ -274,6 +268,22 @@ class Settings(BaseSettings):
         """验证密钥强度"""
         if len(v) < 32:
             raise ValueError("Secret key must be at least 32 characters")
+        return v
+    
+    @field_validator("FIRST_SUPERUSER_PASSWORD")
+    @classmethod
+    def validate_superuser_password(cls, v: Optional[str]) -> str:
+        """验证超级用户密码"""
+        if v is None:
+            # 生成随机密码
+            import secrets
+            import string
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            v = ''.join(secrets.choice(alphabet) for _ in range(16))
+            print(f"⚠️  警告：未设置FIRST_SUPERUSER_PASSWORD环境变量，已生成随机密码: {v}")
+            print(f"⚠️  请立即修改此密码！")
+        elif v in ["admin123", "admin", "password", "123456", "root"]:
+            raise ValueError("不允许使用弱密码，请设置强密码")
         return v
     
     @field_validator("DATABASE_URL")
@@ -289,10 +299,36 @@ class Settings(BaseSettings):
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         """组装CORS源"""
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
+            origins = [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+            origins = v
+        else:
+            raise ValueError(v)
+        
+        # 验证CORS源安全性
+        cls._validate_cors_origins(origins)
+        return origins
+    
+    @classmethod
+    def _validate_cors_origins(cls, origins: List[str]):
+        """验证CORS源的安全性"""
+        # 检查是否包含通配符
+        if "*" in origins:
+            import os
+            environment = os.getenv("ENVIRONMENT", "development")
+            if environment == "production":
+                raise ValueError("生产环境不允许使用CORS通配符 '*'，请指定具体的域名")
+            else:
+                import logging
+                logging.warning("开发环境使用CORS通配符 '*'，生产环境请指定具体域名")
+        
+        # 检查是否有不安全的HTTP源（生产环境）
+        import os
+        environment = os.getenv("ENVIRONMENT", "development")
+        if environment == "production":
+            for origin in origins:
+                if origin.startswith("http://") and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1"):
+                    raise ValueError(f"生产环境不允许使用不安全的HTTP源: {origin}")
     
     @field_validator("LOG_LEVEL")
     @classmethod

@@ -29,7 +29,7 @@
 - **健康检查** - 全面的系统健康状态检查
 
 ### 🔧 技术特性
-- **现代化架构** - FastAPI + React/Vue.js 前后端分离
+- **现代化架构** - FastAPI + PHP 前后端分离
 - **容器化部署** - Docker和Docker Compose支持
 - **配置管理** - 统一配置管理和环境变量支持
 - **API标准化** - RESTful API设计和版本控制
@@ -41,7 +41,7 @@
 ### 环境要求
 
 - **Python**: 3.8+
-- **Node.js**: 16+
+- **PHP**: 8.1+
 - **MySQL**: 8.0+
 - **Docker**: 20.10+ (可选)
 - **系统**: Linux/macOS/Windows
@@ -90,7 +90,7 @@ pip install -r requirements.txt
 
 # 安装前端依赖
 cd ../php-frontend
-npm install
+composer install
 
 # 配置数据库
 mysql -u root -p < migrations/init.sql
@@ -103,24 +103,15 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ## 📖 详细文档
 
 ### 📚 核心文档
-- [安装指南](docs/INSTALLATION_GUIDE.md) - 详细的安装和配置说明
+- [安装指南](INSTALLATION_GUIDE.md) - 详细的安装和配置说明
 - [部署指南](docs/DEPLOYMENT_GUIDE.md) - 生产环境部署指南
 - [API文档](docs/API_DOCUMENTATION.md) - 完整的API参考文档
 - [用户手册](docs/USER_MANUAL.md) - 用户操作指南
 - [开发者指南](docs/DEVELOPER_GUIDE.md) - 开发者文档
-- [API路径构建器使用指南](API_PATH_BUILDER_USAGE.md) - API路径构建器详细使用说明
+- [API路径构建器使用指南](docs/API_PATH_BUILDER_USAGE.md) - API路径构建器详细使用说明
 
 ### 🔧 配置文档
 - [环境配置](docs/ENVIRONMENT_CONFIGURATION.md) - 环境变量配置说明
-- [数据库配置](docs/DATABASE_CONFIGURATION.md) - 数据库配置和优化
-- [安全配置](docs/SECURITY_CONFIGURATION.md) - 安全设置和最佳实践
-- [监控配置](docs/MONITORING_CONFIGURATION.md) - 监控和告警配置
-
-### 🚀 运维文档
-- [系统监控](docs/SYSTEM_MONITORING.md) - 系统监控和性能调优
-- [日志管理](docs/LOG_MANAGEMENT.md) - 日志配置和分析
-- [备份恢复](docs/BACKUP_RECOVERY.md) - 数据备份和恢复
-- [故障排除](docs/TROUBLESHOOTING.md) - 常见问题和解决方案
 
 ## 🏗️ 项目架构
 
@@ -265,7 +256,7 @@ python -m pytest tests/
 
 # 前端测试
 cd php-frontend
-npm test
+php -l *.php
 
 # 集成测试
 python test_api_standardization.py
@@ -294,12 +285,12 @@ git checkout -b feature/your-feature
 
 # 安装依赖
 cd backend && pip install -r requirements.txt
-cd ../php-frontend && npm install
+cd ../php-frontend && composer install
 ```
 
 ### 代码规范
 - **Python**: 遵循PEP 8规范
-- **JavaScript**: 遵循ESLint规范
+- **PHP**: 遵循PSR-12规范
 - **提交信息**: 使用约定式提交规范
 - **文档**: 使用Markdown格式
 
@@ -324,10 +315,10 @@ cd ../php-frontend && npm install
 - **邮件**: 发送邮件到 support@example.com
 
 ### 常见问题
-- [安装问题](docs/TROUBLESHOOTING.md#installation)
-- [配置问题](docs/TROUBLESHOOTING.md#configuration)
-- [性能问题](docs/TROUBLESHOOTING.md#performance)
-- [安全问题](docs/TROUBLESHOOTING.md#security)
+- [安装问题](docs/DEPLOYMENT_GUIDE.md#troubleshooting) - 安装和部署问题
+- [配置问题](docs/ENVIRONMENT_CONFIGURATION.md) - 环境配置问题
+- [API问题](docs/API_DOCUMENTATION.md#troubleshooting) - API使用问题
+- [开发问题](docs/DEVELOPER_GUIDE.md#troubleshooting) - 开发环境问题
 
 ## 🗺️ 路线图
 

@@ -59,19 +59,76 @@ class IPv6WireGuardManagerCLI:
         """错误日志"""
         print(f"{Colors.RED}[ERROR]{Colors.NC} {message}")
     
+    def get_database_config(self) -> Dict[str, str]:
+        """获取数据库配置"""
+        try:
+            # 尝试从环境变量获取数据库配置
+            db_url = os.getenv('DATABASE_URL')
+            if db_url:
+                # 解析DATABASE_URL: mysql://user:password@host:port/database
+                import re
+                match = re.match(r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
+                if match:
+                    return {
+                        'user': match.group(1),
+                        'password': match.group(2),
+                        'host': match.group(3),
+                        'port': match.group(4),
+                        'database': match.group(5)
+                    }
+            
+            # 尝试从配置文件读取
+            env_file = f"{self.install_dir}/.env"
+            if os.path.exists(env_file):
+                with open(env_file, 'r') as f:
+                    for line in f:
+                        if line.startswith('DATABASE_URL='):
+                            db_url = line.split('=', 1)[1].strip()
+                            match = re.match(r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
+                            if match:
+                                return {
+                                    'user': match.group(1),
+                                    'password': match.group(2),
+                                    'host': match.group(3),
+                                    'port': match.group(4),
+                                    'database': match.group(5)
+                                }
+            
+            # 默认配置
+            return {
+                'user': 'ipv6wgm',
+                'password': 'password',
+                'host': 'localhost',
+                'port': '3306',
+                'database': 'ipv6wgm'
+            }
+        except Exception as e:
+            self.log_error(f"获取数据库配置失败: {e}")
+            return {
+                'user': 'ipv6wgm',
+                'password': 'password',
+                'host': 'localhost',
+                'port': '3306',
+                'database': 'ipv6wgm'
+            }
+    
     def run_command(self, command: str, capture_output: bool = True) -> subprocess.CompletedProcess:
         """运行系统命令"""
         try:
+            # 将命令字符串转换为参数列表
+            import shlex
+            cmd_args = shlex.split(command)
+            
             if capture_output:
                 result = subprocess.run(
-                    command, 
-                    shell=True, 
+                    cmd_args, 
+                    shell=False, 
                     capture_output=True, 
                     text=True, 
                     check=False
                 )
             else:
-                result = subprocess.run(command, shell=True, check=False)
+                result = subprocess.run(cmd_args, shell=False, check=False)
             return result
         except Exception as e:
             self.log_error(f"命令执行失败: {e}")
@@ -247,11 +304,26 @@ class IPv6WireGuardManagerCLI:
         
         # 备份数据库
         self.log_info("备份数据库...")
-        result = self.run_command(f"mysqldump -u ipv6wgm -pipv6wgm_password ipv6wgm > {backup_dir}/database.sql")
+        db_config = self.get_database_config()
+        
+        # 使用环境变量避免明文密码
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = db_config['password']
+        
+        result = subprocess.run([
+            'mysqldump',
+            '-h', db_config['host'],
+            '-P', db_config['port'],
+            '-u', db_config['user'],
+            db_config['database']
+        ], env=env, capture_output=True, text=True)
+        
         if result.returncode == 0:
+            with open(f"{backup_dir}/database.sql", "w") as f:
+                f.write(result.stdout)
             self.log_success("数据库备份完成")
         else:
-            self.log_warning("数据库备份失败")
+            self.log_warning(f"数据库备份失败: {result.stderr}")
         
         # 创建备份信息文件
         backup_info = {
@@ -311,11 +383,24 @@ class IPv6WireGuardManagerCLI:
         
         # 数据库状态
         print("\n数据库状态:")
-        result = self.run_command("mysql -u ipv6wgm -pipv6wgm_password -e 'SELECT 1;'")
+        db_config = self.get_database_config()
+        
+        # 使用环境变量避免明文密码
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = db_config['password']
+        
+        result = subprocess.run([
+            'mysql',
+            '-h', db_config['host'],
+            '-P', db_config['port'],
+            '-u', db_config['user'],
+            '-e', 'SELECT 1;'
+        ], env=env, capture_output=True, text=True)
+        
         if result.returncode == 0:
             self.log_success("✓ 数据库连接正常")
         else:
-            self.log_error("✗ 数据库连接失败")
+            self.log_error(f"✗ 数据库连接失败: {result.stderr}")
     
     def show_help(self):
         """显示帮助信息"""

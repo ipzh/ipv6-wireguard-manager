@@ -8,7 +8,7 @@ from typing import Optional
 import logging
 
 from .core.config_enhanced import settings
-from .models.user import User
+from .models.models_complete import User
 
 logger = logging.getLogger(__name__)
 

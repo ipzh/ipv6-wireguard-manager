@@ -2,6 +2,7 @@ import uuid
 import subprocess
 import psutil
 import json
+import re
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -18,6 +19,108 @@ logger = get_logger(__name__)
 class NetworkService:
     def __init__(self, db: AsyncSession):
         self.db = db
+        
+        # 安全的防火墙参数白名单
+        self.allowed_tables = {"filter", "nat", "mangle", "raw"}
+        self.allowed_chains = {"INPUT", "OUTPUT", "FORWARD", "PREROUTING", "POSTROUTING"}
+        self.allowed_actions = {"ACCEPT", "DROP", "REJECT", "MASQUERADE", "SNAT", "DNAT"}
+        self.allowed_protocols = {"tcp", "udp", "icmp", "all"}
+        
+        # 安全的规则参数模式
+        self.safe_patterns = {
+            "protocol": r"^-p\s+(tcp|udp|icmp|all)$",
+            "source": r"^-s\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:/\d{1,2})?)$",
+            "destination": r"^-d\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?:/\d{1,2})?)$",
+            "source_port": r"^--sport\s+(\d{1,5}(?:-\d{1,5})?)$",
+            "destination_port": r"^--dport\s+(\d{1,5}(?:-\d{1,5})?)$",
+            "interface_in": r"^-i\s+([a-zA-Z0-9_-]+)$",
+            "interface_out": r"^-o\s+([a-zA-Z0-9_-]+)$",
+            "state": r"^--state\s+(NEW|ESTABLISHED|RELATED|INVALID)$"
+        }
+
+    def validate_firewall_parameters(self, table_name: str, chain_name: str, action: str, rule_spec: str) -> bool:
+        """验证防火墙参数的安全性"""
+        try:
+            # 验证表名
+            if table_name not in self.allowed_tables:
+                logger.error(f"不允许的防火墙表: {table_name}")
+                return False
+            
+            # 验证链名
+            if chain_name not in self.allowed_chains:
+                logger.error(f"不允许的防火墙链: {chain_name}")
+                return False
+            
+            # 验证动作
+            if action not in self.allowed_actions:
+                logger.error(f"不允许的防火墙动作: {action}")
+                return False
+            
+            # 验证规则规格
+            if rule_spec:
+                # 分割规则规格并验证每个部分
+                parts = rule_spec.strip().split()
+                for part in parts:
+                    if not self._is_safe_rule_part(part):
+                        logger.error(f"不安全的规则参数: {part}")
+                        return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"验证防火墙参数失败: {e}")
+            return False
+
+    def _is_safe_rule_part(self, part: str) -> bool:
+        """检查规则参数是否安全"""
+        try:
+            # 检查是否匹配任何安全模式
+            for pattern_name, pattern in self.safe_patterns.items():
+                if re.match(pattern, part.strip()):
+                    return True
+            
+            # 允许的独立参数
+            safe_standalone = {"!", "-m", "state", "multiport", "conntrack"}
+            if part.strip() in safe_standalone:
+                return True
+            
+            # 检查是否为数字（端口号等）
+            if part.strip().isdigit() and 1 <= int(part.strip()) <= 65535:
+                return True
+            
+            # 检查是否为端口范围
+            if "-" in part and part.count("-") == 1:
+                start, end = part.split("-")
+                if start.isdigit() and end.isdigit():
+                    if 1 <= int(start) <= 65535 and 1 <= int(end) <= 65535:
+                        return True
+            
+            logger.warning(f"未知的规则参数: {part}")
+            return False
+        except Exception as e:
+            logger.error(f"检查规则参数安全性失败: {e}")
+            return False
+
+    def build_safe_iptables_command(self, table_name: str, chain_name: str, action: str, rule_spec: str) -> Optional[List[str]]:
+        """构建安全的iptables命令（返回参数列表而不是字符串）"""
+        try:
+            # 验证参数
+            if not self.validate_firewall_parameters(table_name, chain_name, action, rule_spec):
+                return None
+            
+            # 构建命令参数列表
+            cmd_parts = ["iptables", "-t", table_name, "-A", chain_name]
+            
+            # 添加规则规格
+            if rule_spec:
+                cmd_parts.extend(rule_spec.strip().split())
+            
+            # 添加动作
+            cmd_parts.extend(["-j", action])
+            
+            return cmd_parts
+        except Exception as e:
+            logger.error(f"构建安全iptables命令失败: {e}")
+            return None
 
     async def get_interfaces(self) -> List[NetworkInterface]:
         """获取所有网络接口"""
@@ -191,13 +294,16 @@ class NetworkService:
             if not rule.is_active:
                 return True
             
-            # 构建iptables命令
-            cmd = self.build_iptables_command(rule)
-            if not cmd:
+            # 构建安全的iptables命令
+            cmd_parts = self.build_safe_iptables_command(
+                rule.table_name, rule.chain_name, rule.action, rule.rule_spec or ""
+            )
+            if not cmd_parts:
+                logger.error(f"无法构建安全的防火墙命令: {rule.name}")
                 return False
             
-            # 执行命令
-            result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+            # 执行命令（使用shell=False避免注入）
+            result = subprocess.run(cmd_parts, capture_output=True, text=True, shell=False)
             
             if result.returncode == 0:
                 logger.info(f"防火墙规则应用成功: {rule.name}")
@@ -212,13 +318,16 @@ class NetworkService:
     async def remove_firewall_rule(self, rule: FirewallRule) -> bool:
         """从系统删除防火墙规则"""
         try:
-            # 构建删除命令
-            cmd = self.build_iptables_delete_command(rule)
-            if not cmd:
-                return True
+            # 构建安全的删除命令
+            cmd_parts = self.build_safe_iptables_delete_command(
+                rule.table_name, rule.chain_name, rule.action, rule.rule_spec or ""
+            )
+            if not cmd_parts:
+                logger.warning(f"无法构建安全的删除命令: {rule.name}")
+                return True  # 删除失败不算严重错误
             
-            # 执行命令
-            result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+            # 执行命令（使用shell=False避免注入）
+            result = subprocess.run(cmd_parts, capture_output=True, text=True, shell=False)
             
             if result.returncode == 0:
                 logger.info(f"防火墙规则删除成功: {rule.name}")
@@ -230,49 +339,26 @@ class NetworkService:
             logger.error(f"删除防火墙规则异常: {e}")
             return False
 
-    def build_iptables_command(self, rule: FirewallRule) -> Optional[str]:
-        """构建iptables命令"""
+    def build_safe_iptables_delete_command(self, table_name: str, chain_name: str, action: str, rule_spec: str) -> Optional[List[str]]:
+        """构建安全的iptables删除命令"""
         try:
-            # 基础命令
-            cmd_parts = ["iptables", "-t", rule.table_name]
-            
-            # 根据动作确定命令类型
-            if rule.action in ["ACCEPT", "DROP", "REJECT"]:
-                cmd_parts.extend(["-A", rule.chain_name])
-            elif rule.action in ["MASQUERADE", "SNAT", "DNAT"]:
-                cmd_parts.extend(["-A", rule.chain_name])
-            else:
-                logger.error(f"不支持的防火墙动作: {rule.action}")
+            # 验证参数
+            if not self.validate_firewall_parameters(table_name, chain_name, action, rule_spec):
                 return None
             
-            # 添加规则规格
-            if rule.rule_spec:
-                cmd_parts.extend(rule.rule_spec.split())
-            
-            # 添加动作
-            cmd_parts.extend(["-j", rule.action])
-            
-            return " ".join(cmd_parts)
-        except Exception as e:
-            logger.error(f"构建iptables命令失败: {e}")
-            return None
-
-    def build_iptables_delete_command(self, rule: FirewallRule) -> Optional[str]:
-        """构建iptables删除命令"""
-        try:
-            # 基础命令
-            cmd_parts = ["iptables", "-t", rule.table_name, "-D", rule.chain_name]
+            # 构建删除命令参数列表
+            cmd_parts = ["iptables", "-t", table_name, "-D", chain_name]
             
             # 添加规则规格
-            if rule.rule_spec:
-                cmd_parts.extend(rule.rule_spec.split())
+            if rule_spec:
+                cmd_parts.extend(rule_spec.strip().split())
             
             # 添加动作
-            cmd_parts.extend(["-j", rule.action])
+            cmd_parts.extend(["-j", action])
             
-            return " ".join(cmd_parts)
+            return cmd_parts
         except Exception as e:
-            logger.error(f"构建iptables删除命令失败: {e}")
+            logger.error(f"构建安全删除命令失败: {e}")
             return None
 
     async def get_network_status(self) -> NetworkStatus:
@@ -300,7 +386,8 @@ class NetworkService:
         """获取路由表"""
         try:
             routes = []
-            result = subprocess.run(["ip", "route", "show"], capture_output=True, text=True)
+            # 使用shell=False避免命令注入
+            result = subprocess.run(["ip", "route", "show"], capture_output=True, text=True, shell=False)
             
             if result.returncode == 0:
                 for line in result.stdout.strip().split('\n'):
@@ -352,10 +439,10 @@ class NetworkService:
     async def reload_firewall_rules(self) -> bool:
         """重新加载所有防火墙规则"""
         try:
-            # 清空现有规则
-            subprocess.run(["iptables", "-F"], capture_output=True)
-            subprocess.run(["iptables", "-t", "nat", "-F"], capture_output=True)
-            subprocess.run(["iptables", "-t", "mangle", "-F"], capture_output=True)
+            # 清空现有规则（使用shell=False避免注入）
+            subprocess.run(["iptables", "-F"], capture_output=True, shell=False)
+            subprocess.run(["iptables", "-t", "nat", "-F"], capture_output=True, shell=False)
+            subprocess.run(["iptables", "-t", "mangle", "-F"], capture_output=True, shell=False)
             
             # 重新应用所有规则
             rules = await self.get_firewall_rules()

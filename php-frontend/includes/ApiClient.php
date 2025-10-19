@@ -83,6 +83,10 @@ class ApiClient {
     private function makeRequest($method, $url, $data, $headers) {
         $ch = curl_init();
         
+        // SSL/TLS安全配置
+        $sslVerifyPeer = getenv('API_SSL_VERIFY') !== 'false' && getenv('API_SSL_VERIFY') !== '0';
+        $sslVerifyHost = $sslVerifyPeer ? 2 : 0; // 2 = 严格验证主机名
+        
         // 基本配置
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -91,11 +95,19 @@ class ApiClient {
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_SSL_VERIFYPEER => $sslVerifyPeer,
+            CURLOPT_SSL_VERIFYHOST => $sslVerifyHost,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_USERAGENT => 'IPv6-WireGuard-Manager/3.0.0'
         ]);
+        
+        // 如果启用SSL验证，设置CA证书路径
+        if ($sslVerifyPeer) {
+            $caPath = getenv('API_SSL_CA_PATH');
+            if ($caPath && file_exists($caPath)) {
+                curl_setopt($ch, CURLOPT_CAINFO, $caPath);
+            }
+        }
         
         // 根据请求方法设置参数
         switch (strtoupper($method)) {

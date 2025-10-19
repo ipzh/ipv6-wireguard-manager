@@ -2,6 +2,9 @@
 /**
  * 认证控制器
  */
+
+// 引入SSL安全配置
+require_once __DIR__ . '/../includes/ssl_security.php';
 class AuthController {
     private $auth;
     private $apiClient;
@@ -104,7 +107,9 @@ class AuthController {
                 'Accept: application/json',
                 'Content-Type: application/json'
             ]);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            
+            // 应用安全的SSL配置
+            applySecureSSLConfig($ch);
             
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

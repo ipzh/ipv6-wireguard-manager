@@ -3,11 +3,29 @@
 IPv6 WireGuard Manager - 生产环境配置优化
 """
 
+import os
+import secrets
+import string
+
+def generate_secret_key(length=64):
+    """生成安全的密钥"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+def get_secret_key():
+    """获取密钥，优先从环境变量，否则生成随机密钥"""
+    secret_key = os.getenv('SECRET_KEY')
+    if not secret_key:
+        secret_key = generate_secret_key()
+        print(f"⚠️  警告：未设置SECRET_KEY环境变量，已生成随机密钥")
+        print(f"⚠️  请设置环境变量: export SECRET_KEY='{secret_key}'")
+    return secret_key
+
 # 生产环境配置
 PRODUCTION_CONFIG = {
     # 安全配置
     "SECURITY": {
-        "SECRET_KEY": "your-super-secret-key-change-this-in-production",
+        "SECRET_KEY": get_secret_key(),
         "ALGORITHM": "HS256",
         "ACCESS_TOKEN_EXPIRE_MINUTES": 30,
         "REFRESH_TOKEN_EXPIRE_DAYS": 30,

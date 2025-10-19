@@ -141,8 +141,8 @@ services:
       - MYSQL_INNODB_LOG_FILE_SIZE=${MYSQL_INNODB_LOG_FILE_SIZE:-64M}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql/init:/docker-entrypoint-initdb.d
-      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/my.cnf
     networks:
       - wireguard-network
     restart: unless-stopped

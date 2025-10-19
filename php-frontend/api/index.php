@@ -3,6 +3,9 @@
  * API代理端点 - 解决跨域和路径问题
  */
 
+// 引入SSL安全配置
+require_once __DIR__ . '/../includes/ssl_security.php';
+
 // 设置CORS头
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
@@ -64,8 +67,10 @@ curl_setopt($ch, CURLOPT_URL, $backendUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+// 应用安全的SSL配置
+applySecureSSLConfig($ch);
 
 // 设置请求方法
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER["REQUEST_METHOD"]);

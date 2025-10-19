@@ -139,7 +139,7 @@
 <body class="bg-light">
     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
+<div class="container-fluid">
             <a class="navbar-brand" href="/dashboard">
                 <i class="bi bi-shield-lock me-2"></i>
                 <?= APP_NAME ?>
@@ -188,117 +188,117 @@
         </div>
 
         <!-- 系统概览指标 -->
-        <div class="row mb-4">
+    <div class="row mb-4">
             <div class="col-lg-3 col-md-6 mb-3">
                 <div class="card metric-card">
-                    <div class="card-body">
+                <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="metric-icon bg-primary me-3">
                                 <i class="bi bi-cpu"></i>
-                            </div>
+                        </div>
                             <div class="flex-grow-1">
                                 <p class="metric-value" id="cpuUsage">--</p>
                                 <p class="metric-label">CPU使用率</p>
                                 <small class="metric-change change-positive" id="cpuChange">
                                     <i class="bi bi-arrow-up"></i> +2.5%
                                 </small>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+        </div>
+        
             <div class="col-lg-3 col-md-6 mb-3">
                 <div class="card metric-card">
-                    <div class="card-body">
+                <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="metric-icon bg-info me-3">
                                 <i class="bi bi-memory"></i>
-                            </div>
+                        </div>
                             <div class="flex-grow-1">
                                 <p class="metric-value" id="memoryUsage">--</p>
                                 <p class="metric-label">内存使用率</p>
                                 <small class="metric-change change-positive" id="memoryChange">
                                     <i class="bi bi-arrow-up"></i> +1.2%
                                 </small>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+        </div>
+        
             <div class="col-lg-3 col-md-6 mb-3">
                 <div class="card metric-card">
-                    <div class="card-body">
+                <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="metric-icon bg-success me-3">
                                 <i class="bi bi-hdd"></i>
-                            </div>
+                        </div>
                             <div class="flex-grow-1">
                                 <p class="metric-value" id="diskUsage">--</p>
                                 <p class="metric-label">磁盘使用率</p>
                                 <small class="metric-change change-negative" id="diskChange">
                                     <i class="bi bi-arrow-down"></i> -0.5%
                                 </small>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+        </div>
+        
             <div class="col-lg-3 col-md-6 mb-3">
                 <div class="card metric-card">
-                    <div class="card-body">
+                <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="metric-icon bg-warning me-3">
                                 <i class="bi bi-activity"></i>
-                            </div>
+                        </div>
                             <div class="flex-grow-1">
                                 <p class="metric-value" id="activeConnections">--</p>
                                 <p class="metric-label">活跃连接</p>
                                 <small class="metric-change change-positive" id="connectionsChange">
                                     <i class="bi bi-arrow-up"></i> +5
                                 </small>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
         <!-- 图表区域 -->
-        <div class="row mb-4">
+    <div class="row mb-4">
             <div class="col-lg-8 mb-4">
                 <div class="card metric-card">
                     <div class="card-header">
                         <h5 class="mb-0">
                             <i class="bi bi-graph-up me-2"></i>系统性能趋势
                         </h5>
-                    </div>
-                    <div class="card-body">
+                </div>
+                <div class="card-body">
                         <div class="chart-container">
                             <canvas id="performanceChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-lg-4 mb-4">
-                <div class="card metric-card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="bi bi-pie-chart me-2"></i>服务状态
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="serviceStatus">
-                            <!-- 服务状态将在这里显示 -->
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
+            <div class="col-lg-4 mb-4">
+                <div class="card metric-card">
+                <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-pie-chart me-2"></i>服务状态
+                        </h5>
+                </div>
+                <div class="card-body">
+                        <div id="serviceStatus">
+                            <!-- 服务状态将在这里显示 -->
+                            </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- 告警和日志 -->
         <div class="row">
             <div class="col-lg-6 mb-4">
@@ -308,14 +308,14 @@
                             <i class="bi bi-exclamation-triangle me-2"></i>活跃告警
                         </h5>
                         <span class="badge bg-danger" id="alertCount">0</span>
-                    </div>
-                    <div class="card-body">
+                </div>
+                <div class="card-body">
                         <div id="alertsList">
                             <!-- 告警列表将在这里显示 -->
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+                            </div>
+                        </div>
             
             <div class="col-lg-6 mb-4">
                 <div class="card metric-card">
@@ -328,23 +328,23 @@
                         <div id="recentLogs">
                             <!-- 最近日志将在这里显示 -->
                         </div>
-                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
         <!-- WireGuard状态 -->
-        <div class="row">
-            <div class="col-12">
+    <div class="row">
+        <div class="col-12">
                 <div class="card metric-card">
-                    <div class="card-header">
+                <div class="card-header">
                         <h5 class="mb-0">
                             <i class="bi bi-shield-lock me-2"></i>WireGuard状态
                         </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
                                 <div class="text-center">
                                     <div class="metric-icon bg-primary mx-auto mb-2">
                                         <i class="bi bi-server"></i>
@@ -352,8 +352,8 @@
                                     <h4 id="wgServers">--</h4>
                                     <p class="text-muted">服务器</p>
                                 </div>
-                            </div>
-                            <div class="col-md-3">
+                        </div>
+                        <div class="col-md-3">
                                 <div class="text-center">
                                     <div class="metric-icon bg-success mx-auto mb-2">
                                         <i class="bi bi-people"></i>
@@ -361,8 +361,8 @@
                                     <h4 id="wgClients">--</h4>
                                     <p class="text-muted">客户端</p>
                                 </div>
-                            </div>
-                            <div class="col-md-3">
+                        </div>
+                        <div class="col-md-3">
                                 <div class="text-center">
                                     <div class="metric-icon bg-info mx-auto mb-2">
                                         <i class="bi bi-wifi"></i>
@@ -370,8 +370,8 @@
                                     <h4 id="wgSessions">--</h4>
                                     <p class="text-muted">活跃会话</p>
                                 </div>
-                            </div>
-                            <div class="col-md-3">
+                        </div>
+                        <div class="col-md-3">
                                 <div class="text-center">
                                     <div class="metric-icon bg-warning mx-auto mb-2">
                                         <i class="bi bi-globe"></i>
@@ -379,13 +379,13 @@
                                     <h4 id="wgTraffic">--</h4>
                                     <p class="text-muted">流量 (GB)</p>
                                 </div>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
     <!-- 刷新按钮 -->
     <button class="btn btn-primary refresh-btn" id="floatingRefreshBtn">
@@ -394,8 +394,8 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
+
+<script>
         // API基础URL
         const API_BASE_URL = '<?= API_BASE_URL ?>';
         
@@ -533,8 +533,8 @@
         
         function loadAlerts() {
             fetch(`${API_BASE_URL}/monitoring/alerts`)
-            .then(response => response.json())
-            .then(data => {
+        .then(response => response.json())
+        .then(data => {
                 if (data.success) {
                     document.getElementById('alertCount').textContent = data.alerts.length;
                     
@@ -601,9 +601,9 @@
                     document.getElementById('wgClients').textContent = data.wireguard.clients;
                     document.getElementById('wgSessions').textContent = data.wireguard.active_sessions;
                     document.getElementById('wgTraffic').textContent = data.wireguard.traffic_gb;
-                }
-            })
-            .catch(error => {
+            }
+        })
+        .catch(error => {
                 console.error('加载WireGuard状态错误:', error);
                 document.getElementById('wgServers').textContent = '错误';
                 document.getElementById('wgClients').textContent = '错误';

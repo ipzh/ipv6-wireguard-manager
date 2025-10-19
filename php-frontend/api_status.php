@@ -3,6 +3,9 @@
  * API状态检查页面
  */
 
+// 引入SSL安全配置
+require_once __DIR__ . '/includes/ssl_security.php';
+
 // 设置JSON响应头
 header("Content-Type: application/json; charset=utf-8");
 
@@ -29,7 +32,9 @@ function checkApiConnection() {
         "Accept: application/json",
         "Content-Type: application/json"
     ]);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    // 应用安全的SSL配置
+    applySecureSSLConfig($ch);
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

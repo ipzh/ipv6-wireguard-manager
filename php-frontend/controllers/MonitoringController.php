@@ -5,7 +5,7 @@
 class MonitoringController {
     private $auth;
     private $apiClient;
-    
+
     public function __construct() {
         $this->auth = new AuthJWT();
         $this->apiClient = new ApiClientJWT();

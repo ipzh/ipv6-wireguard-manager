@@ -2,6 +2,9 @@
 /**
  * JWT认证API客户端 - 与后端JWT认证系统完全兼容
  */
+
+// 引入SSL安全配置
+require_once __DIR__ . '/../includes/ssl_security.php';
 class ApiClientJWT {
     private $baseUrl;
     private $timeout;
@@ -250,8 +253,6 @@ class ApiClientJWT {
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_USERAGENT => $this->userAgent,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
@@ -259,6 +260,9 @@ class ApiClientJWT {
                 'Cache-Control: no-cache'
             ]
         ]);
+        
+        // 应用安全的SSL配置
+        applySecureSSLConfig($ch);
         
         // 添加JWT认证头
         if ($this->accessToken) {
