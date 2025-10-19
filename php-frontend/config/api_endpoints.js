@@ -1,379 +1,371 @@
 /**
- * 前端API端点配置
- * 与后端API路径常量保持一致
+ * API端点配置 - 使用统一API路径构建器
+ * 
+ * 本文件定义了前端应用中使用的所有API端点配置。
+ * 现在使用统一API路径构建器来管理和构建API路径。
  */
 
-// 基础配置
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
-const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT) || 30000;
+// 导入API路径构建器
+import { initApiPathBuilder } from '../public/js/ApiPathBuilder.js';
 
-// API路径常量 - 与后端APIPaths类保持一致
-const API_PATHS = {
-  // 基础路径
-  BASE: '/api/v1',
+// API基础配置
+const API_CONFIG = {
+  // 基础URL，在生产环境中应该从环境变量获取
+  BASE_URL: process.env.NODE_ENV === 'production' 
+    ? '/api' 
+    : 'http://localhost:8000/api',
   
-  // 认证相关
-  AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
-    REFRESH: '/auth/refresh',
-    REGISTER: '/auth/register',
-    VERIFY_EMAIL: '/auth/verify-email',
-    RESET_PASSWORD: '/auth/reset-password',
-    CHANGE_PASSWORD: '/auth/change-password',
-    ME: '/auth/me'
+  // 请求超时时间（毫秒）
+  TIMEOUT: 30000,
+  
+  // API版本
+  VERSION: 'v1',
+  
+  // 默认请求头
+  DEFAULT_HEADERS: {
+    'Content-Type': 'application/json',
   },
+};
+
+// 初始化API路径构建器
+const apiPathBuilder = initApiPathBuilder(API_CONFIG.BASE_URL);
+
+// 导出API配置
+export {
+  API_CONFIG,
+  apiPathBuilder,
+};
+
+// 导出API路径构建器函数
+export const {
+  buildUrl,
+  validatePath,
+  getApiVersion,
+  getApiBaseUrl,
+  setApiBaseUrl,
+  registerPath,
+  getPathConfig,
+  getAllPaths,
+  clearCache,
+} = apiPathBuilder;
+
+// 为了向后兼容，保留一些旧的函数名
+export const getApiUrl = buildUrl;
+export const getApiVersion = getApiVersion;
+export const getApiBaseUrl = getApiBaseUrl;
+
+// 导出常用的路径名称常量
+export const PATH_NAMES = {
+  // 认证相关
+  AUTH_LOGIN: 'auth.login',
+  AUTH_LOGOUT: 'auth.logout',
+  AUTH_REFRESH: 'auth.refresh',
+  AUTH_REGISTER: 'auth.register',
+  AUTH_VERIFY_EMAIL: 'auth.verify_email',
+  AUTH_RESET_PASSWORD: 'auth.reset_password',
+  AUTH_CHANGE_PASSWORD: 'auth.change_password',
+  AUTH_ME: 'auth.me',
   
   // 用户管理
-  USERS: {
-    LIST: '/users',
-    CREATE: '/users',
-    GET: '/users/{user_id}',
-    UPDATE: '/users/{user_id}',
-    DELETE: '/users/{user_id}',
-    LOCK: '/users/{user_id}/lock',
-    UNLOCK: '/users/{user_id}/unlock',
-    PROFILE: '/users/me/profile',
-    AVATAR: '/users/me/avatar'
-  },
+  USERS: 'users',
+  USERS_GET: 'users.get',
+  USERS_UPDATE: 'users.update',
+  USERS_DELETE: 'users.delete',
+  USERS_LOCK: 'users.lock',
+  USERS_UNLOCK: 'users.unlock',
+  USERS_PROFILE: 'users.profile',
+  USERS_AVATAR: 'users.avatar',
   
-  // 角色和权限管理
-  ROLES: {
-    LIST: '/roles',
-    CREATE: '/roles',
-    GET: '/roles/{role_id}',
-    UPDATE: '/roles/{role_id}',
-    DELETE: '/roles/{role_id}',
-    PERMISSIONS: '/roles/{role_id}/permissions'
-  },
+  // 角色管理
+  ROLES: 'roles',
+  ROLES_GET: 'roles.get',
+  ROLES_UPDATE: 'roles.update',
+  ROLES_DELETE: 'roles.delete',
+  ROLES_PERMISSIONS: 'roles.permissions',
   
-  PERMISSIONS: {
-    LIST: '/permissions',
-    CREATE: '/permissions',
-    GET: '/permissions/{permission_id}',
-    UPDATE: '/permissions/{permission_id}',
-    DELETE: '/permissions/{permission_id}'
-  },
+  // 权限管理
+  PERMISSIONS: 'permissions',
+  PERMISSIONS_GET: 'permissions.get',
+  PERMISSIONS_UPDATE: 'permissions.update',
+  PERMISSIONS_DELETE: 'permissions.delete',
   
-  // WireGuard管理
-  WIREGUARD: {
-    SERVERS: {
-      LIST: '/wireguard/servers',
-      CREATE: '/wireguard/servers',
-      GET: '/wireguard/servers/{server_id}',
-      UPDATE: '/wireguard/servers/{server_id}',
-      DELETE: '/wireguard/servers/{server_id}',
-      STATUS: '/wireguard/servers/{server_id}/status',
-      START: '/wireguard/servers/{server_id}/start',
-      STOP: '/wireguard/servers/{server_id}/stop',
-      RESTART: '/wireguard/servers/{server_id}/restart',
-      CONFIG: '/wireguard/servers/{server_id}/config',
-      PEERS: '/wireguard/servers/{server_id}/peers'
-    },
-    CLIENTS: {
-      LIST: '/wireguard/clients',
-      CREATE: '/wireguard/clients',
-      GET: '/wireguard/clients/{client_id}',
-      UPDATE: '/wireguard/clients/{client_id}',
-      DELETE: '/wireguard/clients/{client_id}',
-      CONFIG: '/wireguard/clients/{client_id}/config',
-      QR_CODE: '/wireguard/clients/{client_id}/qr-code',
-      ENABLE: '/wireguard/clients/{client_id}/enable',
-      DISABLE: '/wireguard/clients/{client_id}/disable'
-    }
-  },
+  // WireGuard服务器
+  WIREGUARD_SERVERS: 'wireguard.servers',
+  WIREGUARD_SERVERS_GET: 'wireguard.servers.get',
+  WIREGUARD_SERVERS_UPDATE: 'wireguard.servers.update',
+  WIREGUARD_SERVERS_DELETE: 'wireguard.servers.delete',
+  WIREGUARD_SERVERS_STATUS: 'wireguard.servers.status',
+  WIREGUARD_SERVERS_START: 'wireguard.servers.start',
+  WIREGUARD_SERVERS_STOP: 'wireguard.servers.stop',
+  WIREGUARD_SERVERS_RESTART: 'wireguard.servers.restart',
+  WIREGUARD_SERVERS_CONFIG: 'wireguard.servers.config',
+  WIREGUARD_SERVERS_PEERS: 'wireguard.servers.peers',
   
-  // BGP管理
-  BGP: {
-    SESSIONS: {
-      LIST: '/bgp/sessions',
-      CREATE: '/bgp/sessions',
-      GET: '/bgp/sessions/{session_id}',
-      UPDATE: '/bgp/sessions/{session_id}',
-      DELETE: '/bgp/sessions/{session_id}',
-      STATUS: '/bgp/sessions/{session_id}/status',
-      START: '/bgp/sessions/{session_id}/start',
-      STOP: '/bgp/sessions/{session_id}/stop',
-      ROUTES: '/bgp/sessions/{session_id}/routes'
-    },
-    ROUTES: {
-      LIST: '/bgp/routes',
-      CREATE: '/bgp/routes',
-      GET: '/bgp/routes/{route_id}',
-      UPDATE: '/bgp/routes/{route_id}',
-      DELETE: '/bgp/routes/{route_id}'
-    }
-  },
+  // WireGuard客户端
+  WIREGUARD_CLIENTS: 'wireguard.clients',
+  WIREGUARD_CLIENTS_GET: 'wireguard.clients.get',
+  WIREGUARD_CLIENTS_UPDATE: 'wireguard.clients.update',
+  WIREGUARD_CLIENTS_DELETE: 'wireguard.clients.delete',
+  WIREGUARD_CLIENTS_CONFIG: 'wireguard.clients.config',
+  WIREGUARD_CLIENTS_QR_CODE: 'wireguard.clients.qr_code',
+  WIREGUARD_CLIENTS_ENABLE: 'wireguard.clients.enable',
+  WIREGUARD_CLIENTS_DISABLE: 'wireguard.clients.disable',
   
-  // IPv6管理
-  IPV6: {
-    POOLS: {
-      LIST: '/ipv6/pools',
-      CREATE: '/ipv6/pools',
-      GET: '/ipv6/pools/{pool_id}',
-      UPDATE: '/ipv6/pools/{pool_id}',
-      DELETE: '/ipv6/pools/{pool_id}',
-      ALLOCATE: '/ipv6/pools/{pool_id}/allocate',
-      RELEASE: '/ipv6/pools/{pool_id}/release'
-    },
-    ADDRESSES: {
-      LIST: '/ipv6/addresses',
-      CREATE: '/ipv6/addresses',
-      GET: '/ipv6/addresses/{address_id}',
-      UPDATE: '/ipv6/addresses/{address_id}',
-      DELETE: '/ipv6/addresses/{address_id}'
-    }
-  },
+  // BGP会话
+  BGP_SESSIONS: 'bgp.sessions',
+  BGP_SESSIONS_GET: 'bgp.sessions.get',
+  BGP_SESSIONS_UPDATE: 'bgp.sessions.update',
+  BGP_SESSIONS_DELETE: 'bgp.sessions.delete',
+  BGP_SESSIONS_STATUS: 'bgp.sessions.status',
+  BGP_SESSIONS_START: 'bgp.sessions.start',
+  BGP_SESSIONS_STOP: 'bgp.sessions.stop',
+  BGP_SESSIONS_ROUTES: 'bgp.sessions.routes',
+  
+  // BGP路由
+  BGP_ROUTES: 'bgp.routes',
+  BGP_ROUTES_GET: 'bgp.routes.get',
+  BGP_ROUTES_UPDATE: 'bgp.routes.update',
+  BGP_ROUTES_DELETE: 'bgp.routes.delete',
+  
+  // IPv6地址池
+  IPV6_POOLS: 'ipv6.pools',
+  IPV6_POOLS_GET: 'ipv6.pools.get',
+  IPV6_POOLS_UPDATE: 'ipv6.pools.update',
+  IPV6_POOLS_DELETE: 'ipv6.pools.delete',
+  IPV6_POOLS_ALLOCATE: 'ipv6.pools.allocate',
+  IPV6_POOLS_RELEASE: 'ipv6.pools.release',
+  
+  // IPv6地址
+  IPV6_ADDRESSES: 'ipv6.addresses',
+  IPV6_ADDRESSES_GET: 'ipv6.addresses.get',
+  IPV6_ADDRESSES_UPDATE: 'ipv6.addresses.update',
+  IPV6_ADDRESSES_DELETE: 'ipv6.addresses.delete',
   
   // 系统管理
-  SYSTEM: {
-    INFO: '/system/info',
-    STATUS: '/system/status',
-    HEALTH: '/system/health',
-    METRICS: '/system/metrics',
-    CONFIG: '/system/config',
-    LOGS: '/system/logs',
-    BACKUP: '/system/backup',
-    RESTORE: '/system/restore'
-  },
+  SYSTEM_INFO: 'system.info',
+  SYSTEM_STATUS: 'system.status',
+  SYSTEM_HEALTH: 'system.health',
+  SYSTEM_METRICS: 'system.metrics',
+  SYSTEM_CONFIG: 'system.config',
+  SYSTEM_LOGS: 'system.logs',
+  SYSTEM_BACKUP: 'system.backup',
+  SYSTEM_RESTORE: 'system.restore',
   
   // 监控
-  MONITORING: {
-    DASHBOARD: '/monitoring/dashboard',
-    ALERTS: {
-      LIST: '/monitoring/alerts',
-      CREATE: '/monitoring/alerts',
-      GET: '/monitoring/alerts/{alert_id}',
-      UPDATE: '/monitoring/alerts/{alert_id}',
-      DELETE: '/monitoring/alerts/{alert_id}',
-      ACKNOWLEDGE: '/monitoring/alerts/{alert_id}/acknowledge'
-    },
-    METRICS: {
-      LIST: '/monitoring/metrics',
-      GET: '/monitoring/metrics/{metric_id}'
-    }
-  },
+  MONITORING_DASHBOARD: 'monitoring.dashboard',
+  MONITORING_ALERTS: 'monitoring.alerts',
+  MONITORING_ALERTS_GET: 'monitoring.alerts.get',
+  MONITORING_ALERTS_UPDATE: 'monitoring.alerts.update',
+  MONITORING_ALERTS_DELETE: 'monitoring.alerts.delete',
+  MONITORING_ALERTS_ACKNOWLEDGE: 'monitoring.alerts.acknowledge',
+  MONITORING_METRICS: 'monitoring.metrics',
+  MONITORING_METRICS_GET: 'monitoring.metrics.get',
   
   // 日志
-  LOGS: {
-    LIST: '/logs',
-    GET: '/logs/{log_id}',
-    SEARCH: '/logs/search',
-    EXPORT: '/logs/export',
-    CLEANUP: '/logs/cleanup'
-  },
+  LOGS: 'logs',
+  LOGS_GET: 'logs.get',
+  LOGS_SEARCH: 'logs.search',
+  LOGS_EXPORT: 'logs.export',
+  LOGS_CLEANUP: 'logs.cleanup',
   
   // 网络工具
-  NETWORK: {
-    PING: '/network/ping',
-    TRACEROUTE: '/network/traceroute',
-    NSLOOKUP: '/network/nslookup',
-    WHOIS: '/network/whois'
-  },
+  NETWORK_PING: 'network.ping',
+  NETWORK_TRACEROUTE: 'network.traceroute',
+  NETWORK_NSLOOKUP: 'network.nslookup',
+  NETWORK_WHOIS: 'network.whois',
   
   // 审计日志
-  AUDIT: {
-    LIST: '/audit',
-    GET: '/audit/{audit_id}',
-    SEARCH: '/audit/search',
-    EXPORT: '/audit/export'
-  },
+  AUDIT: 'audit',
+  AUDIT_GET: 'audit.get',
+  AUDIT_SEARCH: 'audit.search',
+  AUDIT_EXPORT: 'audit.export',
   
   // 文件上传
-  UPLOAD: {
-    FILE: '/upload/file',
-    IMAGE: '/upload/image',
-    AVATAR: '/upload/avatar'
+  UPLOAD_FILE: 'upload.file',
+  UPLOAD_IMAGE: 'upload.image',
+  UPLOAD_AVATAR: 'upload.avatar',
+};
+
+// 创建便捷的URL生成函数
+export const createUrlGenerator = (pathName) => (params = {}) => buildUrl(pathName, params);
+
+// 导出便捷的URL生成函数
+export const getAuthUrl = {
+  login: createUrlGenerator(PATH_NAMES.AUTH_LOGIN),
+  logout: createUrlGenerator(PATH_NAMES.AUTH_LOGOUT),
+  refresh: createUrlGenerator(PATH_NAMES.AUTH_REFRESH),
+  register: createUrlGenerator(PATH_NAMES.AUTH_REGISTER),
+  verifyEmail: createUrlGenerator(PATH_NAMES.AUTH_VERIFY_EMAIL),
+  resetPassword: createUrlGenerator(PATH_NAMES.AUTH_RESET_PASSWORD),
+  changePassword: createUrlGenerator(PATH_NAMES.AUTH_CHANGE_PASSWORD),
+  me: createUrlGenerator(PATH_NAMES.AUTH_ME),
+};
+
+export const getUsersUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.USERS),
+  GET: createUrlGenerator(PATH_NAMES.USERS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.USERS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.USERS_DELETE),
+  LOCK: createUrlGenerator(PATH_NAMES.USERS_LOCK),
+  UNLOCK: createUrlGenerator(PATH_NAMES.USERS_UNLOCK),
+  PROFILE: createUrlGenerator(PATH_NAMES.USERS_PROFILE),
+  AVATAR: createUrlGenerator(PATH_NAMES.USERS_AVATAR),
+};
+
+export const getRolesUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.ROLES),
+  GET: createUrlGenerator(PATH_NAMES.ROLES_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.ROLES_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.ROLES_DELETE),
+  PERMISSIONS: createUrlGenerator(PATH_NAMES.ROLES_PERMISSIONS),
+};
+
+export const getPermissionsUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.PERMISSIONS),
+  GET: createUrlGenerator(PATH_NAMES.PERMISSIONS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.PERMISSIONS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.PERMISSIONS_DELETE),
+};
+
+export const getWireguardServersUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS),
+  GET: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_DELETE),
+  STATUS: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_STATUS),
+  START: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_START),
+  STOP: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_STOP),
+  RESTART: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_RESTART),
+  CONFIG: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_CONFIG),
+  PEERS: createUrlGenerator(PATH_NAMES.WIREGUARD_SERVERS_PEERS),
+};
+
+export const getWireguardClientsUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS),
+  GET: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_DELETE),
+  CONFIG: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_CONFIG),
+  QR_CODE: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_QR_CODE),
+  ENABLE: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_ENABLE),
+  DISABLE: createUrlGenerator(PATH_NAMES.WIREGUARD_CLIENTS_DISABLE),
+};
+
+export const getBgpSessionsUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.BGP_SESSIONS),
+  GET: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_DELETE),
+  STATUS: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_STATUS),
+  START: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_START),
+  STOP: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_STOP),
+  ROUTES: createUrlGenerator(PATH_NAMES.BGP_SESSIONS_ROUTES),
+};
+
+export const getBgpRoutesUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.BGP_ROUTES),
+  GET: createUrlGenerator(PATH_NAMES.BGP_ROUTES_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.BGP_ROUTES_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.BGP_ROUTES_DELETE),
+};
+
+export const getIpv6PoolsUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.IPV6_POOLS),
+  GET: createUrlGenerator(PATH_NAMES.IPV6_POOLS_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.IPV6_POOLS_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.IPV6_POOLS_DELETE),
+  ALLOCATE: createUrlGenerator(PATH_NAMES.IPV6_POOLS_ALLOCATE),
+  RELEASE: createUrlGenerator(PATH_NAMES.IPV6_POOLS_RELEASE),
+};
+
+export const getIpv6AddressesUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.IPV6_ADDRESSES),
+  GET: createUrlGenerator(PATH_NAMES.IPV6_ADDRESSES_GET),
+  UPDATE: createUrlGenerator(PATH_NAMES.IPV6_ADDRESSES_UPDATE),
+  DELETE: createUrlGenerator(PATH_NAMES.IPV6_ADDRESSES_DELETE),
+};
+
+export const getSystemUrl = {
+  INFO: createUrlGenerator(PATH_NAMES.SYSTEM_INFO),
+  STATUS: createUrlGenerator(PATH_NAMES.SYSTEM_STATUS),
+  HEALTH: createUrlGenerator(PATH_NAMES.SYSTEM_HEALTH),
+  METRICS: createUrlGenerator(PATH_NAMES.SYSTEM_METRICS),
+  CONFIG: createUrlGenerator(PATH_NAMES.SYSTEM_CONFIG),
+  LOGS: createUrlGenerator(PATH_NAMES.SYSTEM_LOGS),
+  BACKUP: createUrlGenerator(PATH_NAMES.SYSTEM_BACKUP),
+  RESTORE: createUrlGenerator(PATH_NAMES.SYSTEM_RESTORE),
+};
+
+export const getMonitoringUrl = {
+  DASHBOARD: createUrlGenerator(PATH_NAMES.MONITORING_DASHBOARD),
+  ALERTS: {
+    LIST: createUrlGenerator(PATH_NAMES.MONITORING_ALERTS),
+    GET: createUrlGenerator(PATH_NAMES.MONITORING_ALERTS_GET),
+    UPDATE: createUrlGenerator(PATH_NAMES.MONITORING_ALERTS_UPDATE),
+    DELETE: createUrlGenerator(PATH_NAMES.MONITORING_ALERTS_DELETE),
+    ACKNOWLEDGE: createUrlGenerator(PATH_NAMES.MONITORING_ALERTS_ACKNOWLEDGE),
   },
-  
-  // WebSocket
-  WEBSOCKET: {
-    NOTIFICATIONS: '/ws/notifications',
-    LOGS: '/ws/logs',
-    METRICS: '/ws/metrics'
-  }
+  METRICS: {
+    LIST: createUrlGenerator(PATH_NAMES.MONITORING_METRICS),
+    GET: createUrlGenerator(PATH_NAMES.MONITORING_METRICS_GET),
+  },
 };
 
-// API端点URL生成函数
-const getApiUrl = (path) => `${API_BASE_URL}${path}`;
-
-// 认证相关API
-const getAuthUrl = (action) => getApiUrl(API_PATHS.AUTH[action] || '');
-
-// 用户管理API
-const getUsersUrl = (action, params = {}) => {
-  let path = API_PATHS.USERS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
+export const getLogsUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.LOGS),
+  GET: createUrlGenerator(PATH_NAMES.LOGS_GET),
+  SEARCH: createUrlGenerator(PATH_NAMES.LOGS_SEARCH),
+  EXPORT: createUrlGenerator(PATH_NAMES.LOGS_EXPORT),
+  CLEANUP: createUrlGenerator(PATH_NAMES.LOGS_CLEANUP),
 };
 
-// 角色管理API
-const getRolesUrl = (action, params = {}) => {
-  let path = API_PATHS.ROLES[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
+export const getNetworkUrl = {
+  PING: createUrlGenerator(PATH_NAMES.NETWORK_PING),
+  TRACEROUTE: createUrlGenerator(PATH_NAMES.NETWORK_TRACEROUTE),
+  NSLOOKUP: createUrlGenerator(PATH_NAMES.NETWORK_NSLOOKUP),
+  WHOIS: createUrlGenerator(PATH_NAMES.NETWORK_WHOIS),
 };
 
-// 权限管理API
-const getPermissionsUrl = (action, params = {}) => {
-  let path = API_PATHS.PERMISSIONS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
+export const getAuditUrl = {
+  LIST: createUrlGenerator(PATH_NAMES.AUDIT),
+  GET: createUrlGenerator(PATH_NAMES.AUDIT_GET),
+  SEARCH: createUrlGenerator(PATH_NAMES.AUDIT_SEARCH),
+  EXPORT: createUrlGenerator(PATH_NAMES.AUDIT_EXPORT),
 };
 
-// WireGuard服务器API
-const getWireguardServersUrl = (action, params = {}) => {
-  let path = API_PATHS.WIREGUARD.SERVERS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
+export const getUploadUrl = {
+  FILE: createUrlGenerator(PATH_NAMES.UPLOAD_FILE),
+  IMAGE: createUrlGenerator(PATH_NAMES.UPLOAD_IMAGE),
+  AVATAR: createUrlGenerator(PATH_NAMES.UPLOAD_AVATAR),
 };
 
-// WireGuard客户端API
-const getWireguardClientsUrl = (action, params = {}) => {
-  let path = API_PATHS.WIREGUARD.CLIENTS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// BGP会话API
-const getBgpSessionsUrl = (action, params = {}) => {
-  let path = API_PATHS.BGP.SESSIONS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// BGP路由API
-const getBgpRoutesUrl = (action, params = {}) => {
-  let path = API_PATHS.BGP.ROUTES[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// IPv6地址池API
-const getIpv6PoolsUrl = (action, params = {}) => {
-  let path = API_PATHS.IPV6.POOLS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// IPv6地址API
-const getIpv6AddressesUrl = (action, params = {}) => {
-  let path = API_PATHS.IPV6.ADDRESSES[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// 系统管理API
-const getSystemUrl = (action) => getApiUrl(API_PATHS.SYSTEM[action] || '');
-
-// 监控API
-const getMonitoringUrl = (action, subAction = null, params = {}) => {
-  let path;
-  if (subAction && (action === 'ALERTS' || action === 'METRICS')) {
-    path = API_PATHS.MONITORING[action.toLowerCase()][subAction] || '';
-  } else {
-    path = API_PATHS.MONITORING[action.toLowerCase()] || '';
-  }
-  
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  
-  return getApiUrl(path);
-};
-
-// 日志API
-const getLogsUrl = (action, params = {}) => {
-  let path = API_PATHS.LOGS[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// 网络工具API
-const getNetworkUrl = (action) => getApiUrl(API_PATHS.NETWORK[action] || '');
-
-// 审计日志API
-const getAuditUrl = (action, params = {}) => {
-  let path = API_PATHS.AUDIT[action] || '';
-  // 替换路径参数
-  Object.keys(params).forEach(key => {
-    path = path.replace(`{${key}}`, params[key]);
-  });
-  return getApiUrl(path);
-};
-
-// 文件上传API
-const getUploadUrl = (action) => getApiUrl(API_PATHS.UPLOAD[action] || '');
-
-// WebSocket URL
-const getWebSocketUrl = (action) => {
+// WebSocket URL生成函数
+export const getWebSocketUrl = (action) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = process.env.REACT_APP_WS_HOST || window.location.host;
-  return `${wsProtocol}//${wsHost}${API_PATHS.WEBSOCKET[action] || ''}`;
+  const wsPath = {
+    NOTIFICATIONS: '/ws/notifications',
+    LOGS: '/ws/logs',
+    METRICS: '/ws/metrics',
+  }[action] || '';
+  
+  return `${wsProtocol}//${wsHost}${wsPath}`;
 };
 
-// 导出API端点配置
-export {
-  API_BASE_URL,
-  API_TIMEOUT,
-  API_PATHS,
-  getApiUrl,
-  getAuthUrl,
-  getUsersUrl,
-  getRolesUrl,
-  getPermissionsUrl,
-  getWireguardServersUrl,
-  getWireguardClientsUrl,
-  getBgpSessionsUrl,
-  getBgpRoutesUrl,
-  getIpv6PoolsUrl,
-  getIpv6AddressesUrl,
-  getSystemUrl,
-  getMonitoringUrl,
-  getLogsUrl,
-  getNetworkUrl,
-  getAuditUrl,
-  getUploadUrl,
-  getWebSocketUrl
-};
-
-// 导出完整的API端点配置对象
+// 默认导出
 export default {
-  API_BASE_URL,
-  API_TIMEOUT,
-  API_PATHS,
-  getApiUrl,
+  API_CONFIG,
+  apiPathBuilder,
+  buildUrl,
+  validatePath,
+  getApiVersion,
+  getApiBaseUrl,
+  setApiBaseUrl,
+  registerPath,
+  getPathConfig,
+  getAllPaths,
+  clearCache,
+  PATH_NAMES,
   getAuthUrl,
   getUsersUrl,
   getRolesUrl,
@@ -390,5 +382,5 @@ export default {
   getNetworkUrl,
   getAuditUrl,
   getUploadUrl,
-  getWebSocketUrl
+  getWebSocketUrl,
 };

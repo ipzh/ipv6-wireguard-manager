@@ -159,7 +159,7 @@ php-frontend/
    编辑 `config/config.php`:
    ```php
    // 修改API地址
-   define('API_BASE_URL', 'http://your-backend-api:8000/api/v1');
+   define('API_BASE_URL', 'http://your-backend-api:8000');
    ```
 
 4. **设置权限**
@@ -183,7 +183,7 @@ define('APP_VERSION', '3.0.0');
 define('APP_DEBUG', true);
 
 // API配置
-define('API_BASE_URL', 'http://localhost:8000/api/v1');
+define('API_BASE_URL', 'http://localhost:8000');
 define('API_TIMEOUT', 30);
 
 // 会话配置
@@ -199,7 +199,7 @@ define('MAX_PAGE_SIZE', 100);
 可以通过环境变量覆盖配置：
 
 ```bash
-export API_BASE_URL="http://your-api-server:8000/api/v1"
+export API_BASE_URL="http://your-api-server:8000"
 export APP_DEBUG="false"
 ```
 

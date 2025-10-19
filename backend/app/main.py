@@ -2,7 +2,8 @@
 IPv6 WireGuard Manager 主应用
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -28,7 +29,8 @@ from .core.api_enhancement import (
 )
 
 # 导入API路径标准化模块
-from .core.api_paths import path_manager, api_path_middleware, VersionedAPIRoute
+from .core.path_manager import path_manager
+from .core.api_paths import api_path_middleware, VersionedAPIRoute
 from .core.api_config import get_api_path, get_auth_path, get_users_path, get_wireguard_path
 from .core.api_docs import setup_api_docs
 

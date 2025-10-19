@@ -4,18 +4,18 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....core.database import get_db
+from ...core.database import get_db
 
 router = APIRouter()
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from ....services.status_service import StatusService
+    from ...services.status_service import StatusService
 except ImportError:
     StatusService = None
 
 try:
-    from ....schemas.status import SystemStatusResponse, HealthCheckResponse, ServicesStatusResponse
+    from ...schemas.status import SystemStatusResponse, HealthCheckResponse, ServicesStatusResponse
 except ImportError:
     SystemStatusResponse = None
     HealthCheckResponse = None
@@ -23,7 +23,7 @@ except ImportError:
 
 
 @router.get("/", response_model=None)
-async def get_system_status():
+async def get_system_status(db: AsyncSession = Depends(get_db)):
     """获取系统状态"""
     status_service = StatusService(db)
     status_info = await status_service.get_system_status()
@@ -37,7 +37,7 @@ async def health_check():
 
 
 @router.get("/services", response_model=None)
-async def get_services_status():
+async def get_services_status(db: AsyncSession = Depends(get_db)):
     """获取服务状态"""
     status_service = StatusService(db)
     services_status = await status_service.get_services_status()

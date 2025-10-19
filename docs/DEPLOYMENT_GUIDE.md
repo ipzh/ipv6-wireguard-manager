@@ -35,14 +35,14 @@
 
 ```bash
 # 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
 
 #### 1.2 自定义安装
 
 ```bash
 # 使用自定义参数安装
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash -s -- \
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
   --install-dir /opt/ipv6-wireguard-manager \
   --frontend-dir /var/www/html \
   --config-dir /etc/wireguard \
@@ -72,7 +72,7 @@ curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/ma
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 配置环境变量
@@ -128,7 +128,7 @@ LOG_DIR=/app/logs
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 2. 创建虚拟环境
@@ -569,6 +569,527 @@ mysql -u ipv6wgm -p ipv6wgm < /opt/ipv6-wireguard-manager/backups/database_20240
 sudo systemctl start ipv6-wireguard-manager
 ```
 
+## API路径构建器部署
+
+### 1. 概述
+
+API路径构建器是IPv6 WireGuard Manager v3.1.0引入的新功能，它提供了一个统一的方式来管理API路径，简化了前端与后端的集成，并提高了API的可维护性。
+
+### 2. 部署要求
+
+| 组件 | 要求 | 说明 |
+|------|------|------|
+| **PHP版本** | 7.4+ | 前端API路径构建器需要PHP 7.4或更高版本 |
+| **JavaScript** | ES6+ | 前端JavaScript路径构建器需要现代浏览器支持 |
+| **Python** | 3.8+ | 后端路径构建器需要Python 3.8或更高版本 |
+| **权限** | 读写权限 | 需要对配置目录有读写权限 |
+
+### 3. 部署步骤
+
+#### 3.1 自动部署
+
+使用安装脚本自动部署时，API路径构建器会自动安装和配置：
+
+```bash
+# 使用默认设置安装（包含API路径构建器）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+
+# 使用自定义参数安装
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
+  --install-dir /opt/ipv6-wireguard-manager \
+  --api-port 8000 \
+  --enable-path-builder
+```
+
+#### 3.2 手动部署
+
+##### 3.2.1 后端部署
+
+```bash
+# 1. 确保后端已部署并运行
+cd /opt/ipv6-wireguard-manager/backend
+
+# 2. 安装路径构建器依赖
+pip install -r requirements_path_builder.txt
+
+# 3. 初始化路径构建器
+python -m app.core.path_builder --init
+
+# 4. 验证安装
+python -m app.core.path_builder --test
+```
+
+##### 3.2.2 前端部署
+
+```bash
+# 1. 确保前端已部署
+cd /var/www/html
+
+# 2. 复制路径构建器文件
+sudo cp -r /opt/ipv6-wireguard-manager/php-frontend/api_path_builder /var/www/html/
+sudo cp -r /opt/ipv6-wireguard-manager/php-frontend/js_path_builder /var/www/html/
+
+# 3. 设置权限
+sudo chown -R www-data:www-data /var/www/html/api_path_builder
+sudo chown -R www-data:www-data /var/www/html/js_path_builder
+sudo chmod -R 755 /var/www/html/api_path_builder
+sudo chmod -R 755 /var/www/html/js_path_builder
+```
+
+##### 3.2.3 配置文件设置
+
+```bash
+# 1. 创建配置目录
+sudo mkdir -p /etc/ipv6-wireguard-manager/path_builder
+
+# 2. 复制配置文件
+sudo cp /opt/ipv6-wireguard-manager/config/path_builder_config.json /etc/ipv6-wireguard-manager/path_builder/
+
+# 3. 编辑配置文件
+sudo nano /etc/ipv6-wireguard-manager/path_builder/path_builder_config.json
+```
+
+```json
+{
+  "api_version": "v1",
+  "base_url": "http://localhost:8000",
+  "endpoints": {
+    "auth": {
+      "login": "/auth/login",
+      "logout": "/auth/logout",
+      "refresh": "/auth/refresh"
+    },
+    "users": {
+      "list": "/users/",
+      "create": "/users/",
+      "detail": "/users/{id}",
+      "update": "/users/{id}",
+      "delete": "/users/{id}"
+    }
+  },
+  "cache_enabled": true,
+  "cache_ttl": 3600
+}
+```
+
+### 4. Docker部署
+
+#### 4.1 Docker Compose配置
+
+在`docker-compose.yml`中添加API路径构建器服务：
+
+```yaml
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENABLE_PATH_BUILDER=true
+    volumes:
+      - ./config/path_builder_config.json:/app/config/path_builder_config.json
+
+  frontend:
+    build: ./php-frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./php-frontend/api_path_builder:/var/www/html/api_path_builder
+      - ./php-frontend/js_path_builder:/var/www/html/js_path_builder
+```
+
+#### 4.2 Docker环境变量
+
+```bash
+# 启用API路径构建器
+ENABLE_PATH_BUILDER=true
+
+# 路径构建器配置文件路径
+PATH_BUILDER_CONFIG_PATH=/app/config/path_builder_config.json
+
+# 缓存设置
+PATH_BUILDER_CACHE_ENABLED=true
+PATH_BUILDER_CACHE_TTL=3600
+```
+
+### 5. 验证部署
+
+#### 5.1 后端验证
+
+```bash
+# 测试后端路径构建器
+curl -X GET "http://localhost:8000/api/v1/path_builder/status" \
+  -H "accept: application/json"
+
+# 预期响应
+{
+  "status": "active",
+  "version": "3.1.0",
+  "endpoints_count": 25,
+  "cache_status": "enabled"
+}
+```
+
+#### 5.2 前端验证
+
+```bash
+# 测试PHP路径构建器
+php -r "require_once '/var/www/html/api_path_builder/PathBuilder.php'; \$pb = new PathBuilder(); echo \$pb->getVersion();"
+
+# 测试JavaScript路径构建器
+node -e "const pb = require('/var/www/html/js_path_builder/PathBuilder.js'); console.log(pb.getVersion());"
+```
+
+#### 5.3 集成测试
+
+```bash
+# 运行集成测试
+cd /opt/ipv6-wireguard-manager
+python tests/test_path_builder_integration.py
+```
+
+### 6. 常见问题
+
+#### 6.1 路径构建器未启用
+
+**问题**: API路径构建器功能不可用
+
+**解决方案**:
+```bash
+# 检查配置文件
+cat /etc/ipv6-wireguard-manager/path_builder/path_builder_config.json
+
+# 检查环境变量
+echo $ENABLE_PATH_BUILDER
+
+# 手动启用
+export ENABLE_PATH_BUILDER=true
+sudo systemctl restart ipv6-wireguard-manager
+```
+
+#### 6.2 路径构建器缓存问题
+
+**问题**: API路径更新后缓存未刷新
+
+**解决方案**:
+```bash
+# 清除缓存
+rm -rf /tmp/ipv6-wireguard-manager/path_builder_cache/*
+
+# 重启服务
+sudo systemctl restart ipv6-wireguard-manager
+
+# 禁用缓存（临时）
+export PATH_BUILDER_CACHE_ENABLED=false
+```
+
+#### 6.3 权限问题
+
+**问题**: 路径构建器无法访问配置文件
+
+**解决方案**:
+```bash
+# 设置正确权限
+sudo chown -R www-data:www-data /etc/ipv6-wireguard-manager/path_builder
+sudo chmod 644 /etc/ipv6-wireguard-manager/path_builder/path_builder_config.json
+```
+
+### 7. 性能优化
+
+#### 7.1 缓存优化
+
+```json
+{
+  "cache_enabled": true,
+  "cache_ttl": 3600,
+  "cache_strategy": "lru",
+  "cache_size": 1000
+}
+```
+
+#### 7.2 并发优化
+
+```bash
+# 增加工作进程
+sudo nano /etc/systemd/system/ipv6-wireguard-manager.service
+```
+
+```ini
+[Service]
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host :: --port 8000 --workers 4
+Environment=PATH_BUILDER_WORKERS=4
+```
+
+### 8. 监控与日志
+
+#### 8.1 日志配置
+
+```bash
+# 配置路径构建器日志
+sudo mkdir -p /var/log/ipv6-wireguard-manager/path_builder
+sudo nano /etc/ipv6-wireguard-manager/path_builder/logging_config.json
+```
+
+```json
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "standard": {
+      "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    }
+  },
+  "handlers": {
+    "default": {
+      "level": "INFO",
+      "formatter": "standard",
+      "class": "logging.StreamHandler"
+    },
+    "file": {
+      "level": "INFO",
+      "formatter": "standard",
+      "class": "logging.FileHandler",
+      "filename": "/var/log/ipv6-wireguard-manager/path_builder/path_builder.log",
+      "mode": "a"
+    }
+  },
+  "loggers": {
+    "path_builder": {
+      "handlers": ["default", "file"],
+      "level": "INFO",
+      "propagate": false
+    }
+  }
+}
+```
+
+#### 8.2 监控指标
+
+```bash
+# 查看路径构建器状态
+curl -X GET "http://localhost:8000/api/v1/path_builder/metrics" \
+  -H "accept: application/json"
+```
+
+```json
+{
+  "requests_total": 1250,
+  "cache_hits": 1180,
+  "cache_misses": 70,
+  "average_response_time": "2.5ms",
+  "uptime": "2d 14h 32m"
+}
+```
+
+## 高级部署
+
+### 1. 微服务架构
+
+#### 1.1 独立路径构建器服务
+
+```yaml
+# docker-compose.microservices.yml
+version: '3.8'
+
+services:
+  path-builder:
+    build: ./path_builder
+    ports:
+      - "8001:8000"
+    environment:
+      - SERVICE_NAME=path-builder
+      - API_VERSION=v1
+    volumes:
+      - ./config/path_builder_config.json:/app/config/path_builder_config.json
+    restart: unless-stopped
+```
+
+#### 1.2 API网关配置
+
+```nginx
+# /etc/nginx/sites-available/ipv6-wireguard-manager
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location /api/v1/paths/ {
+        proxy_pass http://localhost:8001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /api/v1/ {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### 2. 集群部署
+
+#### 2.1 负载均衡配置
+
+```nginx
+upstream path_builder_backend {
+    server 10.0.1.10:8000;
+    server 10.0.1.11:8000;
+    server 10.0.1.12:8000;
+}
+
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location /api/v1/paths/ {
+        proxy_pass http://path_builder_backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+#### 2.2 共享缓存配置
+
+```bash
+# 使用Redis作为共享缓存
+docker run -d --name path-builder-cache \
+  -p 6379:6379 \
+  redis:alpine
+```
+
+```json
+{
+  "cache_enabled": true,
+  "cache_backend": "redis",
+  "cache_redis_url": "redis://localhost:6379/0",
+  "cache_ttl": 3600
+}
+```
+
+### 3. 多环境部署
+
+#### 3.1 开发环境
+
+```bash
+# 开发环境配置
+export ENVIRONMENT=development
+export PATH_BUILDER_DEBUG=true
+export PATH_BUILDER_CACHE_ENABLED=false
+export PATH_BUILDER_LOG_LEVEL=DEBUG
+```
+
+#### 3.2 测试环境
+
+```bash
+# 测试环境配置
+export ENVIRONMENT=testing
+export PATH_BUILDER_DEBUG=false
+export PATH_BUILDER_CACHE_ENABLED=true
+export PATH_BUILDER_CACHE_TTL=300
+export PATH_BUILDER_LOG_LEVEL=INFO
+```
+
+#### 3.3 生产环境
+
+```bash
+# 生产环境配置
+export ENVIRONMENT=production
+export PATH_BUILDER_DEBUG=false
+export PATH_BUILDER_CACHE_ENABLED=true
+export PATH_BUILDER_CACHE_TTL=3600
+export PATH_BUILDER_LOG_LEVEL=WARNING
+export PATH_BUILDER_MONITORING_ENABLED=true
+```
+
+## 版本兼容性
+
+### 1. 向后兼容性
+
+API路径构建器设计为向后兼容，支持旧版本的API端点：
+
+```json
+{
+  "compatibility_mode": true,
+  "legacy_endpoints": {
+    "v1": "/api/v1",
+    "v2": "/api/v2"
+  }
+}
+```
+
+### 2. 版本升级
+
+#### 2.1 从v3.0.x升级到v3.1.x
+
+```bash
+# 1. 备份配置
+sudo cp /etc/ipv6-wireguard-manager/api_config.json /etc/ipv6-wireguard-manager/api_config.json.backup
+
+# 2. 更新代码
+cd /opt/ipv6-wireguard-manager
+git pull origin main
+
+# 3. 安装路径构建器
+./install.sh --upgrade --enable-path-builder
+
+# 4. 迁移配置
+python scripts/migrate_to_path_builder.py
+
+# 5. 重启服务
+sudo systemctl restart ipv6-wireguard-manager
+```
+
+#### 2.2 配置迁移
+
+```python
+# migrate_to_path_builder.py
+import json
+import os
+
+def migrate_config():
+    # 读取旧配置
+    with open('/etc/ipv6-wireguard-manager/api_config.json', 'r') as f:
+        old_config = json.load(f)
+    
+    # 创建新配置
+    new_config = {
+        "api_version": "v1",
+        "base_url": old_config.get("api_base_url", "http://localhost:8000"),
+        "endpoints": {
+            "auth": {
+                "login": "/auth/login",
+                "logout": "/auth/logout",
+                "refresh": "/auth/refresh"
+            },
+            "users": {
+                "list": "/users/",
+                "create": "/users/",
+                "detail": "/users/{id}",
+                "update": "/users/{id}",
+                "delete": "/users/{id}"
+            }
+        },
+        "cache_enabled": True,
+        "cache_ttl": 3600
+    }
+    
+    # 保存新配置
+    os.makedirs('/etc/ipv6-wireguard-manager/path_builder', exist_ok=True)
+    with open('/etc/ipv6-wireguard-manager/path_builder/path_builder_config.json', 'w') as f:
+        json.dump(new_config, f, indent=2)
+    
+    print("配置迁移完成")
+
+if __name__ == "__main__":
+    migrate_config()
+```
+
+---
+
+**注意**: API路径构建器是IPv6 WireGuard Manager v3.1.0的新功能，部署前请确保系统满足所有要求。如需更多帮助，请参考[API路径构建器使用指南](API_PATH_BUILDER_USAGE.md)。
 #### 2.2 配置文件恢复
 
 ```bash

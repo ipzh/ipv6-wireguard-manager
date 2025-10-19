@@ -1,7 +1,6 @@
 """
 数据库配置和连接管理（重构版）
 """
-import logging
 from typing import AsyncGenerator
 
 from .database_manager import (
@@ -13,8 +12,9 @@ from .database_manager import (
     DatabaseType
 )
 from .config_enhanced import settings
+from .logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 为了向后兼容，保留原有导出
 engine = database_manager.sync_engine

@@ -3,8 +3,11 @@
  * API端点配置 - 与后端JWT认证系统完全兼容
  */
 
-// API基础配置
-define('API_BASE_URL', 'http://localhost:8000/api/v1');
+// 引入配置
+require_once __DIR__ . '/config.php';
+
+// API基础配置 - 使用config.php中定义的API_BASE_URL
+// API_BASE_URL已在config.php中定义，此处不再重复定义
 define('API_TIMEOUT', 30);
 
 // 认证相关端点

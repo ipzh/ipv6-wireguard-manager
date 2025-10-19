@@ -5,12 +5,14 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
-from uuid import UUID
 import ipaddress
 import logging
 
 from ..models.ipv6 import PrefixPool as PrefixPoolModel, PoolPrefix as PoolPrefixModel
 from ..schemas.ipv6 import PrefixPoolCreate, PrefixPoolUpdate, PoolPrefixUpdate
+from ..core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class IPv6PoolService:
@@ -28,7 +30,7 @@ class IPv6PoolService:
         await self.db.flush()
         return pool
 
-    async def update_pool(self, pool_id: UUID, data: PrefixPoolUpdate) -> Optional[PrefixPoolModel]:
+    async def update_pool(self, pool_id: int, data: PrefixPoolUpdate) -> Optional[PrefixPoolModel]:
         await self.db.execute(
             update(PrefixPoolModel)
             .where(PrefixPoolModel.id == pool_id)
@@ -38,17 +40,17 @@ class IPv6PoolService:
         result = await self.db.execute(select(PrefixPoolModel).where(PrefixPoolModel.id == pool_id))
         return result.scalars().first()
 
-    async def delete_pool(self, pool_id: UUID) -> bool:
+    async def delete_pool(self, pool_id: int) -> bool:
         await self.db.execute(delete(PrefixPoolModel).where(PrefixPoolModel.id == pool_id))
         await self.db.flush()
         return True
 
     # 分配管理
-    async def list_prefixes(self, pool_id: UUID) -> List[PoolPrefixModel]:
+    async def list_prefixes(self, pool_id: int) -> List[PoolPrefixModel]:
         result = await self.db.execute(select(PoolPrefixModel).where(PoolPrefixModel.pool_id == pool_id))
         return result.scalars().all()
 
-    async def allocate_next(self, pool_id: UUID, assigned_to_type: Optional[str] = None, assigned_to_id: Optional[str] = None, note: Optional[str] = None) -> Optional[PoolPrefixModel]:
+    async def allocate_next(self, pool_id: int, assigned_to_type: Optional[str] = None, assigned_to_id: Optional[str] = None, note: Optional[str] = None) -> Optional[PoolPrefixModel]:
         """智能分配下一个可用的IPv6前缀"""
         try:
             # 获取池信息
@@ -145,18 +147,16 @@ class IPv6PoolService:
                 await self.db.flush()
                 
                 # 记录分配日志
-                logger = logging.getLogger(__name__)
                 logger.info(f"IPv6前缀分配成功: {new_prefix} -> {assigned_to_type}:{assigned_to_id}")
                 
                 return record
             
             return None
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.error(f"IPv6前缀分配失败: {e}")
             return None
 
-    async def release(self, prefix_id: UUID) -> bool:
+    async def release(self, prefix_id: int) -> bool:
         # 将记录标记为free
         await self.db.execute(
             update(PoolPrefixModel)
@@ -166,7 +166,7 @@ class IPv6PoolService:
         await self.db.flush()
         return True
 
-    async def reserve(self, pool_id: UUID, prefix: str, note: Optional[str] = None) -> PoolPrefixModel:
+    async def reserve(self, pool_id: int, prefix: str, note: Optional[str] = None) -> PoolPrefixModel:
         record = PoolPrefixModel(
             pool_id=pool_id,
             prefix=prefix,

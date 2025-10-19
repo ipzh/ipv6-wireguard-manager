@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 try:
-    from ....core.database import get_db
+    from ...core.database import get_db
     ASYNC_DB_AVAILABLE = True
 except ImportError:
     ASYNC_DB_AVAILABLE = False
@@ -14,7 +14,7 @@ except ImportError:
     async def get_db():
         return None
 try:
-    from ....schemas.common import MessageResponse
+    from ...schemas.common import MessageResponse
     MESSAGE_SCHEMA_AVAILABLE = True
 except ImportError:
     MESSAGE_SCHEMA_AVAILABLE = False
@@ -24,6 +24,9 @@ except ImportError:
             self.message = message
 from datetime import datetime
 from fastapi.responses import JSONResponse
+from ...core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -49,6 +52,161 @@ async def get_dashboard_data():
         return JSONResponse(content=data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
+
+@router.get("/alerts")
+async def get_alerts():
+    """获取告警列表"""
+    try:
+        # 简化的告警数据，避免依赖不存在的模块
+        alerts = [
+            {
+                "id": "alert-1",
+                "name": "高CPU使用率",
+                "level": "warning",
+                "status": "active",
+                "message": "CPU使用率超过80%",
+                "timestamp": datetime.now().isoformat()
+            },
+            {
+                "id": "alert-2",
+                "name": "高内存使用率",
+                "level": "critical",
+                "status": "active",
+                "message": "内存使用率超过90%",
+                "timestamp": datetime.now().isoformat()
+            }
+        ]
+        
+        return JSONResponse(content=alerts)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get alerts: {str(e)}")
+
+@router.post("/alerts")
+async def create_alert(alert_data: dict):
+    """创建告警"""
+    try:
+        # 模拟创建告警
+        return {
+            "message": "告警已创建",
+            "alert_id": f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "success": True,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create alert: {str(e)}")
+
+@router.get("/alerts/{alert_id}")
+async def get_alert(alert_id: str):
+    """获取单个告警"""
+    try:
+        # 模拟获取单个告警
+        alert = {
+            "id": alert_id,
+            "name": "高CPU使用率",
+            "level": "warning",
+            "status": "active",
+            "message": "CPU使用率超过80%",
+            "timestamp": datetime.now().isoformat(),
+            "details": {
+                "threshold": 80,
+                "current_value": 85,
+                "duration": 5
+            }
+        }
+        
+        return JSONResponse(content=alert)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get alert: {str(e)}")
+
+@router.put("/alerts/{alert_id}")
+async def update_alert(alert_id: str, alert_data: dict):
+    """更新告警"""
+    try:
+        # 模拟更新告警
+        return {
+            "message": f"告警 {alert_id} 已更新",
+            "success": True,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update alert: {str(e)}")
+
+@router.delete("/alerts/{alert_id}")
+async def delete_alert(alert_id: str):
+    """删除告警"""
+    try:
+        # 模拟删除告警
+        return {
+            "message": f"告警 {alert_id} 已删除",
+            "success": True,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete alert: {str(e)}")
+
+@router.post("/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str):
+    """确认告警"""
+    try:
+        # 模拟确认告警
+        return {
+            "message": f"告警 {alert_id} 已确认",
+            "success": True,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to acknowledge alert: {str(e)}")
+
+@router.get("/metrics")
+async def get_metrics():
+    """获取指标列表"""
+    try:
+        # 简化的指标数据
+        metrics = [
+            {
+                "id": "metric-1",
+                "name": "system.cpu.usage",
+                "description": "CPU使用率",
+                "unit": "percent",
+                "current_value": 25.5,
+                "timestamp": datetime.now().isoformat()
+            },
+            {
+                "id": "metric-2",
+                "name": "system.memory.usage",
+                "description": "内存使用率",
+                "unit": "percent",
+                "current_value": 45.2,
+                "timestamp": datetime.now().isoformat()
+            }
+        ]
+        
+        return JSONResponse(content=metrics)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+
+@router.get("/metrics/{metric_id}")
+async def get_metric(metric_id: str):
+    """获取单个指标"""
+    try:
+        # 模拟获取单个指标
+        metric = {
+            "id": metric_id,
+            "name": "system.cpu.usage",
+            "description": "CPU使用率",
+            "unit": "percent",
+            "current_value": 25.5,
+            "timestamp": datetime.now().isoformat(),
+            "history": [
+                {"timestamp": datetime.now().isoformat(), "value": 25.5},
+                {"timestamp": datetime.now().isoformat(), "value": 26.1},
+                {"timestamp": datetime.now().isoformat(), "value": 24.8}
+            ]
+        }
+        
+        return JSONResponse(content=metric)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get metric: {str(e)}")
 
 @router.get("/metrics/system")
 async def get_system_metrics(

@@ -3,6 +3,82 @@ API路径常量定义
 统一管理所有API路径，确保前后端一致
 """
 
+from enum import Enum
+from fastapi import Request, Response
+from fastapi.routing import APIRoute
+from typing import Callable, Dict, Any, Optional, List
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.routing import Match
+
+from app.core.path_manager import path_manager
+
+
+class APIVersion(Enum):
+    """API版本枚举"""
+    V1 = "v1"
+    V2 = "v2"
+    
+    def __str__(self):
+        return self.value
+
+
+class APIPathMiddleware(BaseHTTPMiddleware):
+    """API路径中间件，用于处理版本控制和路径映射"""
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """处理请求，添加路径信息"""
+        # 获取请求路径信息
+        path_info = {
+            "full_path": str(request.url),
+            "method": request.method,
+            "path_params": request.path_params,
+            "query_params": dict(request.query_params)
+        }
+        
+        # 将路径信息添加到请求状态中
+        request.state.path_info = path_info
+        
+        response = await call_next(request)
+        return response
+
+
+class VersionedAPIRoute(APIRoute):
+    """版本化API路由类"""
+    
+    def __init__(
+        self,
+        path: str,
+        endpoint: Callable,
+        *,
+        methods: Optional[List[str]] = None,
+        name: Optional[str] = None,
+        include_in_schema: bool = True,
+        version: str = "v1",
+        **kwargs: Any
+    ) -> None:
+        # 添加版本前缀到路径
+        if not path.startswith(f"/api/{version}"):
+            path = f"/api/{version}{path}"
+        
+        super().__init__(
+            path=path,
+            endpoint=endpoint,
+            methods=methods,
+            name=name,
+            include_in_schema=include_in_schema,
+            **kwargs
+        )
+        
+        self.version = version
+    
+    def matches(self, scope: Dict[str, Any]) -> Optional[Match]:
+        """匹配路由，考虑版本信息"""
+        match = super().matches(scope)
+        if match is not None:
+            # 将版本信息添加到scope中
+            scope["api_version"] = self.version
+        return match
+
 class APIPaths:
     """API路径常量类"""
     
@@ -273,4 +349,11 @@ class APIPaths:
         return cls.get_full_path(cls.WEBSOCKET.get(action, ""))
 
 # 导出主要组件
-__all__ = ["APIPaths"]
+__all__ = [
+    "APIPaths", "path_manager", 
+    "APIPathMiddleware", "VersionedAPIRoute",
+    "api_path_middleware"
+]
+
+# 创建中间件实例
+api_path_middleware = APIPathMiddleware()

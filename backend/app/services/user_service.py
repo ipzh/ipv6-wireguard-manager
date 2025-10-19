@@ -5,16 +5,16 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func, update, delete
 from sqlalchemy.orm import selectinload
-import structlog
 from datetime import datetime, timedelta
 import uuid
 
+from ..core.logging import get_logger
 from ..models.models_complete import User, Role, Permission, AuditLog, user_roles, role_permissions
 from ..schemas.user import UserCreate, UserUpdate, UserResponse
 from ..core.security_enhanced import security_manager, init_permissions_and_roles
 from ..utils.audit import audit_log
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 
 
 class UserService:

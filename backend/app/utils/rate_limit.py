@@ -1,13 +1,15 @@
 """
-API限流装饰器
+速率限制工具 - 提供API请求速率限制功能
 """
 import time
+from typing import Callable, Dict, Optional
 from functools import wraps
-from typing import Dict, Tuple
-from fastapi import HTTPException, Request
-import structlog
+from fastapi import HTTPException, Request, status
+import redis.asyncio as redis
 
-logger = structlog.get_logger()
+from ..core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # 简单的内存限流器
 _rate_limit_storage: Dict[str, Dict[str, Tuple[int, float]]] = {}

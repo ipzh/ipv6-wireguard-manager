@@ -4,7 +4,6 @@ BGP服务管理模块
 import asyncio
 import subprocess
 import json
-import logging
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -13,8 +12,9 @@ from sqlalchemy import and_, or_
 from ..models.bgp import BGPSession, BGPOperation, OperationType, SessionStatus
 from ..models.ipv6_pool import IPv6PrefixPool, IPv6Allocation, BGPAlert
 from ..core.database import get_db
+from ..core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BGPService:

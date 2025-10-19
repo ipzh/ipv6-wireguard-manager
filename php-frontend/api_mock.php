@@ -21,6 +21,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $path = str_replace('/api_mock.php', '', $path);
 
+// 移除/api/v1前缀（如果存在）
+$path = preg_replace('/^\/api\/v1/', '', $path);
+
 // 模拟API响应
 function mockResponse($data, $status = 200) {
     http_response_code($status);
@@ -30,7 +33,7 @@ function mockResponse($data, $status = 200) {
 
 // 模拟数据
 $mockData = [
-    '/api/v1/system/config' => [
+    '/system/config' => [
         'success' => true,
         'data' => [
             'system_name' => 'IPv6 WireGuard Manager',
@@ -41,7 +44,7 @@ $mockData = [
             'log_level' => 'info'
         ]
     ],
-    '/api/v1/system/info' => [
+    '/system/info' => [
         'success' => true,
         'data' => [
             'hostname' => 'wireguard-server',
@@ -53,7 +56,7 @@ $mockData = [
             'disk_usage' => 45.8
         ]
     ],
-    '/api/v1/wireguard/servers' => [
+    '/wireguard/servers' => [
         'success' => true,
         'data' => [
             [
@@ -69,7 +72,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/wireguard/clients' => [
+    '/wireguard/clients' => [
         'success' => true,
         'data' => [
             [
@@ -83,7 +86,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/bgp/sessions' => [
+    '/bgp/sessions' => [
         'success' => true,
         'data' => [
             [
@@ -98,7 +101,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/ipv6/pools' => [
+    '/ipv6/pools' => [
         'success' => true,
         'data' => [
             [
@@ -111,7 +114,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/monitoring/metrics' => [
+    '/monitoring/metrics' => [
         'success' => true,
         'data' => [
             'cpu_usage' => 25.5,
@@ -122,7 +125,7 @@ $mockData = [
             'active_connections' => 150
         ]
     ],
-    '/api/v1/monitoring/alerts' => [
+    '/monitoring/alerts' => [
         'success' => true,
         'data' => [
             [
@@ -134,7 +137,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/logs' => [
+    '/logs' => [
         'success' => true,
         'data' => [
             'logs' => [
@@ -149,7 +152,7 @@ $mockData = [
             'total' => 1000
         ]
     ],
-    '/api/v1/users' => [
+    '/users' => [
         'success' => true,
         'data' => [
             [
@@ -163,7 +166,7 @@ $mockData = [
             ]
         ]
     ],
-    '/api/v1/network/interfaces' => [
+    '/network/interfaces' => [
         'success' => true,
         'data' => [
             'interfaces' => [

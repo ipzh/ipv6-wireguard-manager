@@ -6,10 +6,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from ...core.database import get_db
 from ...core.config_enhanced import settings
+from ...core.logging import get_logger
 from ...core.security_enhanced import (
     security_manager, authenticate_user, create_tokens, 
     refresh_access_token, get_current_active_user
@@ -23,7 +23,7 @@ from ...schemas.user import UserCreate, UserUpdate
 from ...services.user_service import UserService
 from ...utils.rate_limit import rate_limit
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 router = APIRouter()
 
 

@@ -7,6 +7,9 @@ import psutil
 import time
 import subprocess
 import asyncio
+from ..core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class StatusService:
     """状态服务类"""
@@ -50,6 +53,7 @@ class StatusService:
                 "timestamp": time.time()
             }
         except Exception as e:
+            logger.error(f"获取系统状态失败: {e}")
             return {
                 "error": str(e),
                 "timestamp": time.time()
@@ -89,6 +93,7 @@ class StatusService:
                 "error": None
             }
         except Exception as e:
+            logger.error(f"检查服务{service_name}状态失败: {e}")
             return {
                 "name": service_name,
                 "active": False,
@@ -132,6 +137,7 @@ class StatusService:
                 "error": None
             }
         except Exception as e:
+            logger.error(f"检查WireGuard服务状态失败: {e}")
             return {
                 "name": "wireguard",
                 "active": False,

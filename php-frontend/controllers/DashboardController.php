@@ -1,16 +1,22 @@
 <?php
 /**
- * 仪表板控制器
+ * 仪表板控制器 - 使用统一API路径构建器
  */
+require_once __DIR__ . '/../includes/ApiPathBuilder/index.php';
+
 class DashboardController {
     private $auth;
     private $apiClient;
     private $permissionMiddleware;
+    private $apiPathBuilder;
     
     public function __construct() {
         $this->auth = new AuthJWT();
         $this->apiClient = new ApiClientJWT();
         $this->permissionMiddleware = new PermissionMiddleware();
+        
+        // 获取API路径构建器实例
+        $this->apiPathBuilder = get_default_api_path_builder();
         
         // 要求用户登录
         $this->permissionMiddleware->requireLogin();
@@ -67,40 +73,45 @@ class DashboardController {
         }
         
         try {
-            // 获取WireGuard服务器
-            $serversResponse = $this->apiClient->get('/wireguard/servers');
+            // 获取WireGuard服务器 - 使用路径构建器
+            $serversUrl = $this->apiPathBuilder->buildUrl('wireguard.servers');
+            $serversResponse = $this->apiClient->request('GET', $serversUrl);
             $data['servers'] = $serversResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取服务器列表失败: ' . $e->getMessage());
         }
         
         try {
-            // 获取WireGuard客户端
-            $clientsResponse = $this->apiClient->get('/wireguard/clients');
+            // 获取WireGuard客户端 - 使用路径构建器
+            $clientsUrl = $this->apiPathBuilder->buildUrl('wireguard.clients');
+            $clientsResponse = $this->apiClient->request('GET', $clientsUrl);
             $data['clients'] = $clientsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取客户端列表失败: ' . $e->getMessage());
         }
         
         try {
-            // 获取BGP宣告
-            $bgpResponse = $this->apiClient->get('/bgp/routes');
+            // 获取BGP宣告 - 使用路径构建器
+            $bgpUrl = $this->apiPathBuilder->buildUrl('bgp.routes');
+            $bgpResponse = $this->apiClient->request('GET', $bgpUrl);
             $data['bgpAnnouncements'] = $bgpResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取BGP宣告失败: ' . $e->getMessage());
         }
         
         try {
-            // 获取系统指标
-            $metricsResponse = $this->apiClient->get('/monitoring/metrics/system');
+            // 获取系统指标 - 使用路径构建器
+            $metricsUrl = $this->apiPathBuilder->buildUrl('monitoring.metrics.system');
+            $metricsResponse = $this->apiClient->request('GET', $metricsUrl);
             $data['systemMetrics'] = $metricsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取系统指标失败: ' . $e->getMessage());
         }
         
         try {
-            // 获取最近日志
-            $logsResponse = $this->apiClient->get('/logs');
+            // 获取最近日志 - 使用路径构建器
+            $logsUrl = $this->apiPathBuilder->buildUrl('logs');
+            $logsResponse = $this->apiClient->request('GET', $logsUrl);
             $data['recentLogs'] = $logsResponse['data'] ?? [];
         } catch (Exception $e) {
             error_log('获取最近日志失败: ' . $e->getMessage());
@@ -201,6 +212,27 @@ class DashboardController {
                 $stats['activeClients']++;
             }
         }
+        
+        // 确定系统状态
+        if ($stats['activeServers'] > 0 && $stats['activeClients'] > 0) {
+            $stats['systemStatus'] = 'healthy';
+        } elseif ($stats['activeServers'] > 0) {
+            $stats['systemStatus'] = 'warning';
+        } else {
+            $stats['systemStatus'] = 'critical';
+        }
+        
+        return $stats;
+    }
+    
+    /**
+     * 获取API路径构建器实例
+     */
+    public function getApiPathBuilder() {
+        return $this->apiPathBuilder;
+    }
+}
+?>
         
         // 系统状态
         if ($data['apiStatus']) {

@@ -3,7 +3,6 @@ BGP相关Schema
 """
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from uuid import UUID
 
 
 class BGPSessionBase(BaseModel):
@@ -31,7 +30,7 @@ class BGPSessionUpdate(BaseModel):
 
 
 class BGPSession(BGPSessionBase):
-    id: UUID
+    id: int
 
     class Config:
         from_attributes = True
@@ -43,7 +42,7 @@ class BGPAnnouncementBase(BaseModel):
     next_hop: Optional[str] = None
     description: Optional[str] = None
     enabled: bool = True
-    session_id: Optional[UUID] = Field(default=None)
+    session_id: Optional[int] = Field(default=None)
 
 
 class BGPAnnouncementCreate(BGPAnnouncementBase):
@@ -56,11 +55,11 @@ class BGPAnnouncementUpdate(BaseModel):
     next_hop: Optional[str] = None
     description: Optional[str] = None
     enabled: Optional[bool] = None
-    session_id: Optional[UUID] = None
+    session_id: Optional[int] = None
 
 
 class BGPAnnouncement(BGPAnnouncementBase):
-    id: UUID
+    id: int
 
     class Config:
         from_attributes = True

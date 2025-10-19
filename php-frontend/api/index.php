@@ -19,7 +19,11 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
 if (file_exists("../config/config.php")) {
     require_once "../config/config.php";
 } else {
-    define("API_BASE_URL", "http://localhost:8000/api/v1");
+    // 如果配置文件不存在，使用默认值
+    define('APP_NAME', 'IPv6 WireGuard Manager');
+    define('APP_DEBUG', true);
+    define('API_BASE_URL', 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000');
+    define('API_TIMEOUT', 30);
 }
 
 // 获取请求路径

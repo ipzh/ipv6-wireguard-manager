@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from app.core.api_paths import path_manager
 from app.core.api_enhancement import APIEndpoint, APIDocumentationGenerator
-import logging
+from .logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class FastAPIDocGenerator(APIDocumentationGenerator):
     """FastAPI集成的API文档生成器"""

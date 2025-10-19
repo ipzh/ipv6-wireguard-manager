@@ -128,7 +128,7 @@ async def get_api_status() -> Dict[str, Any]:
 async def get_database_status() -> Dict[str, Any]:
     """获取数据库状态"""
     try:
-        from ....core.database import async_engine, sync_engine, AsyncSessionLocal, SessionLocal
+        from ...core.database import async_engine, sync_engine, AsyncSessionLocal, SessionLocal
         
         status = {
             "async_engine": async_engine is not None,

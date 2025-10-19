@@ -6,13 +6,18 @@ import glob
 import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from ....core.database import get_db
+from ...core.database import get_db
+from ...core.logging import get_logger
 
 router = APIRouter()
+
+# 创建日志记录器
+logger = get_logger(__name__)
 
 
 class LogEntry(BaseModel):
@@ -38,76 +43,94 @@ class LogDetailResponse(BaseModel):
     log: LogEntry
 
 
-@router.get("/", response_model=None)
+@router.get("")
 async def get_logs(
-    page: int = 1,
-    page_size: int = 50,
-    level: Optional[str] = None,
-    source: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页数量"),
+    level: Optional[str] = Query(None, description="日志级别"),
+    service: Optional[str] = Query(None, description="服务名称"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间")
 ):
     """获取日志列表"""
     try:
-        # 模拟日志数据 - 实际项目中应该从数据库或日志文件中读取
-        mock_logs = []
-        for i in range(100):
-            log_levels = ["INFO", "WARNING", "ERROR", "DEBUG"]
-            log_sources = ["system", "api", "wireguard", "bgp", "ipv6"]
-            
-            log_entry = LogEntry(
-                id=f"log_{i}",
-                timestamp=datetime.now().isoformat(),
-                level=log_levels[i % len(log_levels)],
-                message=f"示例日志消息 {i}",
-                source=log_sources[i % len(log_sources)],
-                details={"user_id": i, "action": f"action_{i}"}
-            )
-            mock_logs.append(log_entry)
+        # 模拟日志数据
+        logs = [
+            {
+                "id": "log-1",
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "service": "api",
+                "message": "API请求成功",
+                "details": {
+                    "request_id": "req-123",
+                    "user_id": "user-456",
+                    "ip": "192.168.1.1"
+                }
+            },
+            {
+                "id": "log-2",
+                "timestamp": datetime.now().isoformat(),
+                "level": "ERROR",
+                "service": "database",
+                "message": "数据库连接失败",
+                "details": {
+                    "error": "Connection timeout",
+                    "retry_count": 3
+                }
+            }
+        ]
         
-        # 应用过滤器
-        filtered_logs = mock_logs
+        # 应用过滤条件
+        filtered_logs = logs
         if level:
-            filtered_logs = [log for log in filtered_logs if log.level == level.upper()]
-        if source:
-            filtered_logs = [log for log in filtered_logs if log.source == source]
-        if start_date:
-            filtered_logs = [log for log in filtered_logs if log.timestamp >= start_date]
-        if end_date:
-            filtered_logs = [log for log in filtered_logs if log.timestamp <= end_date]
-        
+            filtered_logs = [log for log in filtered_logs if log["level"] == level]
+        if service:
+            filtered_logs = [log for log in filtered_logs if log["service"] == service]
+            
         # 分页
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
+        total = len(filtered_logs)
+        start_idx = (page - 1) * size
+        end_idx = start_idx + size
         paginated_logs = filtered_logs[start_idx:end_idx]
         
-        return LogListResponse(
-            logs=paginated_logs,
-            total=len(filtered_logs),
-            page=page,
-            page_size=page_size
-        )
+        return {
+            "items": paginated_logs,
+            "total": total,
+            "page": page,
+            "size": size,
+            "pages": (total + size - 1) // size
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取日志列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get logs: {str(e)}")
 
 
-@router.get("/{log_id}", response_model=None)
+@router.get("/{log_id}")
 async def get_log(log_id: str):
     """获取单个日志"""
     try:
-        # 模拟查找特定日志
-        mock_log = LogEntry(
-            id=log_id,
-            timestamp=datetime.now().isoformat(),
-            level="INFO",
-            message=f"日志详情: {log_id}",
-            source="api",
-            details={"log_id": log_id, "additional_info": "这是日志的详细信息"}
-        )
+        # 模拟获取单个日志
+        log = {
+            "id": log_id,
+            "timestamp": datetime.now().isoformat(),
+            "level": "INFO",
+            "service": "api",
+            "message": "API请求成功",
+            "details": {
+                "request_id": "req-123",
+                "user_id": "user-456",
+                "ip": "192.168.1.1",
+                "user_agent": "Mozilla/5.0",
+                "request_path": "/api/v1/users",
+                "method": "GET",
+                "status_code": 200,
+                "response_time": 120
+            }
+        }
         
-        return LogDetailResponse(log=mock_log)
+        return JSONResponse(content=log)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取日志详情失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get log: {str(e)}")
 
 
 @router.delete("/{log_id}")
@@ -120,25 +143,195 @@ async def delete_log(log_id: str):
         raise HTTPException(status_code=500, detail=f"删除日志失败: {str(e)}")
 
 
-@router.delete("/")
-async def clear_logs():
-    """清空所有日志"""
+@router.delete("")
+async def clear_logs(
+    level: Optional[str] = Query(None, description="日志级别"),
+    service: Optional[str] = Query(None, description="服务名称"),
+    older_than: Optional[str] = Query(None, description="删除早于此时间的日志")
+):
+    """清空日志"""
     try:
-        # 模拟清空操作
-        return {"message": "所有日志已清空", "success": True}
+        # 模拟清空日志
+        return {
+            "message": "日志已清空",
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "filters": {
+                "level": level,
+                "service": service,
+                "older_than": older_than
+            }
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"清空日志失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear logs: {str(e)}")
 
 
-@router.get("/health/check")
+@router.get("/health")
 async def logs_health_check():
     """日志服务健康检查"""
     try:
         return {
             "status": "healthy",
-            "service": "logs",
             "timestamp": datetime.now().isoformat(),
-            "message": "日志服务运行正常"
+            "service": "logs",
+            "details": {
+                "storage": "available",
+                "search_index": "available",
+                "total_logs": 12345,
+                "last_log_time": datetime.now().isoformat()
+            }
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"日志服务异常: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+
+@router.get("/search")
+async def search_logs(
+    query: str = Query(..., description="搜索查询"),
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页数量"),
+    level: Optional[str] = Query(None, description="日志级别"),
+    service: Optional[str] = Query(None, description="服务名称"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间")
+):
+    """搜索日志"""
+    try:
+        # 模拟日志数据
+        logs = [
+            {
+                "id": "log-1",
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "service": "api",
+                "message": "API请求成功",
+                "details": {
+                    "request_id": "req-123",
+                    "user_id": "user-456",
+                    "ip": "192.168.1.1"
+                }
+            },
+            {
+                "id": "log-2",
+                "timestamp": datetime.now().isoformat(),
+                "level": "ERROR",
+                "service": "database",
+                "message": "数据库连接失败",
+                "details": {
+                    "error": "Connection timeout",
+                    "retry_count": 3
+                }
+            }
+        ]
+        
+        # 搜索过滤
+        filtered_logs = [
+            log for log in logs 
+            if query.lower() in log["message"].lower() or 
+               query.lower() in log["service"].lower()
+        ]
+        
+        # 应用其他过滤条件
+        if level:
+            filtered_logs = [log for log in filtered_logs if log["level"] == level]
+        if service:
+            filtered_logs = [log for log in filtered_logs if log["service"] == service]
+            
+        # 分页
+        total = len(filtered_logs)
+        start_idx = (page - 1) * size
+        end_idx = start_idx + size
+        paginated_logs = filtered_logs[start_idx:end_idx]
+        
+        return {
+            "items": paginated_logs,
+            "total": total,
+            "page": page,
+            "size": size,
+            "pages": (total + size - 1) // size,
+            "query": query
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search logs: {str(e)}")
+
+@router.get("/export")
+async def export_logs(
+    format: str = Query("json", description="导出格式"),
+    level: Optional[str] = Query(None, description="日志级别"),
+    service: Optional[str] = Query(None, description="服务名称"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间")
+):
+    """导出日志"""
+    try:
+        # 模拟导出日志
+        logs = [
+            {
+                "id": "log-1",
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "service": "api",
+                "message": "API请求成功",
+                "details": {
+                    "request_id": "req-123",
+                    "user_id": "user-456",
+                    "ip": "192.168.1.1"
+                }
+            }
+        ]
+        
+        # 应用过滤条件
+        filtered_logs = logs
+        if level:
+            filtered_logs = [log for log in filtered_logs if log["level"] == level]
+        if service:
+            filtered_logs = [log for log in filtered_logs if log["service"] == service]
+            
+        # 根据格式返回数据
+        if format == "csv":
+            # 简化的CSV导出
+            csv_data = "id,timestamp,level,service,message\n"
+            for log in filtered_logs:
+                csv_data += f"{log['id']},{log['timestamp']},{log['level']},{log['service']},{log['message']}\n"
+            
+            return Response(
+                content=csv_data,
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=logs.csv"}
+            )
+        else:
+            # JSON格式
+            return JSONResponse(content=filtered_logs)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to export logs: {str(e)}")
+
+@router.get("/levels")
+async def get_log_levels():
+    """获取日志级别列表"""
+    try:
+        levels = [
+            {"value": "DEBUG", "label": "调试"},
+            {"value": "INFO", "label": "信息"},
+            {"value": "WARNING", "label": "警告"},
+            {"value": "ERROR", "label": "错误"},
+            {"value": "CRITICAL", "label": "严重"}
+        ]
+        
+        return JSONResponse(content=levels)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get log levels: {str(e)}")
+
+@router.get("/services")
+async def get_log_services():
+    """获取日志服务列表"""
+    try:
+        services = [
+            {"value": "api", "label": "API服务"},
+            {"value": "database", "label": "数据库服务"},
+            {"value": "cache", "label": "缓存服务"},
+            {"value": "auth", "label": "认证服务"},
+            {"value": "monitoring", "label": "监控服务"}
+        ]
+        
+        return JSONResponse(content=services)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get log services: {str(e)}")

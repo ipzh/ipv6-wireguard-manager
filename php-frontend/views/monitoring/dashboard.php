@@ -396,6 +396,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // API基础URL
+        const API_BASE_URL = '<?= API_BASE_URL ?>';
+        
+        // 图表实例
         let performanceChart;
         let autoRefreshInterval;
         
@@ -485,7 +489,7 @@
         }
         
         function loadSystemMetrics() {
-            fetch('/api/v1/monitoring/metrics')
+            fetch(`${API_BASE_URL}/monitoring/metrics`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -507,7 +511,7 @@
         }
         
         function loadServiceStatus() {
-            fetch('/api/v1/monitoring/services')
+            fetch(`${API_BASE_URL}/monitoring/services`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -528,7 +532,7 @@
         }
         
         function loadAlerts() {
-            fetch('/api/v1/alerts')
+            fetch(`${API_BASE_URL}/monitoring/alerts`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -554,11 +558,15 @@
                         `).join('');
                     }
                 }
+            })
+            .catch(error => {
+                console.error('加载告警信息错误:', error);
+                document.getElementById('alertsList').innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>无法加载告警信息</div>';
             });
         }
         
         function loadRecentLogs() {
-            fetch('/api/v1/logs/recent')
+            fetch(`${API_BASE_URL}/monitoring/logs`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -577,11 +585,15 @@
                         </div>
                     `).join('');
                 }
+            })
+            .catch(error => {
+                console.error('加载日志信息错误:', error);
+                document.getElementById('recentLogs').innerHTML = '<div class="text-muted">无法加载日志信息</div>';
             });
         }
         
         function loadWireGuardStatus() {
-            fetch('/api/v1/wireguard/status')
+            fetch(`${API_BASE_URL}/wireguard/status`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -590,11 +602,18 @@
                     document.getElementById('wgSessions').textContent = data.wireguard.active_sessions;
                     document.getElementById('wgTraffic').textContent = data.wireguard.traffic_gb;
                 }
+            })
+            .catch(error => {
+                console.error('加载WireGuard状态错误:', error);
+                document.getElementById('wgServers').textContent = '错误';
+                document.getElementById('wgClients').textContent = '错误';
+                document.getElementById('wgSessions').textContent = '错误';
+                document.getElementById('wgTraffic').textContent = '错误';
             });
         }
         
         function updatePerformanceChart() {
-            fetch('/api/v1/monitoring/performance-history')
+            fetch(`${API_BASE_URL}/monitoring/performance-history`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

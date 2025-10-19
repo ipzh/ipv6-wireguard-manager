@@ -662,6 +662,189 @@ Content-Type: multipart/form-data
 file: <certificate_file>
 ```
 
+## API路径构建器
+
+### 概述
+
+API路径构建器提供了一种统一的方式来管理API端点路径，确保前后端路径一致性。它支持模块化路径定义、参数替换和版本控制。
+
+### 基本用法
+
+#### 后端使用 (PHP)
+
+```php
+// 引入API路径构建器
+require_once __DIR__ . '/includes/ApiPathBuilder/ApiPathBuilder.php';
+
+// 获取路径构建器实例
+$pathBuilder = ApiPathBuilder::getInstance();
+
+// 获取API路径
+$loginPath = $pathBuilder->getPath('auth.login'); // 返回: /api/v1/auth/login
+$serverPath = $pathBuilder->getPath('wireguard.servers.list'); // 返回: /api/v1/wireguard/servers
+
+// 获取完整URL
+$fullUrl = $pathBuilder->getUrl('wireguard.clients.create', ['server_id' => 123]);
+// 返回: http://localhost:8000/api/v1/wireguard/servers/123/clients
+
+// 带参数替换
+$peerPath = $pathBuilder->getPath('wireguard.peers.detail', ['peer_id' => 'abc123']);
+// 返回: /api/v1/wireguard/peers/abc123
+```
+
+#### 前端使用 (JavaScript)
+
+```javascript
+// 引入API路径构建器
+import ApiPathBuilder from './includes/ApiPathBuilder/ApiPathBuilder.js';
+
+// 获取路径构建器实例
+const pathBuilder = ApiPathBuilder.getInstance();
+
+// 获取API路径
+const loginPath = pathBuilder.getPath('auth.login'); // 返回: /api/v1/auth/login
+const serverPath = pathBuilder.getPath('wireguard.servers.list'); // 返回: /api/v1/wireguard/servers
+
+// 获取完整URL
+const fullUrl = pathBuilder.getUrl('wireguard.clients.create', { server_id: 123 });
+// 返回: http://localhost:8000/api/v1/wireguard/servers/123/clients
+
+// 带参数替换
+const peerPath = pathBuilder.getPath('wireguard.peers.detail', { peer_id: 'abc123' });
+// 返回: /api/v1/wireguard/peers/abc123
+```
+
+### 可用路径
+
+#### 认证路径
+- `auth.login` - `/api/v1/auth/login`
+- `auth.refresh` - `/api/v1/auth/refresh`
+- `auth.logout` - `/api/v1/auth/logout`
+
+#### 用户管理路径
+- `users.list` - `/api/v1/users`
+- `users.create` - `/api/v1/users`
+- `users.detail` - `/api/v1/users/{user_id}`
+- `users.update` - `/api/v1/users/{user_id}`
+- `users.delete` - `/api/v1/users/{user_id}`
+
+#### WireGuard服务器路径
+- `wireguard.servers.list` - `/api/v1/wireguard/servers`
+- `wireguard.servers.create` - `/api/v1/wireguard/servers`
+- `wireguard.servers.detail` - `/api/v1/wireguard/servers/{server_id}`
+- `wireguard.servers.update` - `/api/v1/wireguard/servers/{server_id}`
+- `wireguard.servers.delete` - `/api/v1/wireguard/servers/{server_id}`
+- `wireguard.servers.start` - `/api/v1/wireguard/servers/{server_id}/start`
+- `wireguard.servers.stop` - `/api/v1/wireguard/servers/{server_id}/stop`
+- `wireguard.servers.restart` - `/api/v1/wireguard/servers/{server_id}/restart`
+- `wireguard.servers.config` - `/api/v1/wireguard/servers/{server_id}/config`
+
+#### WireGuard客户端路径
+- `wireguard.clients.list` - `/api/v1/wireguard/servers/{server_id}/clients`
+- `wireguard.clients.create` - `/api/v1/wireguard/servers/{server_id}/clients`
+- `wireguard.clients.detail` - `/api/v1/wireguard/clients/{client_id}`
+- `wireguard.clients.update` - `/api/v1/wireguard/clients/{client_id}`
+- `wireguard.clients.delete` - `/api/v1/wireguard/clients/{client_id}`
+- `wireguard.clients.config` - `/api/v1/wireguard/clients/{client_id}/config`
+
+#### WireGuard对等节点路径
+- `wireguard.peers.list` - `/api/v1/wireguard/servers/{server_id}/peers`
+- `wireguard.peers.create` - `/api/v1/wireguard/servers/{server_id}/peers`
+- `wireguard.peers.detail` - `/api/v1/wireguard/peers/{peer_id}`
+- `wireguard.peers.update` - `/api/v1/wireguard/peers/{peer_id}`
+- `wireguard.peers.delete` - `/api/v1/wireguard/peers/{peer_id}`
+- `wireguard.peers.sync` - `/api/v1/wireguard/servers/{server_id}/peers/sync`
+
+#### 系统监控路径
+- `monitoring.status` - `/api/v1/monitoring/status`
+- `monitoring.metrics` - `/api/v1/monitoring/metrics`
+- `monitoring.logs` - `/api/v1/monitoring/logs`
+- `monitoring.alerts` - `/api/v1/monitoring/alerts`
+
+#### 系统设置路径
+- `settings.general` - `/api/v1/settings/general`
+- `settings.security` - `/api/v1/settings/security`
+- `settings.network` - `/api/v1/settings/network`
+- `settings.backup` - `/api/v1/settings/backup`
+
+#### 文件上传路径
+- `upload.config` - `/api/v1/upload/config`
+- `upload.certificate` - `/api/v1/upload/certificate`
+
+#### WebSocket路径
+- `ws.monitoring` - `ws://localhost:8000/api/v1/ws/monitoring`
+- `ws.logs` - `ws://localhost:8000/api/v1/ws/logs`
+
+### 高级用法
+
+#### 批量获取路径
+
+```php
+// PHP示例
+$paths = $pathBuilder->getPaths([
+    'auth.login',
+    'wireguard.servers.list',
+    'users.list'
+]);
+// 返回: [
+//   'auth.login' => '/api/v1/auth/login',
+//   'wireguard.servers.list' => '/api/v1/wireguard/servers',
+//   'users.list' => '/api/v1/users'
+// ]
+```
+
+```javascript
+// JavaScript示例
+const paths = pathBuilder.getPaths([
+    'auth.login',
+    'wireguard.servers.list',
+    'users.list'
+]);
+// 返回: {
+//   'auth.login': '/api/v1/auth/login',
+//   'wireguard.servers.list': '/api/v1/wireguard/servers',
+//   'users.list': '/api/v1/users'
+// }
+```
+
+#### 获取所有路径
+
+```php
+// PHP示例
+$allPaths = $pathBuilder->getAllPaths();
+// 返回所有可用路径的关联数组
+```
+
+```javascript
+// JavaScript示例
+const allPaths = pathBuilder.getAllPaths();
+// 返回所有可用路径的对象
+```
+
+#### 设置基础URL
+
+```php
+// PHP示例
+$pathBuilder->setBaseUrl('https://api.example.com');
+$url = $pathBuilder->getUrl('auth.login');
+// 返回: https://api.example.com/api/v1/auth/login
+```
+
+```javascript
+// JavaScript示例
+pathBuilder.setBaseUrl('https://api.example.com');
+const url = pathBuilder.getUrl('auth.login');
+// 返回: https://api.example.com/api/v1/auth/login
+```
+
+### 优势
+
+1. **一致性**: 确保前后端使用相同的API路径
+2. **可维护性**: 集中管理所有API路径，便于修改和维护
+3. **类型安全**: 使用预定义的路径键，减少拼写错误
+4. **参数替换**: 自动处理路径参数，避免手动拼接
+5. **版本控制**: 支持API版本管理，便于升级
+
 ## WebSocket连接
 
 ### 实时监控连接

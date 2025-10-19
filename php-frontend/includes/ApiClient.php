@@ -1,25 +1,42 @@
 <?php
 /**
- * 增强的API客户端 - 优化版本
+ * 增强的API客户端 - 使用统一API路径构建器
  */
+require_once __DIR__ . '/ApiPathBuilder/index.php';
+
 class ApiClient {
     private $baseUrl;
     private $timeout;
     private $retryCount;
     private $debugMode;
+    private $apiPathBuilder;
     
     public function __construct($baseUrl = null, $timeout = 30, $retryCount = 3, $debugMode = false) {
         $this->baseUrl = $baseUrl ?: getenv('API_BASE_URL') ?: 'http://localhost:8000/api/v1';
         $this->timeout = $timeout;
         $this->retryCount = $retryCount;
         $this->debugMode = $debugMode;
+        
+        // 初始化API路径构建器
+        $this->apiPathBuilder = get_default_api_path_builder($this->baseUrl);
     }
     
     /**
-     * 发送HTTP请求
+     * 发送HTTP请求 - 使用路径构建器验证路径
      */
     public function request($method, $endpoint, $data = null, $headers = []) {
-        $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+        // 如果是路径名称，使用路径构建器构建URL
+        if (strpos($endpoint, '/') === false && $this->apiPathBuilder->pathExists($endpoint)) {
+            $url = $this->apiPathBuilder->buildUrl($endpoint);
+            
+            // 验证路径
+            $validationResult = $this->apiPathBuilder->validatePath($endpoint, [], 'v1', $method);
+            if (!$validationResult['valid']) {
+                throw new Exception("路径验证失败: " . implode(', ', $validationResult['errors']));
+            }
+        } else {
+            $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+        }
         
         // 默认请求头
         $defaultHeaders = [
@@ -154,7 +171,7 @@ class ApiClient {
      */
     public function healthCheck() {
         try {
-            $response = $this->get('/health');
+            $response = $this->get('health');
             return [
                 'status' => 'healthy',
                 'response' => $response
@@ -174,7 +191,7 @@ class ApiClient {
         $startTime = microtime(true);
         
         try {
-            $response = $this->get('/health');
+            $response = $this->get('health');
             $endTime = microtime(true);
             
             return [
@@ -199,7 +216,7 @@ class ApiClient {
      */
     public function getApiStatus() {
         try {
-            $response = $this->get('/health');
+            $response = $this->get('health');
             return [
                 'status' => 'healthy',
                 'connected' => true,
@@ -214,6 +231,27 @@ class ApiClient {
                 'message' => 'API连接失败: ' . $e->getMessage()
             ];
         }
+    }
+    
+    /**
+     * 获取API路径构建器实例
+     */
+    public function getApiPathBuilder() {
+        return $this->apiPathBuilder;
+    }
+    
+    /**
+     * 使用路径构建器构建URL
+     */
+    public function buildUrl($pathName, $params = [], $queryParams = []) {
+        return $this->apiPathBuilder->buildUrl($pathName, $params, $queryParams);
+    }
+    
+    /**
+     * 验证API路径
+     */
+    public function validatePath($pathName, $params = [], $version = 'v1', $method = 'GET') {
+        return $this->apiPathBuilder->validatePath($pathName, $params, $version, $method);
     }
 }
 ?>

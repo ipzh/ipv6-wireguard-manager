@@ -8,8 +8,9 @@ import os
 import logging
 
 from ..models.bgp import BGPSession as BGPSessionModel, BGPAnnouncement as BGPAnnouncementModel
+from ..core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ExaBGPService:

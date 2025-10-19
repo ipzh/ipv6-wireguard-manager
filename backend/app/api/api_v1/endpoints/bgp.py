@@ -5,27 +5,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Dict, Any, List
-import uuid
 
-from ....core.database import get_db
+from ...core.database import get_db
 
 router = APIRouter()
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from ....models.models_complete import BGPSession, BGPAnnouncement
+    from ...models.models_complete import BGPSession, BGPAnnouncement
 except ImportError:
     BGPSession = None
     BGPAnnouncement = None
 
 try:
-    from ....schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
+    from ...schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
 except ImportError:
     BGPSessionSchema = None
     BGPAnnouncementSchema = None
 
 try:
-    from ....services.exabgp_service import ExaBGPService
+    from ...services.exabgp_service import ExaBGPService
 except ImportError:
     ExaBGPService = None
 
@@ -42,11 +41,11 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
             session_schemas.append(BGPSessionSchema(
                 id=session.id,
                 name=session.name,
-                neighbor=session.neighbor,
+                neighbor=session.remote_ip,
                 remote_as=session.remote_as,
                 local_as=session.local_as,
                 password=session.password,
-                enabled=session.enabled,
+                enabled=session.is_enabled,
                 created_at=session.created_at,
                 updated_at=session.updated_at
             ))
@@ -61,7 +60,7 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sessions/{session_id}", response_model=None)
-async def get_bgp_session(session_id: uuid.UUID):
+async def get_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)):
     """获取单个BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -73,11 +72,11 @@ async def get_bgp_session(session_id: uuid.UUID):
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
+            neighbor=session.remote_ip,
             remote_as=session.remote_as,
             local_as=session.local_as,
             password=session.password,
-            enabled=session.enabled,
+            enabled=session.is_enabled,
             created_at=session.created_at,
             updated_at=session.updated_at
         )
@@ -88,16 +87,16 @@ async def get_bgp_session(session_id: uuid.UUID):
 
 
 @router.post("/sessions", response_model=None)
-async def create_bgp_session(session_data: BGPSessionSchema):
+async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """创建BGP会话"""
     try:
         session = BGPSession(
             name=session_data.name,
-            neighbor=session_data.neighbor,
+            remote_ip=session_data.neighbor,
             remote_as=session_data.remote_as,
             local_as=session_data.local_as,
             password=session_data.password,
-            enabled=session_data.enabled
+            is_enabled=session_data.enabled
         )
         
         pass  # 数据库操作已禁用
@@ -111,11 +110,11 @@ async def create_bgp_session(session_data: BGPSessionSchema):
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
+            neighbor=session.remote_ip,
             remote_as=session.remote_as,
             local_as=session.local_as,
             password=session.password,
-            enabled=session.enabled,
+            enabled=session.is_enabled,
             created_at=session.created_at,
             updated_at=session.updated_at
         )
@@ -125,7 +124,7 @@ async def create_bgp_session(session_data: BGPSessionSchema):
 
 
 @router.put("/sessions/{session_id}", response_model=None)
-async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSchema):
+async def update_bgp_session(session_id: int, session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """更新BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -136,11 +135,11 @@ async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSche
         
         # 更新字段
         session.name = session_data.name
-        session.neighbor = session_data.neighbor
+        session.remote_ip = session_data.neighbor
         session.remote_as = session_data.remote_as
         session.local_as = session_data.local_as
         session.password = session_data.password
-        session.enabled = session_data.enabled
+        session.is_enabled = session_data.enabled
         
         await db.commit()
         await db.refresh(session)
@@ -152,11 +151,11 @@ async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSche
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
+            neighbor=session.remote_ip,
             remote_as=session.remote_as,
             local_as=session.local_as,
             password=session.password,
-            enabled=session.enabled,
+            enabled=session.is_enabled,
             created_at=session.created_at,
             updated_at=session.updated_at
         )
@@ -168,7 +167,7 @@ async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSche
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_bgp_session(session_id: uuid.UUID):
+async def delete_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)):
     """删除BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -193,7 +192,7 @@ async def delete_bgp_session(session_id: uuid.UUID):
 
 
 @router.get("/routes", response_model=None)
-async def get_bgp_routes():
+async def get_bgp_routes(db: AsyncSession = Depends(get_db)):
     """获取BGP路由宣告"""
     try:
         result = await db.execute(select(BGPAnnouncement))
@@ -206,7 +205,7 @@ async def get_bgp_routes():
                 prefix=announcement.prefix,
                 next_hop=announcement.next_hop,
                 session_id=announcement.session_id,
-                enabled=announcement.enabled,
+                enabled=announcement.is_active,
                 created_at=announcement.created_at,
                 updated_at=announcement.updated_at
             ))
@@ -221,7 +220,7 @@ async def get_bgp_routes():
 
 
 @router.get("/status", response_model=None)
-async def get_bgp_status():
+async def get_bgp_status(db: AsyncSession = Depends(get_db)):
     """获取BGP服务状态"""
     try:
         exabgp_service = ExaBGPService(db)
@@ -238,8 +237,8 @@ async def get_bgp_status():
             "service_status": status,
             "sessions_count": len(sessions),
             "routes_count": len(routes),
-            "enabled_sessions": len([s for s in sessions if s.enabled]),
-            "enabled_routes": len([r for r in routes if r.enabled]),
+            "enabled_sessions": len([s for s in sessions if s.is_enabled]),
+            "enabled_routes": len([r for r in routes if r.is_active]),
             "message": "BGP状态获取成功"
         }
     except Exception as e:

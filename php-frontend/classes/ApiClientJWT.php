@@ -102,7 +102,7 @@ class ApiClientJWT {
         }
         
         try {
-            $response = $this->makeRequest('POST', '/auth/refresh', [
+            $response = $this->post('/auth/refresh-json', [
                 'refresh_token' => $this->refreshToken
             ], false); // 不自动刷新令牌，避免无限循环
             
@@ -453,7 +453,7 @@ class ApiClientJWT {
      */
     public function login($username, $password) {
         try {
-            $response = $this->post('/auth/login', [
+            $response = $this->post('/auth/login-json', [
                 'username' => $username,
                 'password' => $password
             ]);

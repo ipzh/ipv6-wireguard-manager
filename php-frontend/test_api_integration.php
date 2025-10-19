@@ -43,9 +43,7 @@ class ApiIntegrationTester {
         
         $endpoints = [
             '/health',
-            '/status',
-            '/api/v1/health',
-            '/api/v1/status'
+            '/status'
         ];
         
         foreach ($endpoints as $endpoint) {
@@ -69,15 +67,15 @@ class ApiIntegrationTester {
         echo "2. 测试API端点...\n";
         
         $endpoints = [
-            '/api/v1/system/config',
-            '/api/v1/system/info',
-            '/api/v1/wireguard/servers',
-            '/api/v1/wireguard/clients',
-            '/api/v1/bgp/sessions',
-            '/api/v1/ipv6/pools',
-            '/api/v1/monitoring/metrics',
-            '/api/v1/logs',
-            '/api/v1/users'
+            '/system/config',
+            '/system/info',
+            '/wireguard/servers',
+            '/wireguard/clients',
+            '/bgp/sessions',
+            '/ipv6/pools',
+            '/monitoring/metrics',
+            '/logs',
+            '/users'
         ];
         
         foreach ($endpoints as $endpoint) {
@@ -101,9 +99,9 @@ class ApiIntegrationTester {
         echo "3. 测试错误处理...\n";
         
         $errorTests = [
-            '/api/v1/nonexistent' => '404错误处理',
-            '/api/v1/unauthorized' => '401错误处理',
-            '/api/v1/forbidden' => '403错误处理'
+            '/nonexistent' => '404错误处理',
+            '/unauthorized' => '401错误处理',
+            '/forbidden' => '403错误处理'
         ];
         
         foreach ($errorTests as $endpoint => $description) {
@@ -128,9 +126,9 @@ class ApiIntegrationTester {
         
         // 测试模拟API端点
         $mockEndpoints = [
-            '/api_mock.php/api/v1/system/config',
-            '/api_mock.php/api/v1/wireguard/servers',
-            '/api_mock.php/api/v1/monitoring/metrics'
+            '/api_mock.php/system/config',
+            '/api_mock.php/wireguard/servers',
+            '/api_mock.php/monitoring/metrics'
         ];
         
         foreach ($mockEndpoints as $endpoint) {

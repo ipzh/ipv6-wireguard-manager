@@ -24,7 +24,7 @@ class BGPController {
             // 检查权限
             $this->permissionMiddleware->requirePermission('bgp.view');
             
-            $sessionsResponse = $this->apiClient->get('/api/v1/bgp/sessions');
+            $sessionsResponse = $this->apiClient->get('/bgp/sessions');
             $sessionsData = $sessionsResponse['data'] ?? [];
             $sessions = $sessionsData;
             $error = null;
@@ -41,7 +41,7 @@ class BGPController {
      * BGP宣告管理页面
      */
     public function announcements() {
-        $announcementsResponse = $this->apiClient->get('/api/v1/bgp/routes');
+        $announcementsResponse = $this->apiClient->get('/bgp/routes');
         $announcementsData = $announcementsResponse['data'] ?? [];
         $announcements = $announcementsData;
         $error = null;
@@ -53,7 +53,7 @@ class BGPController {
      * BGP状态监控页面
      */
     public function status() {
-        $statusData = $this->apiClient->get('/api/v1/bgp/status');
+        $statusData = $this->apiClient->get('/bgp/status');
         $status = $statusData['status'] ?? null;
         $error = $statusData['error'] ?? null;
         

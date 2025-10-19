@@ -10,12 +10,12 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import structlog
 
 from .config_enhanced import settings
+from .logging import get_logger
 from ..models.models_complete import User, Role, Permission, UserRole, RolePermission, user_roles, role_permissions
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 
 # 密码加密上下文 - 使用Argon2和bcrypt双重保护
 pwd_context = CryptContext(

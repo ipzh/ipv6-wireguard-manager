@@ -3,7 +3,6 @@ IPv6前缀池与分配Schema
 """
 from typing import Optional, List
 from pydantic import BaseModel
-from uuid import UUID
 
 
 class IPv6PrefixPoolBase(BaseModel):
@@ -32,7 +31,7 @@ class IPv6PrefixPoolUpdate(BaseModel):
 
 
 class IPv6PrefixPool(IPv6PrefixPoolBase):
-    id: UUID
+    id: int
 
     class Config:
         from_attributes = True
@@ -50,11 +49,11 @@ class PoolPrefixBase(BaseModel):
     assigned_to_type: Optional[str] = None
     assigned_to_id: Optional[str] = None
     note: Optional[str] = None
-    pool_id: UUID
+    pool_id: int
 
 
 class PoolPrefixCreate(BaseModel):
-    pool_id: UUID
+    pool_id: int
     assigned_to_type: Optional[str] = None
     assigned_to_id: Optional[str] = None
     note: Optional[str] = None
@@ -68,7 +67,7 @@ class PoolPrefixUpdate(BaseModel):
 
 
 class PoolPrefix(PoolPrefixBase):
-    id: UUID
+    id: int
 
     class Config:
         from_attributes = True
@@ -85,7 +84,7 @@ class PoolPrefixList(BaseModel):
 class IPv6AllocationBase(BaseModel):
     """IPv6分配基础模型"""
     prefix: str
-    pool_id: UUID
+    pool_id: int
     client_id: Optional[str] = None
     server_id: Optional[str] = None
     is_active: bool = True
@@ -94,7 +93,7 @@ class IPv6AllocationBase(BaseModel):
 
 class IPv6AllocationCreate(BaseModel):
     """创建IPv6分配"""
-    pool_id: UUID
+    pool_id: int
     client_id: Optional[str] = None
     server_id: Optional[str] = None
     note: Optional[str] = None
@@ -108,7 +107,7 @@ class IPv6AllocationUpdate(BaseModel):
 
 class IPv6Allocation(IPv6AllocationBase):
     """IPv6分配完整模型"""
-    id: UUID
+    id: int
     created_at: str
     updated_at: str
 

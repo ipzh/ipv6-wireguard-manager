@@ -8,12 +8,13 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-import logging
 import traceback
 from datetime import datetime
 import uuid
+from .response_handler import ResponseHandler
+from .logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ErrorCode:
     """错误码常量"""
@@ -118,13 +119,12 @@ class APIError(Exception):
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
         return {
-            "error": {
-                "code": self.error_code,
-                "message": self.message,
-                "details": self.details,
-                "request_id": self.request_id,
-                "timestamp": self.timestamp.isoformat()
-            }
+            "success": False,
+            "message": self.message,
+            "error_code": self.error_code,
+            "timestamp": self.timestamp.isoformat(),
+            "details": self.details,
+            "request_id": self.request_id
         }
 
 class ValidationError(APIError):
@@ -253,21 +253,20 @@ class SystemError(APIError):
 
 async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     """API错误处理器"""
-    return JSONResponse(
+    return ResponseHandler.error(
+        message=exc.message,
         status_code=exc.status_code,
-        content=exc.to_dict()
+        error_code=exc.error_code,
+        details=exc.details,
+        errors=None
     )
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """HTTP异常处理器"""
-    error = APIError(
-        error_code=ErrorCode.BAD_REQUEST,
+    return ResponseHandler.error(
         message=exc.detail,
-        status_code=exc.status_code
-    )
-    return JSONResponse(
         status_code=exc.status_code,
-        content=error.to_dict()
+        error_code="HTTP_ERROR"
     )
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -280,24 +279,19 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "type": error["type"]
         })
     
-    error = ValidationError(
-        message="Validation failed",
-        details={"errors": errors}
-    )
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error.to_dict()
+    return ResponseHandler.validation_error(
+        errors=errors,
+        message="验证失败"
     )
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """通用异常处理器"""
-    error = SystemError(
-        message="An unexpected error occurred",
-        cause=exc
-    )
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=error.to_dict()
+    return ResponseHandler.server_error(
+        message="发生意外错误",
+        details={
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc)
+        }
     )
 
 # 导出主要组件
@@ -314,5 +308,6 @@ __all__ = [
     "api_error_handler",
     "http_exception_handler",
     "validation_exception_handler",
-    "general_exception_handler"
+    "general_exception_handler",
+    "ResponseHandler"
 ]

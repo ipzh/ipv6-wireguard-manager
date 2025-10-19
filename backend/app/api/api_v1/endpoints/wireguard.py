@@ -1,15 +1,23 @@
 """
-WireGuard管理API端点 - 简化版本
+WireGuard管理API端点 - 使用统一API路径构建器
 """
 import time
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from app.core.api_path_builder import get_default_path_builder
 
 router = APIRouter()
 
+# 获取API路径构建器实例
+def get_path_builder():
+    return get_default_path_builder()
+
 @router.get("/config", response_model=None)
-async def get_wireguard_config():
+async def get_wireguard_config(path_builder=Depends(get_path_builder)):
     """获取WireGuard配置"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.config")
+    
     return {
         "interface": "wg0",
         "listen_port": 51820,
@@ -23,8 +31,14 @@ async def get_wireguard_config():
     }
 
 @router.post("/config", response_model=None)
-async def update_wireguard_config(config_data: Dict[str, Any]):
+async def update_wireguard_config(
+    config_data: Dict[str, Any], 
+    path_builder=Depends(get_path_builder)
+):
     """更新WireGuard配置"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.config", method="POST")
+    
     return {
         "message": "配置更新成功",
         "config": config_data,
@@ -32,8 +46,11 @@ async def update_wireguard_config(config_data: Dict[str, Any]):
     }
 
 @router.get("/peers", response_model=None)
-async def get_peers():
+async def get_peers(path_builder=Depends(get_path_builder)):
     """获取对等节点列表"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.peers")
+    
     return [
         {
             "id": 1,
@@ -54,8 +71,14 @@ async def get_peers():
     ]
 
 @router.post("/peers", response_model=None)
-async def create_peer(peer_data: Dict[str, Any]):
+async def create_peer(
+    peer_data: Dict[str, Any], 
+    path_builder=Depends(get_path_builder)
+):
     """创建对等节点"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.peers", method="POST")
+    
     return {
         "id": 3,
         "name": peer_data.get("name", "newpeer"),
@@ -67,8 +90,14 @@ async def create_peer(peer_data: Dict[str, Any]):
     }
 
 @router.get("/peers/{peer_id}", response_model=None)
-async def get_peer(peer_id: int):
+async def get_peer(
+    peer_id: int, 
+    path_builder=Depends(get_path_builder)
+):
     """获取对等节点详情"""
+    # 使用路径构建器验证路径和参数
+    path_builder.validate_path("wireguard.peers.detail", params={"peer_id": peer_id})
+    
     if peer_id == 1:
         return {
             "id": 1,
@@ -82,8 +111,15 @@ async def get_peer(peer_id: int):
         raise HTTPException(status_code=404, detail="对等节点不存在")
 
 @router.put("/peers/{peer_id}", response_model=None)
-async def update_peer(peer_id: int, peer_data: Dict[str, Any]):
+async def update_peer(
+    peer_id: int, 
+    peer_data: Dict[str, Any],
+    path_builder=Depends(get_path_builder)
+):
     """更新对等节点"""
+    # 使用路径构建器验证路径和参数
+    path_builder.validate_path("wireguard.peers.detail", params={"peer_id": peer_id}, method="PUT")
+    
     return {
         "id": peer_id,
         "name": peer_data.get("name", "updatedpeer"),
@@ -95,18 +131,33 @@ async def update_peer(peer_id: int, peer_data: Dict[str, Any]):
     }
 
 @router.delete("/peers/{peer_id}", response_model=None)
-async def delete_peer(peer_id: int):
+async def delete_peer(
+    peer_id: int,
+    path_builder=Depends(get_path_builder)
+):
     """删除对等节点"""
+    # 使用路径构建器验证路径和参数
+    path_builder.validate_path("wireguard.peers.detail", params={"peer_id": peer_id}, method="DELETE")
+    
     return {"message": f"对等节点 {peer_id} 删除成功"}
 
 @router.post("/peers/{peer_id}/restart", response_model=None)
-async def restart_peer(peer_id: int):
+async def restart_peer(
+    peer_id: int,
+    path_builder=Depends(get_path_builder)
+):
     """重启对等节点"""
+    # 使用路径构建器验证路径和参数
+    path_builder.validate_path("wireguard.peers.restart", params={"peer_id": peer_id}, method="POST")
+    
     return {"message": f"对等节点 {peer_id} 重启成功"}
 
 @router.get("/status", response_model=None)
-async def get_wireguard_status():
+async def get_wireguard_status(path_builder=Depends(get_path_builder)):
     """获取WireGuard状态"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.status")
+    
     return {
         "interface": "wg0",
         "status": "running",
@@ -117,8 +168,11 @@ async def get_wireguard_status():
     }
 
 @router.get("/servers", response_model=None)
-async def get_servers():
+async def get_servers(path_builder=Depends(get_path_builder)):
     """获取服务器列表"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.servers")
+    
     return [
         {
             "id": 1,
@@ -132,8 +186,11 @@ async def get_servers():
     ]
 
 @router.get("/clients", response_model=None)
-async def get_clients():
+async def get_clients(path_builder=Depends(get_path_builder)):
     """获取客户端列表"""
+    # 使用路径构建器验证路径
+    path_builder.validate_path("wireguard.clients")
+    
     return [
         {
             "id": 1,

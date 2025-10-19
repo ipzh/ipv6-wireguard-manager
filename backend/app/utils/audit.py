@@ -4,10 +4,11 @@
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert
-import structlog
 from datetime import datetime
 
-logger = structlog.get_logger()
+from ..core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 async def audit_log(

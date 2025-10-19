@@ -34,6 +34,7 @@
 - **配置管理** - 统一配置管理和环境变量支持
 - **API标准化** - RESTful API设计和版本控制
 - **数据库优化** - 连接池、健康检查、性能优化
+- **API路径构建器** - 统一的API路径管理，支持前后端一致性
 
 ## 🚀 快速开始
 
@@ -51,10 +52,10 @@
 
 ```bash
 # 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 
 # 或使用自定义路径
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash -s -- \
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
   --install-dir /opt/ipv6-wireguard-manager \
   --frontend-dir /var/www/html \
   --config-dir /etc/wireguard \
@@ -65,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/ma
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 配置环境变量
@@ -80,7 +81,7 @@ docker-compose up -d
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 安装后端依赖
@@ -107,6 +108,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 - [API文档](docs/API_DOCUMENTATION.md) - 完整的API参考文档
 - [用户手册](docs/USER_MANUAL.md) - 用户操作指南
 - [开发者指南](docs/DEVELOPER_GUIDE.md) - 开发者文档
+- [API路径构建器使用指南](API_PATH_BUILDER_USAGE.md) - API路径构建器详细使用说明
 
 ### 🔧 配置文档
 - [环境配置](docs/ENVIRONMENT_CONFIGURATION.md) - 环境变量配置说明
@@ -151,6 +153,9 @@ php-frontend/
 │   ├── environment.php     # 环境配置
 │   └── api_config.php     # API配置
 ├── includes/               # 公共文件
+│   ├── ApiPathBuilder/     # API路径构建器
+│   │   ├── APIPathBuilder.php # 后端API路径构建器
+│   │   └── ApiPathBuilder.js # 前端API路径构建器
 │   ├── ApiPathManager.php  # API路径管理
 │   └── EnhancedApiClient.php # API客户端
 ├── assets/                 # 静态资源
@@ -274,13 +279,14 @@ python test_error_handling_logging.py
 - **集成测试** - API接口集成测试
 - **性能测试** - 系统性能压力测试
 - **安全测试** - 安全漏洞扫描测试
+- **API路径构建器测试** - API路径构建器功能测试
 
 ## 🤝 贡献指南
 
 ### 开发环境设置
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 创建开发分支

@@ -11,9 +11,9 @@ from ..schemas.network import (
     FirewallRuleCreate, FirewallRuleUpdate,
     NetworkStatus, InterfaceStats
 )
-import logging
+from ..core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class NetworkService:
     def __init__(self, db: AsyncSession):

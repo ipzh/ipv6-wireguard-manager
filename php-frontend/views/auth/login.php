@@ -666,6 +666,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // API基础URL
+        const API_BASE_URL = '<?= API_BASE_URL ?>';
+        
         document.addEventListener('DOMContentLoaded', function() {
             // 密码显示/隐藏切换
             const togglePassword = document.getElementById('togglePassword');
@@ -709,7 +712,7 @@
                 // 提交登录表单
                 const formData = new FormData(loginForm);
                 
-                fetch('/api/v1/auth/login', {
+                fetch(`${API_BASE_URL}/auth/login`, {
                     method: 'POST',
                     body: formData
                 })
@@ -775,7 +778,7 @@
                 
                 const formData = new FormData(mfaForm);
                 
-                fetch('/api/v1/mfa/verify', {
+                fetch(`${API_BASE_URL}/mfa/verify`, {
                     method: 'POST',
                     body: formData
                 })
@@ -845,7 +848,7 @@
 
         function checkApiStatus() {
             // 使用API代理端点
-            fetch('/api/v1/health')
+            fetch(`${API_BASE_URL}/health`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

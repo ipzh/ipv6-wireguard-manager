@@ -1803,6 +1803,7 @@ show_installation_complete() {
     log_info "  ✓ 认证系统已完善"
     log_info "  ✓ 环境配置已优化"
     log_info "  ✓ 数据库初始化已自动化"
+    log_info "  ✓ API路径构建器已安装"
     echo ""
     
     log_info "辅助工具:"

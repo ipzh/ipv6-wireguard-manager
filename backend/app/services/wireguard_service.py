@@ -22,9 +22,9 @@ from ..schemas.wireguard import (
     WireGuardConfig, WireGuardPeer
 )
 from ..core.path_config import path_config
-import logging
+from ..core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class WireGuardService:
     def __init__(self, db: AsyncSession):

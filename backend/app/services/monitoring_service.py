@@ -12,9 +12,9 @@ from ..schemas.monitoring import (
     SystemMetricCreate, AuditLogCreate, OperationLogCreate,
     SystemStats, ServiceStatus, AlertRule, Alert, LogQuery, LogResponse
 )
-import logging
+from ..core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class MonitoringService:
     def __init__(self, db: AsyncSession):

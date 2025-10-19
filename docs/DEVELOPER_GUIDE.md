@@ -66,7 +66,7 @@ git --version
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
 # 创建开发分支
@@ -1134,6 +1134,385 @@ async def process_large_data(data):
         data
     )
     return result
+```
+
+## API路径构建器开发指南
+
+### 概述
+
+API路径构建器是项目中用于统一管理API端点路径的工具，确保前后端路径一致性。本节将介绍如何使用和扩展API路径构建器。
+
+### 架构设计
+
+#### 1. 核心组件
+
+API路径构建器由以下核心组件组成：
+
+- **ApiPathBuilder类** - 单例模式的核心类，提供路径获取功能
+- **路径配置文件** - 存储所有API路径定义
+- **参数替换机制** - 支持动态参数替换
+- **版本控制支持** - 支持API版本管理
+
+#### 2. 文件结构
+
+```
+includes/ApiPathBuilder/
+├── ApiPathBuilder.php    # PHP实现
+├── ApiPathBuilder.js     # JavaScript实现
+├── paths.php            # PHP路径配置
+└── paths.js             # JavaScript路径配置
+```
+
+### 开发指南
+
+#### 1. 添加新的API路径
+
+##### PHP端
+
+1. 在 `includes/ApiPathBuilder/paths.php` 中添加新路径：
+
+```php
+<?php
+return [
+    // 现有路径...
+    
+    // 添加新的路径组
+    'notifications' => [
+        'list' => '/api/v1/notifications',
+        'create' => '/api/v1/notifications',
+        'detail' => '/api/v1/notifications/{notification_id}',
+        'mark_read' => '/api/v1/notifications/{notification_id}/read',
+    ],
+];
+```
+
+2. 在代码中使用新路径：
+
+```php
+$pathBuilder = ApiPathBuilder::getInstance();
+$listPath = $pathBuilder->getPath('notifications.list');
+$detailPath = $pathBuilder->getPath('notifications.detail', ['notification_id' => 123]);
+```
+
+##### JavaScript端
+
+1. 在 `includes/ApiPathBuilder/paths.js` 中添加新路径：
+
+```javascript
+export default {
+    // 现有路径...
+    
+    // 添加新的路径组
+    notifications: {
+        list: '/api/v1/notifications',
+        create: '/api/v1/notifications',
+        detail: '/api/v1/notifications/{notification_id}',
+        mark_read: '/api/v1/notifications/{notification_id}/read',
+    },
+};
+```
+
+2. 在代码中使用新路径：
+
+```javascript
+const pathBuilder = ApiPathBuilder.getInstance();
+const listPath = pathBuilder.getPath('notifications.list');
+const detailPath = pathBuilder.getPath('notifications.detail', { notification_id: 123 });
+```
+
+#### 2. 扩展路径构建器功能
+
+##### 添加环境支持
+
+```php
+// ApiPathBuilder.php 扩展
+class ApiPathBuilder {
+    private $environment = 'production';
+    
+    public function setEnvironment(string $env): void {
+        $this->environment = $env;
+    }
+    
+    public function getBaseUrl(): string {
+        switch ($this->environment) {
+            case 'development':
+                return 'http://localhost:8000';
+            case 'staging':
+                return 'https://staging-api.example.com';
+            case 'production':
+            default:
+                return 'https://api.example.com';
+        }
+    }
+}
+```
+
+```javascript
+// ApiPathBuilder.js 扩展
+class ApiPathBuilder {
+    constructor() {
+        this.environment = 'production';
+    }
+    
+    setEnvironment(env) {
+        this.environment = env;
+    }
+    
+    getBaseUrl() {
+        switch (this.environment) {
+            case 'development':
+                return 'http://localhost:8000';
+            case 'staging':
+                return 'https://staging-api.example.com';
+            case 'production':
+            default:
+                return 'https://api.example.com';
+        }
+    }
+}
+```
+
+##### 添加路径验证
+
+```php
+// ApiPathBuilder.php 扩展
+public function validatePath(string $pathKey): bool {
+    $keys = explode('.', $pathKey);
+    $current = $this->paths;
+    
+    foreach ($keys as $key) {
+        if (!isset($current[$key])) {
+            return false;
+        }
+        $current = $current[$key];
+    }
+    
+    return is_string($current);
+}
+```
+
+```javascript
+// ApiPathBuilder.js 扩展
+validatePath(pathKey) {
+    const keys = pathKey.split('.');
+    let current = this.paths;
+    
+    for (const key of keys) {
+        if (!current[key]) {
+            return false;
+        }
+        current = current[key];
+    }
+    
+    return typeof current === 'string';
+}
+```
+
+#### 3. 测试指南
+
+##### 单元测试
+
+```php
+// tests/ApiPathBuilderTest.php
+class ApiPathBuilderTest extends PHPUnit\Framework\TestCase {
+    private $pathBuilder;
+    
+    protected function setUp(): void {
+        $this->pathBuilder = ApiPathBuilder::getInstance();
+    }
+    
+    public function testGetPath(): void {
+        $this->assertEquals(
+            '/api/v1/auth/login',
+            $this->pathBuilder->getPath('auth.login')
+        );
+    }
+    
+    public function testGetPathWithParams(): void {
+        $this->assertEquals(
+            '/api/v1/users/123',
+            $this->pathBuilder->getPath('users.detail', ['user_id' => 123])
+        );
+    }
+    
+    public function testGetUrl(): void {
+        $this->assertEquals(
+            'http://localhost:8000/api/v1/auth/login',
+            $this->pathBuilder->getUrl('auth.login')
+        );
+    }
+}
+```
+
+```javascript
+// tests/ApiPathBuilder.test.js
+import ApiPathBuilder from '../includes/ApiPathBuilder/ApiPathBuilder.js';
+
+describe('ApiPathBuilder', () => {
+    let pathBuilder;
+    
+    beforeEach(() => {
+        pathBuilder = ApiPathBuilder.getInstance();
+    });
+    
+    test('getPath returns correct path', () => {
+        expect(pathBuilder.getPath('auth.login')).toBe('/api/v1/auth/login');
+    });
+    
+    test('getPath with params replaces placeholders', () => {
+        expect(pathBuilder.getPath('users.detail', { user_id: 123 }))
+            .toBe('/api/v1/users/123');
+    });
+    
+    test('getUrl returns full URL', () => {
+        expect(pathBuilder.getUrl('auth.login'))
+            .toBe('http://localhost:8000/api/v1/auth/login');
+    });
+});
+```
+
+#### 4. 最佳实践
+
+##### 1. 命名规范
+
+- 使用点分隔的层次结构：`module.action`
+- 使用小写字母和下划线：`wireguard.servers.list`
+- 保持简洁明了：`users.list` 而不是 `user_management.get_all_users`
+
+##### 2. 版本管理
+
+```php
+// 为不同版本创建不同的路径配置
+$paths = [
+    'v1' => [
+        'users.list' => '/api/v1/users',
+    ],
+    'v2' => [
+        'users.list' => '/api/v2/users',
+    ],
+];
+
+// 根据版本获取路径
+public function getPath(string $pathKey, array $params = [], string $version = 'v1'): string {
+    $versionedKey = "{$version}.{$pathKey}";
+    // 实现逻辑...
+}
+```
+
+##### 3. 错误处理
+
+```php
+public function getPath(string $pathKey, array $params = []): string {
+    if (!$this->validatePath($pathKey)) {
+        throw new InvalidArgumentException("Invalid path key: {$pathKey}");
+    }
+    
+    // 实现逻辑...
+}
+```
+
+##### 4. 性能优化
+
+```php
+class ApiPathBuilder {
+    private $resolvedPaths = [];
+    
+    public function getPath(string $pathKey, array $params = []): string {
+        // 生成缓存键
+        $cacheKey = $pathKey . ':' . md5(serialize($params));
+        
+        // 检查缓存
+        if (isset($this->resolvedPaths[$cacheKey])) {
+            return $this->resolvedPaths[$cacheKey];
+        }
+        
+        // 解析路径并缓存
+        $path = $this->resolvePath($pathKey, $params);
+        $this->resolvedPaths[$cacheKey] = $path;
+        
+        return $path;
+    }
+}
+```
+
+### 迁移指南
+
+#### 从硬编码路径迁移
+
+1. 识别硬编码路径：
+
+```php
+// 旧代码
+$url = 'http://localhost:8000/api/v1/users/' . $userId;
+
+// 新代码
+$pathBuilder = ApiPathBuilder::getInstance();
+$url = $pathBuilder->getUrl('users.detail', ['user_id' => $userId]);
+```
+
+2. 批量替换：
+
+```bash
+# 查找所有硬编码的API路径
+grep -r "api/v1" --include="*.php" .
+
+# 逐步替换为路径构建器调用
+```
+
+#### 从旧版本路径构建器迁移
+
+1. 更新导入语句：
+
+```php
+// 旧代码
+require_once __DIR__ . '/utils/PathBuilder.php';
+
+// 新代码
+require_once __DIR__ . '/includes/ApiPathBuilder/ApiPathBuilder.php';
+```
+
+2. 更新方法调用：
+
+```php
+// 旧代码
+$path = PathBuilder::getUserPath($userId);
+
+// 新代码
+$pathBuilder = ApiPathBuilder::getInstance();
+$path = $pathBuilder->getPath('users.detail', ['user_id' => $userId]);
+```
+
+### 故障排除
+
+#### 常见问题
+
+1. **路径不存在错误**
+
+```php
+// 问题：路径键不存在
+$path = $pathBuilder->getPath('invalid.path');
+
+// 解决：检查路径键是否正确
+var_dump($pathBuilder->getAllPaths());
+```
+
+2. **参数替换失败**
+
+```php
+// 问题：参数不匹配
+$path = $pathBuilder->getPath('users.detail', ['id' => 123]); // 应该是 user_id
+
+// 解决：确保参数名与占位符匹配
+$path = $pathBuilder->getPath('users.detail', ['user_id' => 123]);
+```
+
+3. **性能问题**
+
+```php
+// 问题：频繁调用导致性能下降
+
+// 解决：使用批量获取
+$paths = $pathBuilder->getPaths(['users.list', 'servers.list']);
 ```
 
 ## 部署
