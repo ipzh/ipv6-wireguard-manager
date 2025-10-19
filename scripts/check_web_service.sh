@@ -57,13 +57,32 @@ check_port_listening() {
     
     log_info "检查 $description 端口 $port ($protocol) 监听状态..."
     
-    if netstat -tuln | grep -q ":$port "; then
-        log_success "$description 端口 $port ($protocol) 正在监听"
-        return 0
+    # 尝试使用ss命令（现代系统）或netstat（传统系统）
+    if command -v ss >/dev/null 2>&1; then
+        if ss -tuln | grep -q ":$port "; then
+            log_success "$description 端口 $port ($protocol) 正在监听"
+            return 0
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        if netstat -tuln | grep -q ":$port "; then
+            log_success "$description 端口 $port ($protocol) 正在监听"
+            return 0
+        fi
     else
-        log_error "$description 端口 $port ($protocol) 未监听"
-        return 1
+        # 如果没有ss或netstat，尝试使用lsof
+        if command -v lsof >/dev/null 2>&1; then
+            if lsof -i :$port >/dev/null 2>&1; then
+                log_success "$description 端口 $port ($protocol) 正在监听"
+                return 0
+            fi
+        else
+            log_warning "无法检查端口监听状态（缺少ss、netstat或lsof命令）"
+            return 1
+        fi
     fi
+    
+    log_error "$description 端口 $port ($protocol) 未监听"
+    return 1
 }
 
 # 检查IPv4连接性

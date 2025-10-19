@@ -1095,7 +1095,7 @@ server {
     # API代理配置 - 将 /api/* 请求代理到后端，支持IPv4和IPv6双栈
     location /api/ {
         # 定义上游服务器组，支持IPv4和IPv6双栈
-        proxy_pass http://backend_api/api/v1/;
+        proxy_pass http://backend_api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
