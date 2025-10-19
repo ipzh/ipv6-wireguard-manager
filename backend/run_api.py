@@ -5,6 +5,7 @@ import uvicorn
 import os
 import sys
 import logging
+import socket
 from pathlib import Path
 
 # 添加项目根目录到Python路径
@@ -28,14 +29,20 @@ def main():
     try:
         logger.info("Starting IPv6 WireGuard Manager API...")
         
-        # 启动服务器
+        # 启动服务器 - 支持IPv4和IPv6双栈
         uvicorn.run(
             "app.main:app",
-            host="0.0.0.0",
+            host="::",
             port=8000,
             reload=True,
             log_level="info",
-            access_log=True
+            access_log=True,
+            # 双栈配置
+            http="httptools",
+            loop="asyncio",
+            ws="websockets",
+            # 启用IPv6支持
+            family=socket.AF_UNSPEC
         )
         
     except Exception as e:
