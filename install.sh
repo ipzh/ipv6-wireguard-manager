@@ -1338,7 +1338,7 @@ wait_for_docker_services() {
     
     # 等待MySQL启动
     log_info "等待MySQL启动..."
-    while ! docker-compose exec mysql mysqladmin ping -h"localhost" --silent; do
+    while ! docker-compose exec -e MYSQL_PWD=${MYSQL_ROOT_PASSWORD} mysql mysqladmin ping -h"localhost" -u root --silent; do
         sleep 2
     done
     log_success "MySQL已启动"
@@ -1350,20 +1350,8 @@ wait_for_docker_services() {
     done
     log_success "后端API已启动"
     
-    # 部署PHP前端
-    if [[ "$SKIP_FRONTEND" = false ]]; then
-        log_info "部署PHP前端..."
-        chmod +x "$INSTALL_DIR/deploy_php_frontend_docker.sh"
-        
-        # 设置环境变量
-        export WEB_PORT=$WEB_PORT
-        export API_PORT=$API_PORT
-        export PHP_VERSION=$PHP_VERSION
-        
-        # 执行部署脚本
-        "$INSTALL_DIR/deploy_php_frontend_docker.sh"
-        configure_nginx
-    fi
+    # Docker模式：已启用容器前端，跳过宿主机前端部署
+    log_info "Docker模式：使用docker-compose管理前端容器，跳过宿主机前端部署"
 }
 
 # 生成随机字符串
@@ -1378,6 +1366,8 @@ create_env_config() {
     
     # 生成随机密钥
     local secret_key=$(openssl rand -hex 32)
+    # 生成超级用户强随机密码
+    local admin_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
     
     # 创建.env文件
     cat > "$INSTALL_DIR/.env" << EOF
@@ -1418,7 +1408,7 @@ LOG_FORMAT="json"
 
 # Superuser Settings (for initial setup)
 FIRST_SUPERUSER="admin"
-FIRST_SUPERUSER_PASSWORD="admin123"
+FIRST_SUPERUSER_PASSWORD="$admin_password"
 FIRST_SUPERUSER_EMAIL="admin@example.com"
 
 # Security Settings
@@ -1597,7 +1587,7 @@ After=network.target mysql.service
 Wants=mysql.service
 
 [Service]
-Type=exec
+Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
@@ -1697,8 +1687,11 @@ run_environment_check() {
         return 1
     fi
     
-    # 检查数据库连接
-    if mysql -u ipv6wgm -pipv6wgm_password -e "SELECT 1;" &>/dev/null; then
+    # 检查数据库连接（避免命令行明文密码）
+    DB_HOST=$(grep -E '^DATABASE_HOST=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "localhost")
+    DB_USER=$(grep -E '^DATABASE_USER=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm")
+    DB_PASS=$(grep -E '^DATABASE_PASSWORD=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
+    if env MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -u "$DB_USER" -e "SELECT 1;" &>/dev/null; then
         log_success "✓ 数据库连接正常"
     else
         log_error "✗ 数据库连接异常"
@@ -1756,9 +1749,9 @@ show_installation_complete() {
     log_info "  API根端点: http://localhost:$API_PORT/"
     echo ""
     
-    log_info "默认登录信息:"
+    log_info "初始登录信息:"
     log_info "  用户名: admin"
-    log_info "  密码: admin123"
+    log_info "  密码: 请查看 $INSTALL_DIR/.env 中的 FIRST_SUPERUSER_PASSWORD（已生成强随机密码），并请尽快修改"
     log_info "  邮箱: admin@example.com"
     echo ""
     
