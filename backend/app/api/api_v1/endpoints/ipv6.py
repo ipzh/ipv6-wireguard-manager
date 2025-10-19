@@ -3,26 +3,21 @@ IPv6管理API端点
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
-from ....core.database import get_db
+from ...core.database import get_db
 
 router = APIRouter()
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from ....schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
+    from ...schemas.ipv6 import IPv6PrefixPool, IPv6Allocation
 except ImportError:
     IPv6PrefixPool = None
     IPv6Allocation = None
 
 try:
-    from ....schemas.common import MessageResponse
-except ImportError:
-    MessageResponse = None
-
-try:
-    from ....services.ipv6_service import IPv6PoolService
+    from ...services.ipv6_service import IPv6PoolService
 except ImportError:
     IPv6PoolService = None
 
@@ -38,17 +33,17 @@ async def get_ipv6_pools(db: AsyncSession = Depends(get_db)):
         for pool in pools:
             pool_list.append({
                 "id": str(pool.id),
-                "name": pool.name,
-                "description": pool.description,
-                "base_prefix": pool.base_prefix,
-                "prefix_len": pool.prefix_len,
-                "subnet_len": pool.subnet_len,
-                "total_capacity": pool.total_capacity,
-                "used_capacity": pool.used_capacity,
-                "available_capacity": pool.available_capacity,
-                "is_active": pool.is_active,
-                "created_at": pool.created_at.isoformat() if pool.created_at else None,
-                "updated_at": pool.updated_at.isoformat() if pool.updated_at else None
+                "name": getattr(pool, "name", None),
+                "description": getattr(pool, "description", None),
+                "base_prefix": getattr(pool, "base_prefix", None),
+                "prefix_len": getattr(pool, "prefix_len", None),
+                "subnet_len": getattr(pool, "subnet_len", None),
+                "total_capacity": getattr(pool, "total_capacity", None),
+                "used_capacity": getattr(pool, "used_capacity", None),
+                "available_capacity": getattr(pool, "available_capacity", None),
+                "is_active": getattr(pool, "is_active", True),
+                "created_at": pool.created_at.isoformat() if getattr(pool, "created_at", None) else None,
+                "updated_at": pool.updated_at.isoformat() if getattr(pool, "updated_at", None) else None
             })
         
         return {
@@ -91,7 +86,7 @@ async def create_ipv6_pool(
 
 
 @router.get("/pools/{pool_id}", response_model=None)
-async def get_ipv6_pool(pool_id: str):
+async def get_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_db)):
     """获取单个IPv6前缀池"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -107,10 +102,10 @@ async def get_ipv6_pool(pool_id: str):
             "base_prefix": pool.base_prefix,
             "prefix_len": pool.prefix_len,
             "subnet_len": pool.subnet_len,
-            "total_capacity": pool.total_capacity,
-            "used_capacity": pool.used_capacity,
-            "available_capacity": pool.available_capacity,
-            "is_active": pool.is_active,
+            "total_capacity": getattr(pool, "total_capacity", None),
+            "used_capacity": getattr(pool, "used_capacity", None),
+            "available_capacity": getattr(pool, "available_capacity", None),
+            "is_active": getattr(pool, "is_active", True),
             "created_at": pool.created_at.isoformat() if pool.created_at else None,
             "updated_at": pool.updated_at.isoformat() if pool.updated_at else None
         }
@@ -123,7 +118,8 @@ async def get_ipv6_pool(pool_id: str):
 @router.put("/pools/{pool_id}", response_model=None)
 async def update_ipv6_pool(
     pool_id: str,
-    pool_data: Dict[str, Any]
+    pool_data: Dict[str, Any],
+    db: AsyncSession = Depends(get_db)
 ):
     """更新IPv6前缀池"""
     try:
@@ -155,7 +151,7 @@ async def update_ipv6_pool(
 
 
 @router.delete("/pools/{pool_id}", response_model=None)
-async def delete_ipv6_pool(pool_id: str):
+async def delete_ipv6_pool(pool_id: str, db: AsyncSession = Depends(get_db)):
     """删除IPv6前缀池"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -164,7 +160,7 @@ async def delete_ipv6_pool(pool_id: str):
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IPv6前缀池不存在")
         
-        return MessageResponse(message="IPv6前缀池删除成功")
+        return {"message": "IPv6前缀池删除成功"}
     except HTTPException:
         raise
     except Exception as e:
@@ -173,7 +169,8 @@ async def delete_ipv6_pool(pool_id: str):
 
 @router.get("/allocations", response_model=None)
 async def get_ipv6_allocations(
-    pool_id: str = None
+    pool_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
 ):
     """获取IPv6分配列表"""
     try:
@@ -186,14 +183,14 @@ async def get_ipv6_allocations(
                 "id": str(allocation.id),
                 "pool_id": str(allocation.pool_id),
                 "prefix": allocation.prefix,
-                "prefix_len": allocation.prefix_len,
-                "client_id": str(allocation.client_id) if allocation.client_id else None,
-                "client_name": allocation.client_name,
-                "description": allocation.description,
-                "is_reserved": allocation.is_reserved,
-                "is_active": allocation.is_active,
-                "created_at": allocation.created_at.isoformat() if allocation.created_at else None,
-                "updated_at": allocation.updated_at.isoformat() if allocation.updated_at else None
+                "prefix_len": getattr(allocation, "prefix_len", None),
+                "client_id": str(allocation.client_id) if getattr(allocation, "client_id", None) else None,
+                "client_name": getattr(allocation, "client_name", None),
+                "description": getattr(allocation, "description", None),
+                "is_reserved": getattr(allocation, "is_reserved", False),
+                "is_active": getattr(allocation, "is_active", True),
+                "created_at": allocation.created_at.isoformat() if getattr(allocation, "created_at", None) else None,
+                "updated_at": allocation.updated_at.isoformat() if getattr(allocation, "updated_at", None) else None
             })
         
         return {
@@ -207,7 +204,8 @@ async def get_ipv6_allocations(
 
 @router.post("/allocations/allocate", response_model=None)
 async def allocate_ipv6_prefix(
-    allocation_data: Dict[str, Any]
+    allocation_data: Dict[str, Any],
+    db: AsyncSession = Depends(get_db)
 ):
     """分配IPv6前缀"""
     try:
@@ -226,8 +224,8 @@ async def allocate_ipv6_prefix(
             "id": str(allocation.id),
             "pool_id": str(allocation.pool_id),
             "prefix": allocation.prefix,
-            "prefix_len": allocation.prefix_len,
-            "client_name": allocation.client_name,
+            "prefix_len": getattr(allocation, "prefix_len", None),
+            "client_name": getattr(allocation, "client_name", None),
             "message": "IPv6前缀分配成功"
         }
     except HTTPException:
@@ -237,7 +235,7 @@ async def allocate_ipv6_prefix(
 
 
 @router.post("/allocations/{allocation_id}/release", response_model=None)
-async def release_ipv6_prefix(allocation_id: str):
+async def release_ipv6_prefix(allocation_id: str, db: AsyncSession = Depends(get_db)):
     """释放IPv6前缀"""
     try:
         ipv6_service = IPv6PoolService(db)
@@ -246,7 +244,7 @@ async def release_ipv6_prefix(allocation_id: str):
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IPv6分配不存在")
         
-        return MessageResponse(message="IPv6前缀释放成功")
+        return {"message": "IPv6前缀释放成功"}
     except HTTPException:
         raise
     except Exception as e:

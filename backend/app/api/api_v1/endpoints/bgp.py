@@ -7,25 +7,25 @@ from sqlalchemy.future import select
 from typing import Dict, Any, List
 import uuid
 
-from ....core.database import get_db
+from ...core.database import get_db
 
 router = APIRouter()
 
 # 简化的模式和服务，避免依赖不存在的模块
 try:
-    from ....models.models_complete import BGPSession, BGPAnnouncement
+    from ...models.models_complete import BGPSession, BGPAnnouncement
 except ImportError:
     BGPSession = None
     BGPAnnouncement = None
 
 try:
-    from ....schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
+    from ...schemas.bgp import BGPSession as BGPSessionSchema, BGPAnnouncement as BGPAnnouncementSchema
 except ImportError:
     BGPSessionSchema = None
     BGPAnnouncementSchema = None
 
 try:
-    from ....services.exabgp_service import ExaBGPService
+    from ...services.exabgp_service import ExaBGPService
 except ImportError:
     ExaBGPService = None
 
@@ -42,13 +42,13 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
             session_schemas.append(BGPSessionSchema(
                 id=session.id,
                 name=session.name,
-                neighbor=session.neighbor,
-                remote_as=session.remote_as,
-                local_as=session.local_as,
-                password=session.password,
-                enabled=session.enabled,
-                created_at=session.created_at,
-                updated_at=session.updated_at
+                neighbor=getattr(session, "neighbor", None),
+                remote_as=getattr(session, "remote_as", None),
+                local_as=getattr(session, "local_as", None),
+                password=getattr(session, "password", None),
+                enabled=getattr(session, "enabled", True),
+                created_at=getattr(session, "created_at", None),
+                updated_at=getattr(session, "updated_at", None)
             ))
         
         return {
@@ -61,7 +61,7 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sessions/{session_id}", response_model=None)
-async def get_bgp_session(session_id: uuid.UUID):
+async def get_bgp_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """获取单个BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -73,13 +73,13 @@ async def get_bgp_session(session_id: uuid.UUID):
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
-            remote_as=session.remote_as,
-            local_as=session.local_as,
-            password=session.password,
-            enabled=session.enabled,
-            created_at=session.created_at,
-            updated_at=session.updated_at
+            neighbor=getattr(session, "neighbor", None),
+            remote_as=getattr(session, "remote_as", None),
+            local_as=getattr(session, "local_as", None),
+            password=getattr(session, "password", None),
+            enabled=getattr(session, "enabled", True),
+            created_at=getattr(session, "created_at", None),
+            updated_at=getattr(session, "updated_at", None)
         )
     except HTTPException:
         raise
@@ -88,36 +88,38 @@ async def get_bgp_session(session_id: uuid.UUID):
 
 
 @router.post("/sessions", response_model=None)
-async def create_bgp_session(session_data: BGPSessionSchema):
+async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """创建BGP会话"""
     try:
         session = BGPSession(
             name=session_data.name,
-            neighbor=session_data.neighbor,
-            remote_as=session_data.remote_as,
-            local_as=session_data.local_as,
-            password=session_data.password,
-            enabled=session_data.enabled
+            neighbor=getattr(session_data, "neighbor", None),
+            remote_as=getattr(session_data, "remote_as", None),
+            local_as=getattr(session_data, "local_as", None),
+            password=getattr(session_data, "password", None),
+            enabled=getattr(session_data, "enabled", True)
         )
         
-        pass  # 数据库操作已禁用
+        # 示例代码保留最小化的持久化流程
+        db.add(session)
         await db.commit()
         await db.refresh(session)
         
         # 应用配置
-        exabgp_service = ExaBGPService(db)
-        await exabgp_service.apply_config()
+        if ExaBGPService:
+            exabgp_service = ExaBGPService(db)
+            await exabgp_service.apply_config()
         
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
-            remote_as=session.remote_as,
-            local_as=session.local_as,
-            password=session.password,
-            enabled=session.enabled,
-            created_at=session.created_at,
-            updated_at=session.updated_at
+            neighbor=getattr(session, "neighbor", None),
+            remote_as=getattr(session, "remote_as", None),
+            local_as=getattr(session, "local_as", None),
+            password=getattr(session, "password", None),
+            enabled=getattr(session, "enabled", True),
+            created_at=getattr(session, "created_at", None),
+            updated_at=getattr(session, "updated_at", None)
         )
     except Exception as e:
         await db.rollback()
@@ -125,7 +127,7 @@ async def create_bgp_session(session_data: BGPSessionSchema):
 
 
 @router.put("/sessions/{session_id}", response_model=None)
-async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSchema):
+async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """更新BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -134,31 +136,29 @@ async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSche
         if not session:
             raise HTTPException(status_code=404, detail="BGP会话不存在")
         
-        # 更新字段
-        session.name = session_data.name
-        session.neighbor = session_data.neighbor
-        session.remote_as = session_data.remote_as
-        session.local_as = session_data.local_as
-        session.password = session_data.password
-        session.enabled = session_data.enabled
+        # 更新字段（尽可能容错）
+        for field in ["name", "neighbor", "remote_as", "local_as", "password", "enabled"]:
+            if hasattr(session_data, field) and getattr(session_data, field) is not None:
+                setattr(session, field, getattr(session_data, field))
         
         await db.commit()
         await db.refresh(session)
         
         # 应用配置
-        exabgp_service = ExaBGPService(db)
-        await exabgp_service.apply_config()
+        if ExaBGPService:
+            exabgp_service = ExaBGPService(db)
+            await exabgp_service.apply_config()
         
         return BGPSessionSchema(
             id=session.id,
             name=session.name,
-            neighbor=session.neighbor,
-            remote_as=session.remote_as,
-            local_as=session.local_as,
-            password=session.password,
-            enabled=session.enabled,
-            created_at=session.created_at,
-            updated_at=session.updated_at
+            neighbor=getattr(session, "neighbor", None),
+            remote_as=getattr(session, "remote_as", None),
+            local_as=getattr(session, "local_as", None),
+            password=getattr(session, "password", None),
+            enabled=getattr(session, "enabled", True),
+            created_at=getattr(session, "created_at", None),
+            updated_at=getattr(session, "updated_at", None)
         )
     except HTTPException:
         raise
@@ -168,7 +168,7 @@ async def update_bgp_session(session_id: uuid.UUID, session_data: BGPSessionSche
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_bgp_session(session_id: uuid.UUID):
+async def delete_bgp_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """删除BGP会话"""
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
@@ -181,8 +181,9 @@ async def delete_bgp_session(session_id: uuid.UUID):
         await db.commit()
         
         # 应用配置
-        exabgp_service = ExaBGPService(db)
-        await exabgp_service.apply_config()
+        if ExaBGPService:
+            exabgp_service = ExaBGPService(db)
+            await exabgp_service.apply_config()
         
         return {"message": "BGP会话删除成功"}
     except HTTPException:
@@ -193,7 +194,7 @@ async def delete_bgp_session(session_id: uuid.UUID):
 
 
 @router.get("/routes", response_model=None)
-async def get_bgp_routes():
+async def get_bgp_routes(db: AsyncSession = Depends(get_db)):
     """获取BGP路由宣告"""
     try:
         result = await db.execute(select(BGPAnnouncement))
@@ -203,12 +204,12 @@ async def get_bgp_routes():
         for announcement in announcements:
             announcement_schemas.append(BGPAnnouncementSchema(
                 id=announcement.id,
-                prefix=announcement.prefix,
-                next_hop=announcement.next_hop,
-                session_id=announcement.session_id,
-                enabled=announcement.enabled,
-                created_at=announcement.created_at,
-                updated_at=announcement.updated_at
+                prefix=getattr(announcement, "prefix", None),
+                next_hop=getattr(announcement, "next_hop", None),
+                session_id=getattr(announcement, "session_id", None),
+                enabled=getattr(announcement, "enabled", True),
+                created_at=getattr(announcement, "created_at", None),
+                updated_at=getattr(announcement, "updated_at", None)
             ))
         
         return {
@@ -221,11 +222,14 @@ async def get_bgp_routes():
 
 
 @router.get("/status", response_model=None)
-async def get_bgp_status():
+async def get_bgp_status(db: AsyncSession = Depends(get_db)):
     """获取BGP服务状态"""
     try:
-        exabgp_service = ExaBGPService(db)
-        status = await exabgp_service.get_status()
+        if ExaBGPService:
+            exabgp_service = ExaBGPService(db)
+            status_resp = await exabgp_service.get_status()
+        else:
+            status_resp = {"status": "unknown"}
         
         # 获取会话和路由统计
         sessions_result = await db.execute(select(BGPSession))
@@ -235,11 +239,11 @@ async def get_bgp_status():
         routes = routes_result.scalars().all()
         
         return {
-            "service_status": status,
+            "service_status": status_resp,
             "sessions_count": len(sessions),
             "routes_count": len(routes),
-            "enabled_sessions": len([s for s in sessions if s.enabled]),
-            "enabled_routes": len([r for r in routes if r.enabled]),
+            "enabled_sessions": len([s for s in sessions if getattr(s, "enabled", True)]),
+            "enabled_routes": len([r for r in routes if getattr(r, "enabled", True)]),
             "message": "BGP状态获取成功"
         }
     except Exception as e:

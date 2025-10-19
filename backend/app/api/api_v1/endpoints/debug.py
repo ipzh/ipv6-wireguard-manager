@@ -128,28 +128,29 @@ async def get_api_status() -> Dict[str, Any]:
 async def get_database_status() -> Dict[str, Any]:
     """获取数据库状态"""
     try:
-        from ....core.database import async_engine, sync_engine, AsyncSessionLocal, SessionLocal
+        from ...core.database import AsyncSessionLocal, SessionLocal
+        from ...core.database_manager import database_manager
         
-        status = {
-            "async_engine": async_engine is not None,
-            "sync_engine": sync_engine is not None,
+        status_resp = {
+            "async_engine": database_manager.async_engine is not None,
+            "sync_engine": database_manager.sync_engine is not None,
             "async_session": AsyncSessionLocal is not None,
             "sync_session": SessionLocal is not None,
             "timestamp": time.time()
         }
         
-        # 尝试测试连接
-        if sync_engine:
+        # 尝试测试同步连接
+        if database_manager.sync_engine:
             try:
-                with sync_engine.connect() as conn:
-                    result = conn.execute("SELECT 1 as test")
-                    status["sync_connection_test"] = "success"
-                    status["sync_connection_data"] = result.fetchone()[0]
+                with database_manager.sync_engine.connect() as conn:
+                    result = conn.execute("SELECT 1")
+                    status_resp["sync_connection_test"] = "success"
+                    status_resp["sync_connection_data"] = result.fetchone()[0]
             except Exception as e:
-                status["sync_connection_test"] = "failed"
-                status["sync_connection_error"] = str(e)
+                status_resp["sync_connection_test"] = "failed"
+                status_resp["sync_connection_error"] = str(e)
         
-        return status
+        return status_resp
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get database status: {str(e)}")
 

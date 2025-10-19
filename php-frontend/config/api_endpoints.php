@@ -4,8 +4,12 @@
  */
 
 // API基础配置
-define('API_BASE_URL', 'http://localhost:8000/api/v1');
-define('API_TIMEOUT', 30);
+if (!defined('API_BASE_URL')) {
+    define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000/api/v1');
+}
+if (!defined('API_TIMEOUT')) {
+    define('API_TIMEOUT', 30);
+}
 
 // 认证相关端点
 define('API_AUTH_LOGIN', '/auth/login');

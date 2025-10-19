@@ -11,11 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from ....core.database import get_db
+from ...core.database import get_db
 
 # 简化的模式，避免依赖不存在的模块
 try:
-    from ....schemas.common import MessageResponse
+    from ...schemas.common import MessageResponse
 except ImportError:
     MessageResponse = None
 

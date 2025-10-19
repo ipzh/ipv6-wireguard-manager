@@ -272,5 +272,30 @@ class APIPaths:
         """获取WebSocket路径"""
         return cls.get_full_path(cls.WEBSOCKET.get(action, ""))
 
+# 兼容性中间件与路由占位实现，避免主程序导入错误
+try:
+    from fastapi import Request
+    from fastapi.routing import APIRoute
+except Exception:
+    Request = None  # type: ignore
+    class APIRoute:  # type: ignore
+        pass
+
+class VersionedAPIRoute(APIRoute):
+    """占位的版本化路由类，当前未增加特殊行为"""
+    pass
+
+async def api_path_middleware(request: "Request", call_next):  # type: ignore
+    """简单的直通中间件，预留后续路径验证/重写能力"""
+    return await call_next(request)
+
+class _PathManager:
+    """轻量级路径管理占位符，与主程序保持兼容"""
+    def validate_path(self, path: str) -> bool:
+        return True
+
+# 提供给主程序使用的占位实例
+path_manager = _PathManager()
+
 # 导出主要组件
-__all__ = ["APIPaths"]
+__all__ = ["APIPaths", "VersionedAPIRoute", "api_path_middleware", "path_manager"]

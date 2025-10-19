@@ -24,10 +24,10 @@ class IPv6Controller {
             // 检查权限
             $this->permissionMiddleware->requirePermission('ipv6.view');
             
-            $poolsResponse = $this->apiClient->get('/api/v1/ipv6/pools');
+            $poolsResponse = $this->apiClient->get('/ipv6/pools');
             $poolsData = $poolsResponse['data'] ?? [];
             $pools = $poolsData;
-            $error = null;
+
             
         } catch (Exception $e) {
             $pools = [];
@@ -88,8 +88,8 @@ class IPv6Controller {
                     'description' => $validation['data']['description'] ?? ''
                 ];
                 
-                $result = $this->apiClient->post('/api/v1/ipv6/pools', $poolData);
-                
+                $result = $this->apiClient->post('/ipv6/pools', $poolData);
+
                 if ($result['success']) {
                     ResponseHandler::redirect('/ipv6/pools', 'IPv6前缀池创建成功');
                 } else {
@@ -144,8 +144,8 @@ class IPv6Controller {
                     'description' => $validation['data']['description'] ?? ''
                 ];
                 
-                $result = $this->apiClient->put("/api/v1/ipv6/pools/{$poolId}", $poolData);
-                
+                $result = $this->apiClient->put("/ipv6/pools/{$poolId}", $poolData);
+
                 if ($result['success']) {
                     ResponseHandler::redirect('/ipv6/pools', 'IPv6前缀池更新成功');
                 } else {
@@ -193,8 +193,8 @@ class IPv6Controller {
                 ResponseHandler::error('缺少池ID参数');
             }
             
-            $result = $this->apiClient->delete("/api/v1/ipv6/pools/{$poolId}");
-            
+            $result = $this->apiClient->delete("/ipv6/pools/{$poolId}");
+
             if ($result['success']) {
                 ResponseHandler::redirect('/ipv6/pools', 'IPv6前缀池删除成功');
             } else {
@@ -246,9 +246,9 @@ class IPv6Controller {
             }
             
             // 获取池列表和客户端列表
-            $poolsResponse = $this->apiClient->get('/api/v1/ipv6/pools');
+            $poolsResponse = $this->apiClient->get('/ipv6/pools');
             $clientsResponse = $this->apiClient->get('/wireguard/clients');
-            
+
             $pools = $poolsResponse['data'] ?? [];
             $clients = $clientsResponse['data'] ?? [];
             
