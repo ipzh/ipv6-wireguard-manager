@@ -231,15 +231,5 @@ class DashboardController {
     public function getApiPathBuilder() {
         return $this->apiPathBuilder;
     }
-}
-?>
-        
-        // 系统状态
-        if ($data['apiStatus']) {
-            $stats['systemStatus'] = $data['apiStatus']['status'] ?? 'unknown';
-        }
-        
-        return $stats;
     }
-}
-?>
+    ?>
