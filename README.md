@@ -55,20 +55,7 @@
 
 ## 🚀 快速开始
 
-### 智能安装（推荐）
-
-```bash
-# 智能安装（自动检测系统并选择最佳安装方式，安装完成后自动退出）
-./smart_install.sh
-
-# 或者使用主安装脚本
-./install.sh --auto
-
-# Windows用户（需要WSL环境）
-smart_install.bat
-```
-
-### 一键安装
+### 一键安装（推荐）
 
 ```bash
 # 智能安装（自动检测系统并选择最佳安装方式）
@@ -93,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 # 生产环境安装
 ./install.sh --production --silent
 
-# 自定义配置（注意：默认安装目录为 /opt/ipv6-wireguard-manager）
+# 自定义配置
 ./install.sh --dir /opt/ipv6-wireguard-manager --port 8080 --api-port 9000
 
 # 跳过某些步骤
@@ -112,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 ├── logs/                              # 后端日志
 ├── config/                            # 配置文件
 ├── data/                              # 数据文件
-└── ...
+└── .env                               # 环境配置文件
 
 /var/www/html/                        # 前端Web目录
 ├── classes/                          # PHP类文件
@@ -132,80 +119,7 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 | `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
 | `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
 | `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
-
-### 系统兼容性测试
-
-```bash
-# 运行系统兼容性测试
-./test_system_compatibility.sh
-
-# 验证安装
-./verify_installation.sh
-
-# 修复PHP-FPM问题
-./fix_php_fpm.sh
-
-# 修复MySQL安装问题（Debian 12等）
-./quick_fix_mysql.sh
-
-# 修复API服务问题
-./fix_api_service.sh
-
-# 检查API服务状态
-./check_api_service.sh
-
-# 诊断服务问题
-./diagnose_service.sh
-
-# 快速修复服务
-./quick_fix_service.sh
-
-# 测试CLI工具
-./test_cli_tool.sh
-
-# 修复权限问题
-./fix_permissions.sh
-
-# 快速修复WireGuard权限问题
-./quick_fix_wireguard_permissions.sh
-
-# 深度API服务诊断
-./deep_api_diagnosis.sh
-
-# 代码层面分析
-python3 deep_code_analysis.py
-
-# 综合诊断（推荐）
-./comprehensive_api_diagnosis.sh
-
-# 全面API服务修复
-./comprehensive_api_fix.sh
-
-# Debian 12环境修复
-./fix_debian12_environment.sh
-
-# Debian 12 API服务修复
-./fix_debian12_api_service.sh
-
-# 清理Apache配置文件
-./cleanup_apache_configs.sh
-
-# 修复Apache依赖问题
-./fix_apache_dependency_issue.sh
-
-# 仅安装PHP-FPM（避免Apache依赖）
-./install_php_fpm_only.sh
-
-# 智能安装演示
-./smart_install_demo.sh
-
-# 后端错误检查和修复（需要从GitHub下载）
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/backend_error_checker.py | python3 - --backend-path backend --verbose
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fix_backend_errors.py | python3 - --backend-path backend --verbose
-
-# 测试诊断工具
-./test_diagnosis_tools.sh
-```
+| `/opt/ipv6-wireguard-manager/.env` | `ipv6wgm:ipv6wgm` | `600` | 环境配置文件 |
 
 ## 📋 系统要求
 
@@ -236,13 +150,14 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/fi
 
 - **Web界面**: http://your-server-ip/
 - **API文档**: http://your-server-ip:8000/docs
-- **健康检查**: http://your-server-ip:8000/health
+- **API健康检查**: http://your-server-ip:8000/api/v1/health
 - **IPv6访问**: http://[your-ipv6-address]/
 
 ## 👤 默认账户
 
 - **用户名**: admin
 - **密码**: admin123
+- **邮箱**: admin@example.com
 
 > ⚠️ 首次登录后请立即修改默认密码！
 
@@ -322,16 +237,6 @@ ipv6-wireguard-manager backup --name daily-backup
 # 系统监控
 ipv6-wireguard-manager monitor
 ```
-```
-
-## 📚 文档
-
-- [项目概览](PROJECT_OVERVIEW.md)
-- [安装指南](INSTALLATION_GUIDE.md)
-- [快速安装指南](QUICK_INSTALL_GUIDE.md)
-- [API文档](API_REFERENCE.md)
-- [部署配置](DEPLOYMENT_CONFIG.md)
-- [功能总结](INSTALLATION_FEATURES_SUMMARY.md)
 
 ## 🛠️ 技术栈
 
@@ -360,16 +265,6 @@ ipv6-wireguard-manager monitor
 - ✅ 智能资源限制
 - ✅ 性能监控告警
 
-## 🌍 支持的系统
-
-- **Ubuntu**: 18.04, 20.04, 22.04, 24.04
-- **Debian**: 9, 10, 11, 12
-- **CentOS**: 7, 8, Stream
-- **RHEL**: 7, 8, 9
-- **Fedora**: 35, 36, 37, 38, 39
-- **Arch Linux**: 最新版本
-- **openSUSE**: Leap 15.x, Tumbleweed
-
 ## 🚀 安装脚本功能
 
 ### 智能安装
@@ -395,6 +290,17 @@ ipv6-wireguard-manager monitor
 - 生产环境
 - 最小化环境
 
+## 📚 文档
+
+- [安装指南](INSTALLATION_GUIDE.md) - 详细的安装说明
+- [快速安装指南](QUICK_INSTALL_GUIDE.md) - 快速安装步骤
+- [API参考文档](API_REFERENCE.md) - API接口文档
+- [部署配置](DEPLOYMENT_CONFIG.md) - 部署配置说明
+- [生产部署指南](PRODUCTION_DEPLOYMENT_GUIDE.md) - 生产环境部署
+- [CLI管理指南](CLI_MANAGEMENT_GUIDE.md) - 命令行工具使用
+- [API修复总结](API_INTEGRATION_SUMMARY.md) - API修复详情
+- [安装脚本审计报告](INSTALL_SCRIPT_AUDIT_REPORT.md) - 脚本质量报告
+
 ## 🤝 贡献
 
 欢迎贡献代码！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详情。
@@ -412,13 +318,14 @@ ipv6-wireguard-manager monitor
 ## 🎉 更新日志
 
 ### v3.0.0 (最新)
-- ✅ 完整的PHP前端重构
+- ✅ 完整的API修复和优化
+- ✅ 智能安装脚本
 - ✅ 企业级功能实现
 - ✅ IPv4/IPv6双栈支持
-- ✅ 智能安装脚本
 - ✅ 安全加固和性能优化
 - ✅ 完整的监控和日志系统
 - ✅ 自动备份和恢复机制
+- ✅ 零错误安装体验
 
 ---
 

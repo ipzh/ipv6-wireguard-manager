@@ -22,10 +22,10 @@ curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/in
 ### 避免Apache依赖安装（Debian/Ubuntu推荐）
 
 ```bash
-# 方法1: 使用专门的PHP-FPM安装脚本（推荐）
+# 使用专门的PHP-FPM安装脚本（推荐）
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install_php_fpm_only.sh | bash
 
-# 方法2: 使用智能安装脚本（已优化避免Apache依赖）
+# 或使用主安装脚本（已优化避免Apache依赖）
 curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
 ```
 
@@ -310,27 +310,6 @@ chmod +x smart_install_demo.sh
 - 系统服务检查
 - 权限检查
 
-### 手动检查
-
-```bash
-# 检查系统信息
-cat /etc/os-release
-uname -a
-free -h
-df -h
-
-# 检查包管理器
-which apt-get yum dnf pacman zypper emerge apk
-
-# 检查Python
-python3 --version
-pip3 --version
-
-# 检查网络
-ping -c 1 8.8.8.8
-ping6 -c 1 2001:4860:4860::8888
-```
-
 ## 📋 安装步骤
 
 ### 自动安装流程
@@ -471,45 +450,15 @@ sudo chmod -R 755 /var/www/html/
 sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
 ```
 
-### 日志查看
-
-```bash
-# 应用日志
-sudo journalctl -u ipv6-wireguard-manager -f
-
-# Nginx日志
-sudo tail -f /var/log/nginx/error.log
-sudo tail -f /var/log/nginx/access.log
-
-# 系统日志
-sudo journalctl -f
-```
-
-### 重新安装
-
-```bash
-# 停止服务
-sudo systemctl stop ipv6-wireguard-manager
-
-# 备份数据
-sudo mysqldump -u ipv6wgm -p ipv6wgm > backup.sql
-
-# 清理安装
-sudo rm -rf /opt/ipv6-wireguard-manager
-sudo rm -f /etc/nginx/sites-enabled/ipv6-wireguard-manager
-sudo rm -f /etc/systemd/system/ipv6-wireguard-manager.service
-
-# 重新安装
-./install.sh --type minimal --silent
-```
-
 ## 📚 相关文档
 
-- [生产部署指南](PRODUCTION_DEPLOYMENT_GUIDE.md)
-- [故障排除手册](TROUBLESHOOTING_MANUAL.md)
-- [API参考文档](docs/API_REFERENCE_DETAILED.md)
-- [用户手册](docs/USER_MANUAL.md)
-- [安装脚本总结](INSTALLATION_SCRIPT_SUMMARY.md)
+- [快速安装指南](QUICK_INSTALL_GUIDE.md) - 快速安装步骤
+- [生产部署指南](PRODUCTION_DEPLOYMENT_GUIDE.md) - 生产环境部署
+- [API参考文档](API_REFERENCE.md) - API接口文档
+- [部署配置](DEPLOYMENT_CONFIG.md) - 部署配置说明
+- [CLI管理指南](CLI_MANAGEMENT_GUIDE.md) - 命令行工具使用
+- [API修复总结](API_INTEGRATION_SUMMARY.md) - API修复详情
+- [安装脚本审计报告](INSTALL_SCRIPT_AUDIT_REPORT.md) - 脚本质量报告
 
 ## 🆘 获取帮助
 

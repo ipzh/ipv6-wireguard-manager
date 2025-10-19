@@ -2,135 +2,123 @@
 
 ## 🚀 一键安装
 
-### 完整功能安装 (推荐)
+### 智能安装（推荐）
 ```bash
-# 下载并运行完整安装脚本
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --enable-all
+# 自动检测系统并选择最佳安装方式
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
 
-### 生产环境安装
+### 静默安装（生产环境推荐）
 ```bash
-# 生产环境 + 安全加固
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --production --enable-security --enable-ssl
+# 静默安装，无交互界面
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --silent
 ```
 
-### 开发环境安装
+### 指定安装类型
 ```bash
-# 开发环境 + 监控
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --debug --enable-monitoring
+# 最小化安装（低内存环境）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type minimal --silent
+
+# 原生安装（开发环境）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type native
+
+# Docker安装（生产环境）
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- --type docker
 ```
 
 ## 📋 安装选项
 
-### 基础选项
-- `--type full` - 完整安装 (推荐)
-- `--type native` - 原生安装
-- `--type minimal` - 最小化安装
-- `--dir /opt/ipv6-wireguard-manager` - 自定义安装目录（默认）
-- `--port 80` - Web端口
-- `--api-port 8000` - API端口
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `--type TYPE` | 安装类型 (docker\|native\|minimal) | 自动选择 |
+| `--dir DIR` | 安装目录 | `/opt/ipv6-wireguard-manager` |
+| `--port PORT` | Web端口 | `80` |
+| `--api-port PORT` | API端口 | `8000` |
+| `--silent` | 静默安装 | 否 |
+| `--production` | 生产环境安装 | 否 |
+| `--skip-deps` | 跳过依赖安装 | 否 |
+| `--skip-db` | 跳过数据库配置 | 否 |
 
-### 功能选项
-- `--enable-all` - 启用所有功能
-- `--enable-monitoring` - 系统监控
-- `--enable-backup` - 自动备份
-- `--enable-security` - 安全加固
-- `--enable-ssl` - SSL支持
-- `--enable-firewall` - 防火墙配置
+## 🖥️ 安装类型
 
-### 环境选项
-- `--production` - 生产环境模式
-- `--performance` - 性能优化模式
-- `--debug` - 调试模式
-- `--silent` - 静默安装
+### 1. 原生安装 (native) - 推荐
+- **适用场景**: 开发环境、性能要求高的环境
+- **优点**: 性能最佳、资源占用低、启动快速
+- **要求**: 内存 ≥ 2GB，磁盘 ≥ 5GB
 
-## 📁 安装目录结构
+### 2. 最小化安装 (minimal) - 资源受限环境
+- **适用场景**: 资源受限环境、测试环境
+- **优点**: 资源占用最低、启动最快
+- **要求**: 内存 ≥ 1GB，磁盘 ≥ 3GB
 
-安装完成后，系统将使用以下目录结构：
+### 3. Docker安装 (docker) - 生产环境
+- **适用场景**: 生产环境、需要隔离的环境
+- **优点**: 完全隔离、易于管理、可移植性强
+- **要求**: 内存 ≥ 4GB，磁盘 ≥ 10GB
 
-```
-/opt/ipv6-wireguard-manager/          # 后端安装目录
-├── backend/                          # 后端Python代码
-├── php-frontend/                     # 前端源码（备份）
-├── venv/                             # Python虚拟环境
-├── logs/                              # 后端日志
-├── config/                            # 配置文件
-├── data/                              # 数据文件
-└── ...
+## 📋 系统要求
 
-/var/www/html/                        # 前端Web目录
-├── classes/                          # PHP类文件
-├── controllers/                       # 控制器
-├── views/                            # 视图模板
-├── config/                           # 配置文件
-├── logs/                              # 前端日志（777权限）
-├── assets/                           # 静态资源
-├── index.php                         # 主入口文件
-└── index_jwt.php                     # JWT版本入口
-```
+### 最低要求
+- **内存**: 1GB
+- **磁盘**: 3GB
+- **CPU**: 1核心
+- **系统**: Linux (Ubuntu 18.04+, Debian 9+, CentOS 7+, RHEL 7+, Fedora 30+, Arch Linux, openSUSE 15+)
 
-## 🔧 权限配置
+### 推荐配置
+- **内存**: 2GB+
+- **磁盘**: 5GB+
+- **CPU**: 2核心+
 
-| 目录/文件 | 所有者 | 权限 | 说明 |
-|-----------|--------|------|------|
-| `/opt/ipv6-wireguard-manager/` | `ipv6wgm:ipv6wgm` | `755` | 后端安装目录 |
-| `/var/www/html/` | `www-data:www-data` | `755` | 前端Web目录 |
-| `/var/www/html/logs/` | `www-data:www-data` | `777` | 前端日志目录 |
+## 🌐 安装后访问
 
-## 🎯 安装示例
+安装完成后，访问以下地址：
 
-### 1. 企业级部署
-```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
-  --type full \
-  --production \
-  --enable-all \
-  --enable-security \
-  --enable-ssl \
-  --enable-firewall
-```
+- **Web界面**: http://your-server-ip/
+- **API文档**: http://your-server-ip:8000/docs
+- **API健康检查**: http://your-server-ip:8000/api/v1/health
 
-### 2. 开发测试环境
-```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
-  --type native \
-  --debug \
-  --enable-monitoring \
-  --port 8080 \
-  --api-port 9000
-```
+## 👤 默认登录信息
 
-### 3. 低资源环境
-```bash
-curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash -s -- \
-  --type minimal \
-  --silent
-```
+- **用户名**: admin
+- **密码**: admin123
+- **邮箱**: admin@example.com
+
+> ⚠️ 首次登录后请立即修改默认密码！
 
 ## 🔧 安装后管理
 
 ### 服务管理
 ```bash
+# 查看服务状态
+sudo systemctl status ipv6-wireguard-manager
+
 # 启动服务
-ipv6-wireguard-manager start
+sudo systemctl start ipv6-wireguard-manager
 
 # 停止服务
-ipv6-wireguard-manager stop
+sudo systemctl stop ipv6-wireguard-manager
 
 # 重启服务
-ipv6-wireguard-manager restart
-
-# 查看状态
-ipv6-wireguard-manager status
+sudo systemctl restart ipv6-wireguard-manager
 ```
 
-### 系统管理
+### 日志查看
 ```bash
+# 查看应用日志
+sudo journalctl -u ipv6-wireguard-manager -f
+
+# 查看Nginx日志
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+```
+
+### CLI工具
+```bash
+# 查看服务状态
+ipv6-wireguard-manager status
+
 # 查看日志
 ipv6-wireguard-manager logs
-
-# 更新系统
-ipv6-wireguard-manager update
 
 # 创建备份
 ipv6-wireguard-manager backup
@@ -139,67 +127,58 @@ ipv6-wireguard-manager backup
 ipv6-wireguard-manager monitor
 ```
 
-## 🌐 访问地址
+## 🚨 故障排除
 
-安装完成后，访问以下地址：
+### 常见问题
 
-- **Web界面**: http://your-server-ip/
-- **API文档**: http://your-server-ip:8000/docs
-- **健康检查**: http://your-server-ip:8000/health
+#### 1. 服务启动失败
+```bash
+# 检查服务状态
+sudo systemctl status ipv6-wireguard-manager
 
-## 👤 默认账户
+# 查看详细日志
+sudo journalctl -u ipv6-wireguard-manager -n 50
+```
 
-- **用户名**: admin
-- **密码**: admin123
+#### 2. 端口占用
+```bash
+# 检查端口占用
+sudo netstat -tlnp | grep :80
+sudo netstat -tlnp | grep :8000
 
-> ⚠️ 首次登录后请立即修改默认密码！
+# 杀死占用进程
+sudo kill -9 <PID>
+```
 
-## 📊 系统要求
+#### 3. 数据库连接失败
+```bash
+# 检查MySQL服务
+sudo systemctl status mysql
 
-### 最低要求
-- **内存**: 512MB
-- **磁盘**: 2GB
-- **CPU**: 1核心
-- **系统**: Ubuntu 18.04+, Debian 9+, CentOS 7+
+# 重启MySQL
+sudo systemctl restart mysql
+```
 
-### 推荐配置
-- **内存**: 2GB+
-- **磁盘**: 10GB+
-- **CPU**: 2核心+
-- **系统**: Ubuntu 20.04+, Debian 11+, CentOS 8+
+#### 4. 权限问题
+```bash
+# 设置正确的文件权限
+sudo chown -R www-data:www-data /var/www/html/
+sudo chown -R ipv6wgm:ipv6wgm /opt/ipv6-wireguard-manager
+```
 
-## 🆘 常见问题
+## 📚 相关文档
 
-### Q: 安装失败怎么办？
-A: 检查系统要求，确保有足够的磁盘空间和内存，然后重新运行安装脚本。
+- [完整安装指南](INSTALLATION_GUIDE.md) - 详细的安装说明
+- [API参考文档](API_REFERENCE.md) - API接口文档
+- [部署配置](DEPLOYMENT_CONFIG.md) - 部署配置说明
+- [CLI管理指南](CLI_MANAGEMENT_GUIDE.md) - 命令行工具使用
 
-### Q: 如何修改端口？
-A: 使用 `--port` 和 `--api-port` 参数指定端口。
+## 🆘 获取帮助
 
-### Q: 如何启用SSL？
-A: 使用 `--enable-ssl` 参数，然后手动配置SSL证书。
-
-### Q: 如何备份数据？
-A: 使用 `ipv6-wireguard-manager backup` 命令或配置自动备份。
-
-### Q: 如何更新系统？
-A: 使用 `ipv6-wireguard-manager update` 命令。
-
-## 📞 技术支持
-
-- **项目地址**: https://github.com/ipzh/ipv6-wireguard-manager
+- **GitHub仓库**: https://github.com/ipzh/ipv6-wireguard-manager
 - **问题反馈**: https://github.com/ipzh/ipv6-wireguard-manager/issues
-- **文档**: https://github.com/ipzh/ipv6-wireguard-manager/wiki
+- **文档中心**: https://github.com/ipzh/ipv6-wireguard-manager/wiki
 
-## 🎉 安装完成！
+---
 
-恭喜！您已经成功安装了IPv6 WireGuard Manager。现在可以开始使用这个强大的VPN管理平台了！
-
-### 下一步
-1. 访问Web界面
-2. 修改默认密码
-3. 配置WireGuard服务器
-4. 添加客户端
-5. 开始使用！
-
-享受您的VPN管理体验！ 🚀
+**IPv6 WireGuard Manager 快速安装指南** - 让部署变得简单快速！🚀
