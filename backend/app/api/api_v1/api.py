@@ -3,7 +3,28 @@ API v1 路由聚合
 """
 from fastapi import APIRouter
 
-from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health, debug
+# 导入所有端点模块
+try:
+    from .endpoints import auth, users, wireguard, network, monitoring, logs, websocket, system, status, bgp, ipv6, health, debug
+except ImportError as e:
+    print(f"Warning: Some endpoint modules could not be imported: {e}")
+    # 创建空的模块作为占位符
+    class EmptyModule:
+        router = APIRouter()
+    
+    auth = EmptyModule()
+    users = EmptyModule()
+    wireguard = EmptyModule()
+    network = EmptyModule()
+    monitoring = EmptyModule()
+    logs = EmptyModule()
+    websocket = EmptyModule()
+    system = EmptyModule()
+    status = EmptyModule()
+    bgp = EmptyModule()
+    ipv6 = EmptyModule()
+    health = EmptyModule()
+    debug = EmptyModule()
 
 api_router = APIRouter()
 

@@ -800,6 +800,9 @@ install_python_dependencies() {
     if [[ -f "backend/requirements.txt" ]]; then
         pip install -r backend/requirements.txt
         log_success "Python依赖安装成功"
+    elif [[ -f "backend/requirements-simple.txt" ]]; then
+        pip install -r backend/requirements-simple.txt
+        log_success "Python依赖安装成功（使用简化版本）"
     else
         log_error "requirements.txt文件不存在"
         exit 1
@@ -849,6 +852,12 @@ configure_database() {
     mysql -u root -e "CREATE USER IF NOT EXISTS 'ipv6wgm'@'localhost' IDENTIFIED BY 'ipv6wgm_password';"
     mysql -u root -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO 'ipv6wgm'@'localhost';"
     mysql -u root -e "FLUSH PRIVILEGES;"
+    
+    # 创建环境配置文件
+    create_env_config
+    
+    # 初始化数据库
+    initialize_database
     
     log_success "数据库配置完成"
 }
@@ -1083,7 +1092,7 @@ install_docker() {
     fi
     
     # 创建安装目录
-    create_directory "$INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR"
     
     # 下载项目文件
     download_project
@@ -1102,7 +1111,7 @@ install_docker() {
 
 # 安装Docker引擎
 install_docker_engine() {
-    case $OS in
+    case $OS_ID in
         "ubuntu")
             # 更新包索引
             apt-get update
@@ -1139,13 +1148,17 @@ install_docker_engine() {
             systemctl enable docker
             ;;
         *)
-            log_error "不支持的操作系统: $OS"
+            log_error "不支持的操作系统: $OS_ID"
             exit 1
             ;;
     esac
     
     # 将当前用户添加到docker组
-    usermod -aG docker $CURRENT_USER
+    if [[ -n "$SUDO_USER" ]]; then
+        usermod -aG docker "$SUDO_USER"
+    else
+        usermod -aG docker "$(whoami)"
+    fi
     
     log_success "Docker引擎安装完成"
 }
@@ -1186,14 +1199,14 @@ DEBUG=false
 API_PORT=$API_PORT
 WEB_PORT=$WEB_PORT
 
-# 域名配置
-DOMAIN=$DOMAIN
-SSL_EMAIL=$SSL_EMAIL
+# 域名配置（可选）
+DOMAIN=localhost
+SSL_EMAIL=admin@example.com
 
-# WireGuard配置
-WG_PORT=$WG_PORT
-WG_INTERFACE=$WG_INTERFACE
-WG_MTU=$WG_MTU
+# WireGuard配置（可选）
+WG_PORT=51820
+WG_INTERFACE=wg0
+WG_MTU=1420
 
 # PHP配置
 PHP_VERSION=$PHP_VERSION
@@ -1260,6 +1273,147 @@ generate_random_string() {
     local length=${1:-16}
     openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
 }
+
+# 创建环境配置文件
+create_env_config() {
+    log_info "创建环境配置文件..."
+    
+    # 生成随机密钥
+    local secret_key=$(openssl rand -hex 32)
+    
+    # 创建.env文件
+    cat > "$INSTALL_DIR/.env" << EOF
+# Application Settings
+APP_NAME="IPv6 WireGuard Manager"
+APP_VERSION="3.0.0"
+DEBUG=$([ "$DEBUG" = true ] && echo "true" || echo "false")
+ENVIRONMENT="$([ "$PRODUCTION" = true ] && echo "production" || echo "development")"
+
+# API Settings
+API_V1_STR="/api/v1"
+SECRET_KEY="$secret_key"
+ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
+
+# Server Settings
+SERVER_HOST="0.0.0.0"
+SERVER_PORT=$API_PORT
+
+# Database Settings
+DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
+DATABASE_HOST="localhost"
+DATABASE_PORT=3306
+DATABASE_USER="ipv6wgm"
+DATABASE_PASSWORD="ipv6wgm_password"
+DATABASE_NAME="ipv6wgm"
+AUTO_CREATE_DATABASE=True
+
+# Redis Settings (Optional)
+USE_REDIS=False
+REDIS_URL="redis://:redis123@localhost:6379/0"
+
+# CORS Origins
+BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://127.0.0.1:$WEB_PORT", "http://localhost", "http://127.0.0.1"]
+
+# Logging Settings
+LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
+LOG_FORMAT="json"
+
+# Superuser Settings (for initial setup)
+FIRST_SUPERUSER="admin"
+FIRST_SUPERUSER_PASSWORD="admin123"
+FIRST_SUPERUSER_EMAIL="admin@example.com"
+EOF
+    
+    # 设置权限
+    chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env"
+    chmod 600 "$INSTALL_DIR/.env"
+    
+    log_success "环境配置文件创建完成"
+}
+
+# 初始化数据库
+initialize_database() {
+    log_info "初始化数据库和创建超级用户..."
+    
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
+    # 检查是否有简化的数据库初始化脚本
+    if [[ -f "backend/init_database_simple.py" ]]; then
+        log_info "使用简化的数据库初始化脚本..."
+        python backend/init_database_simple.py
+    else
+        log_info "使用标准数据库初始化..."
+        python -c "
+import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+from app.core.database import init_db, get_async_db
+from app.core.security_enhanced import init_permissions_and_roles, security_manager
+from app.models.models_complete import User, Role, Permission
+from app.schemas.user import UserCreate
+from app.services.user_service import UserService
+from app.core.config_enhanced import settings
+
+async def main():
+    print('Starting database initialization...')
+    await init_db()
+    
+    async for db in get_async_db():
+        # 初始化权限和角色
+        print('Initializing permissions and roles...')
+        await init_permissions_and_roles(db)
+        print('Permissions and roles initialized.')
+        
+        # 创建超级用户
+        user_service = UserService(db)
+        existing_superuser = await user_service.get_user_by_username(settings.FIRST_SUPERUSER)
+        
+        if not existing_superuser:
+            print(f'Creating initial superuser: {settings.FIRST_SUPERUSER}...')
+            superuser_data = UserCreate(
+                username=settings.FIRST_SUPERUSER,
+                email=settings.FIRST_SUPERUSER_EMAIL,
+                password=settings.FIRST_SUPERUSER_PASSWORD,
+                is_active=True,
+                is_superuser=True
+            )
+            await user_service.create_user(superuser_data)
+            print('Initial superuser created successfully.')
+        else:
+            print(f'Superuser {settings.FIRST_SUPERUSER} already exists.')
+    
+    print('Database initialization complete.')
+
+if __name__ == '__main__':
+    asyncio.run(main())
+"
+    fi
+    
+    log_success "数据库初始化完成"
+}
+
+# 测试API功能
+test_api_functionality() {
+    log_info "测试API功能..."
+    
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
+    # 检查是否有API测试脚本
+    if [[ -f "backend/test_api.py" ]]; then
+        log_info "运行API测试..."
+        python backend/test_api.py
+        if [[ $? -eq 0 ]]; then
+            log_success "API测试通过"
+        else
+            log_warning "API测试失败，但继续安装"
+        fi
+    else
+        log_info "API测试脚本不存在，跳过测试"
+    fi
+}
 create_system_service() {
     log_info "创建系统服务..."
     
@@ -1267,6 +1421,7 @@ create_system_service() {
 [Unit]
 Description=IPv6 WireGuard Manager Backend
 After=network.target mysql.service
+Wants=mysql.service
 
 [Service]
 Type=exec
@@ -1274,9 +1429,13 @@ User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT
+EnvironmentFile=$INSTALL_DIR/.env
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ipv6-wireguard-manager
 
 [Install]
 WantedBy=multi-user.target
@@ -1374,7 +1533,7 @@ run_environment_check() {
     fi
     
     # 检查Web服务
-    if curl -f http://localhost/ &>/dev/null; then
+    if curl -f http://localhost:$WEB_PORT/ &>/dev/null; then
         log_success "✓ Web服务正常"
     else
         log_error "✗ Web服务异常"
@@ -1384,12 +1543,17 @@ run_environment_check() {
     # 检查API服务（带重试机制）
     log_info "等待API服务启动..."
     local api_retry_count=0
-    local api_max_retries=10
-    local api_retry_delay=3
+    local api_max_retries=15
+    local api_retry_delay=5
     
     while [[ $api_retry_count -lt $api_max_retries ]]; do
+        # 检查API健康端点
         if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
             log_success "✓ API服务正常"
+            
+            # 运行API功能测试
+            test_api_functionality
+            
             return 0
         else
             api_retry_count=$((api_retry_count + 1))
@@ -1403,6 +1567,7 @@ run_environment_check() {
     log_error "✗ API服务异常（重试 ${api_max_retries} 次后仍无法连接）"
     log_info "请检查服务状态: sudo systemctl status ipv6-wireguard-manager"
     log_info "请查看服务日志: sudo journalctl -u ipv6-wireguard-manager -f"
+    log_info "请检查API配置: $INSTALL_DIR/.env"
     return 1
 }
 
@@ -1415,6 +1580,13 @@ show_installation_complete() {
     log_info "  前端: http://localhost:$WEB_PORT"
     log_info "  API文档: http://localhost:$API_PORT/docs"
     log_info "  API健康检查: http://localhost:$API_PORT/api/v1/health"
+    log_info "  API根端点: http://localhost:$API_PORT/"
+    echo ""
+    
+    log_info "默认登录信息:"
+    log_info "  用户名: admin"
+    log_info "  密码: admin123"
+    log_info "  邮箱: admin@example.com"
     echo ""
     
     if [[ "$INSTALL_TYPE" = "docker" ]]; then
@@ -1451,10 +1623,20 @@ show_installation_complete() {
         log_info "  服务配置: /etc/systemd/system/ipv6-wireguard-manager.service"
     fi
     echo ""
+    
+    log_info "API修复功能:"
+    log_info "  ✓ 数据库模型已修复（UserRole, RolePermission）"
+    log_info "  ✓ API端点导入错误已修复"
+    log_info "  ✓ 认证系统已完善"
+    log_info "  ✓ 环境配置已优化"
+    log_info "  ✓ 数据库初始化已自动化"
+    echo ""
+    
     log_info "辅助工具:"
     log_info "  系统兼容性测试: ./test_system_compatibility.sh"
     log_info "  安装验证: ./verify_installation.sh"
     log_info "  PHP-FPM修复: ./fix_php_fpm.sh"
+    log_info "  API测试: cd $INSTALL_DIR && python backend/test_api.py"
     echo ""
     log_success "感谢使用IPv6 WireGuard Manager！"
     

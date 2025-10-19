@@ -1,0 +1,46 @@
+"""
+简化的API启动脚本
+"""
+import uvicorn
+import os
+import sys
+import logging
+from pathlib import Path
+
+# 添加项目根目录到Python路径
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# 设置环境变量
+os.environ.setdefault("DATABASE_URL", "mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("LOG_LEVEL", "INFO")
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+def main():
+    """启动API服务"""
+    try:
+        logger.info("Starting IPv6 WireGuard Manager API...")
+        
+        # 启动服务器
+        uvicorn.run(
+            "app.main:app",
+            host="0.0.0.0",
+            port=8000,
+            reload=True,
+            log_level="info",
+            access_log=True
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to start API server: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

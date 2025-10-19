@@ -75,6 +75,54 @@ role_permissions = Table(
 )
 
 
+class UserRole(Base):
+    """用户角色关联模型"""
+    __tablename__ = "user_role_relations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    role_id = Column(Integer, ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # 关系
+    user = relationship("User")
+    role = relationship("Role")
+
+    # 索引
+    __table_args__ = (
+        Index('idx_user_role_relations_user_id', 'user_id'),
+        Index('idx_user_role_relations_role_id', 'role_id'),
+        UniqueConstraint('user_id', 'role_id', name='uq_user_role_relation'),
+    )
+
+    def __repr__(self):
+        return f"<UserRole(user_id={self.user_id}, role_id={self.role_id})>"
+
+
+class RolePermission(Base):
+    """角色权限关联模型"""
+    __tablename__ = "role_permission_relations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    role_id = Column(Integer, ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
+    permission_id = Column(Integer, ForeignKey('permissions.id', ondelete='CASCADE'), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # 关系
+    role = relationship("Role")
+    permission = relationship("Permission")
+
+    # 索引
+    __table_args__ = (
+        Index('idx_role_permission_relations_role_id', 'role_id'),
+        Index('idx_role_permission_relations_permission_id', 'permission_id'),
+        UniqueConstraint('role_id', 'permission_id', name='uq_role_permission_relation'),
+    )
+
+    def __repr__(self):
+        return f"<RolePermission(role_id={self.role_id}, permission_id={self.permission_id})>"
+
+
 class User(Base):
     """用户模型"""
     __tablename__ = "users"
@@ -594,7 +642,7 @@ class NetworkAddress(Base):
 
 # 导出所有模型
 __all__ = [
-    "User", "Role", "Permission", "user_roles", "role_permissions",
+    "User", "Role", "Permission", "UserRole", "RolePermission", "user_roles", "role_permissions",
     "WireGuardServer", "WireGuardClient", "WireGuardStatus",
     "BGPSession", "BGPAnnouncement", "BGPStatus",
     "IPv6Pool", "IPv6Allocation", "IPv6PoolStatus",

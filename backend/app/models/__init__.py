@@ -3,14 +3,14 @@
 """
 from ..core.database import Base
 from .models_complete import (
-    User, Role, Permission,
+    User, Role, Permission, UserRole, RolePermission,
     WireGuardServer, WireGuardClient,
     BGPSession, BGPAnnouncement,
     IPv6Pool, IPv6Allocation,
     AuditLog, SystemLog,
     NetworkInterface, NetworkAddress,
     user_roles, role_permissions,
-    UserRole, WireGuardStatus, BGPStatus, IPv6PoolStatus, LogLevel
+    WireGuardStatus, BGPStatus, IPv6PoolStatus, LogLevel
 )
 
 __all__ = [
@@ -18,6 +18,8 @@ __all__ = [
     "User",
     "Role", 
     "Permission",
+    "UserRole",
+    "RolePermission",
     "WireGuardServer",
     "WireGuardClient",
     "BGPSession",
@@ -30,7 +32,6 @@ __all__ = [
     "NetworkAddress",
     "user_roles",
     "role_permissions",
-    "UserRole",
     "WireGuardStatus",
     "BGPStatus",
     "IPv6PoolStatus",
