@@ -52,8 +52,15 @@ class DatabaseManager:
     
     def _get_connection_args(self, is_async: bool = False) -> Dict[str, Any]:
         """获取连接参数 - 强制使用MySQL"""
+        # 获取连接超时参数并确保类型为整数
+        connect_timeout = getattr(settings, 'DATABASE_CONNECT_TIMEOUT', 30)
+        try:
+            connect_timeout = int(connect_timeout) if connect_timeout is not None else 30
+        except (ValueError, TypeError):
+            connect_timeout = 30
+            
         base_args = {
-            "connect_timeout": getattr(settings, 'DATABASE_CONNECT_TIMEOUT', 30),
+            "connect_timeout": connect_timeout,
             "charset": "utf8mb4",  # 强制使用MySQL的utf8mb4字符集
             "autocommit": False,
             "use_unicode": True,
@@ -74,23 +81,40 @@ class DatabaseManager:
         pool_size = getattr(settings, 'DATABASE_POOL_SIZE', 10)
         max_overflow = getattr(settings, 'DATABASE_MAX_OVERFLOW', 15)
         
+        # 确保类型为整数
+        try:
+            pool_size = int(pool_size) if pool_size is not None else 10
+            max_overflow = int(max_overflow) if max_overflow is not None else 15
+        except (ValueError, TypeError):
+            pool_size = 10
+            max_overflow = 15
+        
         # 异步模式通常可以支持更多连接
         if is_async:
             pool_size = min(pool_size, 20)
             max_overflow = min(max_overflow, 10)
+            # 异步引擎不使用QueuePool
+            return {
+                "pool_size": pool_size,
+                "max_overflow": max_overflow,
+                "pool_pre_ping": getattr(settings, 'DATABASE_POOL_PRE_PING', True),
+                "pool_recycle": getattr(settings, 'DATABASE_POOL_RECYCLE', 3600),
+                "pool_timeout": 30,
+                "pool_reset_on_return": "commit"
+            }
         else:
             pool_size = min(pool_size, 10)
             max_overflow = min(max_overflow, 5)
-        
-        return {
-            "pool_size": pool_size,
-            "max_overflow": max_overflow,
-            "pool_pre_ping": getattr(settings, 'DATABASE_POOL_PRE_PING', True),
-            "pool_recycle": getattr(settings, 'DATABASE_POOL_RECYCLE', 3600),
-            "pool_timeout": 30,
-            "poolclass": QueuePool,
-            "pool_reset_on_return": "commit"
-        }
+            # 同步引擎使用QueuePool
+            return {
+                "pool_size": pool_size,
+                "max_overflow": max_overflow,
+                "pool_pre_ping": getattr(settings, 'DATABASE_POOL_PRE_PING', True),
+                "pool_recycle": getattr(settings, 'DATABASE_POOL_RECYCLE', 3600),
+                "pool_timeout": 30,
+                "poolclass": QueuePool,
+                "pool_reset_on_return": "commit"
+            }
     
     def _initialize_engines(self):
         """初始化数据库引擎"""

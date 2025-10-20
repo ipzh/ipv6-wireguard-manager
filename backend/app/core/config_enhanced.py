@@ -431,14 +431,48 @@ class Settings(BaseSettings):
             if not os.access(wg_config_path, os.R_OK | os.W_OK):
                 raise PermissionError(f"Cannot access WireGuard config directory: {self.WIREGUARD_CONFIG_DIR}")
     
+    @field_validator("SERVER_PORT", mode="before")
+    @classmethod
+    def convert_server_port(cls, v):
+        """将SERVER_PORT转换为整数"""
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except ValueError:
+                raise ValueError("SERVER_PORT must be a valid integer")
+        return v
+    
+    @field_validator("METRICS_PORT", mode="before")
+    @classmethod
+    def convert_metrics_port(cls, v):
+        """将METRICS_PORT转换为整数"""
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except ValueError:
+                raise ValueError("METRICS_PORT must be a valid integer")
+        return v
+    
     def _validate_network_config(self):
         """验证网络配置"""
-        # 验证端口范围
-        if not (1 <= self.SERVER_PORT <= 65535):
-            raise ValueError(f"Server port must be between 1 and 65535, got {self.SERVER_PORT}")
+        # 确保端口是整数类型，处理可能的字符串类型
+        try:
+            # 确保端口值转换为整数
+            server_port = int(self.SERVER_PORT) if self.SERVER_PORT is not None and isinstance(self.SERVER_PORT, (str, int, float)) else None
+            metrics_port = int(self.METRICS_PORT) if self.METRICS_PORT is not None and isinstance(self.METRICS_PORT, (str, int, float)) else None
+            
+            if server_port is None or metrics_port is None:
+                raise ValueError("Server port and metrics port must be valid numbers")
+                
+        except (ValueError, TypeError):
+            raise ValueError("Server port and metrics port must be valid integers")
         
-        if not (1 <= self.METRICS_PORT <= 65535):
-            raise ValueError(f"Metrics port must be between 1 and 65535, got {self.METRICS_PORT}")
+        # 验证端口范围 - 确保比较的是整数
+        if not (1 <= server_port <= 65535):
+            raise ValueError(f"Server port must be between 1 and 65535, got {server_port}")
+        
+        if not (1 <= metrics_port <= 65535):
+            raise ValueError(f"Metrics port must be between 1 and 65535, got {metrics_port}")
     
     def get_security_config(self) -> SecurityConfig:
         """获取安全配置"""
