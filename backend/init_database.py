@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent / "app"))
 
 from app.core.database import init_db, Base
 from app.core.config_enhanced import settings
-from app.models.models_complete import User, Role, Permission, user_roles, role_permissions
+from app.models.models_complete import User, Role, Permission, UserRole, user_roles, role_permissions
 from app.core.security_enhanced import security_manager
 from sqlalchemy import select, text
 import structlog

@@ -5,7 +5,7 @@
 
 class ThemeManager {
     constructor() {
-        this.themekey="${API_KEY}";
+        this.themeKey = "iwgm_theme";
         this.currentTheme = this.getStoredTheme() || this.getSystemTheme();
         this.init();
     }
@@ -94,7 +94,13 @@ class ThemeManager {
         toggle.setAttribute('title', '切换主题');
         
         const icon = document.createElement('i');
-        icon.className = this.getThemeIcon(this.currentTheme);
+        const iconValue = this.getThemeIcon(this.currentTheme);
+        if (typeof iconValue === 'string' && iconValue.startsWith('bi ')) {
+            icon.className = iconValue;
+        } else {
+            icon.className = '';
+            icon.textContent = iconValue;
+        }
         toggle.appendChild(icon);
         
         toggle.addEventListener('click', () => {
@@ -132,9 +138,16 @@ class ThemeManager {
      * 更新主题切换按钮图标
      */
     updateThemeToggleIcon(theme) {
-        const toggle = document.querySelector('.theme-toggle i');
-        if (toggle) {
-            toggle.className = this.getThemeIcon(theme);
+        const toggleIcon = document.querySelector('.theme-toggle i');
+        if (toggleIcon) {
+            const iconValue = this.getThemeIcon(theme);
+            if (typeof iconValue === 'string' && iconValue.startsWith('bi ')) {
+                toggleIcon.textContent = '';
+                toggleIcon.className = iconValue;
+            } else {
+                toggleIcon.className = '';
+                toggleIcon.textContent = iconValue;
+            }
         }
     }
     

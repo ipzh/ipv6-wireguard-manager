@@ -5,6 +5,7 @@ import time
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, status, Depends
 from app.core.api_path_builder import get_default_path_builder
+from app.core.config_enhanced import settings
 
 router = APIRouter()
 

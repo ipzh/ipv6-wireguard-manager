@@ -162,6 +162,17 @@ alert_manager = None
 security_manager = None
 health_checker = None
 
+# 其他全局服务/工具
+exception_monitor = None
+cache_manager = None
+doc_generator = None
+
+# 数据库相关全局引用（从增强数据库模块获取）
+db_manager = None
+check_db_health = None
+start_database_monitoring = None
+stop_database_monitoring = None
+
 # 增强功能模块实例
 config_manager = None
 error_handler = None
@@ -169,7 +180,7 @@ error_handler = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理 - 使用延迟导入"""
-    global metrics_collector, app_monitor, log_aggregator, alert_manager, security_manager, health_checker
+    global metrics_collector, app_monitor, log_aggregator, alert_manager, security_manager, health_checker, exception_monitor, cache_manager, doc_generator, db_manager, check_db_health, start_database_monitoring, stop_database_monitoring
     global config_manager, error_handler
     
     # 启动时执行
@@ -183,10 +194,17 @@ async def lifespan(app: FastAPI):
             await init_db_func()
         
         # 获取数据库增强模块
-        start_monitoring, stop_monitoring, db_manager_instance, check_health = get_database_enhanced()
-        if start_monitoring:
+        start_m, stop_m, db_manager_instance, check_health_func = get_database_enhanced()
+        if db_manager_instance:
+            db_manager = db_manager_instance
+        if check_health_func:
+            check_db_health = check_health_func
+        if start_m:
             logger.info("🔍 启动数据库监控...")
-            await start_monitoring()
+            # 注意：start_database_monitoring 是同步函数，不应使用 await
+            start_database_monitoring = start_m
+            stop_database_monitoring = stop_m
+            start_m()
         
         # 初始化配置管理器
         config_manager_class = get_config_management()
@@ -205,6 +223,15 @@ async def lifespan(app: FastAPI):
             if hasattr(error_handler, 'start_monitoring'):
                 error_handler.start_monitoring()
             logger.info("✅ 错误处理器初始化完成")
+        
+        # 初始化API增强（路径验证、文档生成器、缓存管理器等）
+        api_enhancement = get_api_enhancement()
+        if api_enhancement:
+            path_validator, doc_gen, cache_mgr, _api_endpoint, _HTTPMethod = api_enhancement
+            if doc_gen:
+                doc_generator = doc_gen
+            if cache_mgr:
+                cache_manager = cache_mgr
         
         # 初始化监控系统
         PrometheusMetrics, ApplicationMonitor, HealthChecker = get_monitoring_modules()
@@ -237,12 +264,15 @@ async def lifespan(app: FastAPI):
             logger.info("✅ API安全初始化完成")
         
         # 初始化异常监控
-        exception_monitor_instance, ExceptionMonitor, AlertSeverity, AlertStatus = get_exception_monitoring()
-        if ExceptionMonitor:
+        ex_monitor, ExceptionMonitor, AlertSeverity, AlertStatus = get_exception_monitoring()
+        if ex_monitor or ExceptionMonitor:
             logger.info("⚠️ 初始化异常监控...")
-            exception_monitor_instance = ExceptionMonitor()
-            if hasattr(exception_monitor_instance, 'start'):
-                exception_monitor_instance.start()
+            if ex_monitor:
+                exception_monitor = ex_monitor
+            else:
+                exception_monitor = ExceptionMonitor()
+            if hasattr(exception_monitor, 'start'):
+                exception_monitor.start()
             logger.info("✅ 异常监控初始化完成")
         
         logger.info("✅ 应用启动完成!")
@@ -282,23 +312,18 @@ async def lifespan(app: FastAPI):
             log_aggregator.stop_processing()
         if alert_manager:
             alert_manager.stop_processing()
-        if error_handler:
+        if error_handler and hasattr(error_handler, 'stop_monitoring'):
             error_handler.stop_monitoring()
-        if config_manager:
+        if config_manager and hasattr(config_manager, 'disable_hot_reload'):
             config_manager.disable_hot_reload()
         
         # 停止异常监控
-        exception_monitor.stop()
-        
-        # 停止数据库监控
-        await stop_database_monitoring()
+        if exception_monitor and hasattr(exception_monitor, 'stop'):
+            exception_monitor.stop()
         
         logger.info("Feature modules stopped")
     except Exception as e:
         logger.error(f"Error stopping feature modules: {e}")
-    
-    await close_db()
-    logger.info("Application shutdown complete")
 
 # 创建FastAPI应用
 app = FastAPI(
