@@ -6,6 +6,17 @@
 // 引入SSL安全配置
 require_once __DIR__ . '/../includes/ssl_security.php';
 
+// 引入配置（需在CORS处理之前，确保APP_DEBUG等已定义）
+if (file_exists(__DIR__ . '/../config/config.php')) {
+    require_once __DIR__ . '/../config/config.php';
+} else {
+    // 如果配置文件不存在，使用默认值
+    define('APP_NAME', 'IPv6 WireGuard Manager');
+    define('APP_DEBUG', true);
+    define('API_BASE_URL', 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000');
+    define('API_TIMEOUT', 30);
+}
+
 // 设置CORS头 - 生产环境应该限制域名
 $allowedOrigins = [
     'http://localhost:3000',
@@ -31,17 +42,6 @@ header("Content-Type: application/json; charset=utf-8");
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     http_response_code(200);
     exit;
-}
-
-// 引入配置
-if (file_exists("../config/config.php")) {
-    require_once "../config/config.php";
-} else {
-    // 如果配置文件不存在，使用默认值
-    define('APP_NAME', 'IPv6 WireGuard Manager');
-    define('APP_DEBUG', true);
-    define('API_BASE_URL', 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000');
-    define('API_TIMEOUT', 30);
 }
 
 // 获取请求路径
