@@ -847,7 +847,7 @@ install_system_dependencies() {
             fi
             
             apt-get install -y nginx
-            apt-get install -y git curl wget build-essential
+            apt-get install -y git curl wget build-essential net-tools
             ;;
         "yum"|"dnf")
             $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
@@ -2256,6 +2256,17 @@ create_directories_and_permissions() {
         "$INSTALL_DIR/wireguard"
         "$INSTALL_DIR/wireguard/clients"
     )
+    
+    # 创建 WireGuard 系统配置目录（如果不存在）
+    if [[ ! -d "/etc/wireguard" ]]; then
+        mkdir -p "/etc/wireguard"
+        chmod 700 "/etc/wireguard"
+        log_info "✓ 创建 WireGuard 系统配置目录: /etc/wireguard"
+    else
+        # 确保权限正确
+        chmod 700 "/etc/wireguard"
+        log_info "✓ 设置 WireGuard 系统配置目录权限: /etc/wireguard"
+    fi
     
     for directory in "${directories[@]}"; do
         mkdir -p "$directory"
