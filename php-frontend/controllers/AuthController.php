@@ -97,8 +97,10 @@ class AuthController {
         header('Cache-Control: no-cache, no-store, must-revalidate');
         
         try {
-            // 首先尝试直接连接API健康检查端点
-            $healthUrl = API_BASE_URL . '/health';
+            // 统一从根URL检查健康状态（去掉可能的 /api/v* 前缀）
+            $base = rtrim(API_BASE_URL, '/');
+            $rootBase = preg_replace('#/api/v\d+$#', '', $base);
+            $healthUrl = $rootBase . '/health';
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $healthUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -141,12 +143,14 @@ class AuthController {
             }
             
         } catch (Exception $e) {
+            $base = rtrim(API_BASE_URL, '/');
+            $rootBase = preg_replace('#/api/v\d+$#', '', $base);
             echo json_encode([
                 'success' => false,
                 'status' => 'error',
                 'error' => $e->getMessage(),
                 'message' => '无法连接到后端API服务',
-                'backend_url' => API_BASE_URL . '/health'
+                'backend_url' => $rootBase . '/health'
             ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         }
     }

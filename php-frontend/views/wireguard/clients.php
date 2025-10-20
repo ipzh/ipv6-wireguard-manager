@@ -128,17 +128,24 @@
                                 <select class="form-select" id="server_id" name="server_id" required>
                                     <option value="">请选择服务器</option>
                                     <?php
-                                    // 获取服务器列表
-                                    try {
-                                        $servers = $this->apiClient->get('/wireguard/servers');
-                                        $servers = $servers['servers'] ?? [];
-                                        foreach ($servers as $server) {
-                                            echo '<option value="' . $server['id'] . '">' . htmlspecialchars($server['name']) . '</option>';
+                                        // 获取服务器列表
+                                        try {
+                                            $serversData = $this->apiClient->get('/wireguard/servers');
+                                            $servers = [];
+                                            if (is_array($serversData)) {
+                                                if (isset($serversData['data']) && is_array($serversData['data'])) {
+                                                    $servers = $serversData['data'];
+                                                } else {
+                                                    $servers = $serversData;
+                                                }
+                                            }
+                                            foreach ($servers as $server) {
+                                                echo '<option value="' . $server['id'] . '">' . htmlspecialchars($server['name']) . '</option>';
+                                            }
+                                        } catch (Exception $e) {
+                                            echo '<option value="">加载服务器列表失败</option>';
                                         }
-                                    } catch (Exception $e) {
-                                        echo '<option value="">加载服务器列表失败</option>';
-                                    }
-                                    ?>
+                                        ?>
                                 </select>
                             </div>
                         </div>

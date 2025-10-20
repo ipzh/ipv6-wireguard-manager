@@ -131,9 +131,9 @@ class ApiClientJWT {
      * 发送GET请求
      */
     public function get($endpoint, $params = [], $useCache = false) {
-        $url = $this->baseUrl . $endpoint;
+        $url = $this->buildUrl($endpoint);
         if (!empty($params)) {
-            $url .= '?' . http_build_query($params);
+            $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($params);
         }
         
         return $this->makeRequest('GET', $url, null, true, $useCache);
@@ -143,7 +143,7 @@ class ApiClientJWT {
      * 发送POST请求
      */
     public function post($endpoint, $data = []) {
-        $url = $this->baseUrl . $endpoint;
+        $url = $this->buildUrl($endpoint);
         return $this->makeRequest('POST', $url, $data);
     }
     
@@ -151,7 +151,7 @@ class ApiClientJWT {
      * 发送PUT请求
      */
     public function put($endpoint, $data = []) {
-        $url = $this->baseUrl . $endpoint;
+        $url = $this->buildUrl($endpoint);
         return $this->makeRequest('PUT', $url, $data);
     }
     
@@ -159,7 +159,7 @@ class ApiClientJWT {
      * 发送DELETE请求
      */
     public function delete($endpoint) {
-        $url = $this->baseUrl . $endpoint;
+        $url = $this->buildUrl($endpoint);
         return $this->makeRequest('DELETE', $url);
     }
     
@@ -167,8 +167,37 @@ class ApiClientJWT {
      * 发送PATCH请求
      */
     public function patch($endpoint, $data = []) {
-        $url = $this->baseUrl . $endpoint;
+        $url = $this->buildUrl($endpoint);
         return $this->makeRequest('PATCH', $url, $data);
+    }
+
+    /**
+     * 构建完整请求URL，自动为业务端点添加 /api/v1 前缀
+     */
+    private function buildUrl($endpoint) {
+        // 已是绝对URL
+        if (preg_match('#^https?://#i', $endpoint)) {
+            return $endpoint;
+        }
+        // 规范化起始斜杠
+        if ($endpoint === '' || $endpoint[0] !== '/') {
+            $endpoint = '/' . $endpoint;
+        }
+        $base = rtrim($this->baseUrl, '/');
+        
+        // 根级端点不加前缀
+        $rootEndpoints = ['/health', '/metrics'];
+        $isRootEndpoint = in_array($endpoint, $rootEndpoints, true);
+        
+        // 已经包含 /api/ 前缀的不处理
+        $alreadyApi = (strpos($endpoint, '/api/') === 0);
+        
+        // 默认为业务端点添加 /api/v1 前缀
+        if (!$isRootEndpoint && !$alreadyApi) {
+            return $base . '/api/v1' . $endpoint;
+        }
+        
+        return $base . $endpoint;
     }
     
     /**
@@ -301,6 +330,7 @@ class ApiClientJWT {
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         $error = curl_error($ch);
         
         curl_close($ch);
@@ -313,25 +343,32 @@ class ApiClientJWT {
             ];
         }
         
-        // 解析JSON响应
+        // 解析JSON响应（如果是JSON或可解析）
         $decodedResponse = json_decode($response, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return [
-                'success' => false,
-                'http_code' => $httpCode,
-                'error' => 'JSON解析错误: ' . json_last_error_msg()
-            ];
-        }
+        $jsonOk = (json_last_error() === JSON_ERROR_NONE);
         
         // 检查HTTP状态码
         if ($httpCode >= 200 && $httpCode < 300) {
-            return [
-                'success' => true,
-                'http_code' => $httpCode,
-                'data' => $decodedResponse
-            ];
+            if ($jsonOk) {
+                return [
+                    'success' => true,
+                    'http_code' => $httpCode,
+                    'data' => $decodedResponse
+                ];
+            } else {
+                // 非JSON内容（如 /metrics 文本），直接返回原始内容
+                return [
+                    'success' => true,
+                    'http_code' => $httpCode,
+                    'data' => $response
+                ];
+            }
         } else {
-            $errorMessage = $decodedResponse['detail'] ?? $decodedResponse['message'] ?? 'HTTP错误';
+            if ($jsonOk) {
+                $errorMessage = $decodedResponse['detail'] ?? $decodedResponse['message'] ?? 'HTTP错误';
+            } else {
+                $errorMessage = 'HTTP错误';
+            }
             return [
                 'success' => false,
                 'http_code' => $httpCode,

@@ -120,7 +120,7 @@ class MonitoringController {
         if ($severity) $params['severity'] = $severity;
         
         try {
-            $response = $this->apiClient->get('/alerts', $params);
+            $response = $this->apiClient->get('/monitoring/alerts', $params);
             echo json_encode($response);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
