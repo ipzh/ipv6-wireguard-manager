@@ -2276,7 +2276,7 @@ start_services() {
     mkdir -p "$INSTALL_DIR/scripts"
     cp -f "$(dirname "$0")/fix_service_startup_check.sh" "$INSTALL_DIR/scripts/" 2>/dev/null || {
         log_warning "无法复制服务检查脚本，将直接创建..."
-        cat > "$INSTALL_DIR/scripts/check_service_startup.sh" << 'EOF'
+        cat > "$INSTALL_DIR/scripts/check_api_service.sh" << 'EOF'
 #!/bin/bash
 
 # API服务检查脚本
