@@ -188,8 +188,9 @@ class Settings(BaseSettings):
         self.ALLOWED_EXTENSIONS = get_config("ALLOWED_EXTENSIONS", self.ALLOWED_EXTENSIONS)
         
         # WireGuard配置
-        self.WIREGUARD_CONFIG_DIR = get_config("WIREGUARD_CONFIG_DIR", self.WIREGUARD_CONFIG_DIR)
-        self.WIREGUARD_CLIENTS_DIR = get_config("WIREGUARD_CLIENTS_DIR", self.WIREGUARD_CLIENTS_DIR)
+        # 注意：这些属性在 config_enhanced.py 中是只读的 @property，不能直接赋值
+        # self.WIREGUARD_CONFIG_DIR = get_config("WIREGUARD_CONFIG_DIR", self.WIREGUARD_CONFIG_DIR)
+        # self.WIREGUARD_CLIENTS_DIR = get_config("WIREGUARD_CLIENTS_DIR", self.WIREGUARD_CLIENTS_DIR)
         
         # 监控配置
         self.ENABLE_METRICS = get_config("ENABLE_METRICS", self.ENABLE_METRICS)

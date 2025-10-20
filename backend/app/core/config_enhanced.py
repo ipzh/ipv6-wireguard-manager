@@ -402,14 +402,20 @@ class Settings(BaseSettings):
                     logging.warning(f"无法创建目录 {directory}: {e}")
                     # 尝试使用临时目录作为备选
                     if directory == self.UPLOAD_DIR:
-                        self.UPLOAD_DIR = "/tmp/ipv6-wireguard-uploads"
-                        Path(self.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+                        # 使用临时目录作为备选，但不直接修改属性
+                        temp_upload_dir = "/tmp/ipv6-wireguard-uploads"
+                        Path(temp_upload_dir).mkdir(parents=True, exist_ok=True)
+                        logging.info(f"使用临时上传目录: {temp_upload_dir}")
                     elif directory == self.WIREGUARD_CONFIG_DIR:
-                        self.WIREGUARD_CONFIG_DIR = "/tmp/ipv6-wireguard-config"
-                        Path(self.WIREGUARD_CONFIG_DIR).mkdir(parents=True, exist_ok=True)
+                        # 使用临时目录作为备选
+                        temp_config_dir = "/tmp/ipv6-wireguard-config"
+                        Path(temp_config_dir).mkdir(parents=True, exist_ok=True)
+                        logging.info(f"使用临时WireGuard配置目录: {temp_config_dir}")
                     elif directory == self.WIREGUARD_CLIENTS_DIR:
-                        self.WIREGUARD_CLIENTS_DIR = "/tmp/ipv6-wireguard-clients"
-                        Path(self.WIREGUARD_CLIENTS_DIR).mkdir(parents=True, exist_ok=True)
+                        # 使用临时目录作为备选
+                        temp_clients_dir = "/tmp/ipv6-wireguard-clients"
+                        Path(temp_clients_dir).mkdir(parents=True, exist_ok=True)
+                        logging.info(f"使用临时WireGuard客户端目录: {temp_clients_dir}")
     
     def _check_file_permissions(self):
         """检查文件权限"""
