@@ -1487,19 +1487,23 @@ configure_nginx() {
     fi
 
     # 创建Nginx配置
-    # 定义IPv6地址变量，确保格式正确
-    ipv6_address="[::1]"
-    
-    # 确保IPv6地址格式正确，添加日志
-    log_info "使用IPv6地址: ${ipv6_address} 配置Nginx上游服务器"
-    
+    # IPv6与IPv4上游行（根据IPV6_SUPPORT条件渲染）
+    local backend_ipv6_line=""
+    if [[ "${IPV6_SUPPORT}" == "true" ]]; then
+        backend_ipv6_line="    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;"
+        log_info "使用IPv6上游服务器地址: [::1]:${API_PORT}"
+    else
+        log_info "未启用IPv6或不可用，跳过IPv6上游配置"
+    fi
+    # IPv4备选固定为127.0.0.1，避免 ::1 在仅IPv4 环境下失败
+    local backend_ipv4_line="    server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
+
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
-    # IPv6地址格式修复 - 使用正确的IPv6地址格式
-    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
+$( [[ -n "$backend_ipv6_line" ]] && echo "$backend_ipv6_line" )
     # IPv4作为备选
-    server ${LOCAL_HOST}:${API_PORT} backup max_fails=3 fail_timeout=30s;
+$backend_ipv4_line
     
     # 健康检查
     keepalive 32;
@@ -1653,7 +1657,11 @@ EOF
         systemctl enable nginx
         log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
         log_info "使用的PHP-FPM socket: $php_fpm_socket"
-        log_info "IPv6上游服务器地址: [::1]:${API_PORT}"
+        if [[ "${IPV6_SUPPORT}" == "true" ]]; then
+            log_info "IPv6上游服务器地址: [::1]:${API_PORT}"
+        else
+            log_info "IPv6上游服务器地址: 已禁用"
+        fi
     else
         log_error "Nginx配置错误"
         exit 1

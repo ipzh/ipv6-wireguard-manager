@@ -176,6 +176,21 @@ chmod +x smart_install_demo.sh
 
 ## ⚠️ 重要说明
 
+### 数据库配置与驱动规范（重要）
+
+- 统一 `DATABASE_URL` 形态：请始终使用基础形式（不带驱动后缀）并强制走 TCP。
+  - 示例：`mysql://用户名:密码@127.0.0.1:3306/数据库名`
+- 应用运行期会自动规范为 `mysql+aiomysql://`（异步驱动）。
+- Alembic 迁移会自动规范为 `mysql+pymysql://`（同步驱动）。
+- MariaDB vs MySQL 创建用户语法：
+  - MariaDB：`CREATE USER 'user'@'localhost' IDENTIFIED BY 'pwd';`
+  - MySQL：`CREATE USER 'user'@'localhost' IDENTIFIED WITH mysql_native_password BY 'pwd';`
+- 安装脚本已自动检测数据库类型并选择兼容语法；`.env` 与安装阶段 `DATABASE_URL` 已统一为基础 `mysql://...@127.0.0.1:3306/...`。
+
+排错要点：
+- 报 “No module named 'MySQLdb'”：表示连接检查未切到 `aiomysql`。请确保 `DATABASE_URL` 为基础 `mysql://`，脚本会自动转换为 `mysql+aiomysql://`。
+- 报 “asyncio extension requires an async driver”：表示运行期用了 `mysql+pymysql://`。改回基础 `mysql://` 即可。
+
 ### Apache依赖问题
 
 在Debian/Ubuntu系统上，安装PHP时可能会自动安装Apache作为依赖。为了避免这个问题：

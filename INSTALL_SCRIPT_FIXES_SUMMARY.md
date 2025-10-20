@@ -6,6 +6,21 @@
 
 ## ✅ 修复完成情况
 
+### 0. 数据库驱动与连接策略统一（新） ✅
+
+问题: 应用与迁移阶段分别需要异步/同步驱动，历史上在不同脚本/环境中可能混用，导致如 “The asyncio extension requires an async driver” 或 “No module named 'MySQLdb'”。
+
+解决方案:
+- 统一策略：运行时使用基础 `mysql://`，应用层自动规范为 `mysql+aiomysql://`；迁移层（Alembic）统一规范为 `mysql+pymysql://`。
+- 修改 `backend/migrations/env.py`：无论输入为 `mysql://` 或 `mysql+aiomysql://`，一律转换为 `mysql+pymysql://`。
+- 修改 `install.sh`：
+  - `.env` 与安装阶段 `DATABASE_URL` 均写基础 `mysql://...@127.0.0.1:3306/...` 强制 TCP。
+  - 连接检查脚本强制将基础 URL 转换为 `mysql+aiomysql://`，杜绝 `MySQLdb` 依赖报错。
+  - 删除覆盖 `DB_USER/DB_PASSWORD` 的硬编码，确保与创建用户一致。
+- 修改 `backend/run_api.py`：默认 `DATABASE_URL` 使用 `127.0.0.1`，避免走本地 socket。
+
+效果: 完全消除驱动不匹配与 MySQLdb 依赖报错，保证各阶段使用正确驱动。
+
 ### 1. 修复install.sh中的弱口令问题 ✅
 
 **问题**: `create_env_config`函数中`DEFAULT_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"`与后端密码校验冲突
