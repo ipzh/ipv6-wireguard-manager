@@ -736,7 +736,7 @@ set_defaults() {
     fi
     
     if [[ -z "$LOCAL_HOST" ]]; then
-        LOCAL_HOST="127.0.0.1"
+        LOCAL_HOST="::1"  # IPv6本地回环地址，同时支持IPv4和IPv6
     fi
     
     if [[ -z "$DB_PORT" ]]; then
@@ -1818,7 +1818,7 @@ SERVER_PORT=$API_PORT
 
 # Database Settings
 DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
-DATABASE_HOST="localhost"
+DATABASE_HOST="${LOCAL_HOST}"  # 使用LOCAL_HOST变量，支持IPv6和IPv4
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
@@ -1827,7 +1827,7 @@ AUTO_CREATE_DATABASE=True
 
 # Redis Settings (Optional)
 USE_REDIS=False
-REDIS_URL="redis://:redis123@localhost:${REDIS_PORT}/0"
+REDIS_URL="redis://:redis123@${LOCAL_HOST}:${REDIS_PORT}/0"
 
 # CORS Origins
 BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:$WEB_PORT", "http://localhost:$WEB_PORT", "http://${LOCAL_HOST}", "http://localhost"]
@@ -1902,9 +1902,9 @@ BACKUP_DIR="$BACKUP_DIR"
 CACHE_DIR="$CACHE_DIR"
 
 # API Endpoint Configuration (Dynamic)
-API_BASE_URL="http://localhost:$API_PORT/api/v1"
-WEBSOCKET_URL="ws://localhost:$API_PORT/ws/"
-BACKEND_HOST="localhost"
+API_BASE_URL="http://${LOCAL_HOST}:$API_PORT/api/v1"
+WEBSOCKET_URL="ws://${LOCAL_HOST}:$API_PORT/ws/"
+BACKEND_HOST="${LOCAL_HOST}"
 BACKEND_PORT=$API_PORT
 FRONTEND_PORT=$WEB_PORT
 NGINX_PORT=$WEB_PORT

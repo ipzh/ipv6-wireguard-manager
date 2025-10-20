@@ -137,9 +137,9 @@ define('API_UPLOAD_IMAGE', '/upload/image');
 define('API_UPLOAD_CONFIG', '/upload/config');
 
 // WebSocket端点
-define('WS_SYSTEM_STATUS', 'ws://localhost:8000/ws/system/status');
-define('WS_MONITORING_DATA', 'ws://localhost:8000/ws/monitoring/data');
-define('WS_LOGS_STREAM', 'ws://localhost:8000/ws/logs/stream');
+define('WS_SYSTEM_STATUS', 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/system/status');
+define('WS_MONITORING_DATA', 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/monitoring/data');
+define('WS_LOGS_STREAM', 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/logs/stream');
 
 /**
  * 获取API端点URL

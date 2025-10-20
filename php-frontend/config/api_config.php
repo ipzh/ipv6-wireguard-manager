@@ -5,7 +5,7 @@
 
 return [
     'api' => [
-        'base_url' => 'http://localhost:8000',
+        'base_url' => 'http://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000',
         'version' => 'v1',
         'timeout' => 30,
         'retry_attempts' => 3,
@@ -154,8 +154,8 @@ return [
     ],
     
     'websocket' => [
-        'system_status' => 'ws://localhost:8000/ws/system/status',
-        'monitoring_data' => 'ws://localhost:8000/ws/monitoring/data',
-        'logs_stream' => 'ws://localhost:8000/ws/logs/stream',
+        'system_status' => 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/system/status',
+        'monitoring_data' => 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/monitoring/data',
+        'logs_stream' => 'ws://' . ($_ENV['LOCAL_HOST'] ?? 'localhost') . ':8000/ws/logs/stream',
     ]
 ];
