@@ -729,6 +729,35 @@ set_defaults() {
     if [[ -z "$API_PORT" ]]; then
         API_PORT="$DEFAULT_API_PORT"
     fi
+    
+    # 设置其他变量的默认值
+    if [[ -z "$SERVER_HOST" ]]; then
+        SERVER_HOST="0.0.0.0"
+    fi
+    
+    if [[ -z "$LOCAL_HOST" ]]; then
+        LOCAL_HOST="127.0.0.1"
+    fi
+    
+    if [[ -z "$DB_PORT" ]]; then
+        DB_PORT="3306"
+    fi
+    
+    if [[ -z "$REDIS_PORT" ]]; then
+        REDIS_PORT="6379"
+    fi
+    
+    if [[ -z "$DB_USER" ]]; then
+        DB_USER="ipv6-wireguard"
+    fi
+    
+    if [[ -z "$DB_PASSWORD" ]]; then
+        DB_PASSWORD="ipv6wgm_password"
+    fi
+    
+    if [[ -z "$DB_NAME" ]]; then
+        DB_NAME="ipv6wgm"
+    fi
 }
 
 # 安装系统依赖
@@ -1784,24 +1813,24 @@ secret_key="${secret_key}"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 
 # Server Settings
-SERVER_HOST="localhost"
+SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=$API_PORT
 
 # Database Settings
-DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
+DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="localhost"
-DATABASE_PORT=3306
-DATABASE_USER="ipv6wgm"
+DATABASE_PORT=${DB_PORT}
+DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
-DATABASE_NAME="ipv6wgm"
+DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
 
 # Redis Settings (Optional)
 USE_REDIS=False
-REDIS_URL="redis://:redis123@localhost:6379/0"
+REDIS_URL="redis://:redis123@localhost:${REDIS_PORT}/0"
 
 # CORS Origins
-BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://127.0.0.1:$WEB_PORT", "http://localhost", "http://127.0.0.1"]
+BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:$WEB_PORT", "http://localhost:$WEB_PORT", "http://${LOCAL_HOST}", "http://localhost"]
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
@@ -1903,7 +1932,7 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量
-    export DATABASE_URL="mysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
@@ -2063,7 +2092,7 @@ Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers 1
 Restart=always
 RestartSec=10
 StandardOutput=journal
