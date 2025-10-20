@@ -10,7 +10,8 @@ import importlib
 api_router = APIRouter()
 
 # 路由配置映射
-ROUTE_CONFIGS =     {
+ROUTE_CONFIGS = [
+    {
         "module": ".endpoints.auth",
         "router_attr": "router",
         "prefix": "/auth",
@@ -59,6 +60,7 @@ ROUTE_CONFIGS =     {
         "tags": ['系统管理'],
         "description": "system相关接口"
     }
+]
 
 def register_routes():
     """注册所有API路由"""

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent / "app"))
 
 from app.core.database import init_db, Base
 from app.core.config_enhanced import settings
-from app.models.models_complete import User, Role, Permission, user_roles, role_permissions
+from app.models.models_complete import User, Role, Permission, UserRole, user_roles, role_permissions
 from app.core.security_enhanced import security_manager
 from sqlalchemy import select, text
 import structlog
@@ -76,16 +76,17 @@ async def create_initial_data():
 async def create_admin_user():
     """创建默认管理员用户"""
     try:
-        from app.core.database import get_db
+        from app.core.database_manager import database_manager
         
-        async with get_db() as db:
+        async with database_manager.get_async_session() as db:
             # 检查是否已存在管理员用户
-            existing_admin = await db.execute(
+            result = await db.execute(
                 select(User).where(User.username == "admin")
             )
-            if existing_admin.scalar_one_or_none():
+            existing_admin = result.scalar_one_or_none()
+            if existing_admin:
                 logger.info("管理员用户已存在")
-                return existing_admin.scalar_one()
+                return existing_admin
             
             # 创建管理员用户
             admin_user = User(
@@ -103,10 +104,10 @@ async def create_admin_user():
             await db.refresh(admin_user)
             
             # 分配管理员角色
-            admin_role = await db.execute(
+            role_result = await db.execute(
                 select(Role).where(Role.name == "admin")
             )
-            admin_role = admin_role.scalar_one_or_none()
+            admin_role = role_result.scalar_one_or_none()
             
             if admin_role:
                 user_role = UserRole(
@@ -128,9 +129,9 @@ async def verify_database():
     try:
         logger.info("验证数据库连接...")
         
-        from app.core.database import get_db
+        from app.core.database_manager import database_manager
         
-        async with get_db() as db:
+        async with database_manager.get_async_session() as db:
             # 测试查询
             result = await db.execute(select(User).limit(1))
             users = result.scalars().all()

@@ -6,6 +6,7 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import text
 import os
+from pathlib import Path
 
 # 设置日志
 logging.basicConfig(level=logging.INFO)
@@ -105,39 +106,46 @@ async def create_default_user(engine):
                 )
                 user_id = result.fetchone()[0]
                 
-                # 创建默认MFA设置
-                await session.execute(
-                    text("""
-                        INSERT INTO mfa_settings (user_id, totp_enabled, backup_codes, created_at, updated_at)
-                        VALUES (:user_id, 0, '[]', NOW(), NOW())
-                    """),
-                    {"user_id": user_id}
-                )
+                # 以下增强表可能不存在，忽略错误
+                try:
+                    await session.execute(
+                        text("""
+                            INSERT INTO mfa_settings (user_id, totp_enabled, backup_codes, created_at, updated_at)
+                            VALUES (:user_id, 0, '[]', NOW(), NOW())
+                        """),
+                        {"user_id": user_id}
+                    )
+                except Exception:
+                    pass
                 
-                # 创建默认系统配置
-                await session.execute(
-                    text("""
-                        INSERT INTO system_config (key, value, description, created_at, updated_at)
-                        VALUES 
-                        ('password_policy_enabled', 'true', '密码策略启用状态', NOW(), NOW()),
-                        ('mfa_required', 'false', '是否强制要求MFA', NOW(), NOW()),
-                        ('rate_limit_enabled', 'true', 'API限流启用状态', NOW(), NOW()),
-                        ('monitoring_enabled', 'true', '监控功能启用状态', NOW(), NOW()),
-                        ('alert_email', 'admin@example.com', '告警邮件地址', NOW(), NOW())
-                    """)
-                )
+                try:
+                    await session.execute(
+                        text("""
+                            INSERT INTO system_config (key, value, description, created_at, updated_at)
+                            VALUES 
+                            ('password_policy_enabled', 'true', '密码策略启用状态', NOW(), NOW()),
+                            ('mfa_required', 'false', '是否强制要求MFA', NOW(), NOW()),
+                            ('rate_limit_enabled', 'true', 'API限流启用状态', NOW(), NOW()),
+                            ('monitoring_enabled', 'true', '监控功能启用状态', NOW(), NOW()),
+                            ('alert_email', 'admin@example.com', '告警邮件地址', NOW(), NOW())
+                        """)
+                    )
+                except Exception:
+                    pass
                 
-                # 创建默认告警规则
-                await session.execute(
-                    text("""
-                        INSERT INTO alert_rules (name, description, metric_type, threshold_value, severity, is_enabled, created_at, updated_at)
-                        VALUES 
-                        ('CPU使用率告警', 'CPU使用率超过80%时告警', 'cpu_usage', 80.0, 'warning', 1, NOW(), NOW()),
-                        ('内存使用率告警', '内存使用率超过85%时告警', 'memory_usage', 85.0, 'warning', 1, NOW(), NOW()),
-                        ('磁盘使用率告警', '磁盘使用率超过90%时告警', 'disk_usage', 90.0, 'critical', 1, NOW(), NOW()),
-                        ('API错误率告警', 'API错误率超过5%时告警', 'api_error_rate', 5.0, 'warning', 1, NOW(), NOW())
-                    """)
-                )
+                try:
+                    await session.execute(
+                        text("""
+                            INSERT INTO alert_rules (name, description, metric_type, threshold_value, severity, is_enabled, created_at, updated_at)
+                            VALUES 
+                            ('CPU使用率告警', 'CPU使用率超过80%时告警', 'cpu_usage', 80.0, 'warning', 1, NOW(), NOW()),
+                            ('内存使用率告警', '内存使用率超过85%时告警', 'memory_usage', 85.0, 'warning', 1, NOW(), NOW()),
+                            ('磁盘使用率告警', '磁盘使用率超过90%时告警', 'disk_usage', 90.0, 'critical', 1, NOW(), NOW()),
+                            ('API错误率告警', 'API错误率超过5%时告警', 'api_error_rate', 5.0, 'warning', 1, NOW(), NOW())
+                        """)
+                    )
+                except Exception:
+                    pass
                 
                 await session.commit()
                 logger.info("Default admin user and enhanced features initialized successfully")

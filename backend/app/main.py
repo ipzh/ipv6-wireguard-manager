@@ -171,12 +171,13 @@ db_manager = None
 exception_monitor = None
 cache_manager = None
 doc_generator = None
+check_db_health = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理 - 使用延迟导入"""
     global metrics_collector, app_monitor, log_aggregator, alert_manager, security_manager, health_checker
-    global config_manager, error_handler, db_manager, exception_monitor, cache_manager, doc_generator
+    global config_manager, error_handler, db_manager, exception_monitor, cache_manager, doc_generator, check_db_health
     
     # 启动时执行
     logger.info("🚀 启动IPv6 WireGuard Manager...")
@@ -195,6 +196,8 @@ async def lifespan(app: FastAPI):
             start_monitoring()  # 这是同步函数，不需要 await
         if db_manager_instance:
             db_manager = db_manager_instance
+        if check_health:
+            check_db_health = check_health
         
         # 初始化配置管理器
         config_manager_class = get_config_management()
@@ -682,11 +685,17 @@ async def get_swagger_ui():
 async def database_health():
     """数据库健康检查"""
     try:
-        health_status = await check_db_health()
-        return {
-            "success": True,
-            "data": health_status
-        }
+        if check_db_health:
+            health_status = await check_db_health()
+            return {
+                "success": True,
+                "data": health_status
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Database health check function not available"
+            }
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return {

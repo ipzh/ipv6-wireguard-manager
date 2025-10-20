@@ -164,7 +164,7 @@ async def logout(
     try:
         # 在实际应用中，这里可以将令牌加入黑名单
         # 目前只是返回成功消息
-        return {"message": "登出成功"}
+        return {"success": True, "message": "登出成功"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -178,12 +178,15 @@ async def get_current_user_info(
 ):
     """获取当前用户信息"""
     return {
-        "id": str(current_user.id),
-        "username": current_user.username,
-        "email": current_user.email,
-        "is_active": current_user.is_active,
-        "is_superuser": current_user.is_superuser,
-        "last_login": current_user.last_login
+        "success": True,
+        "data": {
+            "id": str(current_user.id),
+            "username": current_user.username,
+            "email": current_user.email,
+            "is_active": current_user.is_active,
+            "is_superuser": current_user.is_superuser,
+            "last_login": current_user.last_login.isoformat() if getattr(current_user, "last_login", None) else None
+        }
     }
 
 @router.post("/refresh", response_model=None)
@@ -336,10 +339,15 @@ async def verify_token(
             )
         
         return {
-            "valid": True,
-            "user_id": str(user.id),
-            "username": user.username,
-            "expires_at": token_data.exp
+            "success": True,
+            "data": {
+                "valid": True,
+                "user": {
+                    "id": str(user.id),
+                    "username": user.username
+                },
+                "expires_at": token_data.exp
+            }
         }
         
     except HTTPException:

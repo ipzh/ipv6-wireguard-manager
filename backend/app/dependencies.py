@@ -61,9 +61,18 @@ async def get_current_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
     """获取当前管理员用户"""
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
-        )
-    return current_user
+    # 超级用户直接通过
+    if getattr(current_user, "is_superuser", False):
+        return current_user
+
+    # 检查是否拥有admin角色
+    try:
+        if hasattr(current_user, "roles") and any(getattr(role, "name", None) == "admin" for role in current_user.roles):
+            return current_user
+    except Exception:
+        pass
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not enough permissions"
+    )
