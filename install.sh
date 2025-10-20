@@ -2523,7 +2523,7 @@ run_environment_check() {
     # 检查数据库连接（避免命令行明文密码）
     DB_HOST=$(grep -E '^DATABASE_HOST=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "localhost")
     DB_USER=$(grep -E '^DATABASE_USER=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm")
-    DB_PASS=$(grep -E '^DATABASE_PASSWORD="${DATABASE_PASSWORD}"$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
+    DB_PASS=$(grep -E '^DATABASE_PASSWORD=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
     if env MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -u "$DB_USER" -e "SELECT 1;" &>/dev/null; then
         log_success "✓ 数据库连接正常"
     else
