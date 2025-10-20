@@ -1817,7 +1817,7 @@ SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=$API_PORT
 
 # Database Settings
-DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="${LOCAL_HOST}"  # 使用LOCAL_HOST变量，支持IPv6和IPv4
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
@@ -1932,7 +1932,7 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量
-    export DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    export DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."

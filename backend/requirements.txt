@@ -10,7 +10,7 @@ alembic==1.13.1
 
 # MySQL驱动
 # 同步驱动 (用于数据库迁移和初始化)
-mysqlclient==2.2.1
+PyMySQL==1.1.0
 # 异步驱动 (用于FastAPI应用)
 aiomysql==0.2.0
 
