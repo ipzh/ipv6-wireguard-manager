@@ -983,11 +983,23 @@ install_php() {
             local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip" "pdo" "pdo_mysql" "filter" "openssl")
             for ext in "${php_extensions[@]}"; do
                 log_info "安装PHP扩展: $ext"
+                
+                # 检查扩展是否已存在（内置或已安装）
+                if php -m | grep -q "^$ext$"; then
+                    log_success "✓ PHP扩展 $ext 已存在"
+                    continue
+                fi
+                
+                # 尝试安装特定版本的扩展
                 if apt-get install -y php$PHP_VERSION-$ext 2>/dev/null; then
                     log_success "✓ PHP扩展 $ext 安装成功"
                 else
                     log_warning "⚠ PHP扩展 $ext 安装失败，尝试默认版本"
-                    apt-get install -y php-$ext 2>/dev/null || true
+                    if apt-get install -y php-$ext 2>/dev/null; then
+                        log_success "✓ PHP扩展 $ext (默认版本) 安装成功"
+                    else
+                        log_warning "⚠ PHP扩展 $ext 安装失败，可能是内置扩展"
+                    fi
                 fi
             done
             
@@ -1079,7 +1091,7 @@ install_php() {
     local missing_extensions=()
     
     for ext in "${required_extensions[@]}"; do
-        if ! php -m | grep -q "$ext"; then
+        if ! php -m | grep -q "^$ext$"; then
             missing_extensions+=("$ext")
         fi
     done
@@ -1094,21 +1106,49 @@ install_php() {
             "apt")
                 for ext in "${missing_extensions[@]}"; do
                     if [[ -n "$PHP_VERSION" ]]; then
-                        apt-get install -y "php$PHP_VERSION-$ext" 2>/dev/null || {
+                        if apt-get install -y "php$PHP_VERSION-$ext" 2>/dev/null; then
+                            log_success "✓ PHP扩展 $ext 安装成功"
+                        else
                             log_warning "扩展 $ext 安装失败，尝试默认版本"
-                            apt-get install -y "php-$ext" 2>/dev/null || true
-                        }
+                            if apt-get install -y "php-$ext" 2>/dev/null; then
+                                log_success "✓ PHP扩展 $ext (默认版本) 安装成功"
+                            else
+                                log_warning "⚠ PHP扩展 $ext 安装失败，可能是内置扩展或不兼容"
+                            fi
+                        fi
                     else
-                        apt-get install -y "php-$ext" 2>/dev/null || true
+                        if apt-get install -y "php-$ext" 2>/dev/null; then
+                            log_success "✓ PHP扩展 $ext 安装成功"
+                        else
+                            log_warning "⚠ PHP扩展 $ext 安装失败，可能是内置扩展或不兼容"
+                        fi
                     fi
                 done
                 ;;
             "yum"|"dnf")
                 for ext in "${missing_extensions[@]}"; do
-                    $PACKAGE_MANAGER install -y "php-$ext" 2>/dev/null || true
+                    if $PACKAGE_MANAGER install -y "php-$ext" 2>/dev/null; then
+                        log_success "✓ PHP扩展 $ext 安装成功"
+                    else
+                        log_warning "⚠ PHP扩展 $ext 安装失败，可能是内置扩展或不兼容"
+                    fi
                 done
                 ;;
         esac
+        
+        # 再次检查扩展是否安装成功
+        local still_missing=()
+        for ext in "${missing_extensions[@]}"; do
+            if ! php -m | grep -q "^$ext$"; then
+                still_missing+=("$ext")
+            fi
+        done
+        
+        if [[ ${#still_missing[@]} -gt 0 ]]; then
+            log_warning "以下扩展可能已内置或不需要单独安装: ${still_missing[*]}"
+        else
+            log_success "所有必需的PHP扩展现在可用"
+        fi
     fi
 }
 
