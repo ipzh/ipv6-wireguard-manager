@@ -20,8 +20,14 @@ from app.models.models_complete import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# 设置数据库URL
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# 设置数据库URL（规范为同步驱动pymysql，避免异步驱动被Alembic误用）
+db_url = settings.DATABASE_URL
+if db_url.startswith("mysql://"):
+    db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+elif db_url.startswith("mysql+aiomysql://"):
+    db_url = db_url.replace("mysql+aiomysql://", "mysql+pymysql://", 1)
+
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -1261,10 +1261,10 @@ configure_database() {
             ;;
     esac
     
-    # 创建数据库和用户
-    mysql -u root -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    mysql -u root -e "CREATE USER IF NOT EXISTS 'ipv6wgm'@'localhost' IDENTIFIED BY 'ipv6wgm_password';"
-    mysql -u root -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO 'ipv6wgm'@'localhost';"
+    # 创建数据库和用户（使用变量，强制 mysql_native_password，保持与 .env 一致）
+    mysql -u root -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
     mysql -u root -e "FLUSH PRIVILEGES;"
     
     # 确保数据库用户权限立即生效
@@ -1870,19 +1870,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=$API_PORT
 
-# Database Settings - 强制使用MySQL
-DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
-DATABASE_HOST="${LOCAL_HOST}"  # 使用LOCAL_HOST变量，支持IPv6和IPv4
+# Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
+DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
 DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
 
-# 强制使用MySQL，禁用SQLite和PostgreSQL
+# 强制使用MySQL，禁用SQLite和PostgreSQL（驱动由应用自行选择）
 DB_TYPE="mysql"
 DB_ENGINE="mysql"
-DB_DRIVER="pymysql"
 
 # Redis Settings (Optional)
 USE_REDIS=False
@@ -1990,11 +1989,10 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    # 设置数据库环境变量 - 强制使用MySQL
-    export DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    # 设置数据库环境变量 - 以基础 mysql:// 提供，应用层自动选择异步驱动
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
-    export DB_DRIVER="pymysql"
     
     # 确保数据库用户和密码正确设置
     export DB_USER="ipv6wgm"
@@ -2082,9 +2080,9 @@ exit(0 if success else 1)
 
 # 标准数据库初始化函数
 initialize_database_standard() {
-    # 确保使用正确的异步驱动
-    export DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
-    log_info "使用aiomysql异步驱动初始化数据库: ${DATABASE_URL}"
+    # 使用基础 mysql://，应用层会自动转换为 mysql+aiomysql://
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+    log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
     python -c "
 import asyncio
