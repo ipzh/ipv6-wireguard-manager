@@ -12,8 +12,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 数据库配置
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm")
-ASYNC_DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+aiomysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+ASYNC_DATABASE_URL = DATABASE_URL
 
 async def init_database():
     """初始化数据库"""

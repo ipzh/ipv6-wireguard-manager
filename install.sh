@@ -1436,8 +1436,8 @@ configure_nginx() {
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
     # IPv6优先，IPv4作为备选
-    server [::1]:$API_PORT max_fails=3 fail_timeout=30s;
-    server ${LOCAL_HOST}:$API_PORT backup max_fails=3 fail_timeout=30s;
+    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
+    server ${LOCAL_HOST}:${API_PORT} backup max_fails=3 fail_timeout=30s;
     
     # 健康检查
     keepalive 32;
@@ -1932,7 +1932,7 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    export DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
@@ -1953,15 +1953,26 @@ initialize_database() {
     log_info "检查数据库连接..."
     if ! python -c "
 import os
-from sqlalchemy import create_engine, text
-try:
-    engine = create_engine(os.environ.get('DATABASE_URL'))
-    with engine.connect() as conn:
-        conn.execute(text('SELECT 1'))
-    print('Database connection successful')
-except Exception as e:
-    print(f'Database connection failed: {e}')
-    exit(1)
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import text
+
+async def check_connection():
+    try:
+        # 使用异步引擎检查连接
+        engine = create_async_engine(os.environ.get('DATABASE_URL'))
+        async with engine.begin() as conn:
+            result = await conn.execute(text('SELECT 1'))
+            print('Database connection successful')
+        await engine.dispose()
+        return True
+    except Exception as e:
+        print(f'Database connection failed: {e}')
+        return False
+
+# 运行异步检查
+success = asyncio.run(check_connection())
+exit(0 if success else 1)
 " 2>/dev/null; then
         log_error "数据库连接失败，尝试使用SQLite作为回退..."
         export DATABASE_URL="sqlite:///./ipv6wgm.db"
