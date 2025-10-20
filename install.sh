@@ -1972,7 +1972,7 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量
-    export DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
@@ -1999,8 +1999,18 @@ from sqlalchemy import text
 
 async def check_connection():
     try:
+        # 获取数据库URL并转换为异步格式
+        db_url = os.environ.get('DATABASE_URL')
+        # 将同步驱动转换为异步驱动
+        if 'mysql://' in db_url:
+            async_db_url = db_url.replace('mysql://', 'mysql+aiomysql://')
+        elif 'sqlite:///' in db_url:
+            async_db_url = db_url.replace('sqlite:///', 'sqlite+aiosqlite://')
+        else:
+            async_db_url = db_url
+            
         # 使用异步引擎检查连接
-        engine = create_async_engine(os.environ.get('DATABASE_URL'))
+        engine = create_async_engine(async_db_url)
         async with engine.begin() as conn:
             result = await conn.execute(text('SELECT 1'))
             print('Database connection successful')
