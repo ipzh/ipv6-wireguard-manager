@@ -1859,8 +1859,8 @@ create_env_config() {
     local secret_key=$(openssl rand -hex 32)
     # 生成超级用户强随机密码
     local admin_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
-    # 生成数据库密码
-    local database_password=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-12)
+    # 数据库密码与创建用户保持一致，避免不一致导致连接失败
+    local database_password="${DB_PASSWORD}"
     
     # 创建.env文件
     cat > "$INSTALL_DIR/.env" << EOF
@@ -2003,10 +2003,6 @@ initialize_database() {
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
     
-    # 确保数据库用户和密码正确设置
-    export DB_USER="ipv6wgm"
-    export DB_PASSWORD="ipv6wgm_password"
-    
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
     if ! systemctl is-active --quiet mysql && ! systemctl is-active --quiet mariadb; then
@@ -2033,9 +2029,11 @@ async def check_connection():
     try:
         # 获取数据库URL并确保使用正确的异步驱动
         db_url = os.environ.get('DATABASE_URL')
-        # 确保使用aiomysql异步驱动
-        if 'mysql+pymysql://' in db_url:
-            async_db_url = db_url.replace('mysql+pymysql://', 'mysql+aiomysql://')
+        # 规范为 aiomysql 异步驱动
+        if db_url.startswith('mysql://'):
+            async_db_url = db_url.replace('mysql://', 'mysql+aiomysql://', 1)
+        elif db_url.startswith('mysql+pymysql://'):
+            async_db_url = db_url.replace('mysql+pymysql://', 'mysql+aiomysql://', 1)
         else:
             async_db_url = db_url
             
@@ -2051,7 +2049,9 @@ async def check_connection():
         # 尝试使用原始URL连接
         try:
             print('Trying with original URL...')
-            engine = create_async_engine(db_url)
+            # 即便原始URL为基础mysql://，依然转换为aiomysql以避免MySQLdb依赖
+            fallback_url = db_url.replace('mysql://', 'mysql+aiomysql://', 1) if db_url and db_url.startswith('mysql://') else db_url
+            engine = create_async_engine(fallback_url)
             async with engine.begin() as conn:
                 result = await conn.execute(text('SELECT 1'))
                 print('Database connection successful with original URL')
