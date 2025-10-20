@@ -732,7 +732,7 @@ set_defaults() {
     
     # 设置其他变量的默认值
     if [[ -z "$SERVER_HOST" ]]; then
-        SERVER_HOST="0.0.0.0"
+        SERVER_HOST="::"  # 支持IPv6和IPv4的所有接口
     fi
     
     if [[ -z "$LOCAL_HOST" ]]; then
