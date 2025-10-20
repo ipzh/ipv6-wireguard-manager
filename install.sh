@@ -1472,11 +1472,15 @@ configure_nginx() {
     fi
 
     # 创建Nginx配置
+    # 定义IPv6地址变量，确保格式正确
+    ipv6_address="[::1]"
+    
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
-    # IPv6优先，IPv4作为备选
-    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
+    # IPv6地址格式修复 - 使用变量确保格式正确
+    server ${ipv6_address}:${API_PORT} max_fails=3 fail_timeout=30s;
+    # IPv4作为备选
     server ${LOCAL_HOST}:${API_PORT} backup max_fails=3 fail_timeout=30s;
     
     # 健康检查
