@@ -1880,7 +1880,7 @@ ENVIRONMENT="$([ "$PRODUCTION" = true ] && echo "production" || echo "developmen
 
 # API Settings
 API_V1_STR="/api/v1"
-secret_key="${secret_key}"
+SECRET_KEY="${secret_key}"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 
 # Server Settings
