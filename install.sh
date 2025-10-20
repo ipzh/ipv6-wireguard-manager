@@ -1268,12 +1268,19 @@ configure_database() {
         # MariaDB: 使用 IDENTIFIED BY 语法
         mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" || \
         mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';"
+        # 追加为127.0.0.1主机的账户，确保TCP访问
+        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';" || \
+        mysql -u root -e "ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';"
     else
         # MySQL: 使用 mysql_native_password 明确插件
         mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || \
         mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+        # 追加为127.0.0.1主机的账户，确保TCP访问
+        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || \
+        mysql -u root -e "ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
     fi
     mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';"
     mysql -u root -e "FLUSH PRIVILEGES;"
     
     # 确保数据库用户权限立即生效
@@ -1881,7 +1888,7 @@ ENVIRONMENT="$([ "$PRODUCTION" = true ] && echo "production" || echo "developmen
 # API Settings
 API_V1_STR="/api/v1"
 SECRET_KEY="${secret_key}"
-ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 # Server Settings
 SERVER_HOST="${SERVER_HOST}"
