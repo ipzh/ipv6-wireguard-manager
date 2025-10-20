@@ -718,44 +718,44 @@ select_install_type() {
 
 # 设置默认值
 set_defaults() {
-    if [[ -z "$INSTALL_DIR" ]]; then
+    if [[ -z "${INSTALL_DIR:-}" ]]; then
         INSTALL_DIR="$DEFAULT_INSTALL_DIR"
     fi
     
-    if [[ -z "$WEB_PORT" ]]; then
+    if [[ -z "${WEB_PORT:-}" ]]; then
         WEB_PORT="$DEFAULT_PORT"
     fi
     
-    if [[ -z "$API_PORT" ]]; then
+    if [[ -z "${API_PORT:-}" ]]; then
         API_PORT="$DEFAULT_API_PORT"
     fi
     
     # 设置其他变量的默认值
-    if [[ -z "$SERVER_HOST" ]]; then
+    if [[ -z "${SERVER_HOST:-}" ]]; then
         SERVER_HOST="::"  # 支持IPv6和IPv4的所有接口
     fi
     
-    if [[ -z "$LOCAL_HOST" ]]; then
+    if [[ -z "${LOCAL_HOST:-}" ]]; then
         LOCAL_HOST="::1"  # IPv6本地回环地址，同时支持IPv4和IPv6
     fi
     
-    if [[ -z "$DB_PORT" ]]; then
+    if [[ -z "${DB_PORT:-}" ]]; then
         DB_PORT="3306"
     fi
     
-    if [[ -z "$REDIS_PORT" ]]; then
+    if [[ -z "${REDIS_PORT:-}" ]]; then
         REDIS_PORT="6379"
     fi
     
-    if [[ -z "$DB_USER" ]]; then
+    if [[ -z "${DB_USER:-}" ]]; then
         DB_USER="ipv6-wireguard"
     fi
     
-    if [[ -z "$DB_PASSWORD" ]]; then
+    if [[ -z "${DB_PASSWORD:-}" ]]; then
         DB_PASSWORD="ipv6wgm_password"
     fi
     
-    if [[ -z "$DB_NAME" ]]; then
+    if [[ -z "${DB_NAME:-}" ]]; then
         DB_NAME="ipv6wgm"
     fi
 }
@@ -1407,7 +1407,7 @@ configure_nginx() {
     done
     
     # 如果没找到socket文件，使用默认路径
-    if [[ -z "$php_fpm_socket" ]]; then
+    if [[ -z "${php_fpm_socket:-}" ]]; then
         php_fpm_socket="/var/run/php/php${PHP_VERSION}-fpm.sock"
         log_warning "未检测到PHP-FPM socket，使用默认路径: $php_fpm_socket"
     fi
