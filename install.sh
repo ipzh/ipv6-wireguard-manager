@@ -1496,8 +1496,8 @@ configure_nginx() {
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
-    # IPv6地址格式修复 - 使用变量确保格式正确
-    server ${ipv6_address}:${API_PORT} max_fails=3 fail_timeout=30s;
+    # IPv6地址格式修复 - 使用正确的IPv6地址格式
+    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
     # IPv4作为备选
     server ${LOCAL_HOST}:${API_PORT} backup max_fails=3 fail_timeout=30s;
     
@@ -1653,7 +1653,7 @@ EOF
         systemctl enable nginx
         log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
         log_info "使用的PHP-FPM socket: $php_fpm_socket"
-        log_info "IPv6上游服务器地址: ${ipv6_address}:${API_PORT}"
+        log_info "IPv6上游服务器地址: [::1]:${API_PORT}"
     else
         log_error "Nginx配置错误"
         exit 1
