@@ -1261,9 +1261,18 @@ configure_database() {
             ;;
     esac
     
-    # 创建数据库和用户（使用变量，强制 mysql_native_password，保持与 .env 一致）
+    # 创建数据库和用户（根据数据库类型选择兼容语法）
     mysql -u root -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+    DB_SERVER_VERSION=$(mysql -V 2>/dev/null || true)
+    if echo "$DB_SERVER_VERSION" | grep -qi "mariadb"; then
+        # MariaDB: 使用 IDENTIFIED BY 语法
+        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" || \
+        mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';"
+    else
+        # MySQL: 使用 mysql_native_password 明确插件
+        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || \
+        mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+    fi
     mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
     mysql -u root -e "FLUSH PRIVILEGES;"
     

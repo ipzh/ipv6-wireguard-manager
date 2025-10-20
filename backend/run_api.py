@@ -13,7 +13,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 # 设置环境变量
-os.environ.setdefault("DATABASE_URL", "mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+os.environ.setdefault("DATABASE_URL", "mysql://ipv6wgm:password@127.0.0.1:3306/ipv6wgm")
 os.environ.setdefault("DEBUG", "true")
 os.environ.setdefault("LOG_LEVEL", "INFO")
 
