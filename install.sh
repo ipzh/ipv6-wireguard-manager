@@ -1744,7 +1744,7 @@ wait_for_docker_services() {
     
     # 等待后端API启动
     log_info "等待后端API启动..."
-    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://${LOCAL_HOST}:$API_PORT/api/v1/health &>/dev/null; do
+    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; do
         sleep 5
     done
     log_success "后端API已启动"
@@ -1767,6 +1767,8 @@ create_env_config() {
     local secret_key=$(openssl rand -hex 32)
     # 生成超级用户强随机密码
     local admin_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
+    # 生成数据库密码
+    local database_password=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-12)
     
     # 创建.env文件
     cat > "$INSTALL_DIR/.env" << EOF
@@ -1778,28 +1780,28 @@ ENVIRONMENT="$([ "$PRODUCTION" = true ] && echo "production" || echo "developmen
 
 # API Settings
 API_V1_STR="/api/v1"
-secret_key="${API_KEY}"
+secret_key="${secret_key}"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 
 # Server Settings
-SERVER_HOST="${SERVER_HOST}"
+SERVER_HOST="localhost"
 SERVER_PORT=$API_PORT
 
 # Database Settings
-DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:${DB_PORT}/ipv6wgm"
+DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
 DATABASE_HOST="localhost"
 DATABASE_PORT=3306
 DATABASE_USER="ipv6wgm"
-DATABASE_PASSWORD="${DATABASE_PASSWORD}"
+DATABASE_PASSWORD="${database_password}"
 DATABASE_NAME="ipv6wgm"
 AUTO_CREATE_DATABASE=True
 
 # Redis Settings (Optional)
 USE_REDIS=False
-REDIS_URL="redis://:redis123@localhost:${REDIS_PORT}/0"
+REDIS_URL="redis://:redis123@localhost:6379/0"
 
 # CORS Origins
-BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://${LOCAL_HOST}:$WEB_PORT", "http://localhost", "http://${LOCAL_HOST}"]
+BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://127.0.0.1:$WEB_PORT", "http://localhost", "http://127.0.0.1"]
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
@@ -1807,7 +1809,7 @@ LOG_FORMAT="json"
 
 # Superuser Settings (for initial setup)
 FIRST_SUPERUSER="admin"
-FIRST_SUPERUSER_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"
+FIRST_SUPERUSER_PASSWORD="${admin_password}"
 FIRST_SUPERUSER_EMAIL="admin@example.com"
 
 # Security Settings
@@ -1880,7 +1882,7 @@ NGINX_PORT=$WEB_PORT
 
 # Security Configuration (Dynamic)
 DEFAULT_USERNAME="admin"
-DEFAULT_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"
+DEFAULT_PASSWORD="${admin_password}"
 SESSION_TIMEOUT=1440
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_DURATION=15
@@ -1901,7 +1903,7 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量
-    export DATABASE_URL="mysql://$DB_USER:$DB_PASSWORD@localhost:$DB_PORT/$DB_NAME"
+    export DATABASE_URL="mysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
@@ -2061,7 +2063,7 @@ Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers 1
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
 Restart=always
 RestartSec=10
 StandardOutput=journal
