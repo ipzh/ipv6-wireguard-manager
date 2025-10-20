@@ -122,53 +122,14 @@ class RemoteDatabaseFixer:
             logger.info("✅ 未发现需要修复的问题")
             return True
         
-        # 检查是否需要切换到SQLite
-        need_sqlite_fallback = False
-        for issue in self.issues_found:
-            if any(keyword in issue.lower() for keyword in [
-                "无法连接", "连接被拒绝", "连接超时", "认证失败"
-            ]):
-                need_sqlite_fallback = True
-                break
+        # SQLite回退功能已移除，现在只支持MySQL和PostgreSQL
+        logger.warning("⚠️ 当前问题需要手动修复，不再支持SQLite回退")
+        logger.info("建议检查以下配置:")
+        logger.info("1. 确保数据库服务器正常运行")
+        logger.info("2. 检查数据库连接配置是否正确")
+        logger.info("3. 验证数据库用户权限")
+        logger.info("4. 确认网络连接正常")
         
-        if need_sqlite_fallback:
-            logger.info("🔄 检测到连接问题，尝试切换到SQLite回退模式")
-            
-            # 检查SQLite配置
-            if not settings.SQLITE_DATABASE_URL:
-                logger.error("❌ SQLite回退URL未配置")
-                return False
-            
-            # 切换到SQLite
-            original_url = settings.DATABASE_URL
-            settings.DATABASE_URL = settings.SQLITE_DATABASE_URL
-            settings.USE_SQLITE_FALLBACK = True
-            
-            logger.info(f"🔄 数据库URL已从 {original_url} 切换到 {settings.DATABASE_URL}")
-            self.fixes_applied.append("切换到SQLite回退模式")
-            
-            # 测试SQLite连接
-            logger.info("🔗 测试SQLite连接...")
-            try:
-                # 重新创建引擎
-                from sqlalchemy import create_engine
-                test_engine = create_engine(settings.DATABASE_URL)
-                
-                with test_engine.connect() as conn:
-                    result = conn.execute(text("SELECT 1"))
-                    if result.scalar() == 1:
-                        logger.info("✅ SQLite连接正常")
-                        return True
-                    else:
-                        logger.error("❌ SQLite连接测试失败")
-                        return False
-                        
-            except Exception as e:
-                logger.error(f"❌ SQLite连接失败: {e}")
-                return False
-        
-        # 其他问题的修复逻辑可以在这里添加
-        logger.warning("⚠️ 当前问题需要手动修复")
         return False
     
     def get_status(self) -> dict:
@@ -177,7 +138,7 @@ class RemoteDatabaseFixer:
             "issues_found": self.issues_found,
             "fixes_applied": self.fixes_applied,
             "current_database_url": settings.DATABASE_URL,
-            "using_sqlite_fallback": settings.USE_SQLITE_FALLBACK
+            "using_sqlite_fallback": False  # 不再支持SQLite回退
         }
 
 

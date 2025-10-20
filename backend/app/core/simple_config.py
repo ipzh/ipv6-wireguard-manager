@@ -47,7 +47,7 @@ def get_server_port() -> int:
 
 def get_database_url() -> str:
     """获取数据库URL"""
-    return get("database.url", "sqlite:///./ipv6_wireguard.db")
+    return get("database.url", "mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
 
 def get_database_host() -> str:
     """获取数据库主机"""

@@ -42,9 +42,9 @@ def check_database_config():
     try:
         parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)
         
-        logger.info(f"🌐 数据库类型: {'PostgreSQL' if parsed_url.scheme == 'postgresql' else parsed_url.scheme}")
+        logger.info(f"🌐 数据库类型: {'MySQL' if parsed_url.scheme == 'mysql' else parsed_url.scheme}")
         logger.info(f"🏠 主机地址: {parsed_url.hostname}")
-        logger.info(f"🔌 端口号: {parsed_url.port or '默认(5432)'}")
+        logger.info(f"🔌 端口号: {parsed_url.port or '默认(3306)'")
         logger.info(f"🗄️ 数据库名: {parsed_url.path.lstrip('/')}")
         logger.info(f"👤 用户名: {parsed_url.username}")
         
@@ -56,7 +56,7 @@ def check_database_config():
             logger.info("🔌 检查网络连接...")
             try:
                 hostname = parsed_url.hostname
-                port = parsed_url.port or 5432
+                port = parsed_url.port or 3306
                 
                 sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
                 sock.settimeout(10)
@@ -84,9 +84,8 @@ def check_database_config():
     logger.info(f"⏱️ 连接超时: {settings.DATABASE_CONNECT_TIMEOUT}秒")
     logger.info(f"⏱️ 语句超时: {settings.DATABASE_STATEMENT_TIMEOUT}毫秒")
     
-    # 检查SQLite回退配置
-    logger.info(f"🔄 SQLite回退URL: {settings.SQLITE_DATABASE_URL}")
-    logger.info(f"🔄 使用SQLite回退: {settings.USE_SQLITE_FALLBACK}")
+    # SQLite回退功能已移除
+    logger.info("🔄 SQLite回退: 不再支持")
     
     # 检查Redis配置
     logger.info(f"🔴 Redis URL: {settings.REDIS_URL}")
@@ -160,11 +159,10 @@ def main():
     # 提供诊断建议
     logger.info("\n=== 诊断建议 ===")
     logger.info("💡 如果遇到远程数据库连接问题:")
-    logger.info("  1. 检查远程PostgreSQL服务器是否运行")
-    logger.info("  2. 检查防火墙设置，确保端口5432开放")
-    logger.info("  3. 检查pg_hba.conf文件中的认证设置")
-    logger.info("  4. 检查数据库用户权限")
-    logger.info("  5. 考虑使用SQLite作为临时解决方案")
+    logger.info("  1. 检查远程MySQL服务器是否运行")
+    logger.info("  2. 检查防火墙设置，确保端口3306开放")
+    logger.info("  3. 检查MySQL用户权限")
+    logger.info("  4. 确保使用MySQL数据库，不再支持PostgreSQL和SQLite")
     
     return 0
 

@@ -11,9 +11,21 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 数据库配置
+# 数据库配置 - 仅支持MySQL
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
-ASYNC_DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+
+# 检查是否为MySQL数据库，如果不是则退出
+if not DATABASE_URL.startswith("mysql://") and not DATABASE_URL.startswith("mysql+aiomysql://"):
+    logger.error("仅支持MySQL数据库，请确保DATABASE_URL使用mysql://或mysql+aiomysql://格式")
+    exit(1)
+
+# 确保使用aiomysql异步驱动
+if DATABASE_URL.startswith("mysql://"):
+    ASYNC_DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+else:
+    ASYNC_DATABASE_URL = DATABASE_URL
+
+logger.info(f"使用异步数据库URL: {ASYNC_DATABASE_URL}")
 
 async def init_database():
     """初始化数据库"""

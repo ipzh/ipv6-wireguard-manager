@@ -116,8 +116,8 @@ class Settings(BaseSettings):
     SERVER_HOST: str = "${SERVER_HOST}"
     SERVER_PORT: int = 8000
     
-    # 数据库配置
-    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
+    # 数据库配置 - 强制使用MySQL
+    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
     # 环境变量支持
     DATABASE_HOST: str = Field(default="localhost")
     DATABASE_PORT: int = Field(default=3306)
@@ -131,6 +131,9 @@ class Settings(BaseSettings):
     DATABASE_POOL_RECYCLE: int = Field(default=3600, ge=300, le=86400)
     DATABASE_POOL_PRE_PING: bool = True
     AUTO_CREATE_DATABASE: bool = True
+    # 强制使用异步驱动
+    DATABASE_ASYNC_DRIVER: str = Field(default="aiomysql")
+    DATABASE_SYNC_DRIVER: str = Field(default="pymysql")
     
     # Redis配置
     REDIS_URL: Optional[str] = None

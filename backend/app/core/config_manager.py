@@ -133,7 +133,7 @@ class UnifiedConfigManager:
         
         # 数据库配置
         self.register_metadata("DATABASE_URL", str, "数据库连接URL", 
-                              default="sqlite:///./ipv6_wireguard.db", 
+                              default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm", 
                               sensitive=True)
         self.register_metadata("DATABASE_HOST", str, "数据库主机", default="localhost")
         self.register_metadata("DATABASE_PORT", int, "数据库端口", default=3306)

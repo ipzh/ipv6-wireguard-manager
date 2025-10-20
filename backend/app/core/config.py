@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     SERVER_PORT: int = Field(default=8000)
     
     # 数据库配置
-    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
+    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
     DATABASE_HOST: str = Field(default="localhost")
     DATABASE_PORT: int = Field(default=3306)
     DATABASE_USER: str = Field(default="ipv6wgm")

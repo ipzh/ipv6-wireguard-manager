@@ -299,6 +299,7 @@ observer.start()
 class EnvironmentConfig:
     @staticmethod
     def get_database_url(environment):
+        # 强制使用MySQL数据库，不再支持PostgreSQL
         if environment == 'development':
             return 'mysql://dev:dev@localhost:${DB_PORT}/ipv6wgm_dev'
         elif environment == 'testing':
@@ -306,7 +307,7 @@ class EnvironmentConfig:
         elif environment == 'production':
             return 'mysql://prod:prod@localhost:${DB_PORT}/ipv6wgm_prod'
         else:
-            raise ValueError(f"未知环境: {environment}")
+            raise ValueError(f"未知环境: {environment}，仅支持MySQL数据库")
 
 # 使用环境特定配置
 db_url = EnvironmentConfig.get_database_url(settings.ENVIRONMENT)

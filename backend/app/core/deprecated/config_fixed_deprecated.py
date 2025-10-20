@@ -132,9 +132,9 @@ class Settings(BaseSettings):
     SERVER_HOST: str = "${SERVER_HOST}"
     SERVER_PORT: int = 8000
     
-    # 数据库配置 - 统一配置，支持多种数据库
-    DATABASE_TYPE: str = "mysql"  # mysql, postgresql, sqlite
-    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
+    # 数据库配置 - 强制使用MySQL
+    DATABASE_TYPE: str = "mysql"  # 强制使用mysql，不再支持postgresql
+    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
     
     # 数据库连接池配置
     DATABASE_POOL_SIZE: int = 10
@@ -146,9 +146,9 @@ class Settings(BaseSettings):
     DATABASE_POOL_PRE_PING: bool = True
     AUTO_CREATE_DATABASE: bool = True
     
-    # SQLite特定配置
-    SQLITE_DATABASE_URL: str = Field(default="sqlite:///./data/ipv6wgm.db")
-    USE_SQLITE_FALLBACK: bool = False
+    # SQLite特定配置 - 已移除
+    # SQLITE_DATABASE_URL: str = Field(default="sqlite:///./data/ipv6wgm.db")
+    # USE_SQLITE_FALLBACK: bool = False
     
     # Redis配置（可选）
     REDIS_URL: Optional[str] = None
@@ -269,13 +269,13 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def validate_database_url(cls, v: str) -> str:
-        """验证数据库URL格式"""
+        """验证数据库URL格式 - 强制使用MySQL"""
         if not v:
             raise ValueError("数据库URL不能为空")
         
-        # 检查URL格式
-        if not any(v.startswith(prefix) for prefix in ["mysql://", "postgresql://", "sqlite:///"]):
-            raise ValueError("不支持的数据库类型，支持: mysql, postgresql, sqlite")
+        # 检查URL格式 - 仅支持MySQL
+        if not v.startswith("mysql://"):
+            raise ValueError("不支持的数据库类型，仅支持MySQL数据库")
         
         return v
     
@@ -315,9 +315,8 @@ class Settings(BaseSettings):
         return SecurityConfig(self)
     
     def get_database_url(self, use_sqlite_fallback: bool = False) -> str:
-        """获取数据库URL，支持回退到SQLite"""
-        if use_sqlite_fallback or self.USE_SQLITE_FALLBACK:
-            return self.SQLITE_DATABASE_URL
+        """获取数据库URL - 强制使用MySQL，不再支持SQLite回退"""
+        # SQLite回退功能已移除，强制使用MySQL
         return self.DATABASE_URL
     
     def is_development(self) -> bool:

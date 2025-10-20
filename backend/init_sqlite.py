@@ -1,5 +1,6 @@
 """
-使用SQLite的简化数据库初始化脚本
+使用SQLite的简化数据库初始化脚本 - 已禁用
+注意：此脚本已被禁用，因为系统现在仅支持MySQL数据库
 """
 import asyncio
 import logging
@@ -12,9 +13,11 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 使用SQLite数据库
-DATABASE_URL = "sqlite:///./ipv6wgm.db"
-ASYNC_DATABASE_URL = "sqlite+aiosqlite:///./ipv6wgm.db"
+# 显示错误消息并退出
+logger.error("SQLite数据库支持已被禁用")
+logger.error("请使用MySQL数据库，确保DATABASE_URL使用mysql://格式")
+logger.error("如果需要帮助，请查看安装文档或联系系统管理员")
+sys.exit(1)
 
 async def init_database():
     """初始化数据库"""

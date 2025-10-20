@@ -9,7 +9,7 @@ class DatabaseType(str, Enum):
     """数据库类型枚举"""
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
+    # 不再支持SQLite
 
 class DatabaseConfig(BaseModel):
     """数据库配置类"""
@@ -47,9 +47,7 @@ class DatabaseConfig(BaseModel):
                 return DatabaseType.MYSQL
             elif url.startswith("postgresql://"):
                 return DatabaseType.POSTGRESQL
-            elif url.startswith("sqlite://"):
-                return DatabaseType.SQLITE
-        raise ValueError("无法确定数据库类型")
+        raise ValueError("无法确定数据库类型，仅支持MySQL和PostgreSQL")
     
     def get_connection_args(self, is_async: bool = False) -> Dict[str, Any]:
         """获取连接参数"""
@@ -97,8 +95,6 @@ class DatabaseConfig(BaseModel):
             return self.database_url.replace("mysql://", "mysql+aiomysql://")
         elif self.database_type == DatabaseType.POSTGRESQL:
             return self.database_url.replace("postgresql://", "postgresql+asyncpg://")
-        elif self.database_type == DatabaseType.SQLITE:
-            return self.database_url.replace("sqlite://", "sqlite+aiosqlite://")
         return self.database_url
     
     def get_sync_url(self) -> str:

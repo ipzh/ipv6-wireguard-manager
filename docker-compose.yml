@@ -100,7 +100,7 @@ services:
       - FRONTEND_DIR=/var/www/html
       - LOG_DIR=/var/log/nginx
       
-      # API配置
+      # API配置 - 修复IPv6地址格式，使用容器名称进行通信
       - API_BASE_URL=http://backend:${API_PORT:-8000}/api/v1
       - API_VERSION=v1
       - API_TIMEOUT=${API_TIMEOUT:-30}

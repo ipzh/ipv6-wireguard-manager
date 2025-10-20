@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-支持MySQL的数据库初始化脚本
-解决依赖问题，支持MySQL、PostgreSQL和SQLite
+支持MySQL的数据库初始化脚本 - 强制使用MySQL
+解决依赖问题，仅支持MySQL数据库，不再支持PostgreSQL和SQLite
 """
 import os
 import sys
-import sqlite3
 from pathlib import Path
 
 # 添加项目根目录到Python路径
@@ -109,17 +108,23 @@ def init_mysql_database():
         return False
 
 def main():
-    """主函数"""
+    """主函数 - 强制使用MySQL"""
     print("🚀 开始初始化数据库...")
     
     # 检查环境变量
     database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm')
     
+    # 强制使用MySQL，不再支持PostgreSQL
     if database_url.startswith('mysql://'):
         print("📊 检测到MySQL数据库配置")
         success = init_mysql_database()
+    elif database_url.startswith('postgresql://'):
+        print("❌ 不再支持PostgreSQL数据库，请使用MySQL")
+        print("💡 请将DATABASE_URL修改为mysql://格式")
+        success = False
     else:
-        print(f"❌ 仅支持MySQL数据库: {database_url}")
+        print(f"❌ 不支持的数据库类型: {database_url}")
+        print("💡 仅支持MySQL数据库，请将DATABASE_URL修改为mysql://格式")
         success = False
     
     if success:

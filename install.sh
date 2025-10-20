@@ -1031,7 +1031,7 @@ install_php() {
                 log_success "PHP-FPM安装成功"
                 
                 # 安装PHP扩展
-                pacman -S --noconfirm php-curl php-mbstring php-sqlite php-pdo php-pdo_mysql 2>/dev/null || true
+                pacman -S --noconfirm php-curl php-mbstring php-pdo php-pdo_mysql 2>/dev/null || true
                 
                 log_success "PHP-FPM安装完成（无Apache依赖）"
             else
@@ -1224,6 +1224,9 @@ install_python_dependencies() {
 configure_database() {
     log_info "配置数据库..."
     
+    # 强制使用MySQL/MariaDB，不支持SQLite和PostgreSQL
+    log_info "强制使用MySQL数据库，不支持SQLite和PostgreSQL"
+    
     # 启动MySQL/MariaDB服务
     case $PACKAGE_MANAGER in
         "apt")
@@ -1262,6 +1265,9 @@ configure_database() {
     mysql -u root -e "CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
     mysql -u root -e "CREATE USER IF NOT EXISTS 'ipv6wgm'@'localhost' IDENTIFIED BY 'ipv6wgm_password';"
     mysql -u root -e "GRANT ALL PRIVILEGES ON ipv6wgm.* TO 'ipv6wgm'@'localhost';"
+    mysql -u root -e "FLUSH PRIVILEGES;"
+    
+    # 确保数据库用户权限立即生效
     mysql -u root -e "FLUSH PRIVILEGES;"
     
     # 创建环境配置文件
@@ -1475,6 +1481,9 @@ configure_nginx() {
     # 定义IPv6地址变量，确保格式正确
     ipv6_address="[::1]"
     
+    # 确保IPv6地址格式正确，添加日志
+    log_info "使用IPv6地址: ${ipv6_address} 配置Nginx上游服务器"
+    
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
@@ -1635,6 +1644,7 @@ EOF
         systemctl enable nginx
         log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
         log_info "使用的PHP-FPM socket: $php_fpm_socket"
+        log_info "IPv6上游服务器地址: ${ipv6_address}:${API_PORT}"
     else
         log_error "Nginx配置错误"
         exit 1
@@ -1860,7 +1870,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=$API_PORT
 
-# Database Settings
+# Database Settings - 强制使用MySQL
 DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="${LOCAL_HOST}"  # 使用LOCAL_HOST变量，支持IPv6和IPv4
 DATABASE_PORT=${DB_PORT}
@@ -1868,6 +1878,11 @@ DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
 DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
+
+# 强制使用MySQL，禁用SQLite和PostgreSQL
+DB_TYPE="mysql"
+DB_ENGINE="mysql"
+DB_DRIVER="pymysql"
 
 # Redis Settings (Optional)
 USE_REDIS=False
@@ -1975,8 +1990,15 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    # 设置数据库环境变量
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    # 设置数据库环境变量 - 强制使用MySQL
+    export DATABASE_URL="mysql+pymysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    export DB_TYPE="mysql"
+    export DB_ENGINE="mysql"
+    export DB_DRIVER="pymysql"
+    
+    # 确保数据库用户和密码正确设置
+    export DB_USER="ipv6wgm"
+    export DB_PASSWORD="ipv6wgm_password"
     
     # 检查数据库服务状态
     log_info "检查数据库服务状态..."
@@ -1986,10 +2008,9 @@ initialize_database() {
             log_success "数据库服务启动成功"
             sleep 3  # 等待服务完全启动
         else
-            log_error "无法启动数据库服务"
-            # 尝试使用SQLite作为回退
-            log_info "尝试使用SQLite作为回退数据库..."
-            export DATABASE_URL="sqlite:///./ipv6wgm.db"
+            log_error "无法启动数据库服务，请确保MySQL/MariaDB服务正常运行"
+            log_error "安装终止，需要MySQL数据库"
+            exit 1
         fi
     fi
     
@@ -2003,13 +2024,11 @@ from sqlalchemy import text
 
 async def check_connection():
     try:
-        # 获取数据库URL并转换为异步格式
+        # 获取数据库URL并确保使用正确的异步驱动
         db_url = os.environ.get('DATABASE_URL')
-        # 将同步驱动转换为异步驱动
-        if 'mysql://' in db_url:
-            async_db_url = db_url.replace('mysql://', 'mysql+aiomysql://')
-        elif 'sqlite:///' in db_url:
-            async_db_url = db_url.replace('sqlite:///', 'sqlite+aiosqlite://')
+        # 确保使用aiomysql异步驱动
+        if 'mysql+pymysql://' in db_url:
+            async_db_url = db_url.replace('mysql+pymysql://', 'mysql+aiomysql://')
         else:
             async_db_url = db_url
             
@@ -2022,14 +2041,26 @@ async def check_connection():
         return True
     except Exception as e:
         print(f'Database connection failed: {e}')
-        return False
+        # 尝试使用原始URL连接
+        try:
+            print('Trying with original URL...')
+            engine = create_async_engine(db_url)
+            async with engine.begin() as conn:
+                result = await conn.execute(text('SELECT 1'))
+                print('Database connection successful with original URL')
+            await engine.dispose()
+            return True
+        except Exception as e2:
+            print(f'Original URL also failed: {e2}')
+            return False
 
 # 运行异步检查
 success = asyncio.run(check_connection())
 exit(0 if success else 1)
 " 2>/dev/null; then
-        log_error "数据库连接失败，尝试使用SQLite作为回退..."
-        export DATABASE_URL="sqlite:///./ipv6wgm.db"
+        log_error "数据库连接失败，请检查MySQL配置和用户权限"
+        log_error "安装终止，需要有效的MySQL数据库连接"
+        exit 1
     fi
     
     # 尝试使用简化的数据库初始化脚本
@@ -2051,6 +2082,10 @@ exit(0 if success else 1)
 
 # 标准数据库初始化函数
 initialize_database_standard() {
+    # 确保使用正确的异步驱动
+    export DATABASE_URL="mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}"
+    log_info "使用aiomysql异步驱动初始化数据库: ${DATABASE_URL}"
+    
     python -c "
 import asyncio
 import sys
@@ -2064,20 +2099,15 @@ from app.services.user_service import UserService
 from app.core.config_enhanced import settings
 
 async def main():
-    print('Starting database initialization...')
+    print('Starting database initialization with aiomysql driver...')
+    print(f'Database URL: {os.environ.get(\"DATABASE_URL\")}')
     try:
         await init_db()
         print('Database tables created successfully')
     except Exception as e:
         print(f'Database initialization failed: {e}')
-        # 尝试使用SQLite作为回退
-        if 'mysql' in os.environ.get('DATABASE_URL', '').lower():
-            print('Attempting to use SQLite as fallback...')
-            os.environ['DATABASE_URL'] = 'sqlite:///./ipv6wgm.db'
-            await init_db()
-            print('SQLite fallback database initialized successfully')
-        else:
-            raise
+        print('MySQL数据库初始化失败，请检查数据库配置和权限')
+        exit(1)
     
     async for db in get_async_db():
         # 初始化权限和角色

@@ -29,13 +29,10 @@ class DatabaseHealthChecker:
     
     def __init__(self):
         self.database_url = settings.DATABASE_URL
-        # 添加SQLite回退配置
-        self.sqlite_url = getattr(settings, 'SQLITE_DATABASE_URL', 'sqlite:///./app.db')
-        self.use_sqlite_fallback = getattr(settings, 'USE_SQLITE_FALLBACK', False)
         self.auto_create_database = settings.AUTO_CREATE_DATABASE
         
     def check_database_connection(self) -> Dict[str, Any]:
-        """检查数据库连接状态"""
+        """检查数据库连接状态 - 强制使用MySQL"""
         result = {
             "status": "unknown",
             "database_type": "unknown",
@@ -45,17 +42,34 @@ class DatabaseHealthChecker:
         }
         
         try:
-            if self.database_url.startswith("mysql://"):
-                result.update(self._check_mysql_connection())
-            elif self.database_url.startswith("sqlite://"):
-                result.update(self._check_sqlite_connection())
-            else:
-                result["error"] = f"不支持的数据库类型: {self.database_url}"
+            # 强制仅支持MySQL数据库
+            if not self.database_url.startswith("mysql://"):
+                result["error"] = f"不支持的数据库类型，仅支持MySQL: {self.database_url}"
+                result["status"] = "unsupported"
+                logger.error(f"不支持的数据库类型，仅支持MySQL: {self.database_url}")
+                return result
+                
+            result.update(self._check_mysql_connection())
                 
         except Exception as e:
             result["error"] = str(e)
             logger.error(f"数据库连接检查失败: {e}")
             
+        return result
+    
+    def _check_postgresql_connection(self) -> Dict[str, Any]:
+        """检查PostgreSQL连接 - 已废弃，不再支持PostgreSQL"""
+        result = {
+            "database_type": "postgresql",
+            "connection_ok": False,
+            "details": {}
+        }
+        
+        logger.error("PostgreSQL连接检查已废弃，不再支持PostgreSQL数据库")
+        logger.info("请使用MySQL数据库，并将DATABASE_URL修改为mysql://格式")
+        
+        result["error"] = "PostgreSQL支持已废弃"
+        result["status"] = "deprecated"
         return result
     
     def _check_mysql_connection(self) -> Dict[str, Any]:
@@ -76,8 +90,12 @@ class DatabaseHealthChecker:
             from urllib.parse import urlparse
             parsed = urlparse(self.database_url)
             
+            # 强制使用pymysql驱动
+            sync_db_url = self.database_url.replace("mysql://", "mysql+pymysql://")
+            logger.info(f"使用MySQL同步驱动检查连接: {sync_db_url}")
+            
             # 尝试连接数据库
-            engine = create_engine(self.database_url, pool_pre_ping=True)
+            engine = create_engine(sync_db_url, pool_pre_ping=True)
             
             with engine.connect() as conn:
                 # 检查基本连接
@@ -89,40 +107,24 @@ class DatabaseHealthChecker:
                 version = version_result.fetchone()[0]
                 result["details"]["version"] = version
                 
-                # 检查数据库大小
+                # 检查数据库大小 - 使用MySQL特定查询
                 try:
                     size_result = conn.execute(text("""
-                        SELECT pg_size_pretty(pg_database_size(current_database()))
+                        SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'DB Size in MB' 
+                        FROM information_schema.tables 
+                        WHERE table_schema = DATABASE()
                     """))
                     size = size_result.fetchone()[0]
-                    result["details"]["size"] = size
+                    result["details"]["size"] = f"{size} MB"
                 except Exception:
-                    # 如果PostgreSQL特定查询失败，尝试MySQL特定查询
-                    try:
-                        size_result = conn.execute(text("""
-                            SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'DB Size in MB' 
-                            FROM information_schema.tables 
-                            WHERE table_schema = DATABASE()
-                        """))
-                        size = size_result.fetchone()[0]
-                        result["details"]["size"] = f"{size} MB"
-                    except Exception:
-                        result["details"]["size"] = "未知"
+                    result["details"]["size"] = "未知"
                 
-                # 检查连接数
+                # 检查连接数 - 使用MySQL特定查询
                 try:
-                    conn_result = conn.execute(text("""
-                        SELECT count(*) FROM pg_stat_activity 
-                        WHERE datname = current_database()
-                    """))
-                    connections = conn_result.fetchone()[0]
+                    conn_result = conn.execute(text("SHOW STATUS LIKE 'Threads_connected'"))
+                    connections = conn_result.fetchone()[1]
                 except Exception:
-                    # 如果PostgreSQL特定查询失败，尝试MySQL特定查询
-                    try:
-                        conn_result = conn.execute(text("SHOW STATUS LIKE 'Threads_connected'"))
-                        connections = conn_result.fetchone()[1]
-                    except Exception:
-                        connections = "未知"
+                    connections = "未知"
                 
                 result["details"]["connections"] = connections
                 
@@ -141,7 +143,7 @@ class DatabaseHealthChecker:
                 result["error"] = "数据库不存在"
                 result["status"] = "database_not_found"
                 logger.warning("数据库不存在，可能需要创建")
-            elif "authentication failed" in error_msg.lower():
+            elif "authentication failed" in error_msg.lower() or "password authentication failed" in error_msg.lower():
                 result["error"] = "认证失败"
                 result["status"] = "auth_failed"
                 logger.error("数据库认证失败")
@@ -157,59 +159,19 @@ class DatabaseHealthChecker:
             
         return result
     
-    def _check_sqlite_connection(self) -> Dict[str, Any]:
-        """检查SQLite连接"""
-        result = {
-            "database_type": "sqlite",
-            "connection_ok": False,
-            "details": {}
-        }
-        
-        try:
-            engine = create_engine(self.database_url)
-            
-            with engine.connect() as conn:
-                # 检查基本连接
-                conn.execute(text("SELECT 1"))
-                result["connection_ok"] = True
-                
-                # 获取数据库文件信息
-                db_path = self.database_url.replace("sqlite:///", "")
-                if os.path.exists(db_path):
-                    file_size = os.path.getsize(db_path)
-                    result["details"]["file_size"] = f"{file_size} bytes"
-                    result["details"]["file_path"] = db_path
-                
-                # 检查表
-                inspector = inspect(engine)
-                tables = inspector.get_table_names()
-                result["details"]["tables"] = len(tables)
-                result["details"]["table_list"] = tables
-                
-                result["status"] = "healthy"
-                logger.info("SQLite数据库连接正常")
-                
-        except Exception as e:
-            result["error"] = f"SQLite连接失败: {str(e)}"
-            result["status"] = "error"
-            logger.error(f"SQLite检查失败: {e}")
-            
-        return result
-    
     def create_database_if_not_exists(self) -> bool:
-        """如果数据库不存在则创建"""
+        """如果数据库不存在则创建 - 强制使用MySQL"""
         if not self.auto_create_database:
             logger.info("自动创建数据库已禁用")
             return False
             
         try:
-            if self.database_url.startswith("mysql://"):
-                return self._create_mysql_database()
-            elif self.database_url.startswith("sqlite://"):
-                return self._create_sqlite_database()
-            else:
-                logger.error(f"不支持的数据库类型: {self.database_url}")
+            # 强制仅支持MySQL数据库
+            if not self.database_url.startswith("mysql://"):
+                logger.error(f"不支持的数据库类型，仅支持MySQL: {self.database_url}")
                 return False
+                
+            return self._create_mysql_database()
                 
         except Exception as e:
             logger.error(f"创建数据库失败: {e}")
@@ -225,8 +187,9 @@ class DatabaseHealthChecker:
             from urllib.parse import urlparse
             parsed = urlparse(self.database_url)
             
-            # 连接到默认数据库
-            default_db_url = f"sqlite:///./ipv6_wireguard.db"
+            # 连接到默认数据库 - 强制使用pymysql驱动
+            default_db_url = f"mysql+pymysql://root@localhost:3306/mysql"
+            logger.info(f"使用MySQL同步驱动创建数据库: {default_db_url}")
             
             engine = create_engine(default_db_url)
             
@@ -243,6 +206,7 @@ class DatabaseHealthChecker:
                     if not result.fetchone():
                         # 创建数据库
                         conn.execute(text(f"CREATE DATABASE {db_name}"))
+                        conn.execute(text(f"USE {db_name}"))
                         conn.commit()
                         logger.info(f"数据库 {db_name} 创建成功")
                         return True
@@ -257,30 +221,12 @@ class DatabaseHealthChecker:
         except Exception as e:
             logger.error(f"连接到MySQL服务器失败: {e}")
             return False
-
     
-    def _create_sqlite_database(self) -> bool:
-        """创建SQLite数据库"""
-        try:
-            db_path = self.database_url.replace("sqlite:///", "")
-            db_dir = os.path.dirname(db_path)
-            
-            # 创建目录
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-                logger.info(f"创建数据库目录: {db_dir}")
-            
-            # 创建数据库文件
-            engine = create_engine(self.database_url)
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-                
-            logger.info(f"成功创建SQLite数据库: {db_path}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"创建SQLite数据库失败: {e}")
-            return False
+    def _create_postgresql_database(self) -> bool:
+        """创建PostgreSQL数据库 - 已废弃，不再支持PostgreSQL"""
+        logger.error("PostgreSQL数据库创建已废弃，不再支持PostgreSQL数据库")
+        logger.info("请使用MySQL数据库，并将DATABASE_URL修改为mysql://格式")
+        return False
     
     def fix_database_issues(self) -> bool:
         """修复数据库问题"""

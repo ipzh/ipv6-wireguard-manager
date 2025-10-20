@@ -65,17 +65,23 @@ def check_dependencies():
         return True
 
 def check_database_connection():
-    """检查数据库连接"""
+    """检查数据库连接 - 强制使用MySQL"""
     print("\n🗄️ 检查数据库连接...")
     
     # 检查环境变量
     database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm')
     print(f"   数据库URL: {database_url}")
     
+    # 强制使用MySQL，不再支持PostgreSQL
     if database_url.startswith('mysql://'):
         return check_mysql_connection(database_url)
+    elif database_url.startswith('postgresql://'):
+        print("   ❌ 不再支持PostgreSQL数据库，请使用MySQL")
+        print("   💡 请将DATABASE_URL修改为mysql://格式")
+        return False
     else:
-        print("   ❌ 仅支持MySQL数据库")
+        print("   ❌ 不支持的数据库类型，仅支持MySQL")
+        print("   💡 请将DATABASE_URL修改为mysql://格式")
         return False
 
 def check_mysql_connection(database_url):
@@ -104,53 +110,10 @@ def check_mysql_connection(database_url):
         return False
 
 def check_postgresql_connection(database_url):
-    """检查PostgreSQL连接"""
-    try:
-        import psycopg2
-        from urllib.parse import urlparse
-        
-        parsed = urlparse(database_url)
-        conn = psycopg2.connect(
-            host=parsed.hostname,
-            port=parsed.port or 5432,
-            user=parsed.username,
-            password=parsed.password,
-            database=parsed.path[1:]  # 移除开头的 '/'
-        )
-        conn.close()
-        print("   ✅ PostgreSQL连接成功")
-        return True
-    except ImportError:
-        print("   ❌ psycopg2未安装")
-        print("   💡 安装命令: pip install psycopg2-binary")
-        return False
-    except Exception as e:
-        print(f"   ❌ PostgreSQL连接失败: {e}")
-        return False
-
-def check_sqlite_connection(database_url):
-    """检查SQLite连接"""
-    try:
-        import sqlite3
-        
-        # 解析SQLite路径
-        if database_url.startswith('sqlite:///'):
-            db_path = database_url[10:]  # 移除 'sqlite:///'
-        else:
-            db_path = 'ipv6wgm.db'
-        
-        # 确保目录存在
-        db_file = Path(db_path)
-        db_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # 测试连接
-        conn = sqlite3.connect(str(db_file))
-        conn.close()
-        print(f"   ✅ SQLite连接成功: {db_path}")
-        return True
-    except Exception as e:
-        print(f"   ❌ SQLite连接失败: {e}")
-        return False
+    """检查PostgreSQL连接 - 已废弃，不再支持PostgreSQL"""
+    print("   ❌ PostgreSQL连接检查已废弃，不再支持PostgreSQL数据库")
+    print("   💡 请使用MySQL数据库，并将DATABASE_URL修改为mysql://格式")
+    return False
 
 def check_environment_file():
     """检查环境变量文件"""

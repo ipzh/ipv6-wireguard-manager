@@ -24,7 +24,7 @@ class DatabaseType(Enum):
     """数据库类型枚举"""
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
+    # 不再支持SQLite
 
 @dataclass
 class ConnectionPoolStats:
@@ -209,15 +209,8 @@ class MultiDatabaseManager:
                     pool_recycle=3600,
                     echo=False
                 )
-            elif db_type == DatabaseType.SQLITE:
-                # SQLite异步引擎
-                async_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
-                engine = create_async_engine(
-                    async_url,
-                    echo=False
-                )
             else:
-                raise ValueError(f"不支持的数据库类型: {db_type}")
+                raise ValueError(f"不支持的数据库类型: {db_type}，仅支持MySQL和PostgreSQL")
             
             self.engines[name] = engine
             
@@ -313,10 +306,15 @@ async_engine = None
 sync_engine = None
 aiomysql_available = False
 
-# 创建异步数据库引擎 - 仅支持MySQL
-if settings.DATABASE_URL.startswith("mysql://"):
+# 创建异步数据库引擎 - 强制使用MySQL
+# 仅支持MySQL数据库，不支持PostgreSQL和SQLite
+if not settings.DATABASE_URL.startswith("mysql://"):
+    logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
+    async_engine = None
+else:
     # MySQL数据库
     async_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+    logger.info(f"强制使用MySQL异步驱动: {async_db_url}")
     
     # 检查是否安装了aiomysql驱动
     try:
@@ -324,7 +322,7 @@ if settings.DATABASE_URL.startswith("mysql://"):
         aiomysql_available = True
     except ImportError:
         aiomysql_available = False
-        print("警告: aiomysql驱动未安装，将使用同步模式")
+        logger.error("aiomysql驱动未安装，异步引擎初始化失败")
     
     # 检查数据库连接是否可用
     try:
@@ -341,27 +339,39 @@ if settings.DATABASE_URL.startswith("mysql://"):
                 echo=False,  # 不打印SQL语句
                 future=True
             )
-            logger.info("异步MySQL引擎创建成功")
+            logger.info("MySQL异步引擎创建成功")
         else:
-            logger.warning("aiomysql不可用，将使用同步模式")
+            logger.error("aiomysql不可用，无法创建异步引擎")
     except Exception as e:
-        logger.error(f"创建异步MySQL引擎失败: {e}")
+        logger.error(f"创建MySQL异步引擎失败: {e}")
         aiomysql_available = False
 
-# 创建同步数据库引擎
-try:
-    sync_engine = create_engine(
-        settings.DATABASE_URL,
-        pool_size=10,
-        max_overflow=20,
-        pool_timeout=30,
-        pool_recycle=3600,
-        pool_pre_ping=True,
-        echo=False
-    )
-    logger.info("同步数据库引擎创建成功")
-except Exception as e:
-    logger.error(f"创建同步数据库引擎失败: {e}")
+# 创建同步数据库引擎 - 强制使用MySQL
+# 仅支持MySQL数据库，不支持PostgreSQL和SQLite
+if not settings.DATABASE_URL.startswith("mysql://"):
+    logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
+    sync_engine = None
+else:
+    # MySQL数据库
+    sync_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
+    logger.info(f"强制使用MySQL同步驱动: {sync_db_url}")
+    
+    try:
+        # 优化的连接参数
+        sync_engine = create_engine(
+            sync_db_url,
+            pool_size=20,
+            max_overflow=30,
+            pool_timeout=30,
+            pool_recycle=3600,
+            pool_pre_ping=True,
+            echo=False,
+            future=True
+        )
+        logger.info("MySQL同步引擎创建成功")
+    except Exception as e:
+        logger.error(f"创建MySQL同步引擎失败: {e}")
+        sync_engine = None
 
 # 创建会话工厂
 if async_engine:

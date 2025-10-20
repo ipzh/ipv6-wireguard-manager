@@ -335,8 +335,8 @@ class ConfigDocumentationGenerator:
         doc += "SERVER_HOST=\"${SERVER_HOST}\"\n"
         doc += "SERVER_PORT=8000\n\n"
         
-        doc += "# 数据库配置\n"
-        doc += "DATABASE_URL=\"sqlite:///./ipv6_wireguard.db\"\n"
+        doc += "# 数据库配置 - 强制使用MySQL\n"
+        doc += "DATABASE_URL=\"mysql://ipv6wgm:password@localhost:3306/ipv6wgm\"\n"
         doc += "DATABASE_HOST=\"localhost\"\n"
         doc += "DATABASE_PORT=3306\n"
         doc += "DATABASE_USER=\"ipv6wgm\"\n"
@@ -369,7 +369,8 @@ class ConfigDocumentationGenerator:
         doc += "    \"debug\": true\n"
         doc += "  },\n"
         doc += "  \"database\": {\n"
-        doc += "    \"password\": \"password\"\n"
+        doc += "    \"password\": \"password\",\n"
+        doc += "    \"type\": \"mysql\"\n"
         doc += "  },\n"
         doc += "  \"logging\": {\n"
         doc += "    \"level\": \"DEBUG\"\n"
@@ -399,19 +400,19 @@ class ConfigDocumentationGenerator:
         doc += "}\n"
         doc += "```\n\n"
         
-        # Docker环境变量示例
+        # Docker环境变量示例 - 强制使用MySQL
         doc += "## Docker环境变量示例\n\n"
         doc += "```bash\n"
         doc += "docker run -d \\\n"
         doc += "  -e ENVIRONMENT=\"production\" \\\n"
-        doc += "  -e DATABASE_URL=\"sqlite:///./ipv6_wireguard.db" \\\n"
+        doc += "  -e DATABASE_URL=\"mysql://ipv6wgm:password@mysql:3306/ipv6wgm\" \\\n"
         doc += "  -e SECRET_KEY=\"your-secret-key\" \\\n"
         doc += "  -e FIRST_SUPERUSER_PASSWORD=\"secure-password\" \\\n"
         doc += "  -p 8000:${API_PORT} \\\n"
         doc += "  ipv6-wireguard-manager\n"
         doc += "```\n\n"
         
-        # Kubernetes ConfigMap示例
+        # Kubernetes ConfigMap示例 - 强制使用MySQL
         doc += "## Kubernetes ConfigMap示例\n\n"
         doc += "```yaml\n"
         doc += "apiVersion: v1\n"
@@ -424,6 +425,7 @@ class ConfigDocumentationGenerator:
         doc += "  DATABASE_HOST: \"mysql-service\"\n"
         doc += "  DATABASE_PORT: \"3306\"\n"
         doc += "  DATABASE_NAME: \"ipv6wgm\"\n"
+        doc += "  DATABASE_TYPE: \"mysql\"\n"
         doc += "  REDIS_URL: \"redis://redis-service:${REDIS_PORT}/0\"\n"
         doc += "  USE_REDIS: \"true\"\n"
         doc += "```\n\n"

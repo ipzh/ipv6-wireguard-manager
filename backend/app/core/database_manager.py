@@ -25,7 +25,7 @@ class DatabaseType(Enum):
     """数据库类型枚举"""
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
+    # 不再支持SQLite
 
 class DatabaseManager:
     """统一的数据库连接管理器"""
@@ -40,30 +40,31 @@ class DatabaseManager:
         self._initialize_engines()
     
     def _detect_database_type(self) -> DatabaseType:
-        """检测数据库类型"""
+        """检测数据库类型 - 强制使用MySQL"""
         if settings.DATABASE_URL.startswith("mysql://"):
             return DatabaseType.MYSQL
         elif settings.DATABASE_URL.startswith("postgresql://"):
-            return DatabaseType.POSTGRESQL
-        elif settings.DATABASE_URL.startswith("sqlite://"):
-            return DatabaseType.SQLITE
+            logger.error("不再支持PostgreSQL数据库，请使用MySQL数据库")
+            logger.info("请将DATABASE_URL修改为mysql://格式")
+            raise ValueError(f"不再支持PostgreSQL数据库，请使用MySQL数据库: {settings.DATABASE_URL}")
         else:
-            raise ValueError(f"不支持的数据库类型: {settings.DATABASE_URL}")
+            raise ValueError(f"不支持的数据库类型: {settings.DATABASE_URL}，仅支持MySQL数据库")
     
     def _get_connection_args(self, is_async: bool = False) -> Dict[str, Any]:
-        """获取连接参数"""
+        """获取连接参数 - 强制使用MySQL"""
         base_args = {
             "connect_timeout": getattr(settings, 'DATABASE_CONNECT_TIMEOUT', 30),
-            "charset": "utf8mb4" if self.database_type == DatabaseType.MYSQL else "utf8",
+            "charset": "utf8mb4",  # 强制使用MySQL的utf8mb4字符集
             "autocommit": False,
             "use_unicode": True,
         }
         
-        # 根据数据库类型添加特定参数
+        # 仅支持MySQL数据库
         if self.database_type == DatabaseType.MYSQL:
             base_args["sql_mode"] = "TRADITIONAL"
-        elif self.database_type == DatabaseType.POSTGRESQL:
-            base_args["application_name"] = settings.APP_NAME
+        else:
+            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
+            raise ValueError(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
         
         return base_args
     
@@ -107,36 +108,26 @@ class DatabaseManager:
             raise
     
     def _initialize_async_engine(self):
-        """初始化异步数据库引擎"""
-        if self.database_type == DatabaseType.MYSQL:
-            try:
-                import aiomysql
-            except ImportError:
-                logger.warning("aiomysql驱动未安装，跳过异步引擎初始化")
-                return
-            
-            # 转换URL为异步格式
-            async_url = settings.DATABASE_URL.replace(
-                "mysql://", "mysql+aiomysql://"
-            )
-        elif self.database_type == DatabaseType.POSTGRESQL:
-            try:
-                import asyncpg
-            except ImportError:
-                logger.warning("asyncpg驱动未安装，跳过异步引擎初始化")
-                return
-            
-            # 转换URL为异步格式
-            async_url = settings.DATABASE_URL.replace(
-                "postgresql://", "postgresql+asyncpg://"
-            )
-        elif self.database_type == DatabaseType.SQLITE:
-            # SQLite异步支持
-            async_url = settings.DATABASE_URL.replace(
-                "sqlite://", "sqlite+aiosqlite://"
-            )
-        else:
+        """初始化异步数据库引擎 - 强制使用MySQL"""
+        # 仅支持MySQL数据库
+        if self.database_type != DatabaseType.MYSQL:
+            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
             return
+        
+        try:
+            import aiomysql
+        except ImportError:
+            logger.error("aiomysql驱动未安装，异步引擎初始化失败")
+            return
+        
+        # 强制使用MySQL并转换为异步格式
+        if not settings.DATABASE_URL.startswith("mysql://"):
+            logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
+            return
+            
+        # 转换URL为异步格式，强制使用aiomysql驱动
+        async_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+        logger.info(f"使用MySQL异步驱动初始化数据库引擎: {async_url}")
         
         try:
             self.async_engine = create_async_engine(
@@ -154,36 +145,34 @@ class DatabaseManager:
                 autocommit=False
             )
             
-            logger.info("异步数据库引擎初始化成功")
+            logger.info("MySQL异步数据库引擎初始化成功")
             
         except Exception as e:
-            logger.error(f"异步数据库引擎初始化失败: {e}")
+            logger.error(f"MySQL异步数据库引擎初始化失败: {e}")
             self.async_engine = None
             self.async_session_factory = None
     
     def _initialize_sync_engine(self):
-        """初始化同步数据库引擎"""
-        if self.database_type == DatabaseType.MYSQL:
-            try:
-                import pymysql
-            except ImportError:
-                logger.warning("pymysql驱动未安装，跳过同步引擎初始化")
-                return
-            
-            # 转换URL为pymysql格式
-            sync_url = settings.DATABASE_URL.replace(
-                "mysql://", "mysql+pymysql://"
-            )
-        elif self.database_type == DatabaseType.POSTGRESQL:
-            # PostgreSQL同步使用psycopg2
-            sync_url = settings.DATABASE_URL.replace(
-                "postgresql://", "postgresql+psycopg2://"
-            )
-        elif self.database_type == DatabaseType.SQLITE:
-            # SQLite同步使用原生驱动
-            sync_url = settings.DATABASE_URL
-        else:
+        """初始化同步数据库引擎 - 强制使用MySQL"""
+        # 仅支持MySQL数据库
+        if self.database_type != DatabaseType.MYSQL:
+            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
             return
+        
+        try:
+            import pymysql
+        except ImportError:
+            logger.error("pymysql驱动未安装，同步引擎初始化失败")
+            return
+        
+        # 强制使用MySQL并转换为pymysql格式
+        if not settings.DATABASE_URL.startswith("mysql://"):
+            logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
+            return
+        
+        # 转换URL为pymysql格式
+        sync_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
+        logger.info(f"使用MySQL同步驱动初始化数据库引擎: {sync_url}")
         
         try:
             self.sync_engine = create_engine(
@@ -199,10 +188,10 @@ class DatabaseManager:
                 autoflush=False
             )
             
-            logger.info("同步数据库引擎初始化成功")
+            logger.info("MySQL同步数据库引擎初始化成功")
             
         except Exception as e:
-            logger.error(f"同步数据库引擎初始化失败: {e}")
+            logger.error(f"MySQL同步数据库引擎初始化失败: {e}")
             self.sync_engine = None
             self.sync_session_factory = None
     
