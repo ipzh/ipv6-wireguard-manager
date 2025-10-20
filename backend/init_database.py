@@ -22,14 +22,25 @@ logger = structlog.get_logger()
 
 
 async def create_tables():
-    """创建所有数据库表"""
+    """使用 Alembic 迁移创建数据库表"""
     try:
-        logger.info("开始创建数据库表...")
+        logger.info("开始使用 Alembic 迁移创建数据库表...")
         
-        # 初始化数据库（这会创建所有表）
-        await init_db()
+        # 运行 Alembic 迁移
+        import subprocess
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=Path(__file__).parent,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"Alembic 迁移失败: {result.stderr}")
+            return False
         
         logger.info("数据库表创建完成")
+        logger.info(f"Alembic 输出: {result.stdout}")
         return True
         
     except Exception as e:
@@ -46,7 +57,8 @@ async def create_initial_data():
         await init_db()
         
         # 创建默认角色和权限
-        await security_manager.init_permissions_and_roles()
+        from app.core.security_enhanced import init_permissions_and_roles
+        await init_permissions_and_roles()
         
         # 创建默认管理员用户
         admin_user = await create_admin_user()

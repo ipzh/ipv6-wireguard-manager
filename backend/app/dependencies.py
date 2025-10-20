@@ -6,8 +6,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from typing import Optional
 import logging
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config_enhanced import settings
+from .core.database import get_db
 from .models.models_complete import User
 
 logger = logging.getLogger(__name__)
@@ -16,7 +18,8 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
 ) -> User:
     """获取当前用户"""
     credentials_exception = HTTPException(
@@ -31,21 +34,16 @@ async def get_current_user(
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM]
         )
-        username: str = payload.get("sub")
-        if username is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
     
-    # 这里应该从数据库获取用户信息
-    # 为了简化，我们创建一个模拟用户
-    user = User(
-        id=1,
-        username=username,
-        email=f"{username}@example.com",
-        role="admin" if username == "admin" else "user",
-        is_active=True
-    )
+    # 从数据库获取真实用户信息
+    from sqlalchemy import select
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
     
     if user is None:
         raise credentials_exception

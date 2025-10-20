@@ -43,13 +43,21 @@ async def init_database():
             result = await conn.execute(text("SELECT 1"))
             logger.info("Database connection successful")
         
-        # 创建表（包括增强功能表）
-        from app.models.models_complete import Base
-        from app.models.enhanced_models import Base as EnhancedBase
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            await conn.run_sync(EnhancedBase.metadata.create_all)
-            logger.info("Database tables (including enhanced features) created successfully")
+        # 使用 Alembic 迁移创建表
+        import subprocess
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=Path(__file__).parent,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"Alembic 迁移失败: {result.stderr}")
+            return False
+        
+        logger.info("Database tables created successfully using Alembic")
+        logger.info(f"Alembic 输出: {result.stdout}")
         
         # 创建默认用户
         await create_default_user(engine)
@@ -67,12 +75,8 @@ async def create_default_user(engine):
     try:
         from app.core.security_enhanced import security_manager
         from app.models.models_complete import User
-        from app.models.enhanced_models import (
-            PasswordHistory, MFASettings, MFASession, UserSession,
-            AlertRule, Alert, NotificationConfig, CacheStats,
-            PerformanceMetrics, SystemMetrics, SecurityLog,
-            APIAccessLog, SystemConfig, HealthCheck
-        )
+        # 使用基础模型
+        from app.models.models_complete import User
         
         async_session = async_sessionmaker(engine, expire_on_commit=False)
         

@@ -7,7 +7,7 @@ import json
 from typing import Dict, List, Any, Optional
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-from app.core.api_paths import path_manager
+from app.core.path_manager import path_manager
 from app.core.api_enhancement import APIEndpoint, APIDocumentationGenerator
 from .logging import get_logger
 

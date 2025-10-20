@@ -5,7 +5,7 @@
 
 class ThemeManager {
     constructor() {
-        this.themekey="${API_KEY}";
+        this.themeKey = "ipv6wgm_theme";
         this.currentTheme = this.getStoredTheme() || this.getSystemTheme();
         this.init();
     }
@@ -134,7 +134,15 @@ class ThemeManager {
     updateThemeToggleIcon(theme) {
         const toggle = document.querySelector('.theme-toggle i');
         if (toggle) {
-            toggle.className = this.getThemeIcon(theme);
+            const icon = this.getThemeIcon(theme);
+            if (icon.includes('bi ')) {
+                // Bootstrap Icons 可用，设置类名
+                toggle.className = icon;
+            } else {
+                // 回退到字符图标，设置文本内容
+                toggle.textContent = icon;
+                toggle.className = '';
+            }
         }
     }
     

@@ -2,49 +2,165 @@
 用户管理API端点 - 简化版本
 """
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from datetime import datetime
+
+from ...core.database import get_db
+from ...models.models_complete import User
 
 router = APIRouter()
 
 @router.get("/", response_model=None)
-async def get_users():
+async def get_users(db: AsyncSession = Depends(get_db)):
     """获取用户列表"""
-    return [
-        {"id": 1, "username": "admin", "email": "admin@example.com", "is_active": True},
-        {"id": 2, "username": "user1", "email": "user1@example.com", "is_active": True}
-    ]
+    try:
+        result = await db.execute(select(User))
+        users = result.scalars().all()
+        
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": str(user.id),
+                    "username": user.username,
+                    "email": user.email,
+                    "is_active": user.is_active,
+                    "is_superuser": user.is_superuser,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "last_login": user.last_login.isoformat() if user.last_login else None
+                }
+                for user in users
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取用户列表失败: {str(e)}"
+        )
 
 @router.get("/{user_id}", response_model=None)
-async def get_user(user_id: int):
+async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     """获取用户详情"""
-    if user_id == 1:
-        return {"id": 1, "username": "admin", "email": "admin@example.com", "is_active": True}
-    elif user_id == 2:
-        return {"id": 2, "username": "user1", "email": "user1@example.com", "is_active": True}
-    else:
-        raise HTTPException(status_code=404, detail="用户不存在")
+    try:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        
+        return {
+            "success": True,
+            "data": {
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取用户详情失败: {str(e)}"
+        )
 
 @router.post("/", response_model=None)
-async def create_user(user_data: Dict[str, Any]):
+async def create_user(user_data: Dict[str, Any], db: AsyncSession = Depends(get_db)):
     """创建用户"""
-    return {
-        "id": 3,
-        "username": user_data.get("username", "newuser"),
-        "email": user_data.get("email", "newuser@example.com"),
-        "is_active": True,
-        "message": "用户创建成功"
-    }
+    try:
+        from ...core.security_enhanced import security_manager
+        
+        # 检查用户名是否已存在
+        result = await db.execute(select(User).where(User.username == user_data.get("username")))
+        existing_user = result.scalar_one_or_none()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="用户名已存在")
+        
+        # 创建新用户
+        hashed_password = security_manager.get_password_hash(user_data.get("password", "defaultpassword"))
+        new_user = User(
+            username=user_data.get("username"),
+            email=user_data.get("email"),
+            hashed_password=hashed_password,
+            is_active=user_data.get("is_active", True),
+            is_superuser=user_data.get("is_superuser", False)
+        )
+        
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        
+        return {
+            "success": True,
+            "data": {
+                "id": str(new_user.id),
+                "username": new_user.username,
+                "email": new_user.email,
+                "is_active": new_user.is_active,
+                "is_superuser": new_user.is_superuser,
+                "created_at": new_user.created_at.isoformat() if new_user.created_at else None
+            },
+            "message": "用户创建成功"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建用户失败: {str(e)}"
+        )
 
 @router.put("/{user_id}", response_model=None)
-async def update_user(user_id: int, user_data: Dict[str, Any]):
+async def update_user(user_id: int, user_data: Dict[str, Any], db: AsyncSession = Depends(get_db)):
     """更新用户"""
-    return {
-        "id": user_id,
-        "username": user_data.get("username", "updateduser"),
-        "email": user_data.get("email", "updated@example.com"),
-        "is_active": user_data.get("is_active", True),
-        "message": "用户更新成功"
-    }
+    try:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        
+        # 更新用户信息
+        if "username" in user_data:
+            user.username = user_data["username"]
+        if "email" in user_data:
+            user.email = user_data["email"]
+        if "is_active" in user_data:
+            user.is_active = user_data["is_active"]
+        if "is_superuser" in user_data:
+            user.is_superuser = user_data["is_superuser"]
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        return {
+            "success": True,
+            "data": {
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None
+            },
+            "message": "用户更新成功"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新用户失败: {str(e)}"
+        )
 
 @router.put("/{user_id}/password", response_model=None)
 async def change_password(user_id: int, password_data: Dict[str, Any]):

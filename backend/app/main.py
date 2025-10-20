@@ -166,11 +166,17 @@ health_checker = None
 config_manager = None
 error_handler = None
 
+# 数据库和监控实例
+db_manager = None
+exception_monitor = None
+cache_manager = None
+doc_generator = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理 - 使用延迟导入"""
     global metrics_collector, app_monitor, log_aggregator, alert_manager, security_manager, health_checker
-    global config_manager, error_handler
+    global config_manager, error_handler, db_manager, exception_monitor, cache_manager, doc_generator
     
     # 启动时执行
     logger.info("🚀 启动IPv6 WireGuard Manager...")
@@ -186,7 +192,9 @@ async def lifespan(app: FastAPI):
         start_monitoring, stop_monitoring, db_manager_instance, check_health = get_database_enhanced()
         if start_monitoring:
             logger.info("🔍 启动数据库监控...")
-            await start_monitoring()
+            start_monitoring()  # 这是同步函数，不需要 await
+        if db_manager_instance:
+            db_manager = db_manager_instance
         
         # 初始化配置管理器
         config_manager_class = get_config_management()
@@ -240,10 +248,19 @@ async def lifespan(app: FastAPI):
         exception_monitor_instance, ExceptionMonitor, AlertSeverity, AlertStatus = get_exception_monitoring()
         if ExceptionMonitor:
             logger.info("⚠️ 初始化异常监控...")
-            exception_monitor_instance = ExceptionMonitor()
-            if hasattr(exception_monitor_instance, 'start'):
-                exception_monitor_instance.start()
+            exception_monitor = ExceptionMonitor()
+            if hasattr(exception_monitor, 'start'):
+                exception_monitor.start()
             logger.info("✅ 异常监控初始化完成")
+        elif exception_monitor_instance:
+            exception_monitor = exception_monitor_instance
+        
+        # 初始化API增强模块
+        path_validator, doc_generator_instance, cache_manager_instance, api_endpoint, HTTPMethod = get_api_enhancement()
+        if doc_generator_instance:
+            doc_generator = doc_generator_instance
+        if cache_manager_instance:
+            cache_manager = cache_manager_instance
         
         logger.info("✅ 应用启动完成!")
         
@@ -257,6 +274,22 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 关闭IPv6 WireGuard Manager...")
     
     try:
+        # 停止功能模块
+        if app_monitor:
+            app_monitor.stop_monitoring()
+        if log_aggregator:
+            log_aggregator.stop_processing()
+        if alert_manager:
+            alert_manager.stop_processing()
+        if error_handler:
+            error_handler.stop_monitoring()
+        if config_manager:
+            config_manager.disable_hot_reload()
+        
+        # 停止异常监控
+        if exception_monitor and hasattr(exception_monitor, 'stop'):
+            exception_monitor.stop()
+        
         # 停止数据库监控
         start_monitoring, stop_monitoring, db_manager_instance, check_health = get_database_enhanced()
         if stop_monitoring:
@@ -273,32 +306,6 @@ async def lifespan(app: FastAPI):
         
     except Exception as e:
         logger.error(f"❌ 应用关闭失败: {e}")
-    
-    # 停止功能模块
-    try:
-        if app_monitor:
-            app_monitor.stop_monitoring()
-        if log_aggregator:
-            log_aggregator.stop_processing()
-        if alert_manager:
-            alert_manager.stop_processing()
-        if error_handler:
-            error_handler.stop_monitoring()
-        if config_manager:
-            config_manager.disable_hot_reload()
-        
-        # 停止异常监控
-        exception_monitor.stop()
-        
-        # 停止数据库监控
-        await stop_database_monitoring()
-        
-        logger.info("Feature modules stopped")
-    except Exception as e:
-        logger.error(f"Error stopping feature modules: {e}")
-    
-    await close_db()
-    logger.info("Application shutdown complete")
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -311,15 +318,55 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 添加CORS中间件
+# 添加CORS中间件 - 强化安全配置
 if settings.BACKEND_CORS_ORIGINS:
+    # 生产环境使用严格的白名单，开发环境相对宽松
+    allowed_origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+    
+    # 生产环境不允许通配符
+    if not settings.DEBUG:
+        allowed_origins = [origin for origin in allowed_origins if origin != "*"]
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # 限制允许的方法
+        allow_headers=[
+            "Content-Type", 
+            "Authorization", 
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ],  # 限制允许的头部
+        expose_headers=["X-Process-Time"],  # 只暴露必要的响应头
+        max_age=3600,  # 预检请求缓存时间
     )
+
+# 添加安全头中间件
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """添加安全头"""
+    response = await call_next(request)
+    
+    # 安全头配置
+    security_headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
+    }
+    
+    # 只在 HTTPS 环境下添加 HSTS
+    if request.url.scheme == "https":
+        security_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    
+    for header, value in security_headers.items():
+        response.headers[header] = value
+    
+    return response
 
 # 使用延迟导入添加中间件和处理器
 def setup_middleware_and_handlers():

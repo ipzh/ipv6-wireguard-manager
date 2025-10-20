@@ -61,7 +61,8 @@ async def login(
         refresh_token = security_manager.create_refresh_token(str(user.id))
         
         # 更新用户最后登录时间
-        user.last_login = time.time()
+        from datetime import datetime
+        user.last_login = datetime.utcnow()
         await db.commit()
         
         return {
@@ -125,7 +126,8 @@ async def login_json(
         refresh_token = security_manager.create_refresh_token(str(user.id))
         
         # 更新用户最后登录时间
-        user.last_login = time.time()
+        from datetime import datetime
+        user.last_login = datetime.utcnow()
         await db.commit()
         
         return {
@@ -153,38 +155,6 @@ async def login_json(
             detail=f"登录失败: {str(e)}"
         )
 
-@router.post("/login-json", response_model=None)
-async def login_json(credentials: Dict[str, str]):
-    """JSON格式登录"""
-    try:
-        username = credentials.get("username")
-        password = credentials.get("password")
-        
-        if username == "admin" and password == "admin123":
-            user = {"id": 1, "username": "admin", "email": "admin@example.com"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户名或密码错误"
-            )
-        
-        access_token_expires = timedelta(minutes=30)
-        access_token = f"fake_token_{user['id']}_{int(time.time())}"
-        
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "expires_in": int(access_token_expires.total_seconds()),
-            "user": user
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"登录失败: {str(e)}"
-        )
 
 @router.post("/logout", response_model=None)
 async def logout(
@@ -331,12 +301,18 @@ async def auth_health_check():
 
 @router.post("/verify-token", response_model=None)
 async def verify_token(
-    token: str,
+    token_data: Dict[str, str] = Body(...),
     db: AsyncSession = Depends(get_db)
 ):
     """验证令牌有效性"""
     try:
         # 验证访问令牌
+        token = token_data.get("token")
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="缺少令牌参数"
+            )
         token_data = security_manager.verify_token(token)
         if not token_data:
             raise HTTPException(

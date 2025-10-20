@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None
-    SERVER_HOST: str = "${SERVER_HOST}"
+    SERVER_HOST: str = "0.0.0.0"
     SERVER_PORT: int = 8000
     
     # 数据库配置 - 强制使用MySQL
@@ -143,30 +143,18 @@ class Settings(BaseSettings):
     # 安全配置
     ALGORITHM: str = "HS256"
     BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:${FRONTEND_PORT}",
-        "http://localhost:${ADMIN_PORT}",
+        "http://localhost:3000",
+        "http://localhost:8080",
         "http://localhost:5173",
-        "http://localhost",
-        "http://${LOCAL_HOST}:${FRONTEND_PORT}",
-        "http://${LOCAL_HOST}:${ADMIN_PORT}",
-        "http://${LOCAL_HOST}:5173",
-        "http://${LOCAL_HOST}",
-        "http://[::1]:${FRONTEND_PORT}",
-        "http://[::1]:${ADMIN_PORT}",
+        "http://localhost:4173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:4173",
+        "http://[::1]:3000",
+        "http://[::1]:8080",
         "http://[::1]:5173",
-        "http://[::1]",
-        "https://localhost:${FRONTEND_PORT}",
-        "https://localhost:${ADMIN_PORT}",
-        "https://localhost:5173",
-        "https://localhost",
-        "https://${LOCAL_HOST}:${FRONTEND_PORT}",
-        "https://${LOCAL_HOST}:${ADMIN_PORT}",
-        "https://${LOCAL_HOST}:5173",
-        "https://${LOCAL_HOST}",
-        "https://[::1]:${FRONTEND_PORT}",
-        "https://[::1]:${ADMIN_PORT}",
-        "https://[::1]:5173",
-        "https://[::1]"
+        "http://[::1]:4173"
     ]
     
     # 文件上传配置
@@ -179,7 +167,7 @@ class Settings(BaseSettings):
     WIREGUARD_PUBLIC_KEY: Optional[str] = None
     WIREGUARD_PORT: int = 51820
     WIREGUARD_INTERFACE: str = "wg0"
-    WIREGUARD_NETWORK: str = "1${SERVER_HOST}/24"
+    WIREGUARD_NETWORK: str = "10.0.0.0/24"
     WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
     
     @property

@@ -6,10 +6,25 @@
 // 引入SSL安全配置
 require_once __DIR__ . '/../includes/ssl_security.php';
 
-// 设置CORS头
-header("Access-Control-Allow-Origin: *");
+// 设置CORS头 - 生产环境应该限制域名
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:5173'
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigin = in_array($origin, $allowedOrigins) ? $origin : (APP_DEBUG ? '*' : '');
+
+if ($allowedOrigin) {
+    header("Access-Control-Allow-Origin: $allowedOrigin");
+}
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=utf-8");
 
 // 处理预检请求
