@@ -332,11 +332,11 @@ class ConfigDocumentationGenerator:
         doc += "ACCESS_TOKEN_EXPIRE_MINUTES=1440\n\n"
         
         doc += "# 服务器配置\n"
-        doc += "SERVER_HOST=\"0.0.0.0\"\n"
+        doc += "SERVER_HOST=\"${SERVER_HOST}\"\n"
         doc += "SERVER_PORT=8000\n\n"
         
         doc += "# 数据库配置\n"
-        doc += "DATABASE_URL=\"mysql://ipv6wgm:password@localhost:3306/ipv6wgm\"\n"
+        doc += "DATABASE_URL=\"sqlite:///./ipv6_wireguard.db\"\n"
         doc += "DATABASE_HOST=\"localhost\"\n"
         doc += "DATABASE_PORT=3306\n"
         doc += "DATABASE_USER=\"ipv6wgm\"\n"
@@ -344,7 +344,7 @@ class ConfigDocumentationGenerator:
         doc += "DATABASE_NAME=\"ipv6wgm\"\n\n"
         
         doc += "# Redis配置（可选）\n"
-        doc += "REDIS_URL=\"redis://localhost:6379/0\"\n"
+        doc += "REDIS_URL=\"redis://localhost:${REDIS_PORT}/0\"\n"
         doc += "USE_REDIS=false\n\n"
         
         doc += "# 日志配置\n"
@@ -357,7 +357,7 @@ class ConfigDocumentationGenerator:
         doc += "FIRST_SUPERUSER_EMAIL=\"admin@example.com\"\n\n"
         
         doc += "# CORS配置\n"
-        doc += "BACKEND_CORS_ORIGINS=\"http://localhost:3000,http://localhost:8080\"\n"
+        doc += "BACKEND_CORS_ORIGINS=\"http://localhost:${FRONTEND_PORT},http://localhost:${ADMIN_PORT}\"\n"
         doc += "```\n\n"
         
         # 配置文件示例
@@ -404,10 +404,10 @@ class ConfigDocumentationGenerator:
         doc += "```bash\n"
         doc += "docker run -d \\\n"
         doc += "  -e ENVIRONMENT=\"production\" \\\n"
-        doc += "  -e DATABASE_URL=\"mysql://user:pass@db:3306/ipv6wgm\" \\\n"
+        doc += "  -e DATABASE_URL=\"sqlite:///./ipv6_wireguard.db" \\\n"
         doc += "  -e SECRET_KEY=\"your-secret-key\" \\\n"
         doc += "  -e FIRST_SUPERUSER_PASSWORD=\"secure-password\" \\\n"
-        doc += "  -p 8000:8000 \\\n"
+        doc += "  -p 8000:${API_PORT} \\\n"
         doc += "  ipv6-wireguard-manager\n"
         doc += "```\n\n"
         
@@ -424,7 +424,7 @@ class ConfigDocumentationGenerator:
         doc += "  DATABASE_HOST: \"mysql-service\"\n"
         doc += "  DATABASE_PORT: \"3306\"\n"
         doc += "  DATABASE_NAME: \"ipv6wgm\"\n"
-        doc += "  REDIS_URL: \"redis://redis-service:6379/0\"\n"
+        doc += "  REDIS_URL: \"redis://redis-service:${REDIS_PORT}/0\"\n"
         doc += "  USE_REDIS: \"true\"\n"
         doc += "```\n\n"
         

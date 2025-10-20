@@ -113,11 +113,11 @@ class Settings(BaseSettings):
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None
-    SERVER_HOST: str = "0.0.0.0"
+    SERVER_HOST: str = "${SERVER_HOST}"
     SERVER_PORT: int = 8000
     
     # 数据库配置
-    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
     # 环境变量支持
     DATABASE_HOST: str = Field(default="localhost")
     DATABASE_PORT: int = Field(default=3306)
@@ -140,28 +140,28 @@ class Settings(BaseSettings):
     # 安全配置
     ALGORITHM: str = "HS256"
     BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
+        "http://localhost:${FRONTEND_PORT}",
+        "http://localhost:${ADMIN_PORT}",
         "http://localhost:5173",
         "http://localhost",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1",
-        "http://[::1]:3000",
-        "http://[::1]:8080",
+        "http://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "http://${LOCAL_HOST}:${ADMIN_PORT}",
+        "http://${LOCAL_HOST}:5173",
+        "http://${LOCAL_HOST}",
+        "http://[::1]:${FRONTEND_PORT}",
+        "http://[::1]:${ADMIN_PORT}",
         "http://[::1]:5173",
         "http://[::1]",
-        "https://localhost:3000",
-        "https://localhost:8080",
+        "https://localhost:${FRONTEND_PORT}",
+        "https://localhost:${ADMIN_PORT}",
         "https://localhost:5173",
         "https://localhost",
-        "https://127.0.0.1:3000",
-        "https://127.0.0.1:8080",
-        "https://127.0.0.1:5173",
-        "https://127.0.0.1",
-        "https://[::1]:3000",
-        "https://[::1]:8080",
+        "https://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "https://${LOCAL_HOST}:${ADMIN_PORT}",
+        "https://${LOCAL_HOST}:5173",
+        "https://${LOCAL_HOST}",
+        "https://[::1]:${FRONTEND_PORT}",
+        "https://[::1]:${ADMIN_PORT}",
         "https://[::1]:5173",
         "https://[::1]"
     ]
@@ -176,7 +176,7 @@ class Settings(BaseSettings):
     WIREGUARD_PUBLIC_KEY: Optional[str] = None
     WIREGUARD_PORT: int = 51820
     WIREGUARD_INTERFACE: str = "wg0"
-    WIREGUARD_NETWORK: str = "10.0.0.0/24"
+    WIREGUARD_NETWORK: str = "1${SERVER_HOST}/24"
     WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
     
     @property
@@ -342,7 +342,7 @@ class Settings(BaseSettings):
         environment = os.getenv("ENVIRONMENT", "development")
         if environment == "production":
             for origin in origins:
-                if origin.startswith("http://") and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1"):
+                if origin.startswith("http://") and not origin.startswith("http://localhost") and not origin.startswith("http://${LOCAL_HOST}"):
                     raise ValueError(f"生产环境不允许使用不安全的HTTP源: {origin}")
     
     @field_validator("LOG_LEVEL")

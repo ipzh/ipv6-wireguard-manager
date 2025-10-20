@@ -168,7 +168,7 @@ db_service = get_service(ServiceNames.DATABASE)
 import { ApiPathBuilder } from '../public/js/ApiPathBuilder.js';
 
 // 直接使用外部类
-const apiPathBuilder = new ApiPathBuilder('http://localhost:8000/api');
+const apiPathBuilder = new ApiPathBuilder('http://localhost:${API_PORT}/api');
 const userUrl = apiPathBuilder.buildUrl('users.get', { user_id: '123' });
 ```
 
@@ -187,7 +187,7 @@ const userUrl = buildUrl('users.get', { user_id: '123' });
 1. **更新API端点配置**
    ```javascript
    // 旧方式
-   const apiPathBuilder = new ApiPathBuilder('http://localhost:8000/api');
+   const apiPathBuilder = new ApiPathBuilder('http://localhost:${API_PORT}/api');
    
    // 新方式
    import { API_CONFIG, buildUrl } from '../config/api_endpoints.js';
@@ -228,7 +228,7 @@ ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --ho
 
 ```bash
 # 新版本：修复的systemd服务配置
-ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port 8000
 ```
 
 #### 迁移步骤
@@ -243,7 +243,7 @@ ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --ho
    
    # 修改ExecStart行
    # 旧: --host ::
-   # 新: --host 0.0.0.0
+   # 新: --host ${SERVER_HOST}
    
    # 重新加载并启动
    sudo systemctl daemon-reload
@@ -255,13 +255,13 @@ ExecStart=/opt/ipv6-wireguard-manager/venv/bin/uvicorn backend.app.main:app --ho
    # docker-compose.yml
    services:
      api:
-       command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+       command: uvicorn backend.app.main:app --host ${SERVER_HOST} --port 8000
    ```
 
 3. **更新部署脚本**
    ```bash
    # install.sh
-   ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
+   ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers 1
    ```
 
 ## 常见迁移问题
@@ -322,7 +322,7 @@ API服务无法启动，IPv6连接失败
 sudo systemctl status ipv6-wireguard-manager
 
 # 修复host绑定
-sudo sed -i 's/--host ::/--host 0.0.0.0/' /etc/systemd/system/ipv6-wireguard-manager.service
+sudo sed -i 's/--host ::/--host ${SERVER_HOST}/' /etc/systemd/system/ipv6-wireguard-manager.service
 
 # 重启服务
 sudo systemctl daemon-reload
@@ -338,10 +338,10 @@ sudo systemctl restart ipv6-wireguard-manager
 sudo systemctl status ipv6-wireguard-manager
 
 # 检查端口监听
-netstat -tuln | grep :8000
+netstat -tuln | grep :${API_PORT}
 
 # 测试API连接
-curl -X GET "http://localhost:8000/api/v1/health"
+curl -X GET "http://localhost:${API_PORT}/api/v1/health"
 ```
 
 ### 2. 前端验证

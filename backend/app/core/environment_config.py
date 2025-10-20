@@ -54,7 +54,7 @@ class EnvironmentConfigLoader:
                 "token_expire_minutes": 60 * 24 * 8
             },
             "server": {
-                "host": "0.0.0.0",
+                "host": "${SERVER_HOST}",
                 "port": 8000
             },
             "database": {
@@ -69,15 +69,15 @@ class EnvironmentConfigLoader:
                 "pool_pre_ping": True
             },
             "redis": {
-                "url": "redis://localhost:6379/0",
+                "url": "redis://localhost:${REDIS_PORT}/0",
                 "pool_size": 10,
                 "enabled": False
             },
             "security": {
                 "algorithm": "HS256",
                 "cors_origins": [
-                    "http://localhost:3000",
-                    "http://localhost:8080",
+                    "http://localhost:${FRONTEND_PORT}",
+                    "http://localhost:${ADMIN_PORT}",
                     "http://localhost:5173"
                 ]
             },

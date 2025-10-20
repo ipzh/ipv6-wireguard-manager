@@ -32,7 +32,7 @@ async def get_system_info() -> Dict[str, Any]:
                 "memory_total": psutil.virtual_memory().total,
                 "memory_available": psutil.virtual_memory().available,
                 "memory_percent": psutil.virtual_memory().percent,
-                "disk_usage": psutil.disk_usage('/').percent if platform.system() != 'Windows' else psutil.disk_usage('C:').percent
+                "disk_usage": psutil.disk_usage('/').percent
             },
             "timestamp": time.time(),
             "datetime": datetime.now().isoformat()

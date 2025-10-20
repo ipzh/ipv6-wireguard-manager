@@ -129,12 +129,12 @@ class Settings(BaseSettings):
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None
-    SERVER_HOST: str = "0.0.0.0"
+    SERVER_HOST: str = "${SERVER_HOST}"
     SERVER_PORT: int = 8000
     
     # 数据库配置 - 统一配置，支持多种数据库
     DATABASE_TYPE: str = "mysql"  # mysql, postgresql, sqlite
-    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
     
     # 数据库连接池配置
     DATABASE_POOL_SIZE: int = 10
@@ -164,37 +164,37 @@ class Settings(BaseSettings):
     # CORS配置
     BACKEND_CORS_ORIGINS: List[str] = Field(default=[
         # IPv4本地访问
-        "http://localhost:3000", 
-        "http://localhost:8080", 
+        "http://localhost:${FRONTEND_PORT}", 
+        "http://localhost:${ADMIN_PORT}", 
         "http://localhost:5173",
         "http://localhost",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080", 
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1",
+        "http://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "http://${LOCAL_HOST}:${ADMIN_PORT}", 
+        "http://${LOCAL_HOST}:5173",
+        "http://${LOCAL_HOST}",
         # IPv6本地访问
-        "http://[::1]:3000",
-        "http://[::1]:8080",
+        "http://[::1]:${FRONTEND_PORT}",
+        "http://[::1]:${ADMIN_PORT}",
         "http://[::1]:5173",
         "http://[::1]",
         # 内网IPv4支持
         "http://172.16.0.0/12",
         "http://192.168.0.0/16",
-        "http://10.0.0.0/8",
+        "http://1${SERVER_HOST}/8",
         # 内网IPv6支持
         "http://[fd00::]/8",
         "http://[fe80::]/10",
         # HTTPS支持
-        "https://localhost:3000",
-        "https://localhost:8080", 
+        "https://localhost:${FRONTEND_PORT}",
+        "https://localhost:${ADMIN_PORT}", 
         "https://localhost:5173",
         "https://localhost",
-        "https://127.0.0.1:3000",
-        "https://127.0.0.1:8080",
-        "https://127.0.0.1:5173", 
-        "https://127.0.0.1",
-        "https://[::1]:3000",
-        "https://[::1]:8080",
+        "https://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "https://${LOCAL_HOST}:${ADMIN_PORT}",
+        "https://${LOCAL_HOST}:5173", 
+        "https://${LOCAL_HOST}",
+        "https://[::1]:${FRONTEND_PORT}",
+        "https://[::1]:${ADMIN_PORT}",
         "https://[::1]:5173",
         "https://[::1]",
     ])

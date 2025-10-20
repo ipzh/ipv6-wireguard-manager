@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     container_name: ipv6-wireguard-backend
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-8000}:${API_PORT}"
     environment:
       # 路径配置
       - INSTALL_DIR=/app
@@ -19,7 +19,7 @@ services:
       - CACHE_DIR=/app/cache
       
       # 数据库配置
-      - DATABASE_URL=mysql://ipv6wgm:${MYSQL_ROOT_PASSWORD:-password}@mysql:3306/ipv6wgm
+      - DATABASE_URL=mysql://ipv6wgm:${MYSQL_ROOT_PASSWORD:-password}@mysql:${DB_PORT}/ipv6wgm
       - DATABASE_POOL_SIZE=${DATABASE_POOL_SIZE:-10}
       - DATABASE_MAX_OVERFLOW=${DATABASE_MAX_OVERFLOW:-15}
       
@@ -29,7 +29,7 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-11520}
       
       # 服务器配置
-      - SERVER_HOST=0.0.0.0
+      - SERVER_HOST=${SERVER_HOST}
       - SERVER_PORT=8000
       
       # 安全配置
@@ -40,7 +40,7 @@ services:
       # WireGuard配置
       - WIREGUARD_PORT=${WIREGUARD_PORT:-51820}
       - WIREGUARD_INTERFACE=${WIREGUARD_INTERFACE:-wg0}
-      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK:-10.0.0.0/24}
+      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK:-1${SERVER_HOST}/24}
       - WIREGUARD_IPV6_NETWORK=${WIREGUARD_IPV6_NETWORK:-fd00::/64}
       
       # 日志配置
@@ -58,6 +58,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
       - ./config:/app/config
@@ -70,11 +72,19 @@ services:
       - wireguard-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:${API_PORT:-8000}/api/v1/health', timeout=5)"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 30s
+      retries: 5
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
 
   # 前端Web服务
   frontend:
@@ -91,7 +101,7 @@ services:
       - LOG_DIR=/var/log/nginx
       
       # API配置
-      - API_BASE_URL=http://backend:8000/api/v1
+      - API_BASE_URL=http://backend:${API_PORT:-8000}/api/v1
       - API_VERSION=v1
       - API_TIMEOUT=${API_TIMEOUT:-30}
       
@@ -118,16 +128,24 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
   # MySQL数据库
   mysql:
     image: mysql:${MYSQL_VERSION:-8.0}
     container_name: ipv6-wireguard-mysql
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${MYSQL_PORT:-3306}:${DB_PORT}"
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
       - MYSQL_DATABASE=ipv6wgm
@@ -147,19 +165,27 @@ services:
       - wireguard-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-password}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-password}"]
       interval: 30s
-      timeout: 10s
+      timeout: 30s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     command: --default-authentication-plugin=mysql_native_password
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
 
   # Redis缓存（可选）
   redis:
     image: redis:7-alpine
     container_name: ipv6-wireguard-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6379}:${REDIS_PORT}"
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_MAXMEMORY=${REDIS_MAXMEMORY:-256mb}
@@ -173,10 +199,18 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
     command: redis-server /usr/local/etc/redis/redis.conf
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
 
   # Nginx反向代理（可选）
   nginx:
@@ -210,9 +244,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
 
 volumes:
   mysql_data:
@@ -223,6 +257,11 @@ volumes:
 networks:
   wireguard-network:
     driver: bridge
+    enable_ipv6: true
     ipam:
+      driver: default
       config:
         - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+        - subnet: 2001:db8::/64
+          gateway: 2001:db8::1

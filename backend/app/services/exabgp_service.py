@@ -144,7 +144,7 @@ class ExaBGPService:
         config_lines.append("# Route Policies")
         config_lines.append("route-map inbound-policy {")
         config_lines.append("    # 入站路由过滤")
-        config_lines.append("    deny 0.0.0.0/0 exact-match;")
+        config_lines.append("    deny ${SERVER_HOST}/0 exact-match;")
         config_lines.append("    deny ::/0 exact-match;")
         config_lines.append("    permit any;")
         config_lines.append("}")

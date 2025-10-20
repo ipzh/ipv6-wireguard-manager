@@ -6,7 +6,7 @@ IPv6 WireGuard Manager提供完整的RESTful API接口，支持WireGuard服务�
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8000/api/v1`
+- **Base URL**: `http://localhost:${API_PORT}/api/v1`
 - **认证方式**: JWT Bearer Token
 - **数据格式**: JSON
 - **字符编码**: UTF-8
@@ -296,7 +296,7 @@ Content-Type: application/json
 
 {
   "name": "Updated Client Name",
-  "allowed_ips": "10.0.0.2/32, fd00::2/128, 192.168.1.0/24"
+  "allowed_ips": "10.0.0.2/32, fd00::2/128, ${EXAMPLE_NETWORK}"
 }
 ```
 
@@ -319,7 +319,7 @@ Authorization: Bearer <access_token>
 {
   "success": true,
   "data": {
-    "config": "[Interface]\nPrivateKey = ABC123...\nAddress = 10.0.0.2/32, fd00::2/128\n\n[Peer]\nPublicKey = XYZ789...\nEndpoint = server.example.com:51820\nAllowedIPs = 0.0.0.0/0, ::/0",
+    "config": "[Interface]\nPrivateKey = ABC123...\nAddress = 10.0.0.2/32, fd00::2/128\n\n[Peer]\nPublicKey = XYZ789...\nEndpoint = server.example.com:${WG_PORT}\nAllowedIPs = ${SERVER_HOST}/0, ::/0",
     "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
   }
 }
@@ -685,7 +685,7 @@ $serverPath = $pathBuilder->getPath('wireguard.servers.list'); // 返回: /api/v
 
 // 获取完整URL
 $fullUrl = $pathBuilder->getUrl('wireguard.clients.create', ['server_id' => 123]);
-// 返回: http://localhost:8000/api/v1/wireguard/servers/123/clients
+// 返回: http://localhost:${API_PORT}/api/v1/wireguard/servers/123/clients
 
 // 带参数替换
 $peerPath = $pathBuilder->getPath('wireguard.peers.detail', ['peer_id' => 'abc123']);
@@ -707,7 +707,7 @@ const serverPath = pathBuilder.getPath('wireguard.servers.list'); // 返回: /ap
 
 // 获取完整URL
 const fullUrl = pathBuilder.getUrl('wireguard.clients.create', { server_id: 123 });
-// 返回: http://localhost:8000/api/v1/wireguard/servers/123/clients
+// 返回: http://localhost:${API_PORT}/api/v1/wireguard/servers/123/clients
 
 // 带参数替换
 const peerPath = pathBuilder.getPath('wireguard.peers.detail', { peer_id: 'abc123' });
@@ -772,8 +772,8 @@ const peerPath = pathBuilder.getPath('wireguard.peers.detail', { peer_id: 'abc12
 - `upload.certificate` - `/api/v1/upload/certificate`
 
 #### WebSocket路径
-- `ws.monitoring` - `ws://localhost:8000/api/v1/ws/monitoring`
-- `ws.logs` - `ws://localhost:8000/api/v1/ws/logs`
+- `ws.monitoring` - `ws://localhost:${API_PORT}/api/v1/ws/monitoring`
+- `ws.logs` - `ws://localhost:${API_PORT}/api/v1/ws/logs`
 
 ### 高级用法
 
@@ -850,7 +850,7 @@ const url = pathBuilder.getUrl('auth.login');
 ### 实时监控连接
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8000/api/v1/ws/monitoring');
+const ws = new WebSocket('ws://localhost:${API_PORT}/api/v1/ws/monitoring');
 
 ws.onmessage = function(event) {
   const data = JSON.parse(event.data);
@@ -861,7 +861,7 @@ ws.onmessage = function(event) {
 ### 实时日志连接
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8000/api/v1/ws/logs');
+const ws = new WebSocket('ws://localhost:${API_PORT}/api/v1/ws/logs');
 
 ws.onmessage = function(event) {
   const log = JSON.parse(event.data);
@@ -966,8 +966,8 @@ API支持版本控制，当前版本为v1：
 from ipv6_wireguard_manager import WireGuardManager
 
 client = WireGuardManager(
-    base_url="http://localhost:8000/api/v1",
-    token="your_access_token"
+    base_url="http://localhost:${API_PORT}/api/v1",
+    token="${API_TOKEN}"
 )
 
 # 获取服务器列表
@@ -985,7 +985,7 @@ client.wireguard.clients.create({
 import { WireGuardManager } from 'ipv6-wireguard-manager-sdk';
 
 const client = new WireGuardManager({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: 'http://localhost:${API_PORT}/api/v1',
   token: 'your_access_token'
 });
 
@@ -1003,14 +1003,14 @@ await client.wireguard.clients.create({
 ```bash
 # 获取服务器列表
 curl -H "Authorization: Bearer your_token" \
-     http://localhost:8000/api/v1/wireguard/servers
+     http://localhost:${API_PORT}/api/v1/wireguard/servers
 
 # 创建客户端
 curl -X POST \
      -H "Authorization: Bearer your_token" \
      -H "Content-Type: application/json" \
      -d '{"name":"New Client","server_id":1}' \
-     http://localhost:8000/api/v1/wireguard/clients
+     http://localhost:${API_PORT}/api/v1/wireguard/clients
 ```
 
 ---

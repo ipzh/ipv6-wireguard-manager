@@ -3,8 +3,20 @@
 提供统一的API路径管理功能
 """
 
-from typing import Dict, Any, Optional, List, Set
-from app.core.api_paths import APIPaths, APIVersion
+from typing import Dict, Any, Optional, List, Set, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.core.api_paths import APIPaths, APIVersion
+
+# 使用延迟导入避免循环依赖
+def get_api_paths():
+    from app.core.api_paths import APIPaths
+    return APIPaths
+
+def get_api_version():
+    from app.core.api_paths import APIVersion
+    return APIVersion
+
 from app.core.api_config import (
     get_api_path, get_auth_path, get_users_path, get_wireguard_path,
     get_bgp_path, get_ipv6_path, get_mfa_path, get_system_path,
@@ -16,6 +28,10 @@ class PathManager:
     """统一的API路径管理器"""
     
     def __init__(self):
+        # 使用延迟导入避免循环依赖
+        APIPaths = get_api_paths()
+        APIVersion = get_api_version()
+        
         self.api_paths = APIPaths()
         self._current_version = APIVersion.V1
         self._supported_versions: Set[APIVersion] = {APIVersion.V1}
@@ -36,14 +52,20 @@ class PathManager:
         """获取已弃用的API版本列表"""
         return list(self._deprecated_versions)
     
-    def add_version(self, version: APIVersion, is_deprecated: bool = False) -> None:
+    def add_version(self, version, is_deprecated: bool = False) -> None:
         """添加API版本"""
+        # 使用延迟导入避免循环依赖
+        APIVersion = get_api_version()
+        
         self._supported_versions.add(version)
         if is_deprecated:
             self._deprecated_versions.add(version)
     
-    def set_current_version(self, version: APIVersion) -> None:
+    def set_current_version(self, version) -> None:
         """设置当前API版本"""
+        # 使用延迟导入避免循环依赖
+        APIVersion = get_api_version()
+        
         if version not in self._supported_versions:
             self.add_version(version)
         self._current_version = version
@@ -82,6 +104,8 @@ class PathManager:
         # 检查版本是否支持
         version_str = f"v{version_num}"
         try:
+            # 使用延迟导入避免循环依赖
+            APIVersion = get_api_version()
             version = APIVersion(version_str)
             result['version'] = version
             
@@ -121,6 +145,9 @@ class PathManager:
     def normalize_path(self, path: str) -> str:
         """标准化路径格式"""
         import re
+        
+        # 使用延迟导入避免循环依赖
+        APIVersion = get_api_version()
         
         # 移除多余的斜杠
         path = re.sub(r'/+', '/', path)

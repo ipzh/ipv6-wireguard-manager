@@ -152,7 +152,7 @@ class MFAMethods:
     SMS = "sms"
     EMAIL = "email"
     BACKUP_CODE = "backup_code"
-    HARDWARE_KEY = "hardware_key"
+    HARDWARE_key="${API_KEY}"
 
 class MFAStatus:
     """MFA状态枚举"""

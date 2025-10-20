@@ -324,7 +324,7 @@ class SecurityHelper {
     public static function checkRateLimit($identifier, $limit = null, $window = 60) {
         $config = self::getSecurityConfig();
         $limit = $limit ?: $config['rate_limit_per_minute'];
-        $key = "rate_limit_" . md5($identifier);
+        $key="${API_KEY}" . md5($identifier);
         
         if (!isset($_SESSION[$key])) {
             $_SESSION[$key] = ['count' => 0, 'reset_time' => time() + $window];
@@ -354,7 +354,7 @@ class SecurityHelper {
      */
     public static function checkLoginAttempts($identifier) {
         $config = self::getSecurityConfig();
-        $key = "login_attempts_" . md5($identifier);
+        $key="${API_KEY}" . md5($identifier);
         
         if (!isset($_SESSION[$key])) {
             $_SESSION[$key] = ['count' => 0, 'lockout_until' => 0];
@@ -380,7 +380,7 @@ class SecurityHelper {
      * 记录登录尝试
      */
     public static function recordLoginAttempt($identifier, $success = false) {
-        $key = "login_attempts_" . md5($identifier);
+        $key="${API_KEY}" . md5($identifier);
         
         if (!isset($_SESSION[$key])) {
             $_SESSION[$key] = ['count' => 0, 'lockout_until' => 0];

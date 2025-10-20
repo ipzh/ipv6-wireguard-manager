@@ -457,7 +457,7 @@ DNS = {', '.join(server.dns_servers) if server.dns_servers else ''}
 [Peer]
 PublicKey = {server.public_key}
 Endpoint = {server.ipv4_address or server.ipv6_address}:{server.listen_port}
-AllowedIPs = {', '.join(client.allowed_ips) if client.allowed_ips else '0.0.0.0/0, ::/0'}
+AllowedIPs = {', '.join(client.allowed_ips) if client.allowed_ips else '${SERVER_HOST}/0, ::/0'}
 PersistentKeepalive = {client.persistent_keepalive}
 """
             

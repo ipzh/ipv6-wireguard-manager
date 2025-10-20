@@ -69,7 +69,7 @@ def check_database_connection():
     print("\n🗄️ 检查数据库连接...")
     
     # 检查环境变量
-    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm')
+    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm')
     print(f"   数据库URL: {database_url}")
     
     if database_url.startswith('mysql://'):

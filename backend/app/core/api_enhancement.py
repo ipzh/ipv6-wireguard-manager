@@ -129,7 +129,7 @@ class APIDocumentationGenerator:
                 "description": "IPv6 WireGuard Manager RESTful API"
             },
             "servers": [
-                {"url": "http://localhost:8000", "description": "开发环境"},
+                {"url": "http://localhost:${API_PORT}", "description": "开发环境"},
                 {"url": "https://api.example.com", "description": "生产环境"}
             ],
             "paths": {},

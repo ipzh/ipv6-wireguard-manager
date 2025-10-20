@@ -82,7 +82,7 @@ const API_CONFIG = {
 ```javascript
 // 自动检测环境
 const baseUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://localhost:8000/api'  // 开发环境
+  ? 'http://localhost:${API_PORT}/api'  // 开发环境
   : '/api';                      // 生产环境
 ```
 

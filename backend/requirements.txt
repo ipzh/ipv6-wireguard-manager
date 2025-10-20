@@ -4,11 +4,8 @@ uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
-# 数据库相关 - 仅支持MySQL
 sqlalchemy==2.0.23
 alembic==1.13.1
-pymysql==1.1.0
-aiomysql==0.2.0
 
 # Redis缓存
 redis==5.0.1

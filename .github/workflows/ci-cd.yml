@@ -85,7 +85,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
         ports:
-          - 3306:3306
+          - 3306:${DB_PORT}
       
       redis:
         image: redis:7
@@ -95,7 +95,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 6379:6379
+          - 6379:${REDIS_PORT}
     
     steps:
     - uses: actions/checkout@v4
@@ -113,8 +113,8 @@ jobs:
     
     - name: Run backend tests
       env:
-        DATABASE_URL: mysql://test_user:test_password@localhost:3306/test_db
-        REDIS_URL: redis://localhost:6379/0
+        DATABASE_URL: mysql://test_user:test_password@localhost:${DB_PORT}/test_db
+        REDIS_URL: redis://localhost:${REDIS_PORT}/0
         SECRET_KEY: test-secret-key
         FIRST_SUPERUSER_PASSWORD: test-admin-password
       run: |
@@ -151,7 +151,7 @@ jobs:
         docker-compose -f docker-compose.yml up -d
         sleep 30
         # 运行API健康检查
-        curl -f http://localhost:8000/api/v1/health
+        curl -f http://localhost:${API_PORT}/api/v1/health
         curl -f http://localhost/health
         docker-compose -f docker-compose.yml down
     

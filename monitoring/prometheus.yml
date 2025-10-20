@@ -15,7 +15,7 @@ scrape_configs:
   # 后端API服务监控
   - job_name: 'ipv6-wireguard-backend'
     static_configs:
-      - targets: ['backend:8000']
+      - targets: ['backend:${API_PORT}']
     metrics_path: '/metrics'
     scrape_interval: 30s
     scrape_timeout: 10s
@@ -27,7 +27,7 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: backend:8000
+        replacement: backend:${API_PORT}
 
   # 数据库监控
   - job_name: 'postgres'
@@ -42,7 +42,7 @@ scrape_configs:
   # Redis监控
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['redis:${REDIS_PORT}']
     metrics_path: '/metrics'
     params:
       password: ['redis123']

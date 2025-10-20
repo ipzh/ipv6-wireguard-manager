@@ -57,7 +57,7 @@ async def get_peers(path_builder=Depends(get_path_builder)):
             "name": "client1",
             "public_key": "***hidden***",
             "allowed_ips": "10.0.0.2/32",
-            "endpoint": "192.168.1.100:51820",
+            "endpoint": "192.168.1.100:${WG_PORT}",
             "is_active": True
         },
         {
@@ -65,7 +65,7 @@ async def get_peers(path_builder=Depends(get_path_builder)):
             "name": "client2", 
             "public_key": "***hidden***",
             "allowed_ips": "10.0.0.3/32",
-            "endpoint": "192.168.1.101:51820",
+            "endpoint": "192.168.1.101:${WG_PORT}",
             "is_active": True
         }
     ]
@@ -104,7 +104,7 @@ async def get_peer(
             "name": "client1",
             "public_key": "***hidden***",
             "allowed_ips": "10.0.0.2/32",
-            "endpoint": "192.168.1.100:51820",
+            "endpoint": "192.168.1.100:${WG_PORT}",
             "is_active": True
         }
     else:

@@ -182,11 +182,11 @@ SECRET_KEY=your-secret-key-here
 ACCESS_TOKEN_EXPIRE_MINUTES=11520
 
 # 服务器配置
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 数据库配置
-DATABASE_URL=mysql://ipv6wgm:password@localhost:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm
 DATABASE_HOST=localhost
 DATABASE_PORT=3306
 DATABASE_USER=ipv6wgm
@@ -196,7 +196,7 @@ DATABASE_NAME=ipv6wgm
 # WireGuard 配置
 WIREGUARD_PORT=51820
 WIREGUARD_INTERFACE=wg0
-WIREGUARD_NETWORK=10.0.0.0/24
+WIREGUARD_NETWORK=1${SERVER_HOST}/24
 WIREGUARD_IPV6_NETWORK=fd00::/64
 
 # 监控配置
@@ -300,11 +300,11 @@ class EnvironmentConfig:
     @staticmethod
     def get_database_url(environment):
         if environment == 'development':
-            return 'mysql://dev:dev@localhost:3306/ipv6wgm_dev'
+            return 'mysql://dev:dev@localhost:${DB_PORT}/ipv6wgm_dev'
         elif environment == 'testing':
-            return 'mysql://test:test@localhost:3306/ipv6wgm_test'
+            return 'mysql://test:test@localhost:${DB_PORT}/ipv6wgm_test'
         elif environment == 'production':
-            return 'mysql://prod:prod@localhost:3306/ipv6wgm_prod'
+            return 'mysql://prod:prod@localhost:${DB_PORT}/ipv6wgm_prod'
         else:
             raise ValueError(f"未知环境: {environment}")
 

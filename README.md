@@ -97,7 +97,7 @@ mysql -u root -p < migrations/init.sql
 
 # 启动服务
 cd ../backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host ${SERVER_HOST} --port 8000
 ```
 
 ## 📖 详细文档
@@ -112,6 +112,10 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ### 🔧 配置文档
 - [环境配置](docs/ENVIRONMENT_CONFIGURATION.md) - 环境变量配置说明
+- [后端配置指南](docs/BACKEND_CONFIG_GUIDE.md) - 后端服务配置说明
+- [前端API指南](docs/FRONTEND_API_GUIDE.md) - 前端API集成说明
+- [依赖注入指南](docs/DEPENDENCY_INJECTION_GUIDE.md) - 依赖注入使用说明
+- [迁移指南](docs/MIGRATION_GUIDE.md) - 数据迁移和版本升级说明
 
 ## 🏗️ 项目架构
 
@@ -133,6 +137,7 @@ backend/
 │   └── utils/               # 工具函数
 ├── migrations/              # 数据库迁移
 ├── tests/                   # 测试文件
+├── scripts/                 # 部署和维护脚本
 └── requirements.txt         # 依赖包
 ```
 
@@ -203,7 +208,7 @@ docker-compose -f docker-compose.microservices.yml up -d
 ### 环境变量
 ```bash
 # 数据库配置
-DATABASE_URL=mysql://user:password@localhost:3306/ipv6wgm
+DATABASE_URL=mysql://user:password@localhost:${DB_PORT}/ipv6wgm
 
 # API配置
 API_V1_STR=/api/v1
@@ -211,7 +216,7 @@ SECRET_KEY=your-secret-key-here
 ACCESS_TOKEN_EXPIRE_MINUTES=11520
 
 # 服务器配置
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 路径配置
@@ -259,10 +264,8 @@ cd php-frontend
 php -l *.php
 
 # 集成测试
-python test_api_standardization.py
-python test_config_management.py
-python test_database_optimization.py
-python test_error_handling_logging.py
+cd backend
+python -m pytest tests/integration/
 ```
 
 ### 测试覆盖

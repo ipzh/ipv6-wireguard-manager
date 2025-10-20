@@ -1,0 +1,9 @@
+{
+  "app": {
+    "debug": true,
+    "environment": "development"
+  },
+  "logging": {
+    "level": "DEBUG"
+  }
+}

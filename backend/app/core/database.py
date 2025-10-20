@@ -76,7 +76,7 @@ redis_pool = None
 if REDIS_AVAILABLE and getattr(settings, 'USE_REDIS', False):
     try:
         redis_pool = redis.ConnectionPool.from_url(
-            getattr(settings, 'REDIS_URL', 'redis://localhost:6379/0'),
+            getattr(settings, 'REDIS_URL', 'redis://localhost:${REDIS_PORT}/0'),
             max_connections=20,
             retry_on_timeout=True
         )

@@ -10,7 +10,8 @@ from typing import Callable, Dict, Any, Optional, List
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.routing import Match
 
-from app.core.path_manager import path_manager
+# 移除对path_manager的导入，避免循环导入
+# from app.core.path_manager import path_manager
 
 
 class APIVersion(Enum):
@@ -350,7 +351,7 @@ class APIPaths:
 
 # 导出主要组件
 __all__ = [
-    "APIPaths", "path_manager", 
+    "APIPaths", 
     "APIPathMiddleware", "VersionedAPIRoute",
     "api_path_middleware"
 ]

@@ -55,7 +55,7 @@ class RemoteDatabaseFixer:
         logger.info(f"🔍 连接目标: {hostname}:{port}")
         
         # 检查是否为远程服务器
-        if hostname in ['localhost', '127.0.0.1', '::1']:
+        if hostname in ['localhost', '${LOCAL_HOST}', '::1']:
             logger.info("ℹ️ 检测到本地数据库连接")
             return True
         

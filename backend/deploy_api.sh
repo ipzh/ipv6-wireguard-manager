@@ -159,7 +159,7 @@ start_api() {
         nohup python run_api.py > logs/api.log 2>&1 &
     else
         log_info "使用uvicorn直接启动服务..."
-        nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > logs/api.log 2>&1 &
+        nohup uvicorn app.main:app --host ${SERVER_HOST} --port 8000 --reload > logs/api.log 2>&1 &
     fi
     
     # 等待服务启动
@@ -170,8 +170,8 @@ start_api() {
     if pgrep -f "uvicorn.*app.main:app" > /dev/null; then
         log_success "API服务启动成功"
         log_info "服务日志: logs/api.log"
-        log_info "API文档: http://localhost:8000/docs"
-        log_info "健康检查: http://localhost:8000/health"
+        log_info "API文档: http://localhost:${API_PORT}/docs"
+        log_info "健康检查: http://localhost:${API_PORT}/health"
     else
         log_error "API服务启动失败，请检查日志"
         exit 1
@@ -204,8 +204,8 @@ show_status() {
         log_success "API服务: 运行中"
         echo "  PID: $(pgrep -f 'uvicorn.*app.main:app')"
         echo "  端口: 8000"
-        echo "  文档: http://localhost:8000/docs"
-        echo "  健康检查: http://localhost:8000/health"
+        echo "  文档: http://localhost:${API_PORT}/docs"
+        echo "  健康检查: http://localhost:${API_PORT}/health"
     else
         log_error "API服务: 未运行"
     fi

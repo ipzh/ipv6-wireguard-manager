@@ -49,7 +49,7 @@ def check_database_config():
         logger.info(f"👤 用户名: {parsed_url.username}")
         
         # 检查是否为远程连接
-        if parsed_url.hostname not in ['localhost', '127.0.0.1', '::1']:
+        if parsed_url.hostname not in ['localhost', '${LOCAL_HOST}', '::1']:
             logger.info("🌍 检测到远程数据库连接")
             
             # 检查网络连接

@@ -13,7 +13,7 @@ class PrefixPool(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    base_prefix = Column(String(128), nullable=False)  # 形如 2001:db8::/32 或 10.0.0.0/16
+    base_prefix = Column(String(128), nullable=False)  # 形如 2001:db8::/32 或 1${SERVER_HOST}/16
     prefix_len = Column(Integer, nullable=False)  # 要分配的子网前缀长度
     description = Column(Text, nullable=True)
     enabled = Column(Boolean, default=True)

@@ -18,7 +18,7 @@ def get_secret_key():
     if not secret_key:
         secret_key = generate_secret_key()
         print(f"⚠️  警告：未设置SECRET_KEY环境变量，已生成随机密钥")
-        print(f"⚠️  请设置环境变量: export SECRET_KEY='{secret_key}'")
+        print(f"⚠️  请设置环境变量: export secret_key="${API_KEY}"")
     return secret_key
 
 # 生产环境配置
@@ -33,7 +33,7 @@ PRODUCTION_CONFIG = {
     
     # 数据库配置
     "DATABASE": {
-        "URL": "mysql://ipv6wgm:password@localhost:3306/ipv6wgm",
+        "URL": "mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm",
         "POOL_SIZE": 10,
         "MAX_OVERFLOW": 20,
         "POOL_TIMEOUT": 30,
@@ -42,7 +42,7 @@ PRODUCTION_CONFIG = {
     
     # 服务配置
     "SERVICES": {
-        "API_HOST": "0.0.0.0",
+        "API_HOST": "${SERVER_HOST}",
         "API_PORT": 8000,
         "WEB_PORT": 80,
         "WORKERS": 4,

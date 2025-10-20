@@ -65,7 +65,7 @@ sudo chmod -R 755 /var/www/html/js_path_builder
 ```json
 {
   "api_version": "v1",
-  "base_url": "http://localhost:8000",
+  "base_url": "http://localhost:${API_PORT}",
   "endpoints": {
     "auth": {
       "login": "/auth/login",
@@ -130,7 +130,7 @@ echo $userDetailPath; // 输出: /users/123
 
 // 获取完整URL
 $fullUrl = $pathBuilder->getUrl('servers.list');
-echo $fullUrl; // 输出: http://localhost:8000/api/v1/servers/
+echo $fullUrl; // 输出: http://localhost:${API_PORT}/api/v1/servers/
 ?>
 ```
 
@@ -243,7 +243,7 @@ console.log(userDetailPath); // 输出: /users/123
 
 // 获取完整URL
 const fullUrl = pathBuilder.getUrl('servers.list');
-console.log(fullUrl); // 输出: http://localhost:8000/api/v1/servers/
+console.log(fullUrl); // 输出: http://localhost:${API_PORT}/api/v1/servers/
 ```
 
 #### 2.2 高级用法
@@ -375,7 +375,7 @@ print(user_detail_path)  # 输出: /users/123
 
 # 获取完整URL
 full_url = path_builder.get_url('servers.list')
-print(full_url)  # 输出: http://localhost:8000/api/v1/servers/
+print(full_url)  # 输出: http://localhost:${API_PORT}/api/v1/servers/
 ```
 
 #### 3.2 高级用法

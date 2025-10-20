@@ -226,7 +226,7 @@ class DatabaseHealthChecker:
             parsed = urlparse(self.database_url)
             
             # 连接到默认数据库
-            default_db_url = f"mysql://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port}/mysql"
+            default_db_url = f"sqlite:///./ipv6_wireguard.db"
             
             engine = create_engine(default_db_url)
             

@@ -21,7 +21,7 @@ class MFAMethod(PyEnum):
     SMS = "sms"
     EMAIL = "email"
     BACKUP_CODE = "backup_code"
-    HARDWARE_KEY = "hardware_key"
+    HARDWARE_key="${API_KEY}"
 
 
 class AlertSeverity(PyEnum):

@@ -10,11 +10,11 @@ services:
       context: ./services/api-gateway
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8000:${API_PORT}"
     environment:
       - SERVICE_NAME=api-gateway
       - LOG_LEVEL=info
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:${REDIS_PORT}/0
       - CONSUL_URL=http://consul:8500
     depends_on:
       - redis
@@ -32,7 +32,7 @@ services:
           cpu: 200m
           memory: 256Mi
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,8 +47,8 @@ services:
     environment:
       - SERVICE_NAME=auth-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/1
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/1
       - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - mysql
@@ -80,8 +80,8 @@ services:
     environment:
       - SERVICE_NAME=user-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/2
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/2
     depends_on:
       - mysql
       - redis
@@ -113,8 +113,8 @@ services:
     environment:
       - SERVICE_NAME=wireguard-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/3
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/3
     depends_on:
       - mysql
       - redis
@@ -146,8 +146,8 @@ services:
     environment:
       - SERVICE_NAME=bgp-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/4
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/4
     depends_on:
       - mysql
       - redis
@@ -179,8 +179,8 @@ services:
     environment:
       - SERVICE_NAME=network-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/5
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/5
     depends_on:
       - mysql
       - redis
@@ -212,8 +212,8 @@ services:
     environment:
       - SERVICE_NAME=monitoring-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/6
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/6
     depends_on:
       - mysql
       - redis
@@ -244,8 +244,8 @@ services:
     environment:
       - SERVICE_NAME=notification-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/7
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/7
     depends_on:
       - mysql
       - redis
@@ -276,8 +276,8 @@ services:
     environment:
       - SERVICE_NAME=file-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/8
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/8
     depends_on:
       - mysql
       - redis
@@ -310,8 +310,8 @@ services:
     environment:
       - SERVICE_NAME=config-service
       - LOG_LEVEL=info
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - REDIS_URL=redis://redis:6379/9
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://redis:${REDIS_PORT}/9
     depends_on:
       - mysql
       - redis
@@ -341,7 +341,7 @@ services:
       - MYSQL_USER=ipv6wgm
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3306:${DB_PORT}"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./database/init:/docker-entrypoint-initdb.d
@@ -365,7 +365,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6379:${REDIS_PORT}"
     volumes:
       - redis-data:/data
     networks:
@@ -400,8 +400,8 @@ services:
       -server
       -bootstrap-expect=1
       -ui
-      -bind=0.0.0.0
-      -client=0.0.0.0
+      -bind=${SERVER_HOST}
+      -client=${SERVER_HOST}
       -retry-join=consul
       -data-dir=/consul/data
     deploy:
@@ -474,7 +474,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "3000:${FRONTEND_PORT}"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     volumes:
@@ -492,7 +492,7 @@ services:
           cpu: 100m
           memory: 256Mi
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${FRONTEND_PORT}/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -45,17 +45,17 @@ class UnifiedSettings(BaseSettings):
     # API配置
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60 * 24 * 8, ge=1, le=525600)  # 8 days, max 1 year
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None
-    SERVER_HOST: str = "0.0.0.0"
-    SERVER_PORT: int = 8000
+    SERVER_HOST: str = "${SERVER_HOST}"
+    SERVER_PORT: int = Field(default=8000, ge=1, le=65535)
     
     # 数据库配置
-    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+    DATABASE_URL: str = Field(default="sqlite:///./ipv6_wireguard.db")
     DATABASE_HOST: str = Field(default="localhost")
-    DATABASE_PORT: int = Field(default=3306)
+    DATABASE_PORT: int = Field(default=3306, ge=1, le=65535)
     DATABASE_USER: str = Field(default="ipv6wgm")
     DATABASE_PASSWORD: str = Field(default="password")
     DATABASE_NAME: str = Field(default="ipv6wgm")
@@ -75,50 +75,50 @@ class UnifiedSettings(BaseSettings):
     # 安全配置
     ALGORITHM: str = "HS256"
     BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
+        "http://localhost:${FRONTEND_PORT}",
+        "http://localhost:${ADMIN_PORT}",
         "http://localhost:5173",
         "http://localhost",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1",
-        "http://[::1]:3000",
-        "http://[::1]:8080",
+        "http://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "http://${LOCAL_HOST}:${ADMIN_PORT}",
+        "http://${LOCAL_HOST}:5173",
+        "http://${LOCAL_HOST}",
+        "http://[::1]:${FRONTEND_PORT}",
+        "http://[::1]:${ADMIN_PORT}",
         "http://[::1]:5173",
         "http://[::1]",
-        "https://localhost:3000",
-        "https://localhost:8080",
+        "https://localhost:${FRONTEND_PORT}",
+        "https://localhost:${ADMIN_PORT}",
         "https://localhost:5173",
         "https://localhost",
-        "https://127.0.0.1:3000",
-        "https://127.0.0.1:8080",
-        "https://127.0.0.1:5173",
-        "https://127.0.0.1",
-        "https://[::1]:3000",
-        "https://[::1]:8080",
+        "https://${LOCAL_HOST}:${FRONTEND_PORT}",
+        "https://${LOCAL_HOST}:${ADMIN_PORT}",
+        "https://${LOCAL_HOST}:5173",
+        "https://${LOCAL_HOST}",
+        "https://[::1]:${FRONTEND_PORT}",
+        "https://[::1]:${ADMIN_PORT}",
         "https://[::1]:5173",
         "https://[::1]"
     ]
     
     # 文件上传配置
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
+    MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, ge=1024, le=100 * 1024 * 1024)  # 10MB, max 100MB
     UPLOAD_DIR: str = "uploads"
     ALLOWED_EXTENSIONS: List[str] = [".conf", ".key", ".crt", ".pem", ".txt", ".log"]
     
     # WireGuard配置
     WIREGUARD_PRIVATE_KEY: Optional[str] = None
     WIREGUARD_PUBLIC_KEY: Optional[str] = None
-    WIREGUARD_PORT: int = 51820
+    WIREGUARD_PORT: int = Field(default=51820, ge=1024, le=65535)
     WIREGUARD_INTERFACE: str = "wg0"
-    WIREGUARD_NETWORK: str = "10.0.0.0/24"
+    WIREGUARD_NETWORK: str = "1${SERVER_HOST}/24"
     WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
     
     # 监控配置
     ENABLE_METRICS: bool = True
-    METRICS_PORT: int = 9090
+    METRICS_PORT: int = Field(default=9090, ge=1024, le=65535)
     ENABLE_HEALTH_CHECK: bool = True
-    HEALTH_CHECK_INTERVAL: int = 30
+    HEALTH_CHECK_INTERVAL: int = Field(default=30, ge=5, le=300)
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
@@ -128,15 +128,15 @@ class UnifiedSettings(BaseSettings):
     LOG_RETENTION: str = "30 days"
     
     # 性能配置
-    MAX_WORKERS: int = 4
+    MAX_WORKERS: int = Field(default=4, ge=1, le=32)
     WORKER_CLASS: str = "uvicorn.workers.UvicornWorker"
-    KEEP_ALIVE: int = 2
-    MAX_REQUESTS: int = 1000
-    MAX_REQUESTS_JITTER: int = 100
+    KEEP_ALIVE: int = Field(default=2, ge=1, le=60)
+    MAX_REQUESTS: int = Field(default=1000, ge=100, le=10000)
+    MAX_REQUESTS_JITTER: int = Field(default=100, ge=0, le=1000)
     
     # 邮件配置
     SMTP_TLS: bool = True
-    SMTP_PORT: Optional[int] = None
+    SMTP_PORT: Optional[int] = Field(default=None, ge=1, le=65535)
     SMTP_HOST: Optional[str] = None
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
@@ -214,7 +214,7 @@ class UnifiedSettings(BaseSettings):
         environment = os.getenv("ENVIRONMENT", "development")
         if environment == "production":
             for origin in origins:
-                if origin.startswith("http://") and not origin.startswith("http://localhost") and not origin.startswith("http://127.0.0.1"):
+                if origin.startswith("http://") and not origin.startswith("http://localhost") and not origin.startswith("http://${LOCAL_HOST}"):
                     raise ValueError(f"生产环境不允许使用不安全的HTTP源: {origin}")
     
     @field_validator("LOG_LEVEL")

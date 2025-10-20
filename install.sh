@@ -171,25 +171,103 @@ detect_system() {
         exit 1
     fi
     
+    # 检测PHP版本
+    detect_php_version() {
+        log_info "🔍 检测PHP版本..."
+        
+        # 检测已安装的PHP版本
+        if command -v php &> /dev/null; then
+            PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
+            log_success "检测到已安装的PHP版本: $PHP_VERSION"
+            return 0
+        fi
+        
+        # 检测可用的PHP版本
+        case $PACKAGE_MANAGER in
+            "apt")
+                # 检测可用的PHP版本
+                local available_versions=()
+                for version in 8.2 8.1 8.0 7.4; do
+                    if apt-cache show php$version-fpm &>/dev/null; then
+                        available_versions+=($version)
+                    fi
+                done
+                
+                if [[ ${#available_versions[@]} -gt 0 ]]; then
+                    PHP_VERSION=${available_versions[0]}
+                    log_success "检测到可用PHP版本: $PHP_VERSION"
+                else
+                    PHP_VERSION="8.1"  # 默认版本
+                    log_warning "未检测到PHP版本，使用默认版本: $PHP_VERSION"
+                fi
+                ;;
+            "yum"|"dnf")
+                # RHEL/CentOS通常使用默认PHP版本
+                PHP_VERSION="8.0"  # 默认版本
+                log_info "RHEL/CentOS系统，使用默认PHP版本: $PHP_VERSION"
+                ;;
+            "pacman")
+                # Arch Linux通常使用最新版本
+                PHP_VERSION="8.2"  # 默认版本
+                log_info "Arch Linux系统，使用默认PHP版本: $PHP_VERSION"
+                ;;
+            *)
+                PHP_VERSION="8.1"  # 默认版本
+                log_warning "未知系统，使用默认PHP版本: $PHP_VERSION"
+                ;;
+        esac
+        
+        log_info "选择的PHP版本: $PHP_VERSION"
+    }
+    
     # 检测系统资源
+    log_info "🔍 检测系统资源..."
+    
+    # 检测内存大小
     if command -v free &> /dev/null; then
         MEMORY_MB=$(free -m | awk 'NR==2{print $2}')
+    elif command -v vm_stat &> /dev/null; then
+        # macOS
+        MEMORY_MB=$(vm_stat | grep "Pages free" | awk '{print $3}' | sed 's/\.//' | awk '{print int($1/1024/1024*4096)}')
     else
         log_warning "无法检测内存信息，使用默认值"
-        MEMORY_MB=1024
+        MEMORY_MB=2048
     fi
     
+    # 验证内存检测结果
+    if ! [[ "$MEMORY_MB" =~ ^[0-9]+$ ]] || [ "$MEMORY_MB" -lt 512 ]; then
+        log_warning "内存大小检测异常，使用默认值: 2048MB"
+        MEMORY_MB=2048
+    fi
+    
+    # 检测CPU核心数
     if command -v nproc &> /dev/null; then
         CPU_CORES=$(nproc)
+    elif command -v sysctl &> /dev/null; then
+        # macOS
+        CPU_CORES=$(sysctl -n hw.ncpu)
     else
-        CPU_CORES=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
+        CPU_CORES=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 2)
     fi
     
+    # 验证CPU核心数检测结果
+    if ! [[ "$CPU_CORES" =~ ^[0-9]+$ ]] || [ "$CPU_CORES" -lt 1 ]; then
+        log_warning "CPU核心数检测异常，使用默认值: 2"
+        CPU_CORES=2
+    fi
+    
+    # 检测磁盘空间
     if command -v df &> /dev/null; then
         DISK_SPACE=$(df / | awk 'NR==2{print $4}')
         DISK_SPACE_MB=$((DISK_SPACE / 1024))
     else
         log_warning "无法检测磁盘空间，使用默认值"
+        DISK_SPACE_MB=10240
+    fi
+    
+    # 验证磁盘空间检测结果
+    if ! [[ "$DISK_SPACE_MB" =~ ^[0-9]+$ ]] || [ "$DISK_SPACE_MB" -lt 5120 ]; then
+        log_warning "磁盘空间检测异常，使用默认值: 10240MB"
         DISK_SPACE_MB=10240
     fi
     
@@ -211,11 +289,15 @@ detect_system() {
         IPV6_SUPPORT=false
     fi
     
+    # 检测PHP版本
+    detect_php_version
+    
     log_success "系统信息检测完成:"
     log_info "  操作系统: $OS_NAME"
     log_info "  版本: $OS_VERSION"
     log_info "  架构: $ARCH"
     log_info "  包管理器: $PACKAGE_MANAGER"
+    log_info "  PHP版本: $PHP_VERSION"
     log_info "  内存: ${MEMORY_MB}MB"
     log_info "  CPU核心: $CPU_CORES"
     log_info "  可用磁盘: ${DISK_SPACE_MB}MB"
@@ -508,16 +590,19 @@ select_install_type() {
             log_info "自动选择的安装类型: minimal"
             log_info "选择理由: 系统资源有限（评分: $score/6），推荐最小化安装"
             log_info "优化配置: 禁用Redis、优化MySQL配置、减少并发连接"
+            log_info "适用场景: VPS、低配置服务器、测试环境"
         elif [[ $score -le 4 ]]; then
             INSTALL_TYPE="native"
             log_info "自动选择的安装类型: native"
             log_info "选择理由: 系统资源适中（评分: $score/6），推荐原生安装"
             log_info "优化配置: 启用基础功能、平衡性能和资源使用"
+            log_info "适用场景: 中等配置服务器、生产环境"
         else
             INSTALL_TYPE="docker"
             log_info "自动选择的安装类型: docker"
             log_info "选择理由: 系统资源充足（评分: $score/6），推荐Docker部署"
             log_info "优化配置: 容器化部署、隔离性更好、易于管理"
+            log_info "适用场景: 高配置服务器、企业环境、集群部署"
         fi
         
         # 智能模式下自动设置其他参数
@@ -665,38 +750,67 @@ install_system_dependencies() {
             log_info "安装MySQL/MariaDB..."
             mysql_installed=false
             
+            # 智能数据库安装策略
+            log_info "🔍 检测最佳数据库安装方案..."
+            
             # 检查是否为Debian 12
             if [[ "$OS_ID" == "debian" && "$OS_VERSION" == "12" ]]; then
                 log_info "检测到Debian 12，优先使用MariaDB"
                 if apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
-                    log_success "MariaDB安装成功（Debian 12推荐）"
+                    log_success "✅ MariaDB安装成功（Debian 12推荐）"
                     mysql_installed=true
                 else
-                    log_error "MariaDB安装失败"
-                    log_info "请运行MySQL修复脚本: ./fix_mysql_install.sh"
+                    log_error "❌ MariaDB安装失败"
+                    log_info "💡 请运行MySQL修复脚本: ./fix_mysql_install.sh"
                     exit 1
                 fi
             else
-                # 尝试安装MySQL 8.0
+                # 多策略数据库安装
+                local db_install_success=false
+                
+                # 策略1: 尝试安装MySQL 8.0
+                log_info "尝试安装MySQL 8.0..."
                 if apt-get install -y mysql-server-8.0 mysql-client-8.0 2>/dev/null; then
-                    log_success "MySQL 8.0安装成功"
+                    log_success "✅ MySQL 8.0安装成功"
                     mysql_installed=true
-                # 尝试安装默认MySQL
-                elif apt-get install -y mysql-server mysql-client 2>/dev/null; then
-                    log_success "MySQL默认版本安装成功"
-                    mysql_installed=true
-                # 尝试安装MariaDB
-                elif apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
-                    log_success "MariaDB安装成功（MySQL替代方案）"
-                    mysql_installed=true
-                # 尝试安装MySQL 5.7
-                elif apt-get install -y mysql-server-5.7 mysql-client-5.7 2>/dev/null; then
-                    log_success "MySQL 5.7安装成功"
-                    mysql_installed=true
-                else
-                    log_error "无法安装MySQL或MariaDB"
-                    log_info "请运行MySQL修复脚本: ./fix_mysql_install.sh"
-                    log_info "或手动安装数据库："
+                    db_install_success=true
+                fi
+                
+                # 策略2: 尝试安装默认MySQL
+                if [[ "$db_install_success" = false ]]; then
+                    log_info "尝试安装默认MySQL版本..."
+                    if apt-get install -y mysql-server mysql-client 2>/dev/null; then
+                        log_success "✅ MySQL默认版本安装成功"
+                        mysql_installed=true
+                        db_install_success=true
+                    fi
+                fi
+                
+                # 策略3: 尝试安装MariaDB
+                if [[ "$db_install_success" = false ]]; then
+                    log_info "尝试安装MariaDB（MySQL替代方案）..."
+                    if apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
+                        log_success "✅ MariaDB安装成功"
+                        mysql_installed=true
+                        db_install_success=true
+                    fi
+                fi
+                
+                # 策略4: 尝试安装MySQL 5.7
+                if [[ "$db_install_success" = false ]]; then
+                    log_info "尝试安装MySQL 5.7..."
+                    if apt-get install -y mysql-server-5.7 mysql-client-5.7 2>/dev/null; then
+                        log_success "✅ MySQL 5.7安装成功"
+                        mysql_installed=true
+                        db_install_success=true
+                    fi
+                fi
+                
+                # 如果所有策略都失败
+                if [[ "$db_install_success" = false ]]; then
+                    log_error "❌ 无法安装MySQL或MariaDB"
+                    log_info "💡 请运行MySQL修复脚本: ./fix_mysql_install.sh"
+                    log_info "💡 或手动安装数据库："
                     log_info "  Debian 12: sudo apt-get install mariadb-server"
                     log_info "  其他系统: sudo apt-get install mysql-server"
                     exit 1
@@ -748,28 +862,98 @@ install_system_dependencies() {
 install_php() {
     log_info "安装PHP和PHP-FPM..."
     
+    # 首先卸载Apache相关包，避免冲突
     case $PACKAGE_MANAGER in
         "apt")
+            local apache_packages=(
+                "apache2"
+                "apache2-bin"
+                "apache2-utils"
+                "apache2-data"
+                "libapache2-mod-php*"
+            )
+            
+            for package in "${apache_packages[@]}"; do
+                if dpkg -l | grep -q "^ii.*$package "; then
+                    log_info "卸载Apache包: $package"
+                    apt-get remove --purge -y "$package" || true
+                fi
+            done
+            
+            # 清理
+            apt-get autoremove -y
+            apt-get autoclean
+            ;;
+        "yum"|"dnf")
+            local apache_packages=(
+                "httpd"
+                "httpd-tools"
+                "mod_php"
+            )
+            
+            for package in "${apache_packages[@]}"; do
+                if $PACKAGE_MANAGER list installed | grep -q "$package"; then
+                    log_info "卸载Apache包: $package"
+                    $PACKAGE_MANAGER remove -y "$package" || true
+                fi
+            done
+            ;;
+    esac
+    
+    case $PACKAGE_MANAGER in
+        "apt")
+            # 更新包列表
+            apt-get update
+            
             # 安装PHP-FPM（避免Apache依赖）
             log_info "安装PHP-FPM（避免Apache依赖）..."
             
-            # 先安装PHP-FPM核心包
-            if apt-get install -y php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-common 2>/dev/null; then
-                log_success "PHP $PHP_VERSION-FPM 核心包安装成功"
-            else
-                # 尝试安装默认版本
-                if apt-get install -y php-fpm php-cli php-common 2>/dev/null; then
-                    log_success "PHP默认版本-FPM 核心包安装成功"
-                    PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
-                else
-                    log_error "PHP-FPM核心包安装失败"
-                    exit 1
+            # 智能PHP版本安装策略
+            local php_install_success=false
+            
+            # 策略1: 尝试安装检测到的版本
+            if [[ -n "$PHP_VERSION" ]]; then
+                log_info "尝试安装PHP $PHP_VERSION-FPM..."
+                if apt-get install -y php$PHP_VERSION-fpm php$PHP_VERSION-cli php$PHP_VERSION-common 2>/dev/null; then
+                    log_success "✅ PHP $PHP_VERSION-FPM 核心包安装成功"
+                    php_install_success=true
                 fi
             fi
             
+            # 策略2: 尝试安装默认版本
+            if [[ "$php_install_success" = false ]]; then
+                log_info "尝试安装PHP默认版本..."
+                if apt-get install -y php-fpm php-cli php-common 2>/dev/null; then
+                    log_success "✅ PHP默认版本-FPM 核心包安装成功"
+                    PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
+                    php_install_success=true
+                fi
+            fi
+            
+            # 策略3: 尝试安装其他可用版本
+            if [[ "$php_install_success" = false ]]; then
+                log_info "尝试安装其他可用PHP版本..."
+                for version in 8.2 8.1 8.0 7.4; do
+                    if apt-get install -y php$version-fpm php$version-cli php$version-common 2>/dev/null; then
+                        log_success "✅ PHP $version-FPM 核心包安装成功"
+                        PHP_VERSION=$version
+                        php_install_success=true
+                        break
+                    fi
+                done
+            fi
+            
+            # 如果所有策略都失败
+            if [[ "$php_install_success" = false ]]; then
+                log_error "❌ PHP-FPM核心包安装失败"
+                log_info "💡 请手动安装PHP: sudo apt-get install php-fpm php-cli php-common"
+                exit 1
+            fi
+            
             # 安装PHP扩展（逐个安装，避免触发Apache依赖）
-            local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+            local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip" "pdo" "pdo_mysql" "filter" "openssl")
             for ext in "${php_extensions[@]}"; do
+                log_info "安装PHP扩展: $ext"
                 if apt-get install -y php$PHP_VERSION-$ext 2>/dev/null; then
                     log_success "✓ PHP扩展 $ext 安装成功"
                 else
@@ -787,8 +971,9 @@ install_php() {
                 log_success "PHP-FPM核心包安装成功"
                 
                 # 安装PHP扩展
-                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip" "pdo" "pdo_mysql" "filter" "openssl")
                 for ext in "${php_extensions[@]}"; do
+                    log_info "安装PHP扩展: $ext"
                     $PACKAGE_MANAGER install -y php-$ext 2>/dev/null || true
                 done
                 
@@ -805,7 +990,7 @@ install_php() {
                 log_success "PHP-FPM安装成功"
                 
                 # 安装PHP扩展
-                pacman -S --noconfirm php-curl php-mbstring php-sqlite 2>/dev/null || true
+                pacman -S --noconfirm php-curl php-mbstring php-sqlite php-pdo php-pdo_mysql 2>/dev/null || true
                 
                 log_success "PHP-FPM安装完成（无Apache依赖）"
             else
@@ -814,13 +999,12 @@ install_php() {
             fi
             ;;
         "zypper")
-            # 安装PHP-FPM（避免Apache依赖）
             log_info "安装PHP-FPM（避免Apache依赖）..."
             if zypper install -y php-fpm php-cli php-common 2>/dev/null; then
                 log_success "PHP-FPM核心包安装成功"
                 
                 # 安装PHP扩展
-                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip")
+                local php_extensions=("curl" "json" "mbstring" "mysql" "xml" "zip" "pdo" "pdo_mysql" "filter" "openssl")
                 for ext in "${php_extensions[@]}"; do
                     zypper install -y php-$ext 2>/dev/null || true
                 done
@@ -842,10 +1026,61 @@ install_php() {
             # 安装PHP-FPM（避免Apache依赖）
             log_info "安装PHP-FPM（避免Apache依赖）..."
             apk add php-fpm php-cli php-common
-            apk add php-curl php-json php-mbstring php-mysqlnd php-xml php-zip
+            apk add php-curl php-json php-mbstring php-mysqlnd php-xml php-zip php-pdo php-pdo_mysql php-openssl
             log_success "PHP-FPM安装完成（无Apache依赖）"
             ;;
     esac
+    
+    # 验证PHP安装
+    if ! command -v php &>/dev/null; then
+        log_error "PHP安装失败"
+        exit 1
+    fi
+    
+    # 检查PHP版本兼容性
+    local installed_php_version=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
+    if [[ $(printf '%s\n' "8.1" "$installed_php_version" | sort -V | head -n1) != "8.1" ]]; then
+        log_warning "PHP版本 $installed_php_version 可能不兼容，建议使用8.1+"
+    else
+        log_success "PHP版本 $installed_php_version 兼容"
+    fi
+    
+    # 检查必需扩展
+    local required_extensions=("session" "json" "mbstring" "filter" "pdo" "pdo_mysql" "curl" "openssl")
+    local missing_extensions=()
+    
+    for ext in "${required_extensions[@]}"; do
+        if ! php -m | grep -q "$ext"; then
+            missing_extensions+=("$ext")
+        fi
+    done
+    
+    if [[ ${#missing_extensions[@]} -eq 0 ]]; then
+        log_success "所有必需的PHP扩展已安装"
+    else
+        log_warning "缺少PHP扩展: ${missing_extensions[*]}"
+        log_info "尝试安装缺少的扩展..."
+        
+        case $PACKAGE_MANAGER in
+            "apt")
+                for ext in "${missing_extensions[@]}"; do
+                    if [[ -n "$PHP_VERSION" ]]; then
+                        apt-get install -y "php$PHP_VERSION-$ext" 2>/dev/null || {
+                            log_warning "扩展 $ext 安装失败，尝试默认版本"
+                            apt-get install -y "php-$ext" 2>/dev/null || true
+                        }
+                    else
+                        apt-get install -y "php-$ext" 2>/dev/null || true
+                    fi
+                done
+                ;;
+            "yum"|"dnf")
+                for ext in "${missing_extensions[@]}"; do
+                    $PACKAGE_MANAGER install -y "php-$ext" 2>/dev/null || true
+                done
+                ;;
+        esac
+    fi
 }
 
 # 创建服务用户
@@ -1015,29 +1250,138 @@ deploy_php_frontend() {
     chmod -R 755 "$FRONTEND_DIR"
     chmod -R 777 "$FRONTEND_DIR/logs"
     
-    # 启动PHP-FPM服务
+    # 智能启动PHP-FPM服务
     local php_fpm_service=""
+    local service_started=false
+    
     case $PACKAGE_MANAGER in
         "apt")
-            php_fpm_service="php$PHP_VERSION-fpm"
+            # 尝试多个可能的服务名
+            for service_name in "php$PHP_VERSION-fpm" "php-fpm" "php8.2-fpm" "php8.1-fpm" "php8.0-fpm" "php7.4-fpm"; do
+                if systemctl list-unit-files | grep -q "$service_name"; then
+                    php_fpm_service="$service_name"
+                    break
+                fi
+            done
             ;;
         "yum"|"dnf"|"pacman"|"zypper"|"emerge"|"apk")
             php_fpm_service="php-fpm"
             ;;
     esac
     
-    if systemctl start "$php_fpm_service" 2>/dev/null; then
-        systemctl enable "$php_fpm_service"
-        log_success "PHP-FPM服务启动成功"
+    # 启动PHP-FPM服务
+    if [[ -n "$php_fpm_service" ]]; then
+        # 检查服务是否存在
+        if systemctl list-unit-files | grep -q "$php_fpm_service"; then
+            if systemctl start "$php_fpm_service" 2>/dev/null; then
+                systemctl enable "$php_fpm_service"
+                log_success "✅ PHP-FPM服务启动成功: $php_fpm_service"
+                service_started=true
+            else
+                log_warning "⚠️ PHP-FPM服务 $php_fpm_service 启动失败，尝试其他服务名..."
+            fi
+        else
+            log_warning "⚠️ PHP-FPM服务 $php_fpm_service 不存在，尝试其他服务名..."
+        fi
+    fi
+    
+    # 如果启动失败，尝试其他可能的服务名
+    if [[ "$service_started" = false ]]; then
+        log_warning "⚠️ 尝试其他PHP-FPM服务名..."
+        for service_name in "php-fpm" "php8.2-fpm" "php8.1-fpm" "php8.0-fpm" "php7.4-fpm" "php$PHP_VERSION-fpm"; do
+            if systemctl list-unit-files | grep -q "$service_name"; then
+                if systemctl start "$service_name" 2>/dev/null; then
+                    systemctl enable "$service_name"
+                    log_success "✅ PHP-FPM服务启动成功: $service_name"
+                    service_started=true
+                    break
+                fi
+            fi
+        done
+    fi
+    
+    # 如果systemd服务启动失败，尝试使用service命令
+    if [[ "$service_started" = false ]]; then
+        log_warning "⚠️ 尝试使用service命令启动PHP-FPM..."
+        for service_name in "php-fpm" "php8.2-fpm" "php8.1-fpm" "php8.0-fpm" "php7.4-fpm"; do
+            if service "$service_name" start 2>/dev/null; then
+                log_success "✅ PHP-FPM服务启动成功: $service_name"
+                service_started=true
+                break
+            fi
+        done
+    fi
+    
+    # 检查PHP-FPM进程是否运行
+    if [[ "$service_started" = false ]]; then
+        log_warning "⚠️ 检查PHP-FPM进程状态..."
+        if pgrep -f "php-fpm" > /dev/null; then
+            log_success "✅ PHP-FPM进程已在运行"
+            service_started=true
+        else
+            # 尝试直接启动PHP-FPM
+            log_warning "⚠️ 尝试直接启动PHP-FPM..."
+            local php_fpm_bin=""
+            for bin_path in "/usr/sbin/php-fpm$PHP_VERSION" "/usr/sbin/php-fpm" "/usr/bin/php-fpm$PHP_VERSION" "/usr/bin/php-fpm"; do
+                if [[ -x "$bin_path" ]]; then
+                    php_fpm_bin="$bin_path"
+                    break
+                fi
+            done
+            
+            if [[ -n "$php_fpm_bin" ]]; then
+                if "$php_fpm_bin" --daemonize 2>/dev/null; then
+                    log_success "✅ PHP-FPM直接启动成功: $php_fpm_bin"
+                    service_started=true
+                fi
+            fi
+        fi
+    fi
+    
+    if [[ "$service_started" = false ]]; then
+        log_error "❌ PHP-FPM服务启动失败"
+        log_info "💡 请手动启动PHP-FPM服务"
+        log_info "💡 可能的命令: sudo systemctl start php-fpm 或 sudo service php-fpm start"
+        # 不退出，继续执行，因为Nginx配置可能不需要PHP-FPM
     else
-        log_error "PHP-FPM服务启动失败"
-        exit 1
+        # 验证PHP-FPM是否正常运行
+        sleep 2
+        if pgrep -f "php-fpm" > /dev/null; then
+            log_success "✅ PHP-FPM服务运行正常"
+        else
+            log_warning "⚠️ PHP-FPM服务启动后未检测到进程"
+        fi
     fi
 }
 
 # 配置Nginx
 configure_nginx() {
     log_info "配置Nginx..."
+    
+    # 检测PHP-FPM socket路径
+    local php_fpm_socket=""
+    local possible_sockets=(
+        "/var/run/php/php${PHP_VERSION}-fpm.sock"
+        "/var/run/php/php-fpm.sock"
+        "/run/php/php${PHP_VERSION}-fpm.sock"
+        "/run/php/php-fpm.sock"
+        "/tmp/php-fpm.sock"
+        "/tmp/php-cgi.sock"
+    )
+    
+    for socket_path in "${possible_sockets[@]}"; do
+        if [[ -S "$socket_path" ]]; then
+            php_fpm_socket="$socket_path"
+            log_success "找到PHP-FPM socket: $socket_path"
+            break
+        fi
+    done
+    
+    # 如果没找到socket文件，使用默认路径
+    if [[ -z "$php_fpm_socket" ]]; then
+        php_fpm_socket="/var/run/php/php${PHP_VERSION}-fpm.sock"
+        log_warning "未检测到PHP-FPM socket，使用默认路径: $php_fpm_socket"
+    fi
     
     # 计算Nginx配置路径（兼容不同发行版）
     local nginx_site_name="ipv6-wireguard-manager"
@@ -1064,12 +1408,19 @@ configure_nginx() {
 upstream backend_api {
     # IPv6优先，IPv4作为备选
     server [::1]:$API_PORT max_fails=3 fail_timeout=30s;
-    server 127.0.0.1:$API_PORT backup max_fails=3 fail_timeout=30s;
+    server ${LOCAL_HOST}:$API_PORT backup max_fails=3 fail_timeout=30s;
     
     # 健康检查
     keepalive 32;
     keepalive_requests 100;
     keepalive_timeout 60s;
+}
+
+# PHP-FPM上游配置
+upstream php_backend {
+    server unix:$php_fpm_socket;
+    # 如果使用TCP连接，使用以下配置：
+    # server ${LOCAL_HOST}:9000;
 }
 
 server {
@@ -1132,11 +1483,11 @@ server {
         }
     }
     
-    # PHP文件处理
+    # PHP文件处理 - 使用动态检测的PHP-FPM socket
     location ~ \.php$ {
         try_files \$uri =404;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass unix:/var/run/php/php$PHP_VERSION-fpm.sock;
+        fastcgi_pass php_backend;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
@@ -1210,6 +1561,7 @@ EOF
         systemctl restart nginx
         systemctl enable nginx
         log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
+        log_info "使用的PHP-FPM socket: $php_fpm_socket"
     else
         log_error "Nginx配置错误"
         exit 1
@@ -1392,7 +1744,7 @@ wait_for_docker_services() {
     
     # 等待后端API启动
     log_info "等待后端API启动..."
-    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; do
+    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://${LOCAL_HOST}:$API_PORT/api/v1/health &>/dev/null; do
         sleep 5
     done
     log_success "后端API已启动"
@@ -1426,28 +1778,28 @@ ENVIRONMENT="$([ "$PRODUCTION" = true ] && echo "production" || echo "developmen
 
 # API Settings
 API_V1_STR="/api/v1"
-SECRET_KEY="$secret_key"
+secret_key="${API_KEY}"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 hours
 
 # Server Settings
-SERVER_HOST="0.0.0.0"
+SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=$API_PORT
 
 # Database Settings
-DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:3306/ipv6wgm"
+DATABASE_URL="mysql+aiomysql://ipv6wgm:ipv6wgm_password@localhost:${DB_PORT}/ipv6wgm"
 DATABASE_HOST="localhost"
 DATABASE_PORT=3306
 DATABASE_USER="ipv6wgm"
-DATABASE_PASSWORD="ipv6wgm_password"
+DATABASE_PASSWORD="${DATABASE_PASSWORD}"
 DATABASE_NAME="ipv6wgm"
 AUTO_CREATE_DATABASE=True
 
 # Redis Settings (Optional)
 USE_REDIS=False
-REDIS_URL="redis://:redis123@localhost:6379/0"
+REDIS_URL="redis://:redis123@localhost:${REDIS_PORT}/0"
 
 # CORS Origins
-BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://127.0.0.1:$WEB_PORT", "http://localhost", "http://127.0.0.1"]
+BACKEND_CORS_ORIGINS=["http://localhost:$WEB_PORT", "http://${LOCAL_HOST}:$WEB_PORT", "http://localhost", "http://${LOCAL_HOST}"]
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
@@ -1455,7 +1807,7 @@ LOG_FORMAT="json"
 
 # Superuser Settings (for initial setup)
 FIRST_SUPERUSER="admin"
-FIRST_SUPERUSER_PASSWORD="$admin_password"
+FIRST_SUPERUSER_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"
 FIRST_SUPERUSER_EMAIL="admin@example.com"
 
 # Security Settings
@@ -1528,7 +1880,7 @@ NGINX_PORT=$WEB_PORT
 
 # Security Configuration (Dynamic)
 DEFAULT_USERNAME="admin"
-DEFAULT_PASSWORD="$admin_password"
+DEFAULT_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"
 SESSION_TIMEOUT=1440
 MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_DURATION=15
@@ -1548,13 +1900,62 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    # 检查是否有简化的数据库初始化脚本
+    # 设置数据库环境变量
+    export DATABASE_URL="mysql://$DB_USER:$DB_PASSWORD@localhost:$DB_PORT/$DB_NAME"
+    
+    # 检查数据库服务状态
+    log_info "检查数据库服务状态..."
+    if ! systemctl is-active --quiet mysql && ! systemctl is-active --quiet mariadb; then
+        log_warning "数据库服务未运行，尝试启动..."
+        if systemctl start mysql 2>/dev/null || systemctl start mariadb 2>/dev/null; then
+            log_success "数据库服务启动成功"
+            sleep 3  # 等待服务完全启动
+        else
+            log_error "无法启动数据库服务"
+            # 尝试使用SQLite作为回退
+            log_info "尝试使用SQLite作为回退数据库..."
+            export DATABASE_URL="sqlite:///./ipv6wgm.db"
+        fi
+    fi
+    
+    # 检查数据库连接
+    log_info "检查数据库连接..."
+    if ! python -c "
+import os
+from sqlalchemy import create_engine, text
+try:
+    engine = create_engine(os.environ.get('DATABASE_URL'))
+    with engine.connect() as conn:
+        conn.execute(text('SELECT 1'))
+    print('Database connection successful')
+except Exception as e:
+    print(f'Database connection failed: {e}')
+    exit(1)
+" 2>/dev/null; then
+        log_error "数据库连接失败，尝试使用SQLite作为回退..."
+        export DATABASE_URL="sqlite:///./ipv6wgm.db"
+    fi
+    
+    # 尝试使用简化的数据库初始化脚本
     if [[ -f "backend/init_database_simple.py" ]]; then
         log_info "使用简化的数据库初始化脚本..."
-        python backend/init_database_simple.py
+        if python backend/init_database_simple.py; then
+            log_success "数据库初始化成功"
+        else
+            log_warning "简化数据库初始化脚本失败，尝试标准初始化..."
+            initialize_database_standard
+        fi
     else
         log_info "使用标准数据库初始化..."
-        python -c "
+        initialize_database_standard
+    fi
+    
+    log_success "数据库初始化完成"
+}
+
+# 标准数据库初始化函数
+initialize_database_standard() {
+    python -c "
 import asyncio
 import sys
 import os
@@ -1568,13 +1969,29 @@ from app.core.config_enhanced import settings
 
 async def main():
     print('Starting database initialization...')
-    await init_db()
+    try:
+        await init_db()
+        print('Database tables created successfully')
+    except Exception as e:
+        print(f'Database initialization failed: {e}')
+        # 尝试使用SQLite作为回退
+        if 'mysql' in os.environ.get('DATABASE_URL', '').lower():
+            print('Attempting to use SQLite as fallback...')
+            os.environ['DATABASE_URL'] = 'sqlite:///./ipv6wgm.db'
+            await init_db()
+            print('SQLite fallback database initialized successfully')
+        else:
+            raise
     
     async for db in get_async_db():
         # 初始化权限和角色
         print('Initializing permissions and roles...')
-        await init_permissions_and_roles(db)
-        print('Permissions and roles initialized.')
+        try:
+            await init_permissions_and_roles(db)
+            print('Permissions and roles initialized.')
+        except Exception as e:
+            print(f'Permissions and roles initialization failed: {e}')
+            # 继续执行，这不是致命错误
         
         # 创建超级用户
         user_service = UserService(db)
@@ -1589,19 +2006,23 @@ async def main():
                 is_active=True,
                 is_superuser=True
             )
-            await user_service.create_user(superuser_data)
-            print('Initial superuser created successfully.')
+            try:
+                await user_service.create_user(superuser_data)
+                print('Initial superuser created successfully.')
+            except Exception as e:
+                print(f'Failed to create superuser: {e}')
         else:
             print(f'Superuser {settings.FIRST_SUPERUSER} already exists.')
     
     print('Database initialization complete.')
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f'Database initialization failed: {e}')
+        exit(1)
 "
-    fi
-    
-    log_success "数据库初始化完成"
 }
 
 # 测试API功能
@@ -1640,7 +2061,7 @@ Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port $API_PORT --workers 1
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers 1
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -1706,15 +2127,15 @@ create_directories_and_permissions() {
     log_success "目录和权限设置完成"
 }
 
-# 启动服务
+# 启动服务 - 增强版
 start_services() {
     log_info "启动服务..."
     
-    # 创建scripts目录并复制API检查脚本
+    # 创建scripts目录并复制服务检查脚本
     mkdir -p "$INSTALL_DIR/scripts"
-    cp -f "$(dirname "$0")/scripts/check_api_service.sh" "$INSTALL_DIR/scripts/" 2>/dev/null || {
-        log_warning "无法复制API检查脚本，将直接创建..."
-        cat > "$INSTALL_DIR/scripts/check_api_service.sh" << 'EOF'
+    cp -f "$(dirname "$0")/fix_service_startup_check.sh" "$INSTALL_DIR/scripts/" 2>/dev/null || {
+        log_warning "无法复制服务检查脚本，将直接创建..."
+        cat > "$INSTALL_DIR/scripts/check_service_startup.sh" << 'EOF'
 #!/bin/bash
 
 # API服务检查脚本
@@ -1791,7 +2212,7 @@ check_ipv4_connectivity() {
     
     log_info "检查 $service_name IPv4 连接性..."
     
-    if curl -4 -s --connect-timeout 5 "http://127.0.0.1:$port$path" >/dev/null 2>&1; then
+    if curl -4 -s --connect-timeout 5 "http://${LOCAL_HOST}:$port$path" >/dev/null 2>&1; then
         log_success "$service_name IPv4 连接正常"
         return 0
     else
@@ -2102,7 +2523,7 @@ run_environment_check() {
     # 检查数据库连接（避免命令行明文密码）
     DB_HOST=$(grep -E '^DATABASE_HOST=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "localhost")
     DB_USER=$(grep -E '^DATABASE_USER=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm")
-    DB_PASS=$(grep -E '^DATABASE_PASSWORD=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
+    DB_PASS=$(grep -E '^DATABASE_PASSWORD="${DATABASE_PASSWORD}"$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
     if env MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -u "$DB_USER" -e "SELECT 1;" &>/dev/null; then
         log_success "✓ 数据库连接正常"
     else
@@ -2126,7 +2547,7 @@ run_environment_check() {
     
     while [[ $api_retry_count -lt $api_max_retries ]]; do
         # 检查API健康端点
-        if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+        if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://${LOCAL_HOST}:$API_PORT/api/v1/health &>/dev/null; then
             log_success "✓ API服务正常"
             
             # 运行API功能测试

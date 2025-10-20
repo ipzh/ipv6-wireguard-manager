@@ -1,0 +1,36 @@
+{
+  "database": {
+    "port": "${DB_PORT}",
+    "host": "${SERVER_HOST}"
+  },
+  "redis": {
+    "port": "${REDIS_PORT}",
+    "host": "${SERVER_HOST}"
+  },
+  "api": {
+    "port": "${API_PORT}",
+    "host": "${SERVER_HOST}"
+  },
+  "frontend": {
+    "port": "${FRONTEND_PORT}"
+  },
+  "admin": {
+    "port": "${ADMIN_PORT}",
+    "host": "${SERVER_HOST}"
+  },
+  "wireguard": {
+    "port": "${WG_PORT}",
+    "network": "${WG_NETWORK}"
+  },
+  "security": {
+    "secret_key": "${SECRET_KEY}",
+    "jwt_secret_key": "${JWT_SECRET_KEY}",
+    "hashed_password": "${HASHED_PASSWORD}",
+    "api_token": "${API_TOKEN}",
+    "api_key": "${API_KEY}",
+    "hardware_key": "${HARDWARE_KEY}"
+  },
+  "smtp": {
+    "password": "${SMTP_PASSWORD}"
+  }
+}

@@ -125,7 +125,7 @@ cp ../env.template .env
 python -m alembic upgrade head
 
 # 6. 启动开发服务器
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host ${SERVER_HOST} --port 8000 --reload
 ```
 
 #### 前端开发设置
@@ -142,7 +142,7 @@ npm install
 # 确保 API_CONFIG.BASE_URL 指向正确的后端地址
 
 # 4. 启动PHP开发服务器
-php -S localhost:8080 -t .
+php -S localhost:${ADMIN_PORT} -t .
 ```
 
 #### 依赖注入设置
@@ -207,7 +207,7 @@ setup_services()
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/backend/venv/bin/uvicorn",
-            "args": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+            "args": ["app.main:app", "--host", "${SERVER_HOST}", "--port", "8000", "--reload"],
             "cwd": "${workspaceFolder}/backend",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/backend"
@@ -305,8 +305,6 @@ python -m venv venv
 
 # 激活虚拟环境
 source venv/bin/activate  # Linux/macOS
-# 或
-venv\Scripts\activate  # Windows
 
 # 安装依赖
 pip install -r requirements.txt
@@ -362,10 +360,10 @@ nano .env
 # .env 文件内容
 DEBUG=true
 LOG_LEVEL=DEBUG
-DATABASE_URL=mysql://ipv6wgm_dev:dev_password@localhost:3306/ipv6wgm_dev
+DATABASE_URL=mysql://ipv6wgm_dev:dev_password@localhost:${DB_PORT}/ipv6wgm_dev
 SECRET_KEY=dev_secret_key_change_in_production
 API_V1_STR=/api/v1
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 ```
 
@@ -374,11 +372,11 @@ SERVER_PORT=8000
 ```bash
 # 启动后端服务
 cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host ${SERVER_HOST} --port 8000 --reload
 
 # 启动前端服务 (另一个终端)
 cd php-frontend
-php -S localhost:8080
+php -S localhost:${ADMIN_PORT}
 ```
 
 ## 代码规范
@@ -449,7 +447,7 @@ def create_wireguard_client(
     name: str,
     server_id: int,
     public_key: str,
-    allowed_ips: str = "0.0.0.0/0"
+    allowed_ips: str = "${SERVER_HOST}/0"
 ) -> Dict[str, str]:
     """
     创建WireGuard客户端
@@ -471,7 +469,7 @@ def create_wireguard_client(
         >>> client = create_wireguard_client(
         ...     name="test_client",
         ...     server_id=1,
-        ...     public_key="ABC123..."
+        ...     public_key="${API_KEY}"
         ... )
         >>> print(client['config'])
     """
@@ -484,7 +482,7 @@ def create_wireguard_client(
 
 ```javascript
 // 使用ES6+语法
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:${API_PORT}/api/v1';
 
 // 函数定义
 const createWireGuardClient = async (clientData) => {
@@ -1001,7 +999,7 @@ async def test_user(db: AsyncSession):
     user = User(
         username="testuser",
         email="test@example.com",
-        hashed_password="hashed_password"
+        hashed_password="${HASHED_PASSWORD}"
     )
     db.add(user)
     await db.commit()
@@ -1457,7 +1455,7 @@ class ApiPathBuilder {
     public function getBaseUrl(): string {
         switch ($this->environment) {
             case 'development':
-                return 'http://localhost:8000';
+                return 'http://localhost:${API_PORT}';
             case 'staging':
                 return 'https://staging-api.example.com';
             case 'production':
@@ -1482,7 +1480,7 @@ class ApiPathBuilder {
     getBaseUrl() {
         switch (this.environment) {
             case 'development':
-                return 'http://localhost:8000';
+                return 'http://localhost:${API_PORT}';
             case 'staging':
                 return 'https://staging-api.example.com';
             case 'production':
@@ -1558,7 +1556,7 @@ class ApiPathBuilderTest extends PHPUnit\Framework\TestCase {
     
     public function testGetUrl(): void {
         $this->assertEquals(
-            'http://localhost:8000/api/v1/auth/login',
+            'http://localhost:${API_PORT}/api/v1/auth/login',
             $this->pathBuilder->getUrl('auth.login')
         );
     }
@@ -1587,7 +1585,7 @@ describe('ApiPathBuilder', () => {
     
     test('getUrl returns full URL', () => {
         expect(pathBuilder.getUrl('auth.login'))
-            .toBe('http://localhost:8000/api/v1/auth/login');
+            .toBe('http://localhost:${API_PORT}/api/v1/auth/login');
     });
 });
 ```
@@ -1615,7 +1613,7 @@ $paths = [
 
 // 根据版本获取路径
 public function getPath(string $pathKey, array $params = [], string $version = 'v1'): string {
-    $versionedKey = "{$version}.{$pathKey}";
+    $versionedkey="${API_KEY}";
     // 实现逻辑...
 }
 ```
@@ -1664,7 +1662,7 @@ class ApiPathBuilder {
 
 ```php
 // 旧代码
-$url = 'http://localhost:8000/api/v1/users/' . $userId;
+$url = 'http://localhost:${API_PORT}/api/v1/users/' . $userId;
 
 // 新代码
 $pathBuilder = ApiPathBuilder::getInstance();
@@ -1786,7 +1784,7 @@ jobs:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: ipv6wgm_test
         ports:
-          - 3306:3306
+          - 3306:${DB_PORT}
     
     steps:
     - uses: actions/checkout@v3

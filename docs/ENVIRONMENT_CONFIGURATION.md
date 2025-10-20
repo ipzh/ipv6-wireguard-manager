@@ -22,7 +22,7 @@ LOG_LEVEL=INFO
 LOG_FORMAT=json
 
 # 服务器配置
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 SERVER_WORKERS=4
 ```
@@ -41,14 +41,14 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 ALGORITHM=HS256
 
 # CORS配置
-BACKEND_CORS_ORIGINS=["http://localhost:3000","https://localhost:3000","http://localhost","https://localhost"]
+BACKEND_CORS_ORIGINS=["http://localhost:${FRONTEND_PORT}","https://localhost:${FRONTEND_PORT}","http://localhost","https://localhost"]
 ```
 
 #### 1.3 数据库配置
 
 ```bash
 # 数据库连接
-DATABASE_URL=mysql://ipv6wgm:password@localhost:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm
 DATABASE_HOST=localhost
 DATABASE_PORT=3306
 DATABASE_NAME=ipv6wgm
@@ -112,7 +112,7 @@ WIREGUARD_PRIVATE_KEY=base64_encoded_private_key
 WIREGUARD_PUBLIC_KEY=base64_encoded_public_key
 WIREGUARD_PORT=51820
 WIREGUARD_INTERFACE=wg0
-WIREGUARD_NETWORK=10.0.0.0/24
+WIREGUARD_NETWORK=1${SERVER_HOST}/24
 WIREGUARD_IPV6_NETWORK=fd00::/64
 WIREGUARD_DNS=8.8.8.8,8.8.4.4
 WIREGUARD_MTU=1420
@@ -122,7 +122,7 @@ WIREGUARD_MTU=1420
 
 ```bash
 # 客户端默认配置
-WIREGUARD_CLIENT_DEFAULT_ALLOWED_IPS=0.0.0.0/0,::/0
+WIREGUARD_CLIENT_DEFAULT_ALLOWED_IPS=${SERVER_HOST}/0,::/0
 WIREGUARD_CLIENT_DEFAULT_PERSISTENT_KEEPALIVE=25
 WIREGUARD_CLIENT_DEFAULT_MTU=1420
 ```
@@ -153,7 +153,7 @@ SECURITY_HEADERS_ENABLED=true
 CORS_ALLOW_CREDENTIALS=true
 CORS_ALLOW_METHODS=["GET","POST","PUT","DELETE","OPTIONS"]
 CORS_ALLOW_HEADERS=["*"]
-TRUSTED_HOSTS=["localhost","127.0.0.1","your-domain.com"]
+TRUSTED_HOSTS=["localhost","${LOCAL_HOST}","your-domain.com"]
 ```
 
 ### 5. 监控配置
@@ -239,10 +239,10 @@ LOG_LEVEL=DEBUG
 LOG_FORMAT=text
 
 # 开发数据库
-DATABASE_URL=mysql://ipv6wgm_dev:dev_password@localhost:3306/ipv6wgm_dev
+DATABASE_URL=mysql://ipv6wgm_dev:dev_password@localhost:${DB_PORT}/ipv6wgm_dev
 
 # 开发服务器
-SERVER_HOST=127.0.0.1
+SERVER_HOST=${LOCAL_HOST}
 SERVER_PORT=8000
 
 # 开发路径
@@ -252,7 +252,7 @@ LOG_DIR=/home/developer/ipv6-wireguard-manager/logs
 
 # 开发安全配置
 SECRET_KEY=dev_secret_key_not_for_production
-CORS_ALLOW_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+CORS_ALLOW_ORIGINS=["http://localhost:${FRONTEND_PORT}","http://localhost:${ADMIN_PORT}"]
 ```
 
 #### 1.2 开发配置特点
@@ -273,10 +273,10 @@ LOG_LEVEL=INFO
 LOG_FORMAT=json
 
 # 测试数据库
-DATABASE_URL=mysql://ipv6wgm_test:test_password@test-db:3306/ipv6wgm_test
+DATABASE_URL=mysql://ipv6wgm_test:test_password@test-db:${DB_PORT}/ipv6wgm_test
 
 # 测试服务器
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 测试路径
@@ -307,10 +307,10 @@ LOG_LEVEL=WARNING
 LOG_FORMAT=json
 
 # 生产数据库
-DATABASE_URL=mysql://ipv6wgm:secure_password@prod-db:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:secure_password@prod-db:${DB_PORT}/ipv6wgm
 
 # 生产服务器
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 SERVER_WORKERS=8
 
@@ -361,7 +361,7 @@ config/
     "description": "现代化的企业级IPv6 WireGuard VPN管理系统"
   },
   "server": {
-    "host": "0.0.0.0",
+    "host": "${SERVER_HOST}",
     "port": 8000,
     "workers": 4
   },
@@ -396,8 +396,8 @@ config/
     "log_level": "DEBUG",
     "log_format": "text",
     "cors_origins": [
-      "http://localhost:3000",
-      "http://localhost:8080"
+      "http://localhost:${FRONTEND_PORT}",
+      "http://localhost:${ADMIN_PORT}"
     ]
   },
   "production": {
@@ -529,11 +529,11 @@ DEBUG=false
 LOG_LEVEL=INFO
 
 # 服务器配置
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 数据库配置
-DATABASE_URL=mysql://ipv6wgm:password@localhost:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm
 
 # 安全配置
 SECRET_KEY=your_secret_key_here
@@ -547,7 +547,7 @@ LOG_DIR=/var/log/ipv6-wireguard-manager
 # WireGuard配置
 WIREGUARD_PORT=51820
 WIREGUARD_INTERFACE=wg0
-WIREGUARD_NETWORK=10.0.0.0/24
+WIREGUARD_NETWORK=1${SERVER_HOST}/24
 
 # 监控配置
 ENABLE_METRICS=true

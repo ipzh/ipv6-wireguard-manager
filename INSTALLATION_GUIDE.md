@@ -402,7 +402,7 @@ sudo netstat -tlnp | grep -E ":(80|8000) "
 curl -f http://localhost/
 
 # 测试API访问
-curl -f http://localhost:8000/api/v1/health
+curl -f http://localhost:${API_PORT}/api/v1/health
 
 # 检查日志
 sudo journalctl -u ipv6-wireguard-manager -f

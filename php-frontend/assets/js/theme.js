@@ -5,7 +5,7 @@
 
 class ThemeManager {
     constructor() {
-        this.themeKey = 'ipv6_wg_theme';
+        this.themekey="${API_KEY}";
         this.currentTheme = this.getStoredTheme() || this.getSystemTheme();
         this.init();
     }
@@ -105,9 +105,26 @@ class ThemeManager {
     }
     
     /**
+     * 检查Bootstrap Icons依赖
+     */
+    checkBootstrapIcons() {
+        if (!document.querySelector('link[href*="bootstrap-icons"]') && 
+            !document.querySelector('link[href*="bootstrap-icons.css"]')) {
+            console.warn('Bootstrap Icons未加载，主题图标可能无法正确显示');
+            return false;
+        }
+        return true;
+    }
+    
+    /**
      * 获取主题图标
      */
     getThemeIcon(theme) {
+        // 检查Bootstrap Icons是否可用
+        if (!this.checkBootstrapIcons()) {
+            // 回退到Unicode图标
+            return theme === 'light' ? '🌙' : '☀️';
+        }
         return theme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
     }
     

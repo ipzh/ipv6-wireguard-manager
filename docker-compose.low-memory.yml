@@ -1,88 +1,207 @@
 version: '3.8'
 
-services:
-  # MySQL数据库（低内存优化）
-  mysql:
-    image: mysql:8.0
-    container_name: ipv6wgm-mysql-low
-    environment:
-      MYSQL_DATABASE: ipv6wgm
-      MYSQL_USER: ipv6wgm
-      MYSQL_PASSWORD: password
-      MYSQL_ROOT_PASSWORD: rootpassword
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf
-    ports:
-      - "3306:3306"
-    networks:
-      - ipv6wgm-network
-    restart: unless-stopped
-    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=64M --max-connections=50
+# 低内存环境优化配置
+# 适用于内存 < 2GB 的服务器
 
-  # 后端API服务（低内存优化）
+services:
+  # 后端API服务 - 低内存优化
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ipv6wgm-backend-low
+    container_name: ipv6-wireguard-backend
+    ports:
+      - "${API_PORT:-8000}:${API_PORT}"
     environment:
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
-      - SECRET_KEY=your-secret-key-here
-      - DEBUG=false
+      # 路径配置
+      - INSTALL_DIR=/app
+      - CONFIG_DIR=/app/config
+      - LOG_DIR=/app/logs
+      - DATA_DIR=/app/data
+      - BACKUP_DIR=/app/backups
+      - CACHE_DIR=/app/cache
+      
+      # 数据库配置 - 低内存优化
+      - DATABASE_URL=mysql://ipv6wgm:${MYSQL_ROOT_PASSWORD:-password}@mysql:${DB_PORT}/ipv6wgm
       - DATABASE_POOL_SIZE=5
       - DATABASE_MAX_OVERFLOW=10
-      - MAX_WORKERS=2
+      
+      # API配置
+      - API_V1_STR=/api/v1
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      
+      # 服务器配置
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=8000
+      
+      # 安全配置
+      - FIRST_SUPERUSER=${FIRST_SUPERUSER:-admin}
+      - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD:-admin123}
+      - FIRST_SUPERUSER_EMAIL=${FIRST_SUPERUSER_EMAIL:-admin@example.com}
+      
+      # WireGuard配置
+      - WIREGUARD_PORT=${WIREGUARD_PORT:-51820}
+      - WIREGUARD_INTERFACE=${WIREGUARD_INTERFACE:-wg0}
+      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK:-1${SERVER_HOST}/24}
+      - WIREGUARD_IPV6_NETWORK=${WIREGUARD_IPV6_NETWORK:-fd00::/64}
+      
+      # 日志配置 - 低内存优化
+      - LOG_LEVEL=WARNING
+      - LOG_FORMAT=simple
+      
+      # 监控配置 - 禁用部分功能
+      - ENABLE_METRICS=false
+      - METRICS_PORT=9090
+      - ENABLE_HEALTH_CHECK=true
+      
+      # 开发配置
+      - DEBUG=false
+      - ENVIRONMENT=production
+      
+      # 低内存优化配置
+      - PYTHONUNBUFFERED=1
+      - PYTHONOPTIMIZE=1
+      - MALLOC_ARENA_MAX=2
+    depends_on:
+      mysql:
+        condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./data:/app/data
       - /etc/wireguard:/etc/wireguard:ro
-    ports:
-      - "8000:8000"
-    depends_on:
-      - mysql
     networks:
-      - ipv6wgm-network
+      - wireguard-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:${API_PORT:-8000}/api/v1/health', timeout=5)"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
     deploy:
       resources:
         limits:
           memory: 512M
+          cpus: '0.5'
         reservations:
           memory: 256M
+          cpus: '0.25'
 
-  # 前端服务 (包含Nginx)
+  # 前端Web服务 - 低内存优化
   frontend:
     build:
-      context: ./frontend
+      context: ./php-frontend
       dockerfile: Dockerfile
-    container_name: ipv6wgm-frontend-low
-    environment:
-      - VITE_API_URL=http://backend:8000
-      - VITE_WS_URL=ws://backend:8000
+    container_name: ipv6-wireguard-frontend
     ports:
-      - "3000:80"
+      - "${WEB_PORT:-80}:80"
+    environment:
+      # 路径配置
+      - FRONTEND_DIR=/var/www/html
+      - LOG_DIR=/var/log/nginx
+      
+      # API配置
+      - API_BASE_URL=http://backend:${API_PORT:-8000}/api/v1
+      - API_VERSION=v1
+      - API_TIMEOUT=30
+      
+      # 应用配置
+      - APP_NAME=${APP_NAME:-IPv6 WireGuard Manager}
+      - APP_VERSION=${APP_VERSION:-3.0.0}
+      - APP_ENV=production
+      
+      # 安全配置
+      - SESSION_TIMEOUT=720
+      - MAX_LOGIN_ATTEMPTS=3
+      - LOCKOUT_DURATION=10
+      
+      # 低内存优化配置
+      - NGINX_WORKER_PROCESSES=1
+      - NGINX_WORKER_CONNECTIONS=512
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./php-frontend:/var/www/html
+      - ./logs/nginx:/var/log/nginx
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     networks:
-      - ipv6wgm-network
+      - wireguard-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
           memory: 256M
+          cpus: '0.25'
         reservations:
           memory: 128M
+          cpus: '0.1'
 
+  # MySQL数据库 - 低内存优化
+  mysql:
+    image: mysql:8.0
+    container_name: ipv6-wireguard-mysql
+    ports:
+      - "${MYSQL_PORT:-3306}:${DB_PORT}"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_DATABASE=ipv6wgm
+      - MYSQL_USER=ipv6wgm
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      
+      # MySQL配置 - 低内存优化
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+      - MYSQL_INNODB_BUFFER_POOL_SIZE=128M
+      - MYSQL_INNODB_LOG_FILE_SIZE=32M
+      - MYSQL_INNODB_FLUSH_LOG_AT_TRX_COMMIT=2
+      - MYSQL_INNODB_FLUSH_METHOD=O_DIRECT
+      - MYSQL_QUERY_CACHE_SIZE=0
+      - MYSQL_QUERY_CACHE_TYPE=0
+      - MYSQL_TABLE_OPEN_CACHE=64
+      - MYSQL_THREAD_CACHE_SIZE=4
+      - MYSQL_MAX_CONNECTIONS=50
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - wireguard-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-password}"]
+      interval: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    command: --default-authentication-plugin=mysql_native_password
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+# 网络配置
+networks:
+  wireguard-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# 数据卷配置
 volumes:
   mysql_data:
-
-networks:
-  ipv6wgm-network:
-    driver: bridge
-    enable_ipv6: true
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.18.0.0/16
-        - subnet: 2001:db8::/64
+    driver: local

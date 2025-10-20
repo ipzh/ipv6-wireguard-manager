@@ -120,14 +120,6 @@ set_permissions() {
     
     chmod +x deploy.sh
     
-    if [ -f "deploy.bat" ]; then
-        log_info "Windows批处理脚本已准备就绪"
-    fi
-    
-    if [ -f "deploy.ps1" ]; then
-        log_info "PowerShell脚本已准备就绪"
-    fi
-    
     log_success "脚本权限设置完成"
 }
 
@@ -192,8 +184,6 @@ show_usage() {
     echo
     echo "使用方法:"
     echo "  Linux/macOS: ./deploy.sh production --backup"
-    echo "  Windows:     deploy\\deploy.bat production --backup"
-    echo "  PowerShell:  .\\deploy.ps1 production -Backup"
     echo
     echo "下一步:"
     echo "1. 编辑 deploy.conf 配置文件"

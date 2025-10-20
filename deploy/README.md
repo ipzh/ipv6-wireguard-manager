@@ -21,30 +21,6 @@ chmod +x deploy/deploy.sh
 ./deploy/deploy.sh production --dry-run
 ```
 
-#### Windows (批处理)
-```cmd
-# 部署到生产环境
-deploy\deploy.bat production --backup
-
-# 部署到测试环境，不创建备份
-deploy\deploy.bat staging --no-backup
-
-# 模拟运行
-deploy\deploy.bat production --dry-run
-```
-
-#### Windows (PowerShell)
-```powershell
-# 部署到生产环境
-.\deploy\deploy.ps1 production -Backup
-
-# 部署到测试环境，不创建备份
-.\deploy\deploy.ps1 staging -NoBackup
-
-# 模拟运行
-.\deploy\deploy.ps1 production -DryRun
-```
-
 ### 2. GitHub Actions 自动部署
 
 当代码推送到特定分支时，会自动触发部署：
@@ -112,15 +88,15 @@ ssh -p 22 user@your-server.com
 - `development` - 开发环境
 
 ### 部署选项
-- `--backup` / `-Backup` - 创建备份（默认）
-- `--no-backup` / `-NoBackup` - 不创建备份
-- `--restart` / `-Restart` - 重启服务（默认）
-- `--no-restart` / `-NoRestart` - 不重启服务
-- `--cache` / `-Cache` - 清除缓存（默认）
-- `--no-cache` / `-NoCache` - 不清除缓存
-- `--test` / `-Test` - 运行测试
-- `--dry-run` / `-DryRun` - 模拟运行
-- `--help` / `-Help` - 显示帮助信息
+- `--backup` - 创建备份（默认）
+- `--no-backup` - 不创建备份
+- `--restart` - 重启服务（默认）
+- `--no-restart` - 不重启服务
+- `--cache` - 清除缓存（默认）
+- `--no-cache` - 不清除缓存
+- `--test` - 运行测试
+- `--dry-run` - 模拟运行
+- `--help` - 显示帮助信息
 
 ## 🔧 部署流程
 

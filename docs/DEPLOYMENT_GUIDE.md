@@ -10,7 +10,7 @@
 
 | 组件 | 最低要求 | 推荐配置 |
 |------|----------|----------|
-| **操作系统** | Linux/macOS/Windows | Ubuntu 20.04+ / CentOS 8+ |
+| **操作系统** | Linux/macOS | Ubuntu 20.04+ / CentOS 8+ |
 | **CPU** | 2核心 | 4核心+ |
 | **内存** | 2GB | 8GB+ |
 | **存储** | 10GB | 50GB+ SSD |
@@ -112,7 +112,7 @@ SECRET_KEY=your_secret_key_here
 ACCESS_TOKEN_EXPIRE_MINUTES=11520
 
 # 服务器配置
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 路径配置
@@ -135,8 +135,6 @@ cd ipv6-wireguard-manager
 cd backend
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
-# 或
-venv\Scripts\activate  # Windows
 
 # 3. 安装依赖
 pip install -r requirements.txt
@@ -149,7 +147,7 @@ cp env.example .env
 python init_database.py
 
 # 6. 启动服务
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host ${SERVER_HOST} --port 8000
 ```
 
 #### 3.2 前端部署
@@ -219,7 +217,7 @@ server {
 
     # API代理
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://${LOCAL_HOST}:${API_PORT};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -275,7 +273,7 @@ Environment=PATH=/opt/ipv6-wireguard-manager/backend/venv/bin
 Environment=INSTALL_DIR=/opt/ipv6-wireguard-manager
 Environment=LOG_DIR=/var/log/ipv6-wireguard-manager
 Environment=CONFIG_DIR=/etc/wireguard
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host ${SERVER_HOST} --port 8000
 Restart=always
 RestartSec=10
 
@@ -300,10 +298,10 @@ sudo systemctl start ipv6-wireguard-manager
 # .env 文件
 DEBUG=true
 LOG_LEVEL=DEBUG
-DATABASE_URL=mysql://ipv6wgm:password@localhost:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm
 SECRET_KEY=dev_secret_key
 API_V1_STR=/api/v1
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 ```
 
@@ -332,10 +330,10 @@ mypy app/
 # .env.test 文件
 DEBUG=false
 LOG_LEVEL=INFO
-DATABASE_URL=mysql://ipv6wgm:password@test-db:3306/ipv6wgm_test
+DATABASE_URL=mysql://ipv6wgm:password@test-db:${DB_PORT}/ipv6wgm_test
 SECRET_KEY=test_secret_key
 API_V1_STR=/api/v1
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 ```
 
@@ -360,10 +358,10 @@ FLUSH PRIVILEGES;
 # .env.production 文件
 DEBUG=false
 LOG_LEVEL=WARNING
-DATABASE_URL=mysql://ipv6wgm:secure_password@prod-db:3306/ipv6wgm
+DATABASE_URL=mysql://ipv6wgm:secure_password@prod-db:${DB_PORT}/ipv6wgm
 SECRET_KEY=your_very_secure_secret_key_here
 API_V1_STR=/api/v1
-SERVER_HOST=0.0.0.0
+SERVER_HOST=${SERVER_HOST}
 SERVER_PORT=8000
 
 # 安全配置
@@ -445,7 +443,7 @@ global:
 scrape_configs:
   - job_name: 'ipv6-wireguard-manager'
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ['localhost:${API_PORT}']
     metrics_path: '/metrics'
     scrape_interval: 5s
 ```
@@ -652,7 +650,7 @@ sudo nano /etc/ipv6-wireguard-manager/path_builder/path_builder_config.json
 ```json
 {
   "api_version": "v1",
-  "base_url": "http://localhost:8000",
+  "base_url": "http://localhost:${API_PORT}",
   "endpoints": {
     "auth": {
       "login": "/auth/login",
@@ -685,7 +683,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "8000:${API_PORT}"
     environment:
       - ENABLE_PATH_BUILDER=true
     volumes:
@@ -720,7 +718,7 @@ PATH_BUILDER_CACHE_TTL=3600
 
 ```bash
 # 测试后端路径构建器
-curl -X GET "http://localhost:8000/api/v1/path_builder/status" \
+curl -X GET "http://localhost:${API_PORT}/api/v1/path_builder/status" \
   -H "accept: application/json"
 
 # 预期响应
@@ -818,7 +816,7 @@ sudo nano /etc/systemd/system/ipv6-wireguard-manager.service
 
 ```ini
 [Service]
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host ${SERVER_HOST} --port 8000 --workers 4
 Environment=PATH_BUILDER_WORKERS=4
 ```
 
@@ -869,7 +867,7 @@ sudo nano /etc/ipv6-wireguard-manager/path_builder/logging_config.json
 
 ```bash
 # 查看路径构建器状态
-curl -X GET "http://localhost:8000/api/v1/path_builder/metrics" \
+curl -X GET "http://localhost:${API_PORT}/api/v1/path_builder/metrics" \
   -H "accept: application/json"
 ```
 
@@ -897,7 +895,7 @@ services:
   path-builder:
     build: ./path_builder
     ports:
-      - "8001:8000"
+      - "8001:${API_PORT}"
     environment:
       - SERVICE_NAME=path-builder
       - API_VERSION=v1
@@ -921,7 +919,7 @@ server {
     }
 
     location /api/v1/ {
-        proxy_pass http://localhost:8000/;
+        proxy_pass http://localhost:${API_PORT}/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -934,9 +932,9 @@ server {
 
 ```nginx
 upstream path_builder_backend {
-    server 10.0.1.10:8000;
-    server 10.0.1.11:8000;
-    server 10.0.1.12:8000;
+    server 10.0.1.10:${API_PORT};
+    server 10.0.1.11:${API_PORT};
+    server 10.0.1.12:${API_PORT};
 }
 
 server {
@@ -956,7 +954,7 @@ server {
 ```bash
 # 使用Redis作为共享缓存
 docker run -d --name path-builder-cache \
-  -p 6379:6379 \
+  -p 6379:${REDIS_PORT} \
   redis:alpine
 ```
 
@@ -964,7 +962,7 @@ docker run -d --name path-builder-cache \
 {
   "cache_enabled": true,
   "cache_backend": "redis",
-  "cache_redis_url": "redis://localhost:6379/0",
+  "cache_redis_url": "redis://localhost:${REDIS_PORT}/0",
   "cache_ttl": 3600
 }
 ```
@@ -1057,7 +1055,7 @@ def migrate_config():
     # 创建新配置
     new_config = {
         "api_version": "v1",
-        "base_url": old_config.get("api_base_url", "http://localhost:8000"),
+        "base_url": old_config.get("api_base_url", "http://localhost:${API_PORT}"),
         "endpoints": {
             "auth": {
                 "login": "/auth/login",
@@ -1168,7 +1166,7 @@ sudo nano /etc/systemd/system/ipv6-wireguard-manager.service
 
 ```ini
 [Service]
-ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+ExecStart=/opt/ipv6-wireguard-manager/backend/venv/bin/uvicorn app.main:app --host ${SERVER_HOST} --port 8000 --workers 4
 ```
 
 ### 3. 安全加固
@@ -1199,7 +1197,7 @@ sudo chmod 600 /opt/ipv6-wireguard-manager/config/*.key
 
 # 2. 配置防火墙
 sudo ufw enable
-sudo ufw allow from 192.168.1.0/24 to any port 22
+sudo ufw allow from ${EXAMPLE_NETWORK} to any port 22
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 ```

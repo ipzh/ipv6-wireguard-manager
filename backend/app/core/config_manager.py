@@ -127,13 +127,13 @@ class UnifiedConfigManager:
                               default=60 * 24 * 8)
         
         # 服务器配置
-        self.register_metadata("SERVER_HOST", str, "服务器主机", default="0.0.0.0")
+        self.register_metadata("SERVER_HOST", str, "服务器主机", default="${SERVER_HOST}")
         self.register_metadata("SERVER_PORT", int, "服务器端口", default=8000, 
                               validator=lambda x: 1 <= x <= 65535)
         
         # 数据库配置
         self.register_metadata("DATABASE_URL", str, "数据库连接URL", 
-                              default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm", 
+                              default="sqlite:///./ipv6_wireguard.db", 
                               sensitive=True)
         self.register_metadata("DATABASE_HOST", str, "数据库主机", default="localhost")
         self.register_metadata("DATABASE_PORT", int, "数据库端口", default=3306)
@@ -155,7 +155,7 @@ class UnifiedConfigManager:
         # 安全配置
         self.register_metadata("ALGORITHM", str, "加密算法", default="HS256")
         self.register_metadata("BACKEND_CORS_ORIGINS", List[str], "CORS允许的源", 
-                              default=["http://localhost:3000", "http://localhost:8080"])
+                              default=["http://localhost:${FRONTEND_PORT}", "http://localhost:${ADMIN_PORT}"])
         
         # 文件上传配置
         self.register_metadata("MAX_FILE_SIZE", int, "最大文件大小(字节)", 
@@ -350,7 +350,13 @@ class UnifiedConfigManager:
             value = self.config_data[key]
             
             # 类型验证
-            if not isinstance(value, metadata.type):
+            # 处理泛型类型，如List[str]
+            type_check = metadata.type
+            if hasattr(metadata.type, '__origin__'):
+                # 处理Python 3.9+中的泛型类型
+                type_check = metadata.type.__origin__
+            
+            if not isinstance(value, type_check):
                 try:
                     # 尝试类型转换
                     if metadata.type == bool:

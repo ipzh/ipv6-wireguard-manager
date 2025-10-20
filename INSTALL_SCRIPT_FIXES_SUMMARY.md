@@ -8,10 +8,10 @@
 
 ### 1. 修复install.sh中的弱口令问题 ✅
 
-**问题**: `create_env_config`函数中`DEFAULT_PASSWORD="admin123"`与后端密码校验冲突
+**问题**: `create_env_config`函数中`DEFAULT_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"`与后端密码校验冲突
 
 **解决方案**:
-- 修改第1484行：`DEFAULT_PASSWORD="$admin_password"`
+- 修改第1484行：`DEFAULT_PASSWORD="${FIRST_SUPERUSER_PASSWORD}"`
 - 使用与`FIRST_SUPERUSER_PASSWORD`相同的强随机密码
 - 在安装完成时直接显示生成的密码并警告用户立即修改
 

@@ -406,7 +406,7 @@ class ServiceMesh:
 MICROSERVICE_DEPLOYMENT_CONFIG = {
     "api-gateway": {
         "image": "ipv6wgm/api-gateway:latest",
-        "ports": ["8000:8000"],
+        "ports": ["8000:${API_PORT}"],
         "environment": {
             "SERVICE_NAME": "api-gateway",
             "LOG_LEVEL": "info"
