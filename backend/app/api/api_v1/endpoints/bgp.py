@@ -99,8 +99,9 @@ async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = 
             is_enabled=session_data.enabled
         )
         
-        pass  # 数据库操作已禁用
-        await db.commit()
+        # 添加会话到数据库
+        db.add(session)
+        await db.flush()
         await db.refresh(session)
         
         # 应用配置

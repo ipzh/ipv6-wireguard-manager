@@ -13,7 +13,7 @@ import json
 import importlib
 
 # 核心导入 - 这些是必需的，不会造成循环依赖
-from .core.config_enhanced import settings
+from .core.unified_config import settings
 from .core.logging import setup_logging, get_logger
 
 # 延迟导入函数
@@ -242,9 +242,11 @@ async def lifespan(app: FastAPI):
         
         # 初始化API安全
         APISecurityManager, RateLimitConfig, SecurityConfig = get_api_security()
-        if APISecurityManager:
+        if APISecurityManager and RateLimitConfig and SecurityConfig:
             logger.info("🔒 初始化API安全...")
-            security_manager = APISecurityManager()
+            rate_limit_config = RateLimitConfig()
+            security_config = SecurityConfig()
+            security_manager = APISecurityManager(rate_limit_config, security_config)
             logger.info("✅ API安全初始化完成")
         
         # 初始化异常监控

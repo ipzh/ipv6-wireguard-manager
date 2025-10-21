@@ -128,26 +128,25 @@ async def get_api_status() -> Dict[str, Any]:
 async def get_database_status() -> Dict[str, Any]:
     """获取数据库状态"""
     try:
-        from ...core.database import async_engine, sync_engine, AsyncSessionLocal, SessionLocal
+        from ...core.database import engine, AsyncSessionLocal, SessionLocal
         
         status = {
-            "async_engine": async_engine is not None,
-            "sync_engine": sync_engine is not None,
+            "engine": engine is not None,
             "async_session": AsyncSessionLocal is not None,
             "sync_session": SessionLocal is not None,
             "timestamp": time.time()
         }
         
         # 尝试测试连接
-        if sync_engine:
+        if engine:
             try:
-                with sync_engine.connect() as conn:
+                with engine.connect() as conn:
                     result = conn.execute("SELECT 1 as test")
-                    status["sync_connection_test"] = "success"
-                    status["sync_connection_data"] = result.fetchone()[0]
+                    status["connection_test"] = "success"
+                    status["connection_data"] = result.fetchone()[0]
             except Exception as e:
-                status["sync_connection_test"] = "failed"
-                status["sync_connection_error"] = str(e)
+                status["connection_test"] = "failed"
+                status["connection_error"] = str(e)
         
         return status
     except Exception as e:
