@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     
     # API配置
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(64))
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # 服务器配置
@@ -264,7 +264,7 @@ class Settings(BaseSettings):
     
     # 超级用户配置
     FIRST_SUPERUSER: str = "admin"
-    FIRST_SUPERUSER_PASSWORD: Optional[str] = None  # 必须通过环境变量设置
+    FIRST_SUPERUSER_PASSWORD: str = Field(default_factory=lambda: secrets.token_urlsafe(16))
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com"
     
     # 配置验证
@@ -278,17 +278,9 @@ class Settings(BaseSettings):
     
     @field_validator("FIRST_SUPERUSER_PASSWORD")
     @classmethod
-    def validate_superuser_password(cls, v: Optional[str]) -> str:
+    def validate_superuser_password(cls, v: str) -> str:
         """验证超级用户密码"""
-        if v is None:
-            # 生成随机密码
-            import secrets
-            import string
-            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-            v = ''.join(secrets.choice(alphabet) for _ in range(16))
-            print(f"⚠️  警告：未设置FIRST_SUPERUSER_PASSWORD环境变量，已生成随机密码: {v}")
-            print(f"⚠️  请立即修改此密码！")
-        elif v in ["admin123", "admin", "password", "123456", "root"]:
+        if v in ["admin123", "admin", "password", "123456", "root"]:
             raise ValueError("不允许使用弱密码，请设置强密码")
         return v
     
@@ -296,7 +288,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, v: str) -> str:
         """验证数据库URL格式"""
-        if not v.startswith(("mysql://", "mysql+aiomysql://")):
+        if not v.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
             raise ValueError("Only MySQL database is supported")
         return v
     
@@ -360,6 +352,8 @@ class Settings(BaseSettings):
         self._apply_environment_config()
         # 验证配置完整性
         self._validate_config()
+        # 输出自动生成的密钥信息
+        self._output_generated_credentials()
     
     def _apply_environment_config(self):
         """应用环境管理器配置"""
@@ -467,6 +461,30 @@ class Settings(BaseSettings):
         
         if not (1 <= metrics_port <= 65535):
             raise ValueError(f"Metrics port must be between 1 and 65535, got {metrics_port}")
+    
+    def _output_generated_credentials(self):
+        """输出自动生成的凭据信息"""
+        import os
+        
+        # 检查是否通过环境变量设置了密钥和密码
+        secret_key_from_env = os.getenv('SECRET_KEY')
+        password_from_env = os.getenv('FIRST_SUPERUSER_PASSWORD')
+        
+        # 如果密钥是自动生成的，输出信息
+        if not secret_key_from_env:
+            print("=" * 60)
+            print("🔑 自动生成的 SECRET_KEY:")
+            print(f"   {self.SECRET_KEY}")
+            print("=" * 60)
+        
+        # 如果密码是自动生成的，输出信息
+        if not password_from_env:
+            print("=" * 60)
+            print("🔐 自动生成的超级用户密码:")
+            print(f"   用户名: {self.FIRST_SUPERUSER}")
+            print(f"   密码: {self.FIRST_SUPERUSER_PASSWORD}")
+            print("⚠️  请妥善保存此密码！")
+            print("=" * 60)
     
     def get_security_config(self) -> SecurityConfig:
         """获取安全配置"""

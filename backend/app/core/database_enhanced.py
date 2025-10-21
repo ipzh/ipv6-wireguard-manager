@@ -308,7 +308,7 @@ aiomysql_available = False
 
 # 创建异步数据库引擎 - 强制使用MySQL
 # 仅支持MySQL数据库，不支持PostgreSQL和SQLite
-if not settings.DATABASE_URL.startswith("mysql://"):
+if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
     logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
     async_engine = None
 else:
@@ -348,7 +348,7 @@ else:
 
 # 创建同步数据库引擎 - 强制使用MySQL
 # 仅支持MySQL数据库，不支持PostgreSQL和SQLite
-if not settings.DATABASE_URL.startswith("mysql://"):
+if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
     logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
     sync_engine = None
 else:

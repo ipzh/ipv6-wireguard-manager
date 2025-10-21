@@ -41,7 +41,7 @@ class DatabaseManager:
     
     def _detect_database_type(self) -> DatabaseType:
         """检测数据库类型 - 强制使用MySQL"""
-        if settings.DATABASE_URL.startswith("mysql://"):
+        if settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
             return DatabaseType.MYSQL
         elif settings.DATABASE_URL.startswith("postgresql://"):
             logger.error("不再支持PostgreSQL数据库，请使用MySQL数据库")
@@ -145,7 +145,7 @@ class DatabaseManager:
             return
         
         # 强制使用MySQL并转换为异步格式
-        if not settings.DATABASE_URL.startswith("mysql://"):
+        if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
             logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
             return
             
@@ -190,7 +190,7 @@ class DatabaseManager:
             return
         
         # 强制使用MySQL并转换为pymysql格式
-        if not settings.DATABASE_URL.startswith("mysql://"):
+        if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
             logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
             return
         

@@ -14,9 +14,10 @@ RUN docker-php-ext-install pdo pdo_mysql mysqli
 # 设置工作目录
 WORKDIR /var/www/html
 
-# 先复制配置文件
-COPY docker/nginx.conf /etc/nginx/nginx.conf
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# 先复制配置文件（使用现有的配置文件）
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.production.conf /etc/nginx/nginx.production.conf
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # 创建必要的目录
 RUN mkdir -p /var/log/nginx /var/log/php-fpm /var/log/supervisor

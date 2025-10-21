@@ -1783,45 +1783,253 @@ install_docker_compose() {
 
 # 创建Docker环境配置文件
 create_docker_env_file() {
-    log_info "创建Docker环境配置文件..."
+    log_info "创建Docker环境配置文件（自动生成模式）..."
     
     # 生成随机密码
     MYSQL_PASSWORD=$(generate_random_string 16)
     MYSQL_ROOT_PASSWORD=$(generate_random_string 20)
-    SECRET_KEY=$(generate_random_string 32)
     
+    # 创建自动生成模式的 .env 文件
     cat > "$INSTALL_DIR/.env" << EOF
+# IPv6 WireGuard Manager 环境配置文件
+# 自动生成模式 - 系统将自动生成强密码和长密钥
+
+# =============================================================================
+# 路径配置
+# =============================================================================
+
+# 安装目录
+INSTALL_DIR=/opt/ipv6-wireguard-manager
+
+# 前端Web目录
+FRONTEND_DIR=/var/www/html
+
+# WireGuard配置目录
+WIREGUARD_CONFIG_DIR=/etc/wireguard
+WIREGUARD_CLIENTS_DIR=/etc/wireguard/clients
+
+# 日志目录
+LOG_DIR=/var/log/ipv6-wireguard-manager
+NGINX_LOG_DIR=/var/log/nginx
+
+# Nginx配置目录
+NGINX_CONFIG_DIR=/etc/nginx/sites-available
+
+# Systemd服务目录
+SYSTEMD_CONFIG_DIR=/etc/systemd/system
+
+# 二进制文件目录
+BIN_DIR=/usr/local/bin
+
+# =============================================================================
 # 数据库配置
-MYSQL_DATABASE=ipv6wgm
-MYSQL_USER=ipv6wgm
-MYSQL_PASSWORD=$MYSQL_PASSWORD
-MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+# =============================================================================
 
-# 应用配置
-SECRET_KEY=$SECRET_KEY
+# 数据库连接URL
+DATABASE_URL=mysql://ipv6wgm:password@localhost:3306/ipv6wgm
+
+# 数据库连接池配置
+DATABASE_POOL_SIZE=10
+DATABASE_MAX_OVERFLOW=15
+DATABASE_CONNECT_TIMEOUT=30
+DATABASE_STATEMENT_TIMEOUT=30000
+DATABASE_IDLE_IN_TRANSACTION_SESSION_TIMEOUT=10000
+DATABASE_POOL_RECYCLE=3600
+DATABASE_POOL_PRE_PING=true
+
+# =============================================================================
+# API配置
+# =============================================================================
+
+# API版本前缀
+API_V1_STR=/api/v1
+
+# 安全密钥（留空将自动生成64字符强密钥）
+SECRET_KEY=
+
+# 访问令牌过期时间（分钟）
+ACCESS_TOKEN_EXPIRE_MINUTES=11520
+
+# =============================================================================
+# 服务器配置
+# =============================================================================
+
+# 服务器主机和端口
+SERVER_HOST=::  # 支持IPv6和IPv4的所有接口
+SERVER_PORT=8000
+
+# 本地主机配置
+LOCAL_HOST=::1  # IPv6本地回环地址，同时支持IPv4和IPv6
+
+# 服务器名称
+SERVER_NAME=localhost
+
+# =============================================================================
+# 安全配置
+# =============================================================================
+
+# 第一个超级用户（留空将自动生成强密码）
+FIRST_SUPERUSER=admin
+# 留空将自动生成16字符强密码
+FIRST_SUPERUSER_PASSWORD=
+FIRST_SUPERUSER_EMAIL=admin@example.com
+
+# 密码策略
+PASSWORD_MIN_LENGTH=8
+PASSWORD_REQUIRE_UPPERCASE=true
+PASSWORD_REQUIRE_LOWERCASE=true
+PASSWORD_REQUIRE_NUMBERS=true
+PASSWORD_REQUIRE_SPECIAL_CHARS=true
+
+# 会话配置
+SESSION_TIMEOUT=1440
+MAX_LOGIN_ATTEMPTS=5
+LOCKOUT_DURATION=15
+
+# =============================================================================
+# WireGuard配置
+# =============================================================================
+
+# WireGuard端口
+WIREGUARD_PORT=51820
+
+# WireGuard接口名称
+WIREGUARD_INTERFACE=wg0
+
+# WireGuard网络配置
+WIREGUARD_NETWORK=10.0.0.0/24
+WIREGUARD_IPV6_NETWORK=fd00::/64
+
+# WireGuard密钥（可选，留空将自动生成）
+WIREGUARD_PRIVATE_KEY=
+WIREGUARD_PUBLIC_KEY=
+
+# =============================================================================
+# 日志配置
+# =============================================================================
+
+# 日志级别
+LOG_LEVEL=INFO
+
+# 日志格式
+LOG_FORMAT=json
+
+# 日志轮转
+LOG_ROTATION=1 day
+LOG_RETENTION=30 days
+
+# =============================================================================
+# SSL/TLS安全配置
+# =============================================================================
+
+# SSL验证设置（生产环境必须为true）
+API_SSL_VERIFY=true
+
+# CA证书路径（可选，如果系统CA证书路径不同）
+API_SSL_CA_PATH=/etc/ssl/certs/ca-certificates.crt
+
+# 开发环境可以设置为false（仅开发环境使用）
+# API_SSL_VERIFY=false
+
+# =============================================================================
+# 监控配置
+# =============================================================================
+
+# 启用指标收集
+ENABLE_METRICS=true
+METRICS_PORT=9090
+
+# 启用健康检查
+ENABLE_HEALTH_CHECK=true
+HEALTH_CHECK_INTERVAL=30
+
+# =============================================================================
+# 文件上传配置
+# =============================================================================
+
+# 最大文件大小（字节）
+MAX_FILE_SIZE=10485760
+
+# 上传目录
+UPLOAD_DIR=uploads
+
+# 允许的文件扩展名
+ALLOWED_EXTENSIONS=.conf,.key,.crt,.pem,.txt,.log
+
+# =============================================================================
+# CORS配置
+# =============================================================================
+
+# 允许的CORS源（生产环境请指定具体域名，不要使用*）
+BACKEND_CORS_ORIGINS=["https://your-domain.com","https://www.your-domain.com"]
+
+# 开发环境可以包含本地地址
+# BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:8080","https://your-domain.com"]
+
+# =============================================================================
+# Redis配置（可选）
+# =============================================================================
+
+# Redis连接URL
+REDIS_URL=redis://localhost:6379/0
+
+# 是否使用Redis
+USE_REDIS=false
+
+# =============================================================================
+# 邮件配置（可选）
+# =============================================================================
+
+# SMTP服务器配置
+SMTP_TLS=true
+SMTP_PORT=587
+SMTP_HOST=
+SMTP_USER=
+SMTP_PASSWORD=
+
+# 邮件发送者
+EMAILS_FROM_EMAIL=noreply@example.com
+EMAILS_FROM_NAME="IPv6 WireGuard Manager"
+
+# =============================================================================
+# 开发配置
+# =============================================================================
+
+# 调试模式
 DEBUG=false
-API_PORT=$API_PORT
+
+# 环境类型
+ENVIRONMENT=production
+
+# =============================================================================
+# Docker配置
+# =============================================================================
+
+# MySQL配置
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+MYSQL_VERSION=8.0
+MYSQL_PORT=3306
+
+# Web端口
 WEB_PORT=$WEB_PORT
+WEB_SSL_PORT=443
 
-# 域名配置（可选）
-DOMAIN=localhost
-SSL_EMAIL=admin@example.com
+# API端口
+API_PORT=$API_PORT
 
-# WireGuard配置（可选）
-WG_PORT=51820
-WG_INTERFACE=wg0
-WG_MTU=1420
+# Redis端口
+REDIS_PORT=6379
 
-# PHP配置
-PHP_VERSION=$PHP_VERSION
+# Nginx端口
+NGINX_PORT=443
 EOF
     
     # 导出环境变量
     export MYSQL_PASSWORD
     export MYSQL_ROOT_PASSWORD
-    export SECRET_KEY
     
-    log_success "Docker环境配置文件创建完成"
+    log_success "Docker环境配置文件创建完成（自动生成模式）"
+    log_info "系统将自动生成 SECRET_KEY 和 FIRST_SUPERUSER_PASSWORD"
 }
 
 # 构建并启动Docker容器
@@ -1856,8 +2064,49 @@ wait_for_docker_services() {
     done
     log_success "后端API已启动"
     
+    # 显示自动生成的凭据
+    show_auto_generated_credentials
+    
     # Docker模式：已启用容器前端，跳过宿主机前端部署
     log_info "Docker模式：使用docker-compose管理前端容器，跳过宿主机前端部署"
+}
+
+# 显示自动生成的凭据
+show_auto_generated_credentials() {
+    log_info "获取自动生成的凭据..."
+    
+    # 等待后端日志输出凭据信息
+    sleep 5
+    
+    # 从后端容器日志中提取自动生成的凭据
+    local backend_logs=$(docker-compose logs backend 2>/dev/null | tail -50)
+    
+    # 提取 SECRET_KEY
+    local secret_key=$(echo "$backend_logs" | grep "自动生成的 SECRET_KEY" -A 1 | tail -1 | sed 's/^[[:space:]]*//')
+    
+    # 提取超级用户密码
+    local admin_password=$(echo "$backend_logs" | grep "密码:" | sed 's/.*密码: *//' | head -1)
+    
+    if [[ -n "$secret_key" && -n "$admin_password" ]]; then
+        echo ""
+        log_success "=========================================="
+        log_success "🎉 自动生成凭据获取成功！"
+        log_success "=========================================="
+        echo ""
+        log_info "🔑 自动生成的 SECRET_KEY:"
+        log_info "   $secret_key"
+        echo ""
+        log_info "🔐 自动生成的超级用户密码:"
+        log_info "   用户名: admin"
+        log_info "   密码: $admin_password"
+        echo ""
+        log_warning "⚠️  请妥善保存这些凭据！"
+        log_success "=========================================="
+        echo ""
+    else
+        log_warning "无法从日志中提取自动生成的凭据"
+        log_info "请手动查看日志: docker-compose logs backend"
+    fi
 }
 
 # 生成随机字符串
@@ -2741,14 +2990,28 @@ show_installation_complete() {
     log_info "  API根端点: http://localhost:$API_PORT/"
     echo ""
     
-    log_info "初始登录信息:"
-    log_info "  用户名: admin"
-    log_info "  密码: $admin_password"
-    log_info "  邮箱: admin@example.com"
-    echo ""
-    log_warning "⚠️  重要：请立即登录并修改默认密码！"
-    log_warning "⚠️  此密码仅显示一次，请妥善保存！"
-    echo ""
+    if [[ "$INSTALL_TYPE" = "docker" ]]; then
+        log_info "初始登录信息（自动生成模式）:"
+        log_info "  用户名: admin"
+        log_info "  密码: 查看上方自动生成的密码"
+        log_info "  邮箱: admin@example.com"
+        echo ""
+        log_warning "⚠️  重要：请立即登录并修改默认密码！"
+        log_warning "⚠️  自动生成的密码已显示在上方，请妥善保存！"
+        echo ""
+        log_info "🔍 如需重新查看自动生成的凭据:"
+        log_info "  cd $INSTALL_DIR && docker-compose logs backend | grep '自动生成的'"
+        echo ""
+    else
+        log_info "初始登录信息:"
+        log_info "  用户名: admin"
+        log_info "  密码: $admin_password"
+        log_info "  邮箱: admin@example.com"
+        echo ""
+        log_warning "⚠️  重要：请立即登录并修改默认密码！"
+        log_warning "⚠️  此密码仅显示一次，请妥善保存！"
+        echo ""
+    fi
     
     if [[ "$INSTALL_TYPE" = "docker" ]]; then
         log_info "Docker服务管理:"
