@@ -244,10 +244,17 @@ async def lifespan(app: FastAPI):
         APISecurityManager, RateLimitConfig, SecurityConfig = get_api_security()
         if APISecurityManager and RateLimitConfig and SecurityConfig:
             logger.info("🔒 初始化API安全...")
-            rate_limit_config = RateLimitConfig()
-            security_config = SecurityConfig()
-            security_manager = APISecurityManager(rate_limit_config, security_config)
-            logger.info("✅ API安全初始化完成")
+            try:
+                rate_limit_config = RateLimitConfig()
+                security_config = SecurityConfig()
+                security_manager = APISecurityManager(rate_limit_config, security_config)
+                logger.info("✅ API安全初始化完成")
+            except Exception as e:
+                logger.warning(f"⚠️ API安全初始化失败，使用默认配置: {e}")
+                security_manager = None
+        else:
+            logger.warning("⚠️ API安全模块不可用，跳过安全初始化")
+            security_manager = None
         
         # 初始化异常监控
         exception_monitor_instance, ExceptionMonitor, AlertSeverity, AlertStatus = get_exception_monitoring()

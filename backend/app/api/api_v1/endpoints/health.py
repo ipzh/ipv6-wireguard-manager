@@ -5,28 +5,29 @@ import time
 from fastapi import APIRouter
 from typing import Dict, Any
 from ...core.unified_config import settings
+from ...schemas.common import HealthCheckResponse
 
 router = APIRouter()
 
-@router.get("/", response_model=None)
-async def health_check() -> Dict[str, Any]:
+@router.get("/", response_model=HealthCheckResponse)
+async def health_check() -> HealthCheckResponse:
     """基础健康检查"""
-    return {
-        "status": "healthy",
-        "service": "IPv6 WireGuard Manager",
-        "version": settings.APP_VERSION,
-        "timestamp": time.time()
-    }
+    return HealthCheckResponse(
+        status="healthy",
+        service="IPv6 WireGuard Manager",
+        version=settings.APP_VERSION,
+        timestamp=time.time()
+    )
 
-@router.get("/health", response_model=None)
-async def health_check_alt() -> Dict[str, Any]:
+@router.get("/health", response_model=HealthCheckResponse)
+async def health_check_alt() -> HealthCheckResponse:
     """基础健康检查（备用路径）"""
-    return {
-        "status": "healthy",
-        "service": "IPv6 WireGuard Manager",
-        "version": settings.APP_VERSION,
-        "timestamp": time.time()
-    }
+    return HealthCheckResponse(
+        status="healthy",
+        service="IPv6 WireGuard Manager",
+        version=settings.APP_VERSION,
+        timestamp=time.time()
+    )
 
 @router.get("/health/detailed", response_model=None)
 async def detailed_health_check() -> Dict[str, Any]:

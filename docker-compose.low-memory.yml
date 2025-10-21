@@ -22,7 +22,7 @@ services:
       - CACHE_DIR=/app/cache
       
       # 数据库配置 - 低内存优化
-      - DATABASE_URL=mysql://ipv6wgm:${MYSQL_ROOT_PASSWORD:-password}@mysql:${DB_PORT}/ipv6wgm
+      - DATABASE_URL=mysql://ipv6wgm:${MYSQL_ROOT_PASSWORD:-password}@mysql:3306/ipv6wgm
       - DATABASE_POOL_SIZE=5
       - DATABASE_MAX_OVERFLOW=10
       
@@ -43,7 +43,7 @@ services:
       # WireGuard配置
       - WIREGUARD_PORT=${WIREGUARD_PORT:-51820}
       - WIREGUARD_INTERFACE=${WIREGUARD_INTERFACE:-wg0}
-      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK:-1${SERVER_HOST}/24}
+      - WIREGUARD_NETWORK=${WIREGUARD_NETWORK:-10.0.0.0/24}
       - WIREGUARD_IPV6_NETWORK=${WIREGUARD_IPV6_NETWORK:-fd00::/64}
       
       # 日志配置 - 低内存优化

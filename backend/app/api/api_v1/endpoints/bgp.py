@@ -101,12 +101,20 @@ async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = 
         
         # 添加会话到数据库
         db.add(session)
-        await db.flush()
+        await db.flush()  # 获取ID但不提交
         await db.refresh(session)
         
-        # 应用配置
-        exabgp_service = ExaBGPService(db)
-        await exabgp_service.apply_config()
+        # 提交事务
+        await db.commit()
+        
+        # 应用配置（如果服务可用）
+        if ExaBGPService:
+            try:
+                exabgp_service = ExaBGPService(db)
+                await exabgp_service.apply_config()
+            except Exception as e:
+                # 配置应用失败不影响会话创建
+                pass
         
         return BGPSessionSchema(
             id=session.id,

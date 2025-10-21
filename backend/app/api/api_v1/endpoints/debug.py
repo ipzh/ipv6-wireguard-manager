@@ -8,15 +8,16 @@ import sys
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
+from ...schemas.common import SystemInfoResponse, DatabaseStatusResponse
 
 router = APIRouter()
 
-@router.get("/system-info", response_model=None)
-async def get_system_info() -> Dict[str, Any]:
+@router.get("/system-info", response_model=SystemInfoResponse)
+async def get_system_info() -> SystemInfoResponse:
     """获取系统信息"""
     try:
-        return {
-            "system": {
+        return SystemInfoResponse(
+            system={
                 "platform": platform.platform(),
                 "system": platform.system(),
                 "release": platform.release(),
@@ -26,17 +27,30 @@ async def get_system_info() -> Dict[str, Any]:
                 "python_version": sys.version,
                 "python_implementation": platform.python_implementation()
             },
-            "hardware": {
+            hardware={
                 "cpu_count": psutil.cpu_count(),
                 "cpu_percent": psutil.cpu_percent(interval=1),
-                "memory_total": psutil.virtual_memory().total,
-                "memory_available": psutil.virtual_memory().available,
-                "memory_percent": psutil.virtual_memory().percent,
-                "disk_usage": psutil.disk_usage('/').percent
+                "boot_time": psutil.boot_time()
             },
-            "timestamp": time.time(),
-            "datetime": datetime.now().isoformat()
-        }
+            memory={
+                "total": psutil.virtual_memory().total,
+                "available": psutil.virtual_memory().available,
+                "percent": psutil.virtual_memory().percent,
+                "used": psutil.virtual_memory().used,
+                "free": psutil.virtual_memory().free
+            },
+            disk={
+                "total": psutil.disk_usage('/').total,
+                "used": psutil.disk_usage('/').used,
+                "free": psutil.disk_usage('/').free,
+                "percent": psutil.disk_usage('/').percent
+            },
+            network={
+                "connections": len(psutil.net_connections()),
+                "interfaces": list(psutil.net_if_addrs().keys())
+            },
+            timestamp=time.time()
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get system info: {str(e)}")
 
@@ -124,29 +138,29 @@ async def get_api_status() -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get API status: {str(e)}")
 
-@router.get("/database-status", response_model=None)
-async def get_database_status() -> Dict[str, Any]:
+@router.get("/database-status", response_model=DatabaseStatusResponse)
+async def get_database_status() -> DatabaseStatusResponse:
     """获取数据库状态"""
     try:
         from ...core.database import engine, AsyncSessionLocal, SessionLocal
+        from ...core.database_manager import database_manager
         
-        status = {
-            "engine": engine is not None,
-            "async_session": AsyncSessionLocal is not None,
-            "sync_session": SessionLocal is not None,
-            "timestamp": time.time()
-        }
+        status = DatabaseStatusResponse(
+            async_engine=database_manager.async_engine is not None,
+            sync_engine=database_manager.sync_engine is not None,
+            async_session=AsyncSessionLocal is not None,
+            sync_session=SessionLocal is not None,
+            timestamp=time.time()
+        )
         
         # 尝试测试连接
-        if engine:
+        if database_manager.sync_engine:
             try:
-                with engine.connect() as conn:
+                with database_manager.sync_engine.connect() as conn:
                     result = conn.execute("SELECT 1 as test")
-                    status["connection_test"] = "success"
-                    status["connection_data"] = result.fetchone()[0]
+                    status.connection_test = "success"
             except Exception as e:
-                status["connection_test"] = "failed"
-                status["connection_error"] = str(e)
+                status.connection_test = f"failed: {str(e)}"
         
         return status
     except Exception as e:

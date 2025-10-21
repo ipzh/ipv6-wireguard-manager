@@ -34,43 +34,13 @@ async def init_db():
     """初始化数据库"""
     try:
         # 检查数据库健康状况
-        try:
-            from .database_health_enhanced import check_and_fix_database
-            logger.info("检查数据库健康状况...")
-            if not await check_and_fix_database():
-                logger.warning("数据库健康检查发现问题，继续尝试初始化...")
-        except ImportError:
-            logger.warning("数据库健康检查模块不可用，跳过健康检查")
+        from .database_health_enhanced import check_and_fix_database
         
-        # 优先使用Alembic迁移
-        try:
-            import subprocess
-            import os
+        logger.info("检查数据库健康状况...")
+        if not await check_and_fix_database():
+            logger.warning("数据库健康检查发现问题，继续尝试初始化...")
             
-            # 切换到backend目录
-            backend_dir = Path(__file__).parent.parent.parent
-            os.chdir(backend_dir)
-            
-            # 检查是否有迁移文件
-            migrations_dir = backend_dir / "migrations" / "versions"
-            if migrations_dir.exists() and list(migrations_dir.glob("*.py")):
-                logger.info("使用Alembic迁移初始化数据库...")
-                result = subprocess.run([
-                    "alembic", "upgrade", "head"
-                ], capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    logger.info("✅ Alembic迁移应用成功")
-                    return
-                else:
-                    logger.warning(f"Alembic迁移失败: {result.stderr}")
-                    logger.info("回退到create_all模式...")
-        except Exception as e:
-            logger.warning(f"Alembic迁移不可用: {e}")
-            logger.info("回退到create_all模式...")
-        
-        # 回退到create_all模式
-        logger.info("使用create_all模式初始化数据库...")
+        # 使用数据库管理器初始化
         if database_manager.async_engine:
             async with database_manager.async_engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -80,8 +50,6 @@ async def init_db():
         else:
             logger.error("数据库引擎不可用，无法初始化数据库")
             return
-            
-        logger.info("✅ 数据库初始化完成")
             
     except Exception as e:
         logger.error(f"数据库初始化失败: {e}")
