@@ -206,8 +206,8 @@ sudo systemctl start ipv6-wireguard-manager
 
 ### 获取帮助
 - **文档**: [docs/](docs/)
-- **问题反馈**: [GitHub Issues](https://github.com/your-repo/ipv6-wireguard-manager/issues)
-- **讨论**: [GitHub Discussions](https://github.com/your-repo/ipv6-wireguard-manager/discussions)
+- **问题反馈**: [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues)
+- **讨论**: [GitHub Discussions](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
 
 ### 社区支持
 - **技术交流**: 参与社区讨论

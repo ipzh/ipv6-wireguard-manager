@@ -130,7 +130,7 @@ docker-compose up -d
 ./install.sh
 
 # 或直接下载运行
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 ```
 
 ## 注意事项

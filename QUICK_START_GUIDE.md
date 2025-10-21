@@ -6,10 +6,10 @@
 使用智能安装脚本，自动配置所有参数：
 ```bash
 # 下载并运行安装脚本
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 
 # 或者下载后运行
-wget https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh
+wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
 chmod +x install.sh
 ./install.sh
 ```

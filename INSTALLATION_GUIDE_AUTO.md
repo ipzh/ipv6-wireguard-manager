@@ -5,10 +5,10 @@
 ### 快速安装
 ```bash
 # 方式一：直接运行（推荐）
-curl -fsSL https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
 
 # 方式二：下载后运行
-wget https://raw.githubusercontent.com/your-repo/ipv6-wireguard-manager/main/install.sh
+wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -38,7 +38,7 @@ chmod +x install.sh
 
 ### 1. 克隆项目
 ```bash
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 ```
 

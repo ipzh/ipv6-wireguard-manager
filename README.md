@@ -17,7 +17,7 @@ IPv6 WireGuard Manager是一个功能完整、架构先进的企业级VPN管理�
 
 #### 1. 克隆项目
 ```bash
-git clone https://github.com/your-repo/ipv6-wireguard-manager.git
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 ```
 
@@ -216,8 +216,8 @@ python scripts/security/security_scan.py --output security_report.html --format 
 ## 📞 支持
 
 - **文档**: [docs/](docs/)
-- **问题反馈**: [GitHub Issues](https://github.com/your-repo/ipv6-wireguard-manager/issues)
-- **讨论**: [GitHub Discussions](https://github.com/your-repo/ipv6-wireguard-manager/discussions)
+- **问题反馈**: [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues)
+- **讨论**: [GitHub Discussions](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
 
 ---
 
