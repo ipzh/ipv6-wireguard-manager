@@ -40,15 +40,12 @@ class DatabaseManager:
         self._initialize_engines()
     
     def _detect_database_type(self) -> DatabaseType:
-        """检测数据库类型 - 强制使用MySQL"""
-        if settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
-            return DatabaseType.MYSQL
-        elif settings.DATABASE_URL.startswith("postgresql://"):
-            logger.error("不再支持PostgreSQL数据库，请使用MySQL数据库")
+        """检测数据库类型 - 强制使用MySQL，仅支持mysql://前缀"""
+        if not settings.DATABASE_URL.startswith("mysql://"):
+            logger.error("仅支持mysql://前缀的数据库URL")
             logger.info("请将DATABASE_URL修改为mysql://格式")
-            raise ValueError(f"不再支持PostgreSQL数据库，请使用MySQL数据库: {settings.DATABASE_URL}")
-        else:
-            raise ValueError(f"不支持的数据库类型: {settings.DATABASE_URL}，仅支持MySQL数据库")
+            raise ValueError(f"仅支持mysql://前缀的数据库URL: {settings.DATABASE_URL}")
+        return DatabaseType.MYSQL
     
     def _get_connection_args(self, is_async: bool = False) -> Dict[str, Any]:
         """获取连接参数 - 强制使用MySQL"""
@@ -59,19 +56,12 @@ class DatabaseManager:
         except (ValueError, TypeError):
             connect_timeout = 30
             
+        # 仅保留通用连接参数，避免驱动兼容性问题
         base_args = {
             "connect_timeout": connect_timeout,
-            "charset": "utf8mb4",  # 强制使用MySQL的utf8mb4字符集
-            "autocommit": False,
+            "charset": "utf8mb4",
             "use_unicode": True,
         }
-        
-        # 仅支持MySQL数据库
-        if self.database_type == DatabaseType.MYSQL:
-            base_args["sql_mode"] = "TRADITIONAL"
-        else:
-            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
-            raise ValueError(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
         
         return base_args
     
@@ -144,12 +134,12 @@ class DatabaseManager:
             logger.error("aiomysql驱动未安装，异步引擎初始化失败")
             return
         
-        # 强制使用MySQL并转换为异步格式
-        if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
+        # 强制使用mysql://前缀并转换为异步格式
+        if not settings.DATABASE_URL.startswith("mysql://"):
             logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
             return
             
-        # 转换URL为异步格式，强制使用aiomysql驱动
+        # 转换URL为异步格式，统一使用aiomysql驱动
         async_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
         logger.info(f"使用MySQL异步驱动初始化数据库引擎: {async_url}")
         
@@ -189,12 +179,12 @@ class DatabaseManager:
             logger.error("pymysql驱动未安装，同步引擎初始化失败")
             return
         
-        # 强制使用MySQL并转换为pymysql格式
-        if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
+        # 强制使用mysql://前缀并转换为pymysql格式
+        if not settings.DATABASE_URL.startswith("mysql://"):
             logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
             return
         
-        # 转换URL为pymysql格式
+        # 转换URL为pymysql格式，统一使用pymysql驱动
         sync_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
         logger.info(f"使用MySQL同步驱动初始化数据库引擎: {sync_url}")
         

@@ -13,7 +13,7 @@
 ```bash
 # 应用基本信息
 APP_NAME=IPv6 WireGuard Manager
-APP_VERSION=1.0.0
+APP_VERSION=3.1.0
 APP_DESCRIPTION=现代化的企业级IPv6 WireGuard VPN管理系统
 
 # 调试模式
@@ -357,7 +357,7 @@ config/
 {
   "app": {
     "name": "IPv6 WireGuard Manager",
-    "version": "1.0.0",
+    "version": "3.1.0",
     "description": "现代化的企业级IPv6 WireGuard VPN管理系统"
   },
   "server": {
@@ -524,7 +524,7 @@ def get_env_list(key: str, default: list = None, separator: str = ',') -> list:
 
 # 应用配置
 APP_NAME=IPv6 WireGuard Manager
-APP_VERSION=1.0.0
+APP_VERSION=3.1.0
 DEBUG=false
 LOG_LEVEL=INFO
 

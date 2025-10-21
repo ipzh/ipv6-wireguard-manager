@@ -6,6 +6,7 @@ import os
 import secrets
 from typing import List, Optional, Union, Dict, Any
 from pathlib import Path
+from .path_config import PathConfig
 
 try:
     # Pydantic 2.x
@@ -28,19 +29,19 @@ class UnifiedSettings(BaseSettings):
     
     # 应用基础配置
     APP_NAME: str = "IPv6 WireGuard Manager"
-    APP_VERSION: str = "3.0.0"
+    APP_VERSION: str = "3.1.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     
-    # 路径配置
-    INSTALL_DIR: str = "/opt/ipv6-wireguard-manager"
-    WIREGUARD_CONFIG_DIR: str = "/etc/wireguard"
-    WIREGUARD_CLIENTS_DIR: str = "/etc/wireguard/clients"
-    FRONTEND_DIR: str = "/var/www/html"
-    NGINX_CONFIG_DIR: str = "/etc/nginx/sites-available"
-    NGINX_LOG_DIR: str = "/var/log/nginx"
-    SYSTEMD_CONFIG_DIR: str = "/etc/systemd/system"
-    BIN_DIR: str = "/usr/local/bin"
+    # 路径配置 - 使用环境变量，支持Docker和本地部署
+    INSTALL_DIR: str = Field(default="/opt/ipv6-wireguard-manager")
+    WIREGUARD_CONFIG_DIR: str = Field(default="/etc/wireguard")
+    WIREGUARD_CLIENTS_DIR: str = Field(default="/etc/wireguard/clients")
+    FRONTEND_DIR: str = Field(default="/var/www/html")
+    NGINX_CONFIG_DIR: str = Field(default="/etc/nginx/sites-available")
+    NGINX_LOG_DIR: str = Field(default="/var/log/nginx")
+    SYSTEMD_CONFIG_DIR: str = Field(default="/etc/systemd/system")
+    BIN_DIR: str = Field(default="/usr/local/bin")
     
     # API配置
     API_V1_STR: str = "/api/v1"
@@ -53,7 +54,7 @@ class UnifiedSettings(BaseSettings):
     SERVER_PORT: int = Field(default=8000, ge=1, le=65535)
     
     # 数据库配置
-    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@localhost:3306/ipv6wgm")
+    DATABASE_URL: str = Field(default="mysql://ipv6wgm:password@mysql:3306/ipv6wgm")
     DATABASE_HOST: str = Field(default="localhost")
     DATABASE_PORT: int = Field(default=3306, ge=1, le=65535)
     DATABASE_USER: str = Field(default="ipv6wgm")
@@ -111,7 +112,7 @@ class UnifiedSettings(BaseSettings):
     WIREGUARD_PUBLIC_KEY: Optional[str] = None
     WIREGUARD_PORT: int = Field(default=51820, ge=1024, le=65535)
     WIREGUARD_INTERFACE: str = "wg0"
-    WIREGUARD_NETWORK: str = "1${SERVER_HOST}/24"
+    WIREGUARD_NETWORK: str = "10.0.0.0/24"
     WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
     
     # 监控配置
@@ -176,9 +177,9 @@ class UnifiedSettings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: str) -> str:
-        """验证数据库URL格式"""
-        if not v.startswith(("mysql://", "mysql+aiomysql://")):
-            raise ValueError("Only MySQL database is supported")
+        """验证数据库URL格式 - 仅支持mysql://前缀"""
+        if not v.startswith("mysql://"):
+            raise ValueError("仅支持mysql://前缀的数据库URL，其他格式将在连接层统一转换")
         return v
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
@@ -237,6 +238,8 @@ class UnifiedSettings(BaseSettings):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # 初始化路径配置
+        self.path_config = PathConfig(self.INSTALL_DIR)
         # 验证配置完整性
         self._validate_config()
     

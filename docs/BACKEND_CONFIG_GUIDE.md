@@ -167,7 +167,7 @@ def process_data(cache, data):
 ```bash
 # 应用配置
 APP_NAME="IPv6 WireGuard Manager"
-APP_VERSION="3.0.0"
+APP_VERSION="3.1.0"
 DEBUG=false
 ENVIRONMENT=production
 
@@ -462,7 +462,7 @@ def debug_config():
 
 ## 更新日志
 
-### v3.0.0 (2024-10-19)
+### v3.1.0 (2024-10-19)
 - ✅ 创建了统一配置管理系统
 - ✅ 添加了路径配置工厂函数
 - ✅ 实现了依赖注入容器

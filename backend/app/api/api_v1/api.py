@@ -59,6 +59,13 @@ ROUTE_CONFIGS = [
         "prefix": "/system",
         "tags": ['系统管理'],
         "description": "system相关接口"
+    },
+    {
+        "module": ".endpoints.health",
+        "router_attr": "router",
+        "prefix": "",
+        "tags": ['健康检查'],
+        "description": "health相关接口"
     }
 ]
 

@@ -2773,7 +2773,7 @@ generate_report() {
 }
 
 # 主检查函数
-main() {
+check_api_service() {
     echo "===================================="
     echo "IPv6 WireGuard Manager API服务检查"
     echo "===================================="

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     # 应用基础配置
     APP_NAME: str = Field(default="IPv6 WireGuard Manager")
-    APP_VERSION: str = Field(default="3.0.0")
+    APP_VERSION: str = Field(default="3.1.0")
     DEBUG: bool = Field(default=False)
     ENVIRONMENT: str = Field(default=EnvironmentType.DEVELOPMENT.value)
     

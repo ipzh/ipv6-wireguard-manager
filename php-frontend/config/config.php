@@ -5,7 +5,7 @@
 
 // 应用配置
 define('APP_NAME', getenv('APP_NAME') ?: 'IPv6 WireGuard Manager');
-define('APP_VERSION', getenv('APP_VERSION') ?: '3.0.0');
+define('APP_VERSION', getenv('APP_VERSION') ?: '3.1.0');
 define('APP_DEBUG', filter_var(getenv('APP_DEBUG') ?: false, FILTER_VALIDATE_BOOLEAN));
 
 // API配置

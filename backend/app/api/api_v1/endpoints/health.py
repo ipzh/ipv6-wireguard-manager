@@ -4,6 +4,7 @@
 import time
 from fastapi import APIRouter
 from typing import Dict, Any
+from ...core.unified_config import settings
 
 router = APIRouter()
 
@@ -13,7 +14,7 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "IPv6 WireGuard Manager",
-        "version": "3.0.0",
+        "version": settings.APP_VERSION,
         "timestamp": time.time()
     }
 
@@ -23,7 +24,7 @@ async def health_check_alt() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "IPv6 WireGuard Manager",
-        "version": "3.0.0",
+        "version": settings.APP_VERSION,
         "timestamp": time.time()
     }
 
@@ -33,7 +34,7 @@ async def detailed_health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "IPv6 WireGuard Manager",
-        "version": "3.0.0",
+        "version": settings.APP_VERSION,
         "components": {
             "database": {"status": "simulated", "message": "Database simulation mode"},
             "cache": {"status": "disabled", "message": "Cache disabled"},
