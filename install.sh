@@ -2357,11 +2357,24 @@ initialize_database_standard() {
     export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
-    python -c "
+    # 创建一个临时的Python脚本来初始化数据库，避免在python -c中使用__file__
+    cat > /tmp/init_db_temp.py << 'EOF'
 import asyncio
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+from pathlib import Path
+
+# 获取当前脚本所在目录
+try:
+    script_dir = Path(__file__).parent
+except NameError:
+    script_dir = Path.cwd()
+
+# 添加backend目录到路径
+backend_path = script_dir / "backend"
+if backend_path.exists():
+    sys.path.insert(0, str(backend_path))
+
 from app.core.database import init_db, get_async_db
 from app.core.security_enhanced import init_permissions_and_roles, security_manager
 from app.models.models_complete import User, Role, Permission
@@ -2371,7 +2384,7 @@ from app.core.config_enhanced import settings
 
 async def main():
     print('Starting database initialization with aiomysql driver...')
-    print(f'Database URL: {os.environ.get(\"DATABASE_URL\")}')
+    print(f'Database URL: {os.environ.get("DATABASE_URL")}')
     try:
         await init_db()
         print('Database tables created successfully')
@@ -2419,7 +2432,13 @@ if __name__ == '__main__':
     except Exception as e:
         print(f'Database initialization failed: {e}')
         exit(1)
-"
+EOF
+
+    # 执行临时脚本
+    python /tmp/init_db_temp.py
+    
+    # 清理临时文件
+    rm -f /tmp/init_db_temp.py
 }
 
 # 测试API功能
