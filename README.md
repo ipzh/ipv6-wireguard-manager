@@ -7,31 +7,75 @@ IPv6 WireGuard Manager是一个功能完整、架构先进的企业级VPN管理�
 ## 🚀 快速开始
 
 ### 环境要求
-- Python 3.8+
-- PHP 8.1+
-- MySQL 8.0+
-- Redis 6.0+
-- Docker & Docker Compose
 
-### 安装部署
+#### 基础要求
+- **Python**: 3.9+ (推荐3.11)
+- **PHP**: 8.1+ (带fpm扩展)
+- **数据库**: MySQL 8.0+ 或 PostgreSQL 13+
+- **缓存**: Redis 6.0+
+- **Web服务器**: Nginx
+- **容器**: Docker & Docker Compose
 
-#### 1. 克隆项目
+#### 系统要求
+- **操作系统**: Ubuntu 20.04+, CentOS 8+, Debian 11+, macOS 10.15+
+- **架构**: x86_64, ARM64
+- **CPU**: 2核心以上
+- **内存**: 4GB以上
+- **存储**: 20GB以上可用空间
+- **网络**: 支持IPv6的网络环境
+
+### 安装方式
+
+#### 方式一：一键安装（推荐）
 ```bash
-git clone https://github.com/ipzh/ipv6-wireguard-manager.git
-cd ipv6-wireguard-manager
+# 下载并运行安装脚本
+curl -fsSL https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh | bash
+
+# 或者下载后运行
+wget https://raw.githubusercontent.com/ipzh/ipv6-wireguard-manager/main/install.sh
+chmod +x install.sh
+./install.sh
 ```
 
-#### 2. 快速部署（推荐）
+#### 方式二：Docker部署
 ```bash
-# 使用Docker Compose一键部署
+# 克隆项目
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+
+# 直接启动（自动生成模式）
 docker-compose up -d
 
 # 或使用生产环境配置
 docker-compose -f docker-compose.production.yml up -d
+
+# 查看自动生成的凭据
+docker-compose logs backend | grep "自动生成的"
 ```
 
-#### 3. 手动部署
+#### 方式三：原生安装
 ```bash
+# 克隆项目
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+
+# 运行原生安装脚本
+./scripts/install_native.sh
+
+# 或使用模块化安装脚本
+./scripts/install.sh --native-only
+```
+
+#### 方式四：手动配置
+```bash
+# 克隆项目
+git clone https://github.com/ipzh/ipv6-wireguard-manager.git
+cd ipv6-wireguard-manager
+
+# 复制环境配置
+cp env.template .env
+# 编辑 .env 文件，设置您的密钥和密码
+
 # 运行模块化安装脚本
 ./scripts/install.sh
 
@@ -39,11 +83,177 @@ docker-compose -f docker-compose.production.yml up -d
 ./scripts/install.sh environment dependencies configuration deployment
 ```
 
+### 安装选项
+
+#### Docker安装选项
+```bash
+# 仅Docker部署
+./scripts/install.sh --docker-only
+
+# 仅原生部署
+./scripts/install.sh --native-only
+
+# 跳过依赖检查
+./scripts/install.sh --skip-deps
+
+# 跳过配置步骤
+./scripts/install.sh --skip-config
+
+# 强制安装（覆盖现有配置）
+./scripts/install.sh --force
+```
+
+#### 分步安装选项
+```bash
+# 1. 环境检查
+./scripts/install.sh environment
+
+# 2. 安装依赖
+./scripts/install.sh dependencies
+
+# 3. 配置系统
+./scripts/install.sh configuration
+
+# 4. 部署应用
+./scripts/install.sh deployment
+
+# 5. 启动服务
+./scripts/install.sh service
+
+# 6. 验证安装
+./scripts/install.sh verification
+```
+
+### 服务管理
+
+#### 检查服务状态
+```bash
+# Docker环境
+docker-compose ps
+
+# 原生环境
+sudo systemctl status ipv6-wireguard-manager
+sudo systemctl status nginx
+sudo systemctl status mysql
+sudo systemctl status redis
+```
+
+#### 查看日志
+```bash
+# Docker环境
+docker-compose logs
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs mysql
+
+# 原生环境
+sudo journalctl -u ipv6-wireguard-manager -f
+sudo tail -f /var/log/nginx/error.log
+```
+
+#### 重启服务
+```bash
+# Docker环境
+docker-compose restart
+
+# 原生环境
+sudo systemctl restart ipv6-wireguard-manager
+sudo systemctl restart nginx
+```
+
 ### 访问系统
-- Web界面: http://localhost
-- API接口: http://localhost/api/v1
-- 监控面板: http://localhost:3000 (Grafana)
-- 指标收集: http://localhost:9090 (Prometheus)
+
+#### 主要访问地址
+- **Web界面**: http://localhost
+- **API接口**: http://localhost/api/v1
+- **API文档**: http://localhost/docs
+- **健康检查**: http://localhost/health
+
+#### 监控面板
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **指标收集**: http://localhost/metrics
+
+#### 默认凭据
+- **管理员用户名**: admin
+- **管理员密码**: admin123 (首次登录后请修改)
+- **数据库用户**: ipv6wgm
+- **数据库密码**: ipv6wgm_password
+
+### 故障排除
+
+#### 常见问题
+
+**1. 端口冲突**
+```bash
+# 检查端口占用
+netstat -tulpn | grep :80
+netstat -tulpn | grep :3306
+
+# 修改端口配置
+vim .env
+# 修改 SERVER_PORT=8080
+```
+
+**2. 数据库连接失败**
+```bash
+# 检查数据库服务
+docker-compose logs mysql
+sudo systemctl status mysql
+
+# 重置数据库
+docker-compose down -v
+docker-compose up -d
+```
+
+**3. 权限问题**
+```bash
+# 修复文件权限
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
+```
+
+**4. 网络问题**
+```bash
+# 检查防火墙
+sudo ufw status
+sudo firewall-cmd --list-all
+
+# 检查IPv6支持
+ip -6 addr show
+```
+
+#### 日志查看
+```bash
+# 应用日志
+tail -f logs/app.log
+tail -f logs/error.log
+
+# 系统日志
+journalctl -u ipv6-wireguard-manager -f
+journalctl -u nginx -f
+
+# Docker日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+```
+
+#### 性能优化
+```bash
+# 数据库优化
+mysql -u root -p
+SHOW PROCESSLIST;
+SHOW STATUS LIKE 'Threads_connected';
+
+# 缓存优化
+redis-cli info memory
+redis-cli config get maxmemory
+
+# 系统资源
+htop
+df -h
+free -h
+```
 
 ## 🏗️ 系统架构
 
