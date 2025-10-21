@@ -1,0 +1,98 @@
+{
+    "api": {
+        "base_url": "http://backend:8000",
+        "version": "v1",
+        "timeout": 30,
+        "retry_attempts": 3,
+        "retry_delay": 1000
+    },
+    "endpoints": {
+        "auth": {
+            "login": {
+                "path": "/auth/login",
+                "method": "POST",
+                "description": "用户登录"
+            },
+            "logout": {
+                "path": "/auth/logout",
+                "method": "POST",
+                "description": "用户登出"
+            },
+            "refresh": {
+                "path": "/auth/refresh",
+                "method": "POST",
+                "description": "刷新令牌"
+            },
+            "me": {
+                "path": "/auth/me",
+                "method": "GET",
+                "description": "获取当前用户信息"
+            }
+        },
+        "users": {
+            "list": {
+                "path": "/users",
+                "method": "GET",
+                "description": "获取用户列表"
+            },
+            "create": {
+                "path": "/users",
+                "method": "POST",
+                "description": "创建用户"
+            },
+            "get": {
+                "path": "/users/{id}",
+                "method": "GET",
+                "description": "获取用户详情"
+            },
+            "update": {
+                "path": "/users/{id}",
+                "method": "PUT",
+                "description": "更新用户"
+            },
+            "delete": {
+                "path": "/users/{id}",
+                "method": "DELETE",
+                "description": "删除用户"
+            }
+        },
+        "wireguard": {
+            "servers": {
+                "list": {
+                    "path": "/wireguard/servers",
+                    "method": "GET",
+                    "description": "获取WireGuard服务器列表"
+                },
+                "create": {
+                    "path": "/wireguard/servers",
+                    "method": "POST",
+                    "description": "创建WireGuard服务器"
+                }
+            },
+            "clients": {
+                "list": {
+                    "path": "/wireguard/clients",
+                    "method": "GET",
+                    "description": "获取WireGuard客户端列表"
+                },
+                "create": {
+                    "path": "/wireguard/clients",
+                    "method": "POST",
+                    "description": "创建WireGuard客户端"
+                }
+            }
+        },
+        "system": {
+            "health": {
+                "path": "/system/health",
+                "method": "GET",
+                "description": "系统健康检查"
+            },
+            "status": {
+                "path": "/system/status",
+                "method": "GET",
+                "description": "系统状态"
+            }
+        }
+    }
+}

@@ -1341,6 +1341,119 @@ deploy_php_frontend() {
     chmod -R 755 "$FRONTEND_DIR"
     chmod -R 777 "$FRONTEND_DIR/logs"
     
+    # 修复原生安装的API路径配置问题
+    log_info "配置前端API路径..."
+    if [[ -f "$FRONTEND_DIR/config/api_paths.json" ]]; then
+        # 更新api_paths.json中的base_url为原生安装地址
+        local api_base_url="http://127.0.0.1:${API_PORT}"
+        sed -i "s|\"base_url\": \"http://backend:8000\"|\"base_url\": \"${api_base_url}\"|g" "$FRONTEND_DIR/config/api_paths.json"
+        log_success "已更新API基础URL为: ${api_base_url}"
+    else
+        log_warning "api_paths.json文件不存在，将创建默认配置..."
+        # 创建原生安装的api_paths.json配置
+        cat > "$FRONTEND_DIR/config/api_paths.json" << EOF
+{
+    "api": {
+        "base_url": "http://127.0.0.1:${API_PORT}",
+        "version": "v1",
+        "timeout": 30,
+        "retry_attempts": 3,
+        "retry_delay": 1000
+    },
+    "endpoints": {
+        "auth": {
+            "login": {
+                "path": "/auth/login",
+                "method": "POST",
+                "description": "用户登录"
+            },
+            "logout": {
+                "path": "/auth/logout",
+                "method": "POST",
+                "description": "用户登出"
+            },
+            "refresh": {
+                "path": "/auth/refresh",
+                "method": "POST",
+                "description": "刷新令牌"
+            },
+            "me": {
+                "path": "/auth/me",
+                "method": "GET",
+                "description": "获取当前用户信息"
+            }
+        },
+        "users": {
+            "list": {
+                "path": "/users",
+                "method": "GET",
+                "description": "获取用户列表"
+            },
+            "create": {
+                "path": "/users",
+                "method": "POST",
+                "description": "创建用户"
+            },
+            "get": {
+                "path": "/users/{id}",
+                "method": "GET",
+                "description": "获取用户详情"
+            },
+            "update": {
+                "path": "/users/{id}",
+                "method": "PUT",
+                "description": "更新用户"
+            },
+            "delete": {
+                "path": "/users/{id}",
+                "method": "DELETE",
+                "description": "删除用户"
+            }
+        },
+        "wireguard": {
+            "servers": {
+                "list": {
+                    "path": "/wireguard/servers",
+                    "method": "GET",
+                    "description": "获取WireGuard服务器列表"
+                },
+                "create": {
+                    "path": "/wireguard/servers",
+                    "method": "POST",
+                    "description": "创建WireGuard服务器"
+                }
+            },
+            "clients": {
+                "list": {
+                    "path": "/wireguard/clients",
+                    "method": "GET",
+                    "description": "获取WireGuard客户端列表"
+                },
+                "create": {
+                    "path": "/wireguard/clients",
+                    "method": "POST",
+                    "description": "创建WireGuard客户端"
+                }
+            }
+        },
+        "system": {
+            "health": {
+                "path": "/system/health",
+                "method": "GET",
+                "description": "系统健康检查"
+            },
+            "status": {
+                "path": "/system/status",
+                "method": "GET",
+                "description": "系统状态"
+            }
+        }
+    }
+}
+EOF
+        log_success "已创建原生安装的API路径配置文件"
+    fi
+    
     # 智能启动PHP-FPM服务
     local php_fpm_service=""
     local service_started=false
