@@ -2,7 +2,7 @@
   "name": "IPv6 WireGuard Manager",
   "short_name": "IPv6WGM",
   "description": "IPv6 WireGuard Manager - 企业级VPN管理解决方案",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -99,7 +99,7 @@ class Settings(BaseSettings):
     
     # 应用基础配置
     APP_NAME: str = "IPv6 WireGuard Manager"
-    APP_VERSION: str = "3.0.0"
+    APP_VERSION: str = "3.1.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     

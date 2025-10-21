@@ -12,6 +12,13 @@ api_router = APIRouter()
 # 路由配置映射
 ROUTE_CONFIGS = [
     {
+        "module": ".endpoints.health",
+        "router_attr": "router",
+        "prefix": "",
+        "tags": ['健康检查'],
+        "description": "健康检查与基础指标"
+    },
+    {
         "module": ".endpoints.auth",
         "router_attr": "router",
         "prefix": "/auth",

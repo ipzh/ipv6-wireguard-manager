@@ -8,7 +8,7 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 $health = [
     'status' => 'healthy',
     'service' => 'IPv6 WireGuard Manager Frontend',
-    'version' => '3.0.0',
+    'version' => '3.1.0',
     'timestamp' => time(),
     'datetime' => date('Y-m-d H:i:s'),
     'php_version' => PHP_VERSION,

@@ -28,7 +28,7 @@ class UnifiedSettings(BaseSettings):
     
     # 应用基础配置
     APP_NAME: str = "IPv6 WireGuard Manager"
-    APP_VERSION: str = "3.0.0"
+    APP_VERSION: str = "3.1.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
     
@@ -111,7 +111,7 @@ class UnifiedSettings(BaseSettings):
     WIREGUARD_PUBLIC_KEY: Optional[str] = None
     WIREGUARD_PORT: int = Field(default=51820, ge=1024, le=65535)
     WIREGUARD_INTERFACE: str = "wg0"
-    WIREGUARD_NETWORK: str = "1${SERVER_HOST}/24"
+    WIREGUARD_NETWORK: str = "10.0.0.0/24"
     WIREGUARD_IPV6_NETWORK: str = "fd00::/64"
     
     # 监控配置

@@ -1,6 +1,6 @@
 {
   "name": "ipv6-wireguard-manager-frontend",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "description": "IPv6 WireGuard Manager Frontend - ESM版本",
   "type": "module",
   "scripts": {
