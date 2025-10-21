@@ -21,7 +21,11 @@ class UnifiedAPIPathBuilder:
         """
         if config_path is None:
             # 默认配置文件路径
-            current_dir = Path(__file__).parent.parent.parent.parent
+            try:
+                current_dir = Path(__file__).parent.parent.parent.parent
+            except NameError:
+                # 如果__file__未定义，使用当前工作目录
+                current_dir = Path.cwd()
             config_path = current_dir / "config" / "api_paths.json"
         
         self.config_path = Path(config_path)

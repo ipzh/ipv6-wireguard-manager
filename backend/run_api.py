@@ -9,7 +9,11 @@ import socket
 from pathlib import Path
 
 # 添加项目根目录到Python路径
-project_root = Path(__file__).parent
+try:
+    project_root = Path(__file__).parent
+except NameError:
+    # 如果__file__未定义，使用当前工作目录
+    project_root = Path.cwd()
 sys.path.insert(0, str(project_root))
 
 # 设置环境变量

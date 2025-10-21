@@ -28,9 +28,15 @@ async def create_tables():
         
         # 运行 Alembic 迁移
         import subprocess
+        # 获取当前脚本目录，如果__file__未定义则使用当前工作目录
+        try:
+            script_dir = Path(__file__).parent
+        except NameError:
+            script_dir = Path.cwd()
+        
         result = subprocess.run(
             ["alembic", "upgrade", "head"],
-            cwd=Path(__file__).parent,
+            cwd=script_dir,
             capture_output=True,
             text=True
         )

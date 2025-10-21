@@ -8,7 +8,11 @@ import sys
 from pathlib import Path
 
 # 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent.parent
+try:
+    project_root = Path(__file__).parent.parent.parent
+except NameError:
+    # 如果__file__未定义，使用当前工作目录的父目录
+    project_root = Path.cwd().parent
 sys.path.insert(0, str(project_root))
 
 def init_mysql_database():
