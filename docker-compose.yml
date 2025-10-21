@@ -101,10 +101,10 @@ services:
       - LOG_DIR=/var/log/nginx
       
       # API配置 - 修复IPv6地址格式，使用容器名称进行通信
-      - API_BASE_URL=http://backend:${API_PORT:-8000}
+      - API_BASE_URL=http://backend:${API_PORT:-8000}/api/v1
       - API_VERSION=v1
       - API_TIMEOUT=${API_TIMEOUT:-30}
-      
+
       # 应用配置
       - APP_NAME=${APP_NAME:-IPv6 WireGuard Manager}
       - APP_VERSION=${APP_VERSION:-3.1.0}
@@ -120,11 +120,10 @@ services:
     volumes:
       - ./php-frontend:/var/www/html
       - ./logs/nginx:/var/log/nginx
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
     networks:
       - wireguard-network
-    restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
@@ -192,17 +191,16 @@ services:
       - REDIS_MAXMEMORY_POLICY=${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
     volumes:
       - redis_data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - wireguard-network
-    restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 30s
       retries: 5
       start_period: 60s
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server
     deploy:
       resources:
         limits:

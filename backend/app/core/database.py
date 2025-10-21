@@ -34,10 +34,10 @@ async def init_db():
     """初始化数据库"""
     try:
         # 检查数据库健康状况
-        from .database_health_enhanced import check_and_fix_database
+        from .database_health import check_and_fix_database
         
         logger.info("检查数据库健康状况...")
-        if not await check_and_fix_database():
+        if not check_and_fix_database():
             logger.warning("数据库健康检查发现问题，继续尝试初始化...")
             
         # 使用数据库管理器初始化

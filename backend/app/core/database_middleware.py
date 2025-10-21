@@ -41,8 +41,8 @@ class DatabaseHealthMiddleware(BaseHTTPMiddleware):
         # 定期检查数据库健康状态
         if current_time - self.last_check_time > self.check_interval:
             try:
-                from .database_health_enhanced import health_checker
-                self.health_status = await health_checker.check_database_health()
+                from .database_health import get_database_health
+                self.health_status = get_database_health()
                 self.last_check_time = current_time
                 
                 # 如果数据库不健康，记录警告
