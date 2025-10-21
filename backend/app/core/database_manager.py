@@ -11,7 +11,7 @@ from sqlalchemy.pool import QueuePool
 from contextlib import asynccontextmanager, contextmanager
 from enum import Enum
 
-from .config_enhanced import settings
+from .unified_config import settings
 
 logger = logging.getLogger(__name__)
 

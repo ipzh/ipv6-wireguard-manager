@@ -1,375 +1,237 @@
-# IPv6 WireGuard Manager - PHP前端
+# IPv6 WireGuard Manager PHP前端
 
-这是IPv6 WireGuard Manager的PHP前端实现，提供完整的Web管理界面。
+## 📋 概述
 
-## 功能特性
+IPv6 WireGuard Manager的PHP前端应用，提供完整的Web管理界面。基于PHP 8.1+和现代Web技术构建。
 
-### ✅ 已实现功能
+## 🚀 快速开始
 
-1. **用户认证系统**
-   - 用户登录/登出
-   - JWT令牌管理
-   - 权限控制
-   - 会话管理
+### 环境要求
 
-2. **仪表板**
-   - 系统状态概览
-   - WireGuard服务器/客户端统计
-   - BGP宣告状态
-   - 系统监控指标
-   - 最近日志显示
-   - 实时数据更新
-
-3. **WireGuard管理**
-   - 服务器管理（创建、编辑、删除、启动/停止）
-   - 客户端管理（创建、编辑、删除）
-   - 配置文件导出
-   - 二维码生成
-   - 实时状态监控
-
-### 🚧 待实现功能
-
-4. **BGP管理**
-   - BGP会话管理
-   - 路由宣告管理
-   - 状态监控
-
-5. **IPv6前缀池管理**
-   - 前缀池管理
-   - 前缀分配
-   - 使用统计
-
-6. **监控模块**
-   - 系统指标展示
-   - 告警管理
-   - 历史数据
-
-7. **日志管理**
-   - 日志查看
-   - 日志搜索
-   - 日志详情
-
-8. **用户管理**
-   - 用户列表
-   - 用户创建/编辑
-   - 权限管理
-
-9. **系统设置**
-   - 系统配置
-   - 备份恢复
-   - 系统信息
-
-10. **实时通信**
-    - Server-Sent Events
-    - 实时数据推送
-
-## 技术架构
-
-### 技术栈
-- **后端**: PHP 8.1+
-- **前端**: Bootstrap 5 + jQuery
-- **数据库**: MySQL (通过API)
-- **认证**: JWT令牌
-- **API通信**: RESTful API
-
-### 项目结构
-```
-php-frontend/
-├── index.php              # 入口文件
-├── config/
-│   └── config.php         # 配置文件
-├── classes/
-│   ├── ApiClient.php      # API客户端
-│   ├── Auth.php           # 认证管理
-│   └── Router.php         # 路由管理
-├── controllers/
-│   ├── AuthController.php # 认证控制器
-│   ├── DashboardController.php # 仪表板控制器
-│   └── WireGuardController.php # WireGuard控制器
-├── views/
-│   ├── layout/
-│   │   ├── header.php     # 页面头部
-│   │   └── footer.php     # 页面底部
-│   ├── auth/
-│   │   └── login.php      # 登录页面
-│   ├── dashboard/
-│   │   └── index.php      # 仪表板页面
-│   ├── wireguard/
-│   │   ├── servers.php    # 服务器管理页面
-│   │   └── clients.php    # 客户端管理页面
-│   └── errors/
-│       ├── 404.php        # 404错误页面
-│       └── error.php      # 错误页面
-└── README.md              # 说明文档
-```
-
-## 安装部署
-
-### 系统要求
-- PHP 8.1+
-- Apache/Nginx Web服务器
-- 支持URL重写
-- 后端API服务运行正常
+- **PHP**: 8.1+ (推荐8.2+)
+- **Web服务器**: Nginx/Apache
+- **数据库**: MySQL 8.0+
+- **扩展**: session, json, mbstring, filter, pdo, pdo_mysql, curl, openssl
 
 ### 安装步骤
 
-1. **下载代码**
+1. **检查环境要求**
    ```bash
-   git clone <repository-url>
-   cd php-frontend
+   ./scripts/check_requirements.sh
    ```
 
-2. **配置Web服务器**
-   
-   **Apache配置**:
-   ```apache
-   <VirtualHost *:80>
-       ServerName ipv6-wireguard-manager.local
-       DocumentRoot /path/to/php-frontend
-       <Directory /path/to/php-frontend>
-           AllowOverride All
-           Require all granted
-       </Directory>
-   </VirtualHost>
-   ```
-
-   **Nginx配置**:
-   ```nginx
-   server {
-       listen 80;
-       server_name ipv6-wireguard-manager.local;
-       root /path/to/php-frontend;
-       index index.php;
-       
-       location / {
-           try_files $uri $uri/ /index.php?$query_string;
-       }
-       
-       location ~ \.php$ {
-           fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
-           fastcgi_index index.php;
-           fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-           include fastcgi_params;
-       }
-   }
-   ```
-
-3. **配置应用**
-   
-   编辑 `config/config.php`:
-   ```php
-   // 修改API地址
-   define('API_BASE_URL', 'http://your-backend-api:${API_PORT}');
-   ```
-
-4. **设置权限**
+2. **配置应用**
    ```bash
-   chmod -R 755 /path/to/php-frontend
-   chown -R www-data:www-data /path/to/php-frontend
+   cp env.example config/config.php
+   # 编辑 config/config.php 配置数据库和API连接
    ```
 
-5. **访问应用**
-   
-   打开浏览器访问: `http://your-domain/`
+3. **部署应用**
+   ```bash
+   ./scripts/deploy.sh
+   ```
 
-## 配置说明
+4. **配置Web服务器**
+   - 复制 `nginx.conf` 到Nginx配置目录
+   - 重启Nginx服务
 
-### 主要配置项
+## 🐳 Docker部署
+
+### 构建镜像
+```bash
+docker build -t ipv6-wireguard-frontend .
+```
+
+### 运行容器
+```bash
+docker run -d -p 80:80 ipv6-wireguard-frontend
+```
+
+### 使用Docker Compose
+```bash
+# 在项目根目录运行
+docker-compose up -d frontend
+```
+
+## 📁 目录结构
+
+```
+php-frontend/
+├── api/                    # API代理和状态检查
+├── assets/                 # 静态资源 (CSS, JS, 图片)
+├── classes/                # PHP类库
+│   ├── ApiClientJWT.php    # JWT API客户端
+│   ├── AuthJWT.php         # JWT认证
+│   ├── Router.php          # 路由管理
+│   └── ...
+├── config/                 # 配置文件
+│   ├── config.php         # 主配置文件
+│   ├── database.php       # 数据库配置
+│   └── api_endpoints.php   # API端点配置
+├── controllers/            # 控制器
+│   ├── AuthController.php  # 认证控制器
+│   ├── DashboardController.php # 仪表盘控制器
+│   └── ...
+├── includes/              # 包含文件
+│   ├── ApiPathBuilder/    # API路径构建器
+│   └── ssl_security.php   # SSL安全配置
+├── views/                  # 视图模板
+│   ├── auth/              # 认证页面
+│   ├── dashboard/         # 仪表盘页面
+│   ├── wireguard/        # WireGuard管理页面
+│   └── ...
+├── scripts/               # 部署脚本
+│   ├── deploy.sh          # 部署脚本
+│   └── check_requirements.sh # 环境检查脚本
+├── docker/                # Docker配置
+│   ├── nginx.conf         # Nginx配置
+│   └── supervisord.conf   # 进程管理配置
+├── Dockerfile             # Docker镜像构建文件
+├── index.php              # 主入口文件
+└── README.md              # 说明文档
+```
+
+## ⚙️ 配置说明
+
+### 主配置文件 (config/config.php)
 
 ```php
+<?php
 // 应用配置
 define('APP_NAME', 'IPv6 WireGuard Manager');
-define('APP_VERSION', '3.0.0');
-define('APP_DEBUG', true);
+define('APP_VERSION', '3.1.0');
+define('APP_DEBUG', false);
 
 // API配置
-define('API_BASE_URL', 'http://localhost:${API_PORT}');
+define('API_BASE_URL', 'http://backend:8000');
 define('API_TIMEOUT', 30);
 
 // 会话配置
-define('SESSION_LIFETIME', 3600); // 1小时
+define('SESSION_LIFETIME', 3600);
 
-// 分页配置
-define('DEFAULT_PAGE_SIZE', 20);
-define('MAX_PAGE_SIZE', 100);
+// 安全配置
+define('CSRF_TOKEN_NAME', '_token');
+define('PASSWORD_MIN_LENGTH', 8);
+?>
 ```
 
-### 环境变量
-
-可以通过环境变量覆盖配置：
-
-```bash
-export API_BASE_URL="http://your-api-server:${API_PORT}"
-export APP_DEBUG="false"
-```
-
-## API集成
-
-### 认证流程
-
-1. 用户登录时，前端调用 `/auth/login` API
-2. 后端返回JWT令牌
-3. 前端将令牌存储在会话中
-4. 后续请求自动携带令牌
-
-### API调用示例
+### 数据库配置 (config/database.php)
 
 ```php
-// 获取服务器列表
-$servers = $apiClient->get('/wireguard/servers');
-
-// 创建服务器
-$response = $apiClient->post('/wireguard/servers', $serverData);
-
-// 更新服务器
-$response = $apiClient->put('/wireguard/servers/123', $serverData);
-
-// 删除服务器
-$response = $apiClient->delete('/wireguard/servers/123');
+<?php
+// 数据库配置
+define('DB_HOST', 'mysql');
+define('DB_PORT', 3306);
+define('DB_NAME', 'ipv6wgm');
+define('DB_USER', 'ipv6wgm');
+define('DB_PASS', 'password');
+define('DB_CHARSET', 'utf8mb4');
+?>
 ```
 
-## 开发指南
+## 🔧 功能特性
+
+### 认证系统
+- JWT令牌认证
+- 会话管理
+- 权限控制
+- 密码策略
+
+### 管理功能
+- WireGuard服务器管理
+- 客户端管理
+- IPv6地址池管理
+- BGP会话管理
+- 网络监控
+
+### 用户界面
+- 响应式设计
+- 现代化UI
+- 实时数据更新
+- 错误处理
+
+## 🛠️ 开发指南
 
 ### 添加新功能
 
 1. **创建控制器**
    ```php
+   // controllers/NewController.php
+   <?php
    class NewController {
-       private $auth;
-       private $apiClient;
-       
-       public function __construct() {
-           $this->auth = new Auth();
-           $this->apiClient = new ApiClient();
-           $this->auth->requireLogin();
-       }
-       
        public function index() {
-           // 实现功能
+           // 控制器逻辑
        }
    }
    ```
 
-2. **添加路由**
+2. **创建视图**
    ```php
-   $router->addRoute('GET', '/new-feature', 'NewController@index');
+   // views/new/index.php
+   <div class="container">
+       <!-- 视图内容 -->
+   </div>
    ```
 
-3. **创建视图**
+3. **更新路由**
    ```php
-   // views/new-feature/index.php
-   $pageTitle = '新功能';
-   $showSidebar = true;
-   
-   include 'views/layout/header.php';
-   // 页面内容
-   include 'views/layout/footer.php';
+   // 在 Router.php 中添加路由
+   $router->addRoute('GET', '/new', 'NewController@index');
    ```
 
-### 权限控制
+### API集成
 
 ```php
-// 要求特定权限
-$this->auth->requirePermission('wireguard.manage');
-
-// 检查权限
-if ($this->auth->hasPermission('admin')) {
-    // 管理员功能
-}
+// 使用API客户端
+$apiClient = new ApiClientJWT();
+$response = $apiClient->get('/api/v1/wireguard/servers');
 ```
 
-### 错误处理
-
-```php
-try {
-    $data = $this->apiClient->get('/api/endpoint');
-} catch (Exception $e) {
-    $this->handleError('操作失败: ' . $e->getMessage());
-}
-```
-
-## 故障排除
+## 🐛 故障排除
 
 ### 常见问题
 
-1. **API连接失败**
-   - 检查 `API_BASE_URL` 配置
-   - 确认后端服务运行正常
+1. **PHP扩展缺失**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install php8.1-mysql php8.1-curl php8.1-mbstring
+   
+   # CentOS/RHEL
+   sudo yum install php-mysql php-curl php-mbstring
+   ```
+
+2. **权限问题**
+   ```bash
+   chmod -R 755 .
+   chmod -R 777 logs uploads cache
+   ```
+
+3. **数据库连接失败**
+   - 检查数据库配置
+   - 确认数据库服务运行
    - 检查网络连接
 
-2. **页面404错误**
-   - 确认Nginx配置正确
-   - 检查Nginx重写规则
-   - 确认PHP-FPM服务正常
+### 日志查看
 
-3. **权限错误**
-   - 检查文件权限
-   - 确认Web服务器用户权限
-   - 检查目录权限
+```bash
+# 应用日志
+tail -f logs/app.log
 
-4. **会话问题**
-   - 检查PHP会话配置
-   - 确认会话目录可写
-   - 检查会话超时设置
+# 错误日志
+tail -f logs/error.log
 
-### 调试模式
-
-启用调试模式查看详细错误信息：
-
-```php
-define('APP_DEBUG', true);
+# Nginx日志
+tail -f /var/log/nginx/error.log
 ```
 
-## 性能优化
+## 📞 支持
 
-### 缓存策略
+- 查看项目文档
+- 提交Issue
+- 联系开发团队
 
-1. **静态资源缓存**
-   - 使用CDN加速
-   - 设置适当的缓存头
-   - 启用Gzip压缩
+---
 
-2. **API响应缓存**
-   - 实现客户端缓存
-   - 使用ETag验证
-   - 合理设置缓存时间
-
-### 安全建议
-
-1. **输入验证**
-   - 验证所有用户输入
-   - 使用CSRF令牌
-   - 防止XSS攻击
-
-2. **访问控制**
-   - 实现权限检查
-   - 限制API访问
-   - 使用HTTPS
-
-3. **错误处理**
-   - 不暴露敏感信息
-   - 记录安全事件
-   - 实现访问日志
-
-## 更新日志
-
-### v1.0.0 (2024-01-XX)
-- 初始版本发布
-- 实现用户认证系统
-- 实现仪表板功能
-- 实现WireGuard管理功能
-
-## 贡献指南
-
-1. Fork项目
-2. 创建功能分支
-3. 提交更改
-4. 创建Pull Request
-
-## 许可证
-
-MIT License
-
-## 支持
-
-如有问题，请提交Issue或联系开发团队。
+**版本**: 3.1.0  
+**PHP要求**: 8.1+  
+**许可证**: MIT

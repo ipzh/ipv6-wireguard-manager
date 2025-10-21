@@ -8,7 +8,7 @@ from typing import Optional
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .core.config_enhanced import settings
+from .core.unified_config import settings
 from .core.database import get_db
 from .models.models_complete import User
 

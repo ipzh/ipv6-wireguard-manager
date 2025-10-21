@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict, deque
 
-from .config_enhanced import settings
+from .unified_config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from contextlib import asynccontextmanager, contextmanager
 
 from .database_manager import database_manager, DatabaseType
-from .config_enhanced import settings
+from .unified_config import settings
 
 logger = logging.getLogger(__name__)
 

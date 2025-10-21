@@ -1,0 +1,357 @@
+# IPv6 WireGuard Manager 微服务架构
+# 支持负载均衡、高可用、水平扩展
+
+version: '3.8'
+
+services:
+  # API网关
+  api-gateway:
+    image: nginx:alpine
+    container_name: ipv6wgm-api-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - backend-1
+      - backend-2
+      - frontend
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 后端服务 - 实例1
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-backend-1
+    environment:
+      - APP_NAME=IPv6 WireGuard Manager
+      - APP_VERSION=3.1.0
+      - DEBUG=false
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
+      - REDIS_URL=redis://redis:6379/0
+      - USE_REDIS=true
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 后端服务 - 实例2
+  backend-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-backend-2
+    environment:
+      - APP_NAME=IPv6 WireGuard Manager
+      - APP_VERSION=3.1.0
+      - DEBUG=false
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      - DATABASE_URL=mysql://ipv6wgm:password@mysql:3306/ipv6wgm
+      - REDIS_URL=redis://redis:6379/0
+      - USE_REDIS=true
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./php-frontend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-frontend
+    environment:
+      - API_BASE_URL=http://api-gateway
+    depends_on:
+      - api-gateway
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 数据库主节点
+  mysql-master:
+    image: mysql:8.0
+    container_name: ipv6wgm-mysql-master
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=ipv6wgm
+      - MYSQL_USER=ipv6wgm
+      - MYSQL_PASSWORD=password
+    volumes:
+      - mysql_master_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/master.cnf:/etc/mysql/conf.d/master.cnf
+    ports:
+      - "3306:3306"
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW
+
+  # 数据库从节点
+  mysql-slave:
+    image: mysql:8.0
+    container_name: ipv6wgm-mysql-slave
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=ipv6wgm
+      - MYSQL_USER=ipv6wgm
+      - MYSQL_PASSWORD=password
+    volumes:
+      - mysql_slave_data:/var/lib/mysql
+      - ./docker/mysql/slave.cnf:/etc/mysql/conf.d/slave.cnf
+    ports:
+      - "3307:3306"
+    depends_on:
+      - mysql-master
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+    command: --server-id=2 --relay-log=mysql-relay-bin
+
+  # Redis主节点
+  redis-master:
+    image: redis:7-alpine
+    container_name: ipv6wgm-redis-master
+    command: redis-server --appendonly yes --requirepass redispassword
+    volumes:
+      - redis_master_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # Redis从节点
+  redis-slave:
+    image: redis:7-alpine
+    container_name: ipv6wgm-redis-slave
+    command: redis-server --appendonly yes --requirepass redispassword --slaveof redis-master 6379
+    volumes:
+      - redis_slave_data:/data
+    ports:
+      - "6380:6379"
+    depends_on:
+      - redis-master
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 负载均衡器
+  haproxy:
+    image: haproxy:alpine
+    container_name: ipv6wgm-haproxy
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    depends_on:
+      - backend-1
+      - backend-2
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 监控服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ipv6wgm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 监控面板
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ipv6wgm-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 日志收集
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: ipv6wgm-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 日志分析
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: ipv6wgm-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 消息队列
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ipv6wgm-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 任务调度器
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-celery-worker
+    command: celery -A app.core.celery worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=amqp://admin:admin@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis-master:6379/1
+    depends_on:
+      - rabbitmq
+      - redis-master
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 任务调度器 - 实例2
+  celery-worker-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-celery-worker-2
+    command: celery -A app.core.celery worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=amqp://admin:admin@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis-master:6379/1
+    depends_on:
+      - rabbitmq
+      - redis-master
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 定时任务调度器
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipv6wgm-celery-beat
+    command: celery -A app.core.celery beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=amqp://admin:admin@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis-master:6379/1
+    depends_on:
+      - rabbitmq
+      - redis-master
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 文件存储服务
+  minio:
+    image: minio/minio:latest
+    container_name: ipv6wgm-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=admin123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - ipv6wgm-network
+    restart: unless-stopped
+
+  # 对象存储客户端
+  minio-client:
+    image: minio/mc:latest
+    container_name: ipv6wgm-minio-client
+    depends_on:
+      - minio
+    networks:
+      - ipv6wgm-network
+    restart: "no"
+
+# 网络配置
+networks:
+  ipv6wgm-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# 数据卷
+volumes:
+  mysql_master_data:
+  mysql_slave_data:
+  redis_master_data:
+  redis_slave_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+  rabbitmq_data:
+  minio_data:

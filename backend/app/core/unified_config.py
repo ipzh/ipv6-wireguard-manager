@@ -43,6 +43,9 @@ class UnifiedSettings(BaseSettings):
     SYSTEMD_CONFIG_DIR: str = Field(default="/etc/systemd/system")
     BIN_DIR: str = Field(default="/usr/local/bin")
     
+    # 路径配置对象（非字段，运行时初始化）
+    path_config: Optional[PathConfig] = Field(default=None, exclude=True)
+    
     # API配置
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))

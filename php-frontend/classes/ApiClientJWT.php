@@ -5,6 +5,8 @@
 
 // 引入SSL安全配置
 require_once __DIR__ . '/../includes/ssl_security.php';
+// 引入统一API路径构建器
+require_once __DIR__ . '/../includes/ApiPathBuilder/UnifiedAPIPathBuilder.php';
 class ApiClientJWT {
     private $baseUrl;
     private $timeout;
@@ -14,10 +16,12 @@ class ApiClientJWT {
     private $retryDelay;
     private $userAgent;
     private $tokenRefreshCallback;
+    private $apiPathBuilder;
     
     public function __construct() {
-        $this->baseUrl = API_BASE_URL;
-        $this->timeout = API_TIMEOUT ?? 30;
+        $this->apiPathBuilder = getApiPathBuilder();
+        $this->baseUrl = $this->apiPathBuilder->getBaseUrl();
+        $this->timeout = $this->apiPathBuilder->getTimeout();
         $this->maxRetries = 3;
         $this->retryDelay = 1; // 秒
         $this->userAgent = 'IPv6-WireGuard-Manager/1.0';
@@ -494,7 +498,8 @@ class ApiClientJWT {
      */
     public function login($username, $password) {
         try {
-            $response = $this->post('/auth/login-json', [
+            $url = $this->apiPathBuilder->buildUrl('auth', 'login');
+            $response = $this->post($url, [
                 'username' => $username,
                 'password' => $password
             ]);

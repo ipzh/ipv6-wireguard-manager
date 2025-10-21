@@ -1,70 +1,60 @@
-# Prometheus监控配置
+# Prometheus配置文件
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
-  external_labels:
-    cluster: 'ipv6-wireguard'
-    environment: 'production'
 
 # 告警规则
 rule_files:
   - "alert_rules.yml"
 
+# 告警管理器配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
 # 抓取配置
 scrape_configs:
-  # 后端API服务监控
-  - job_name: 'ipv6-wireguard-backend'
+  # Prometheus自身监控
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['backend:${API_PORT}']
+      - targets: ['localhost:9090']
+
+  # IPv6 WireGuard Manager后端监控
+  - job_name: 'ipv6-wireguard-manager'
+    static_configs:
+      - targets: ['backend:8000']
     metrics_path: '/metrics'
     scrape_interval: 30s
     scrape_timeout: 10s
-    
-    # 标签重写
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: backend:${API_PORT}
 
-  # 数据库监控
-  - job_name: 'postgres'
+  # MySQL数据库监控
+  - job_name: 'mysql'
     static_configs:
-      - targets: ['postgres:5432']
-    metrics_path: '/metrics'
-    params:
-      user: ['ipv6wgm']
-      password: ['password']
+      - targets: ['mysql:3306']
     scrape_interval: 30s
 
-  # Redis监控
+  # Redis缓存监控
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:${REDIS_PORT}']
-    metrics_path: '/metrics'
-    params:
-      password: ['redis123']
+      - targets: ['redis:6379']
     scrape_interval: 30s
 
   # Nginx监控
   - job_name: 'nginx'
     static_configs:
       - targets: ['nginx:80']
-    metrics_path: '/nginx_status'
     scrape_interval: 30s
 
-  # 节点监控
-  - job_name: 'node'
+  # 系统监控
+  - job_name: 'node-exporter'
     static_configs:
-      - targets: ['localhost:9100']
+      - targets: ['node-exporter:9100']
     scrape_interval: 30s
 
-# 远程写入配置（可选）
-remote_write:
-  - url: "http://thanos-receive:10908/api/v1/receive"
-    
-# 远程读取配置（可选）
-remote_read:
-  - url: "http://thanos-query:10904/api/v1/read"
+  # WireGuard监控
+  - job_name: 'wireguard'
+    static_configs:
+      - targets: ['wireguard:51820']
+    scrape_interval: 30s

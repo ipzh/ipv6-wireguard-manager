@@ -1,5 +1,8 @@
 -- IPv6 WireGuard Manager MySQL 初始化脚本
 -- 创建数据库和基本表结构
+-- 
+-- 注意：此文件已弃用，请使用Alembic迁移脚本
+-- 新的数据库初始化请使用：alembic upgrade head
 
 -- 设置字符集
 SET NAMES utf8mb4;

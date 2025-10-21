@@ -11,7 +11,7 @@ from .database_manager import (
     DatabaseMode,
     DatabaseType
 )
-from .config_enhanced import settings
+from .unified_config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)

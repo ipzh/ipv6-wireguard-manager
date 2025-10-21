@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # 导入应用配置和模型
-from app.core.config_enhanced import settings
+from app.core.unified_config import settings
 from app.models.models_complete import Base
 
 # this is the Alembic Config object, which provides

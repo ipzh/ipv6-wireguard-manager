@@ -1,0 +1,275 @@
+{
+  "api": {
+    "base_url": "http://backend:8000",
+    "version": "v1",
+    "timeout": 30
+  },
+  "endpoints": {
+    "auth": {
+      "login": {
+        "path": "/auth/login",
+        "method": "POST",
+        "description": "用户登录"
+      },
+      "logout": {
+        "path": "/auth/logout",
+        "method": "POST",
+        "description": "用户登出"
+      },
+      "refresh": {
+        "path": "/auth/refresh",
+        "method": "POST",
+        "description": "刷新令牌"
+      },
+      "me": {
+        "path": "/auth/me",
+        "method": "GET",
+        "description": "获取当前用户信息"
+      },
+      "verify": {
+        "path": "/auth/verify-token",
+        "method": "POST",
+        "description": "验证令牌"
+      },
+      "register": {
+        "path": "/auth/register",
+        "method": "POST",
+        "description": "用户注册"
+      },
+      "change_password": {
+        "path": "/auth/change-password",
+        "method": "POST",
+        "description": "修改密码"
+      }
+    },
+    "users": {
+      "list": {
+        "path": "/users",
+        "method": "GET",
+        "description": "获取用户列表"
+      },
+      "create": {
+        "path": "/users",
+        "method": "POST",
+        "description": "创建用户"
+      },
+      "get": {
+        "path": "/users/{id}",
+        "method": "GET",
+        "description": "获取用户详情"
+      },
+      "update": {
+        "path": "/users/{id}",
+        "method": "PUT",
+        "description": "更新用户"
+      },
+      "delete": {
+        "path": "/users/{id}",
+        "method": "DELETE",
+        "description": "删除用户"
+      },
+      "lock": {
+        "path": "/users/{id}/lock",
+        "method": "POST",
+        "description": "锁定用户"
+      },
+      "unlock": {
+        "path": "/users/{id}/unlock",
+        "method": "POST",
+        "description": "解锁用户"
+      }
+    },
+    "wireguard": {
+      "servers": {
+        "path": "/wireguard/servers",
+        "method": "GET",
+        "description": "获取WireGuard服务器列表"
+      },
+      "server_create": {
+        "path": "/wireguard/servers",
+        "method": "POST",
+        "description": "创建WireGuard服务器"
+      },
+      "server_get": {
+        "path": "/wireguard/servers/{id}",
+        "method": "GET",
+        "description": "获取WireGuard服务器详情"
+      },
+      "server_update": {
+        "path": "/wireguard/servers/{id}",
+        "method": "PUT",
+        "description": "更新WireGuard服务器"
+      },
+      "server_delete": {
+        "path": "/wireguard/servers/{id}",
+        "method": "DELETE",
+        "description": "删除WireGuard服务器"
+      },
+      "clients": {
+        "path": "/wireguard/clients",
+        "method": "GET",
+        "description": "获取WireGuard客户端列表"
+      },
+      "client_create": {
+        "path": "/wireguard/clients",
+        "method": "POST",
+        "description": "创建WireGuard客户端"
+      },
+      "client_get": {
+        "path": "/wireguard/clients/{id}",
+        "method": "GET",
+        "description": "获取WireGuard客户端详情"
+      },
+      "client_update": {
+        "path": "/wireguard/clients/{id}",
+        "method": "PUT",
+        "description": "更新WireGuard客户端"
+      },
+      "client_delete": {
+        "path": "/wireguard/clients/{id}",
+        "method": "DELETE",
+        "description": "删除WireGuard客户端"
+      },
+      "status": {
+        "path": "/wireguard/status",
+        "method": "GET",
+        "description": "获取WireGuard状态"
+      },
+      "start": {
+        "path": "/wireguard/start",
+        "method": "POST",
+        "description": "启动WireGuard"
+      },
+      "stop": {
+        "path": "/wireguard/stop",
+        "method": "POST",
+        "description": "停止WireGuard"
+      },
+      "restart": {
+        "path": "/wireguard/restart",
+        "method": "POST",
+        "description": "重启WireGuard"
+      }
+    },
+    "ipv6": {
+      "pools": {
+        "path": "/ipv6/pools",
+        "method": "GET",
+        "description": "获取IPv6地址池列表"
+      },
+      "pool_create": {
+        "path": "/ipv6/pools",
+        "method": "POST",
+        "description": "创建IPv6地址池"
+      },
+      "pool_get": {
+        "path": "/ipv6/pools/{id}",
+        "method": "GET",
+        "description": "获取IPv6地址池详情"
+      },
+      "pool_update": {
+        "path": "/ipv6/pools/{id}",
+        "method": "PUT",
+        "description": "更新IPv6地址池"
+      },
+      "pool_delete": {
+        "path": "/ipv6/pools/{id}",
+        "method": "DELETE",
+        "description": "删除IPv6地址池"
+      },
+      "allocations": {
+        "path": "/ipv6/allocations",
+        "method": "GET",
+        "description": "获取IPv6地址分配列表"
+      },
+      "allocation_create": {
+        "path": "/ipv6/allocations",
+        "method": "POST",
+        "description": "创建IPv6地址分配"
+      }
+    },
+    "bgp": {
+      "sessions": {
+        "path": "/bgp/sessions",
+        "method": "GET",
+        "description": "获取BGP会话列表"
+      },
+      "session_create": {
+        "path": "/bgp/sessions",
+        "method": "POST",
+        "description": "创建BGP会话"
+      },
+      "session_get": {
+        "path": "/bgp/sessions/{id}",
+        "method": "GET",
+        "description": "获取BGP会话详情"
+      },
+      "session_update": {
+        "path": "/bgp/sessions/{id}",
+        "method": "PUT",
+        "description": "更新BGP会话"
+      },
+      "session_delete": {
+        "path": "/bgp/sessions/{id}",
+        "method": "DELETE",
+        "description": "删除BGP会话"
+      },
+      "announcements": {
+        "path": "/bgp/announcements",
+        "method": "GET",
+        "description": "获取BGP公告列表"
+      },
+      "announcement_create": {
+        "path": "/bgp/announcements",
+        "method": "POST",
+        "description": "创建BGP公告"
+      }
+    },
+    "monitoring": {
+      "dashboard": {
+        "path": "/monitoring/dashboard",
+        "method": "GET",
+        "description": "获取监控仪表盘数据"
+      },
+      "metrics": {
+        "path": "/monitoring/metrics",
+        "method": "GET",
+        "description": "获取监控指标"
+      },
+      "alerts": {
+        "path": "/monitoring/alerts",
+        "method": "GET",
+        "description": "获取告警列表"
+      }
+    },
+    "system": {
+      "info": {
+        "path": "/system/info",
+        "method": "GET",
+        "description": "获取系统信息"
+      },
+      "config": {
+        "path": "/system/config",
+        "method": "GET",
+        "description": "获取系统配置"
+      },
+      "logs": {
+        "path": "/system/logs",
+        "method": "GET",
+        "description": "获取系统日志"
+      }
+    },
+    "health": {
+      "check": {
+        "path": "/health",
+        "method": "GET",
+        "description": "健康检查"
+      },
+      "detailed": {
+        "path": "/health/detailed",
+        "method": "GET",
+        "description": "详细健康检查"
+      }
+    }
+  }
+}
