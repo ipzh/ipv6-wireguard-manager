@@ -177,8 +177,8 @@ class UnifiedSettings(BaseSettings):
     @classmethod
     def validate_database_url(cls, v: str) -> str:
         """验证数据库URL格式"""
-        if not v.startswith(("mysql://", "mysql+aiomysql://")):
-            raise ValueError("Only MySQL database is supported")
+        if not v.startswith("mysql://"):
+            raise ValueError("Only MySQL DSN is supported, please use mysql://... format")
         return v
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")

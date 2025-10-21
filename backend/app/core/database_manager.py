@@ -67,9 +67,7 @@ class DatabaseManager:
         }
         
         # 仅支持MySQL数据库
-        if self.database_type == DatabaseType.MYSQL:
-            base_args["sql_mode"] = "TRADITIONAL"
-        else:
+        if self.database_type != DatabaseType.MYSQL:
             logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
             raise ValueError(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
         
