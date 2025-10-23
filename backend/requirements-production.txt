@@ -1,0 +1,55 @@
+# IPv6 WireGuard Manager - 生产环境依赖
+# 只包含实际使用的依赖，移除未使用的包
+
+# ============= FastAPI核心 =============
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# ============= 数据库 =============
+# ORM和迁移
+sqlalchemy==2.0.23
+alembic==1.13.1
+
+# MySQL驱动
+PyMySQL==1.1.0          # 同步驱动（用于迁移）
+aiomysql==0.2.0         # 异步驱动（用于FastAPI）
+
+# ============= 缓存（可选）=============
+redis==5.0.1            # Redis客户端，支持异步
+
+# ============= 认证和安全 =============
+python-jose[cryptography]>=3.3.0    # JWT令牌
+passlib[bcrypt]>=1.7.4              # 密码哈希
+python-multipart>=0.0.6             # 表单数据解析
+cryptography>=41.0.0,<47.0.0        # WireGuard密钥生成
+
+# ============= HTTP客户端 =============
+httpx==0.25.2           # 异步HTTP客户端
+
+# ============= 监控和日志 =============
+structlog==23.2.0       # 结构化日志
+prometheus-client==0.19.0  # Prometheus指标（可选）
+
+# ============= 系统工具 =============
+python-dotenv==1.0.0    # 环境变量
+psutil==5.9.6           # 系统监控
+click==8.1.7            # CLI工具
+
+# ============= 邮件验证 =============
+email-validator==2.1.0
+
+# ============= WebSocket支持（可选）=============
+websockets==12.0
+
+# 注意：以下包已从生产依赖中移除（未使用或可选）
+# - celery (无worker配置)
+# - kombu (celery依赖)
+# - elasticsearch (无ES配置)
+# - aiohttp (未使用)
+# - pyotp (MFA功能未实现)
+# - qrcode (MFA功能未实现)
+# - brotli (响应压缩可选)
+# - rich (仅开发环境使用)
+# - argon2-cffi (使用bcrypt已足够)

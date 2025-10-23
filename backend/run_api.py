@@ -1,5 +1,5 @@
 """
-简化的API启动脚本
+简化的API启动脚本 - 使用生产版入口
 """
 import uvicorn
 import os
@@ -31,11 +31,15 @@ logger = logging.getLogger(__name__)
 def main():
     """启动API服务"""
     try:
-        logger.info("Starting IPv6 WireGuard Manager API...")
+        logger.info("Starting IPv6 WireGuard Manager API (production)...")
+        
+        # 使用生产版入口，避免导入不存在的模块
+        app_module = os.environ.get("UVICORN_APP", "app.main_production:app")
+        logger.info(f"Loading app from: {app_module}")
         
         # 启动服务器 - 支持IPv4和IPv6双栈
         uvicorn.run(
-            "app.main:app",
+            app_module,
             host="::",
             port=8000,
             reload=True,
