@@ -748,7 +748,7 @@ set_defaults() {
     fi
     
     if [[ -z "${DB_USER:-}" ]]; then
-        DB_USER="ipv6-wireguard"
+        DB_USER="ipv6wgm"
     fi
     
     if [[ -z "${DB_PASSWORD:-}" ]]; then
@@ -1640,7 +1640,7 @@ upstream php_backend {
 
 server {
     listen $WEB_PORT;
-    listen [::]:$WEB_PORT;
+$( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
     server_name _;
     root $FRONTEND_DIR;
     index index.php index.html;
