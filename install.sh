@@ -2541,7 +2541,7 @@ initialize_database_standard() {
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
     # 创建一个临时的Python脚本来初始化数据库，避免在python -c中使用__file__
-    cat > /tmp/init_db_temp.py << 'EOF'
+    cat > /tmp/init_db_temp.py << EOF
 import asyncio
 import sys
 import os
