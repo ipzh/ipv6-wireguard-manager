@@ -2460,6 +2460,10 @@ initialize_database() {
     
     # 检查数据库连接
     log_info "检查数据库连接..."
+    # 确保在正确的目录下运行Python检查
+    cd "$INSTALL_DIR"
+    source venv/bin/activate
+    
     if ! python -c "
 import os
 import asyncio
@@ -2514,6 +2518,8 @@ exit(0 if success else 1)
     # 尝试使用简化的数据库初始化脚本
     if [[ -f "backend/init_database_simple.py" ]]; then
         log_info "使用简化的数据库初始化脚本..."
+        # 确保在正确的目录下运行Python脚本
+        cd "$INSTALL_DIR"
         if python backend/init_database_simple.py; then
             log_success "数据库初始化成功"
         else
@@ -2541,16 +2547,17 @@ import sys
 import os
 from pathlib import Path
 
-# 获取当前脚本所在目录
-try:
-    script_dir = Path(__file__).parent
-except NameError:
-    script_dir = Path.cwd()
+# 设置工作目录为安装目录
+install_dir = "$INSTALL_DIR"
+os.chdir(install_dir)
 
 # 添加backend目录到路径
-backend_path = script_dir / "backend"
+backend_path = Path(install_dir) / "backend"
 if backend_path.exists():
     sys.path.insert(0, str(backend_path))
+
+# 确保Python可以找到app模块
+sys.path.insert(0, str(Path(install_dir) / "backend"))
 
 from app.core.database import init_db, get_async_db
 from app.core.security_enhanced import init_permissions_and_roles, security_manager
@@ -2611,7 +2618,8 @@ if __name__ == '__main__':
         exit(1)
 EOF
 
-    # 执行临时脚本
+    # 执行临时脚本，确保在正确的目录下运行
+    cd "$INSTALL_DIR"
     python /tmp/init_db_temp.py
     
     # 清理临时文件
@@ -2628,6 +2636,8 @@ test_api_functionality() {
     # 检查是否有API测试脚本
     if [[ -f "backend/test_api.py" ]]; then
         log_info "运行API测试..."
+        # 确保在正确的目录下运行Python脚本
+        cd "$INSTALL_DIR"
         python backend/test_api.py
         if [[ $? -eq 0 ]]; then
             log_success "API测试通过"
