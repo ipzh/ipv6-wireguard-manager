@@ -611,15 +611,32 @@ select_install_type() {
             INSTALL_DIR="$DEFAULT_INSTALL_DIR"
             log_info "使用默认安装目录: $INSTALL_DIR"
             
-            # 根据端口占用情况自动设置端口
-            if netstat -tuln 2>/dev/null | grep -q ":$DEFAULT_PORT "; then
+            # 改进的端口冲突检测
+            check_port_available() {
+                local port=$1
+                local protocol=${2:-tcp}
+                
+                # 使用多种方法检测端口
+                if command -v ss &> /dev/null; then
+                    ss -tuln | grep -q ":$port "
+                elif command -v netstat &> /dev/null; then
+                    netstat -tuln | grep -q ":$port "
+                else
+                    # 回退到telnet检测
+                    timeout 1 bash -c "</dev/tcp/localhost/$port" 2>/dev/null
+                fi
+            }
+            
+            # 检查Web端口
+            if check_port_available "$DEFAULT_PORT"; then
                 WEB_PORT="8080"
                 log_info "端口$DEFAULT_PORT已被占用，自动使用端口$WEB_PORT"
             else
                 WEB_PORT="$DEFAULT_PORT"
             fi
             
-            if netstat -tuln 2>/dev/null | grep -q ":$DEFAULT_API_PORT "; then
+            # 检查API端口
+            if check_port_available "$DEFAULT_API_PORT"; then
                 API_PORT="8001"
                 log_info "端口$DEFAULT_API_PORT已被占用，自动使用端口$API_PORT"
             else
@@ -1339,7 +1356,9 @@ deploy_php_frontend() {
 
     chown -R "$web_user":"$web_group" "$FRONTEND_DIR" 2>/dev/null || true
     chmod -R 755 "$FRONTEND_DIR"
-    chmod -R 777 "$FRONTEND_DIR/logs"
+    # 优化日志目录权限，避免777过于宽松
+    chmod 750 "$FRONTEND_DIR/logs"
+    chown "$web_user":"$web_group" "$FRONTEND_DIR/logs"
     
     # 修复原生安装的API路径配置问题
     log_info "配置前端API路径..."
@@ -1658,9 +1677,21 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
         try_files \$uri =404;
     }
     
-    # API代理配置 - 将 /api/* 请求代理到后端，支持IPv4和IPv6双栈
+    # API代理配置 - 精确匹配API路径，避免与PHP处理冲突
+    location = /api/ {
+        proxy_pass http://backend_api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+    
+    # API子路径处理
     location /api/ {
-        # 定义上游服务器组，支持IPv4和IPv6双栈
         proxy_pass http://backend_api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -1698,7 +1729,16 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
         }
     }
     
-    # PHP文件处理 - 使用动态检测的PHP-FPM socket
+    # 静态文件处理 - 优化缓存策略，放在PHP处理之前
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        root $FRONTEND_DIR;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary "Accept-Encoding";
+        access_log off;
+    }
+    
+    # PHP文件处理 - 使用动态检测的PHP-FPM socket，放在API处理之后
     location ~ \.php$ {
         try_files \$uri =404;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
@@ -2172,10 +2212,34 @@ wait_for_docker_services() {
     
     # 等待后端API启动
     log_info "等待后端API启动..."
-    while ! curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null && ! curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; do
+    local api_wait_count=0
+    local api_max_wait=30  # 最多等待30次，每次5秒，总共150秒
+    
+    while [[ $api_wait_count -lt $api_max_wait ]]; do
+        # 根据SERVER_HOST配置选择检查地址
+        if [[ "${SERVER_HOST}" == "::" ]]; then
+            # 优先检查IPv6，回退到IPv4
+            if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+                log_success "后端API已启动"
+                break
+            fi
+        else
+            if curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+                log_success "后端API已启动"
+                break
+            fi
+        fi
+        
+        ((api_wait_count++))
+        if [[ $api_wait_count -eq $api_max_wait ]]; then
+            log_error "后端API启动超时，请检查服务状态"
+            log_info "检查命令: sudo systemctl status ipv6-wireguard-manager"
+            return 1
+        fi
+        
         sleep 5
+        log_info "等待API启动... ($api_wait_count/$api_max_wait)"
     done
-    log_success "后端API已启动"
     
     # 显示自动生成的凭据
     show_auto_generated_credentials
@@ -2577,6 +2641,34 @@ test_api_functionality() {
 create_system_service() {
     log_info "创建系统服务..."
     
+    # 验证后端服务启动所需的关键文件
+    if [[ ! -f "$INSTALL_DIR/venv/bin/uvicorn" ]]; then
+        log_error "uvicorn可执行文件不存在: $INSTALL_DIR/venv/bin/uvicorn"
+        log_error "请检查Python虚拟环境是否正确安装"
+        exit 1
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/backend/app/main.py" ]]; then
+        log_error "后端主程序文件不存在: $INSTALL_DIR/backend/app/main.py"
+        log_error "请检查项目文件是否正确下载"
+        exit 1
+    fi
+    
+    if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+        log_error "环境配置文件不存在: $INSTALL_DIR/.env"
+        log_error "请检查环境配置是否正确生成"
+        exit 1
+    fi
+    
+    # 验证Python依赖
+    if ! "$INSTALL_DIR/venv/bin/python" -c "import fastapi, uvicorn" 2>/dev/null; then
+        log_error "Python依赖包缺失，请检查虚拟环境"
+        log_info "尝试重新安装依赖: pip install -r requirements.txt"
+        exit 1
+    fi
+    
+    log_success "后端服务启动环境验证通过"
+    
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager Backend
@@ -2664,12 +2756,104 @@ create_directories_and_permissions() {
     find "$INSTALL_DIR" -name "*.sh" -exec chmod 755 {} \;
     find "$INSTALL_DIR/venv/bin" -type f -exec chmod 755 {} \;
     
+    # 设置敏感文件的安全权限
+    if [[ -f "$INSTALL_DIR/.env" ]]; then
+        chmod 600 "$INSTALL_DIR/.env"
+        chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env"
+    fi
+    
+    # 设置配置文件权限
+    find "$INSTALL_DIR" -name "*.json" -exec chmod 644 {} \;
+    find "$INSTALL_DIR" -name "*.conf" -exec chmod 644 {} \;
+    
     log_success "目录和权限设置完成"
+    
+    # 配置日志轮转
+    configure_log_rotation() {
+        log_info "配置日志轮转..."
+        
+        cat > /etc/logrotate.d/ipv6-wireguard-manager << EOF
+$INSTALL_DIR/logs/*.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    create 644 $SERVICE_USER $SERVICE_GROUP
+    postrotate
+        systemctl reload ipv6-wireguard-manager > /dev/null 2>&1 || true
+    endscript
+}
+
+$FRONTEND_DIR/logs/*.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    create 644 $web_user $web_group
+}
+EOF
+        
+        log_success "日志轮转配置完成"
+    }
+    
+    configure_log_rotation
 }
 
 # 启动服务 - 增强版
 start_services() {
     log_info "启动服务..."
+    
+    # 等待MySQL服务启动
+    wait_for_mysql() {
+        local max_attempts=30
+        local attempt=0
+        log_info "等待MySQL服务启动..."
+        
+        while [[ $attempt -lt $max_attempts ]]; do
+            if mysql -u root -e "SELECT 1;" &>/dev/null 2>&1; then
+                log_success "MySQL服务已就绪"
+                return 0
+            fi
+            sleep 2
+            ((attempt++))
+            log_info "等待MySQL启动... ($attempt/$max_attempts)"
+        done
+        
+        log_error "MySQL服务启动超时"
+        return 1
+    }
+    
+    # 等待PHP-FPM服务启动
+    wait_for_php_fpm() {
+        local max_attempts=15
+        local attempt=0
+        log_info "等待PHP-FPM服务启动..."
+        
+        while [[ $attempt -lt $max_attempts ]]; do
+            if pgrep -f "php-fpm" >/dev/null; then
+                log_success "PHP-FPM服务已就绪"
+                return 0
+            fi
+            sleep 2
+            ((attempt++))
+            log_info "等待PHP-FPM启动... ($attempt/$max_attempts)"
+        done
+        
+        log_warning "PHP-FPM服务可能未启动，但继续执行"
+        return 0
+    }
+    
+    # 按顺序启动依赖服务
+    if ! wait_for_mysql; then
+        log_error "MySQL服务启动失败，无法继续"
+        return 1
+    fi
+    
+    wait_for_php_fpm
     
     # 创建scripts目录并复制服务检查脚本
     mkdir -p "$INSTALL_DIR/scripts"
@@ -2782,7 +2966,20 @@ check_ipv6_connectivity() {
 check_api_health() {
     log_info "检查API健康状态..."
     
-    local response=$(curl -s --connect-timeout 10 "http://localhost:$API_PORT/api/v1/health" 2>/dev/null)
+    # 根据SERVER_HOST配置选择检查地址
+    local health_url=""
+    if [[ "${SERVER_HOST}" == "::" ]]; then
+        # 优先检查IPv6，回退到IPv4
+        if curl -s --connect-timeout 5 "http://[::1]:$API_PORT/api/v1/health" 2>/dev/null; then
+            health_url="http://[::1]:$API_PORT/api/v1/health"
+        else
+            health_url="http://127.0.0.1:$API_PORT/api/v1/health"
+        fi
+    else
+        health_url="http://127.0.0.1:$API_PORT/api/v1/health"
+    fi
+    
+    local response=$(curl -s --connect-timeout 10 "$health_url" 2>/dev/null)
     
     if [[ $? -eq 0 ]]; then
         # 尝试解析JSON响应
@@ -3044,6 +3241,48 @@ EOF
         log_success "后端服务启动成功"
     else
         log_error "后端服务启动失败"
+        
+        # 增强的错误诊断
+        log_info "开始诊断服务启动失败原因..."
+        
+        # 检查服务状态
+        local service_status=$(systemctl status ipv6-wireguard-manager --no-pager -l)
+        log_info "服务状态: $service_status"
+        
+        # 检查最近的日志
+        local recent_logs=$(journalctl -u ipv6-wireguard-manager --no-pager -n 10)
+        log_info "最近日志: $recent_logs"
+        
+        # 尝试自动修复
+        log_info "尝试自动修复..."
+        
+        # 检查Python环境
+        if ! "$INSTALL_DIR/venv/bin/python" --version &>/dev/null; then
+            log_error "Python环境异常，尝试重新创建虚拟环境"
+            rm -rf "$INSTALL_DIR/venv"
+            python3 -m venv "$INSTALL_DIR/venv"
+            "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+        fi
+        
+        # 检查依赖
+        if ! "$INSTALL_DIR/venv/bin/python" -c "import fastapi, uvicorn" &>/dev/null; then
+            log_error "依赖包缺失，尝试重新安装"
+            "$INSTALL_DIR/venv/bin/pip" install fastapi uvicorn
+        fi
+        
+        # 重新启动服务
+        systemctl restart ipv6-wireguard-manager
+        sleep 5
+        
+        if systemctl is-active --quiet ipv6-wireguard-manager; then
+            log_success "自动修复成功，后端服务已启动"
+        else
+            log_error "自动修复失败，请手动检查"
+            log_info "手动检查命令:"
+            log_info "  sudo systemctl status ipv6-wireguard-manager"
+            log_info "  sudo journalctl -u ipv6-wireguard-manager -f"
+            return 1
+        fi
         exit 1
     fi
 }
