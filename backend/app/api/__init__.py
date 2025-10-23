@@ -1,56 +1,38 @@
 """
 API路由初始化模块
-集成路径验证和版本控制
+简化版：移除复杂的路径构建器集成，直接使用FastAPI路由
 """
-
 from fastapi import APIRouter
-from app.core.api_path_builder import create_api_path_builder, setup_fastapi_integration
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 创建统一API路径构建器
-path_builder = create_api_path_builder()
-
-# 设置FastAPI集成
-api_router = setup_fastapi_integration(path_builder, prefix="/api")
+# 创建API路由器
+api_router = APIRouter()
 
 # 导入各模块路由
-from app.api.api_v1 import api_router as v1_router
-
-# 包含各版本路由
-api_router.include_router(v1_router, prefix="/v1")
+try:
+    from app.api.api_v1 import api_router as v1_router
+    # 包含v1版本路由
+    api_router.include_router(v1_router, prefix="/v1")
+    logger.info("✅ API v1 路由加载成功")
+except ImportError as e:
+    logger.error(f"❌ API v1 路由加载失败: {e}")
 
 # 预留未来版本
 # from app.api.v2 import api_router as v2_router
 # api_router.include_router(v2_router, prefix="/v2")
 
-# 注册API文档端点
-@api_router.get("/docs", tags=["文档"])
-async def get_api_docs():
-    """获取API文档"""
+# 简单的API信息端点
+@api_router.get("/", tags=["API信息"])
+async def api_root():
+    """获取API基本信息"""
     return {
-        "openapi": path_builder.get_documentation().generate_openapi_json(),
-        "swagger": "/api/docs/swagger",
-        "redoc": "/api/docs/redoc"
+        "name": "IPv6 WireGuard Manager API",
+        "version": "v1",
+        "documentation": "/docs",
+        "health": "/health"
     }
 
-@api_router.get("/docs/openapi.json", tags=["文档"])
-async def get_openapi():
-    """获取OpenAPI规范"""
-    return path_builder.get_documentation().generate_openapi_json()
-
-@api_router.get("/docs/swagger", tags=["文档"])
-async def get_swagger_ui():
-    """获取Swagger UI"""
-    return path_builder.get_documentation().generate_swagger_html()
-
-@api_router.get("/versions", tags=["版本"])
-async def get_api_versions():
-    """获取支持的API版本信息"""
-    version_manager = path_builder.get_version_manager()
-    return {
-        "current": version_manager.get_current_version(),
-        "supported": version_manager.get_supported_versions(),
-        "deprecated": version_manager.get_deprecated_versions()
-    }
+# 导出API路由器
+__all__ = ["api_router"]
