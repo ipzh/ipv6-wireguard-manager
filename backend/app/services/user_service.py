@@ -70,13 +70,13 @@ class UserService:
                 success=True
             )
             
-            logger.info("User created", user_id=str(user.id), username=user.username)
+            logger.info(f"User created: {user.username} (ID: {user.id})")
             
             return user
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to create user", username=user_data.username, error=str(e))
+            logger.error(f"Failed to create user: {user_data.username}, error: {str(e)}")
             raise
     
     async def get_user_by_id(self, user_id: int) -> Optional[User]:
@@ -89,7 +89,7 @@ class UserService:
             )
             return result.scalar_one_or_none()
         except Exception as e:
-            logger.error("Failed to get user by ID", user_id=user_id, error=str(e))
+            logger.error(f"Failed to get user by ID: {user_id}, error: {str(e)}")
             return None
     
     async def get_user_by_username(self, username: str) -> Optional[User]:
@@ -301,7 +301,7 @@ class UserService:
             return result.scalar()
             
         except Exception as e:
-            logger.error("Failed to count users", error=str(e))
+            logger.error(f"Failed to count users, error: {str(e)}")
             return 0
     
     async def assign_role(self, user_id: int, role_id: int) -> bool:
@@ -341,13 +341,13 @@ class UserService:
                 success=True
             )
             
-            logger.info("Role assigned", user_id=user_id, role_id=role_id)
+            logger.info(f"Role assigned: user_id={user_id}, role_id={role_id}")
             
             return True
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to assign role", user_id=user_id, role_id=role_id, error=str(e))
+            logger.error(f"Failed to assign role: user_id={user_id}, role_id={role_id}, error: {str(e)}")
             raise
     
     async def remove_role(self, user_id: int, role_id: int) -> bool:
@@ -384,13 +384,13 @@ class UserService:
                 success=True
             )
             
-            logger.info("Role removed", user_id=user_id, role_id=role_id)
+            logger.info(f"Role removed: user_id={user_id}, role_id={role_id}")
             
             return True
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to remove role", user_id=user_id, role_id=role_id, error=str(e))
+            logger.error(f"Failed to remove role: user_id={user_id}, role_id={role_id}, error: {str(e)}")
             raise
     
     async def get_user_roles(self, user_id: int) -> List[Role]:
@@ -403,7 +403,7 @@ class UserService:
             )
             return result.scalars().all()
         except Exception as e:
-            logger.error("Failed to get user roles", user_id=user_id, error=str(e))
+            logger.error(f"Failed to get user roles: user_id={user_id}, error: {str(e)}")
             return []
     
     async def get_user_permissions(self, user_id: int) -> List[Permission]:
@@ -427,7 +427,7 @@ class UserService:
             return result.scalars().all()
             
         except Exception as e:
-            logger.error("Failed to get user permissions", user_id=user_id, error=str(e))
+            logger.error(f"Failed to get user permissions: user_id={user_id}, error: {str(e)}")
             return []
     
     async def assign_default_role(self, user_id: int) -> bool:
@@ -453,7 +453,7 @@ class UserService:
             return False
             
         except Exception as e:
-            logger.error("Failed to assign default role", user_id=user_id, error=str(e))
+            logger.error(f"Failed to assign default role: user_id={user_id}, error: {str(e)}")
             return False
     
     async def get_role_by_id(self, role_id: int) -> Optional[Role]:
@@ -466,7 +466,7 @@ class UserService:
             )
             return result.scalar_one_or_none()
         except Exception as e:
-            logger.error("Failed to get role by ID", role_id=role_id, error=str(e))
+            logger.error(f"Failed to get role by ID: role_id={role_id}, error: {str(e)}")
             return None
     
     async def list_roles(self) -> List[Role]:
@@ -479,7 +479,7 @@ class UserService:
             )
             return result.scalars().all()
         except Exception as e:
-            logger.error("Failed to list roles", error=str(e))
+            logger.error(f"Failed to list roles, error: {str(e)}")
             return []
     
     async def list_permissions(self) -> List[Permission]:
@@ -490,7 +490,7 @@ class UserService:
             )
             return result.scalars().all()
         except Exception as e:
-            logger.error("Failed to list permissions", error=str(e))
+            logger.error(f"Failed to list permissions, error: {str(e)}")
             return []
     
     async def lock_user(self, user_id: int, duration_minutes: int = 30) -> bool:
@@ -515,13 +515,13 @@ class UserService:
                 success=True
             )
             
-            logger.info("User locked", user_id=user_id, duration=duration_minutes)
+            logger.info(f"User locked: user_id={user_id}, duration={duration_minutes} minutes")
             
             return True
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to lock user", user_id=user_id, error=str(e))
+            logger.error(f"Failed to lock user: user_id={user_id}, error: {str(e)}")
             raise
     
     async def unlock_user(self, user_id: int) -> bool:
@@ -547,13 +547,13 @@ class UserService:
                 success=True
             )
             
-            logger.info("User unlocked", user_id=user_id)
+            logger.info(f"User unlocked: user_id={user_id}")
             
             return True
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to unlock user", user_id=user_id, error=str(e))
+            logger.error(f"Failed to unlock user: user_id={user_id}, error: {str(e)}")
             raise
     
     async def increment_failed_login(self, user_id: int) -> bool:
@@ -573,11 +573,11 @@ class UserService:
             
             await self.db.commit()
             
-            logger.info("Failed login incremented", user_id=user_id, attempts=user.failed_login_attempts)
+            logger.info(f"Failed login incremented: user_id={user_id}, attempts={user.failed_login_attempts}")
             
             return True
             
         except Exception as e:
             await self.db.rollback()
-            logger.error("Failed to increment failed login", user_id=user_id, error=str(e))
+            logger.error(f"Failed to increment failed login: user_id={user_id}, error: {str(e)}")
             return False

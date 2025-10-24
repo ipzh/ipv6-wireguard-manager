@@ -179,16 +179,19 @@ async def _create_default_permissions_and_roles(db: AsyncSession):
     default_roles = [
         {
             "name": "admin",
+            "display_name": "系统管理员",
             "description": "系统管理员",
             "permissions": [perm["name"] for perm in default_permissions]
         },
         {
             "name": "operator",
+            "display_name": "操作员",
             "description": "操作员",
             "permissions": ["user_read", "server_read", "server_write", "config_read"]
         },
         {
             "name": "viewer",
+            "display_name": "查看者",
             "description": "查看者",
             "permissions": ["user_read", "server_read", "config_read"]
         }
@@ -226,6 +229,7 @@ async def _create_default_permissions_and_roles(db: AsyncSession):
         if not existing_role:
             role = Role(
                 name=role_data["name"],
+                display_name=role_data["display_name"],
                 description=role_data["description"]
             )
             db.add(role)
