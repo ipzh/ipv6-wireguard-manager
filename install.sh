@@ -154,6 +154,88 @@ AUTO_EXIT=false         # 自动退出模式（安装完成后自动退出）
 #=============================================================================
 
 #-----------------------------------------------------------------------------
+# safe_execute - 安全执行函数
+#-----------------------------------------------------------------------------
+safe_execute() {
+    local description="$1"
+    shift
+    
+    log_info "执行: $description"
+    if "$@"; then
+        log_success "$description 完成"
+        return 0
+    else
+        log_error "$description 失败"
+        return 1
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# generate_secure_password - 生成安全密码
+#-----------------------------------------------------------------------------
+generate_secure_password() {
+    local length=${1:-16}
+    # 使用openssl生成随机密码，如果不可用则使用/dev/urandom
+    if command -v openssl &> /dev/null; then
+        openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
+    else
+        # 备用方法：使用/dev/urandom
+        tr -dc 'A-Za-z0-9!@#$%^&*' < /dev/urandom | head -c $length
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# detect_php_version - 检测PHP版本
+#-----------------------------------------------------------------------------
+detect_php_version() {
+    log_info "🔍 检测PHP版本..."
+    
+    # 检测已安装的PHP版本
+    if command -v php &> /dev/null; then
+        PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
+        log_success "检测到已安装的PHP版本: $PHP_VERSION"
+        return 0
+    fi
+    
+    # 检测可用的PHP版本
+    case $PACKAGE_MANAGER in
+        "apt")
+            # 检测可用的PHP版本
+            local available_versions=()
+            for version in 8.2 8.1 8.0 7.4; do
+                if apt-cache show php$version-fpm &>/dev/null; then
+                    available_versions+=($version)
+                fi
+            done
+            
+            if [[ ${#available_versions[@]} -gt 0 ]]; then
+                PHP_VERSION=${available_versions[0]}
+                log_success "检测到可用PHP版本: $PHP_VERSION"
+            else
+                PHP_VERSION="8.1"  # 默认版本
+                log_warning "未检测到PHP版本，使用默认版本: $PHP_VERSION"
+            fi
+            ;;
+        "yum"|"dnf")
+            # RHEL/CentOS通常使用默认PHP版本
+            PHP_VERSION="8.0"  # 默认版本
+            log_info "RHEL/CentOS系统，使用默认PHP版本: $PHP_VERSION"
+            ;;
+        "pacman")
+            # Arch Linux通常使用最新版本
+            PHP_VERSION="8.2"  # 默认版本
+            log_info "Arch Linux系统，使用默认PHP版本: $PHP_VERSION"
+            ;;
+        *)
+            PHP_VERSION="8.1"  # 默认版本
+            log_warning "未知系统，使用默认PHP版本: $PHP_VERSION"
+            ;;
+    esac
+    
+    log_info "选择的PHP版本: $PHP_VERSION"
+}
+
+#-----------------------------------------------------------------------------
 # detect_system - 检测系统信息
 #-----------------------------------------------------------------------------
 # 功能说明:
@@ -242,54 +324,8 @@ detect_system() {
         exit 1
     fi
     
-    # 检测PHP版本
-    detect_php_version() {
-        log_info "🔍 检测PHP版本..."
-        
-        # 检测已安装的PHP版本
-        if command -v php &> /dev/null; then
-            PHP_VERSION=$(php -v | grep -oP 'PHP \K[0-9]+\.[0-9]+' | head -1)
-            log_success "检测到已安装的PHP版本: $PHP_VERSION"
-            return 0
-        fi
-        
-        # 检测可用的PHP版本
-        case $PACKAGE_MANAGER in
-            "apt")
-                # 检测可用的PHP版本
-                local available_versions=()
-                for version in 8.2 8.1 8.0 7.4; do
-                    if apt-cache show php$version-fpm &>/dev/null; then
-                        available_versions+=($version)
-                    fi
-                done
-                
-                if [[ ${#available_versions[@]} -gt 0 ]]; then
-                    PHP_VERSION=${available_versions[0]}
-                    log_success "检测到可用PHP版本: $PHP_VERSION"
-                else
-                    PHP_VERSION="8.1"  # 默认版本
-                    log_warning "未检测到PHP版本，使用默认版本: $PHP_VERSION"
-                fi
-                ;;
-            "yum"|"dnf")
-                # RHEL/CentOS通常使用默认PHP版本
-                PHP_VERSION="8.0"  # 默认版本
-                log_info "RHEL/CentOS系统，使用默认PHP版本: $PHP_VERSION"
-                ;;
-            "pacman")
-                # Arch Linux通常使用最新版本
-                PHP_VERSION="8.2"  # 默认版本
-                log_info "Arch Linux系统，使用默认PHP版本: $PHP_VERSION"
-                ;;
-            *)
-                PHP_VERSION="8.1"  # 默认版本
-                log_warning "未知系统，使用默认PHP版本: $PHP_VERSION"
-                ;;
-        esac
-        
-        log_info "选择的PHP版本: $PHP_VERSION"
-    }
+    # 调用PHP版本检测函数
+    detect_php_version
     
     # 检测系统资源
     log_info "🔍 检测系统资源..."
@@ -839,7 +875,8 @@ set_defaults() {
     fi
     
     if [[ -z "${DB_PASSWORD:-}" ]]; then
-        DB_PASSWORD="ipv6wgm_password"
+        DB_PASSWORD=$(generate_secure_password 16)
+        log_info "生成随机数据库密码"
     fi
     
     if [[ -z "${DB_NAME:-}" ]]; then
@@ -2899,11 +2936,20 @@ create_system_service() {
         exit 1
     fi
     
-    if [[ ! -f "$INSTALL_DIR/backend/app/main.py" ]]; then
-        log_error "后端主程序文件不存在: $INSTALL_DIR/backend/app/main.py"
-        log_error "请检查项目文件是否正确下载"
-        exit 1
-    fi
+    # 检查后端关键文件
+    local backend_files=(
+        "backend/app/main.py"
+        "backend/app/core/unified_config.py"
+        "backend/requirements.txt"
+    )
+    
+    for file in "${backend_files[@]}"; do
+        if [[ ! -f "$INSTALL_DIR/$file" ]]; then
+            log_error "后端关键文件不存在: $INSTALL_DIR/$file"
+            log_error "请检查项目文件是否正确下载"
+            exit 1
+        fi
+    done
     
     if [[ ! -f "$INSTALL_DIR/.env" ]]; then
         log_error "环境配置文件不存在: $INSTALL_DIR/.env"
