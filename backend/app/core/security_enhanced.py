@@ -163,16 +163,16 @@ async def _create_default_permissions_and_roles(db: AsyncSession):
     
     # 定义默认权限
     default_permissions = [
-        {"name": "user_read", "description": "查看用户信息"},
-        {"name": "user_write", "description": "创建/编辑用户"},
-        {"name": "user_delete", "description": "删除用户"},
-        {"name": "server_read", "description": "查看服务器信息"},
-        {"name": "server_write", "description": "创建/编辑服务器"},
-        {"name": "server_delete", "description": "删除服务器"},
-        {"name": "config_read", "description": "查看配置信息"},
-        {"name": "config_write", "description": "修改配置信息"},
-        {"name": "admin_access", "description": "管理员访问权限"},
-        {"name": "system_monitor", "description": "系统监控权限"},
+        {"name": "user_read", "description": "查看用户信息", "resource": "users", "action": "read"},
+        {"name": "user_write", "description": "创建/编辑用户", "resource": "users", "action": "write"},
+        {"name": "user_delete", "description": "删除用户", "resource": "users", "action": "delete"},
+        {"name": "server_read", "description": "查看服务器信息", "resource": "servers", "action": "read"},
+        {"name": "server_write", "description": "创建/编辑服务器", "resource": "servers", "action": "write"},
+        {"name": "server_delete", "description": "删除服务器", "resource": "servers", "action": "delete"},
+        {"name": "config_read", "description": "查看配置信息", "resource": "config", "action": "read"},
+        {"name": "config_write", "description": "修改配置信息", "resource": "config", "action": "write"},
+        {"name": "admin_access", "description": "管理员访问权限", "resource": "system", "action": "admin"},
+        {"name": "system_monitor", "description": "系统监控权限", "resource": "monitoring", "action": "read"},
     ]
     
     # 定义默认角色
@@ -205,7 +205,9 @@ async def _create_default_permissions_and_roles(db: AsyncSession):
         if not existing_perm:
             permission = Permission(
                 name=perm_data["name"],
-                description=perm_data["description"]
+                description=perm_data["description"],
+                resource=perm_data["resource"],
+                action=perm_data["action"]
             )
             db.add(permission)
             await db.commit()
