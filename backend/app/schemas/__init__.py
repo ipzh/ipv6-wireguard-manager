@@ -1,7 +1,7 @@
 """
 Pydantic模式定义
 """
-from .user import User, UserCreate, UserUpdate, UserInDB, Role, RoleCreate, RoleUpdate
+from .user import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, RoleBase, RoleCreate, RoleUpdate, RoleResponse, PermissionBase, PermissionCreate, PermissionResponse
 from .wireguard import (
     WireGuardServer, WireGuardServerCreate, WireGuardServerUpdate,
     WireGuardClient, WireGuardClientCreate, WireGuardClientUpdate
@@ -9,16 +9,22 @@ from .wireguard import (
 from .network import NetworkInterface, NetworkInterfaceCreate, FirewallRule, FirewallRuleCreate
 from .monitoring import SystemMetric, AuditLog, OperationLog
 from .config import ConfigVersion, BackupRecord
-from .common import Token, TokenPayload, Message
+from .auth import Token, TokenRefresh, UserLogin, PasswordChange, PasswordReset, UserRegister, ForgotPassword, TokenVerify
+from .common import BaseResponse, ErrorResponse, PaginationResponse, HealthCheckResponse, SystemInfoResponse, DatabaseStatusResponse
 
 __all__ = [
-    "User",
+    "UserBase",
     "UserCreate", 
     "UserUpdate",
-    "UserInDB",
-    "Role",
+    "UserResponse",
+    "UserListResponse",
+    "RoleBase",
     "RoleCreate",
     "RoleUpdate",
+    "RoleResponse",
+    "PermissionBase",
+    "PermissionCreate",
+    "PermissionResponse",
     "WireGuardServer",
     "WireGuardServerCreate",
     "WireGuardServerUpdate",
@@ -35,8 +41,17 @@ __all__ = [
     "ConfigVersion",
     "BackupRecord",
     "Token",
-    "TokenPayload",
-    "Message",
-    "TokenResponse",
-    "MessageResponse",
+    "TokenRefresh",
+    "UserLogin",
+    "PasswordChange",
+    "PasswordReset",
+    "UserRegister",
+    "ForgotPassword",
+    "TokenVerify",
+    "BaseResponse",
+    "ErrorResponse",
+    "PaginationResponse",
+    "HealthCheckResponse",
+    "SystemInfoResponse",
+    "DatabaseStatusResponse",
 ]
