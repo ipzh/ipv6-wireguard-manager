@@ -42,20 +42,23 @@ class RemoteDatabaseFixer:
             self.issues_found.append("数据库URL未配置")
             return False
         
+        database_url = settings.DATABASE_URL
+        
         # 检查是否为PostgreSQL连接
-        if not settings.DATABASE_URL.startswith("postgresql://"):
+        if not database_url.startswith("postgresql"):
             logger.info("ℹ️ 当前使用非PostgreSQL数据库，跳过远程连接检查")
             return True
         
         # 解析数据库URL
-        parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)
+        parsed_url = urllib.parse.urlparse(database_url)
         hostname = parsed_url.hostname
         port = parsed_url.port or 5432
         
         logger.info(f"🔍 连接目标: {hostname}:{port}")
         
         # 检查是否为远程服务器
-        if hostname in ['localhost', '${LOCAL_HOST}', '::1']:
+        local_hosts = {'localhost', '${LOCAL_HOST}', '127.0.0.1', '::1'}
+        if (hostname or '').lower() in local_hosts:
             logger.info("ℹ️ 检测到本地数据库连接")
             return True
         
@@ -64,18 +67,9 @@ class RemoteDatabaseFixer:
         # 检查网络连接
         logger.info("🔌 检查网络连接...")
         try:
-            sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
-            sock.settimeout(10)  # 10秒超时
-            result = sock.connect_ex((hostname, port))
-            sock.close()
-            
-            if result == 0:
+            # 使用 create_connection 自动处理 IPv4/IPv6 套接字
+            with socket.create_connection((hostname, port), timeout=10):
                 logger.info("✅ 网络连接正常")
-            else:
-                logger.error(f"❌ 网络连接失败 (错误代码: {result})")
-                self.issues_found.append(f"远程服务器 {hostname}:{port} 无法连接")
-                return False
-                
         except Exception as e:
             logger.error(f"❌ 网络连接检查失败: {e}")
             self.issues_found.append(f"网络连接检查失败: {e}")
@@ -89,25 +83,24 @@ class RemoteDatabaseFixer:
                 if result.scalar() == 1:
                     logger.info("✅ 数据库连接正常")
                     return True
-                else:
-                    logger.error("❌ 数据库连接测试失败")
-                    self.issues_found.append("数据库连接测试失败")
-                    return False
-                    
+                logger.error("❌ 数据库连接测试失败")
+                self.issues_found.append("数据库连接测试失败")
+                return False
         except Exception as e:
             error_msg = str(e)
             logger.error(f"❌ 数据库连接失败: {error_msg}")
             
-            # 分析错误类型
-            if "Connection refused" in error_msg or "10061" in error_msg:
+            # 根据错误信息归类问题，便于用户排查
+            lowered_msg = error_msg.lower()
+            if "connection refused" in lowered_msg or "10061" in lowered_msg:
                 self.issues_found.append("数据库服务器连接被拒绝")
-            elif "timeout" in error_msg.lower():
+            elif "timeout" in lowered_msg:
                 self.issues_found.append("数据库连接超时")
-            elif "authentication failed" in error_msg.lower():
+            elif "authentication failed" in lowered_msg:
                 self.issues_found.append("数据库认证失败")
-            elif "database" in error_msg.lower() and "does not exist" in error_msg.lower():
+            elif "does not exist" in lowered_msg and "database" in lowered_msg:
                 self.issues_found.append("数据库不存在")
-            elif "permission" in error_msg.lower():
+            elif "permission" in lowered_msg:
                 self.issues_found.append("用户权限不足")
             else:
                 self.issues_found.append(f"数据库连接错误: {error_msg}")
@@ -171,9 +164,8 @@ async def main():
     if fix_success:
         logger.info("✅ 修复成功")
         return 0
-    else:
-        logger.error("❌ 修复失败，需要手动处理")
-        return 1
+    logger.error("❌ 修复失败，需要手动处理")
+    return 1
 
 
 if __name__ == "__main__":
