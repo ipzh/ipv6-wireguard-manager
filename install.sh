@@ -1052,12 +1052,28 @@ install_system_dependencies() {
             
             apt-get install -y nginx
             apt-get install -y git curl wget build-essential net-tools
+            
+            # 安装MySQL开发库（用于编译mysqlclient）
+            log_info "安装MySQL开发库..."
+            if apt-get install -y libmysqlclient-dev pkg-config 2>/dev/null; then
+                log_success "MySQL开发库安装成功"
+            else
+                log_warning "MySQL开发库安装失败，mysqlclient可能无法编译"
+            fi
             ;;
         "yum"|"dnf")
             $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
             $PACKAGE_MANAGER install -y mariadb-server mariadb
             $PACKAGE_MANAGER install -y nginx
             $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
+            
+            # 安装MySQL开发库
+            log_info "安装MySQL开发库..."
+            if $PACKAGE_MANAGER install -y mysql-devel pkgconfig 2>/dev/null; then
+                log_success "MySQL开发库安装成功"
+            else
+                log_warning "MySQL开发库安装失败，mysqlclient可能无法编译"
+            fi
             ;;
         "pacman")
             pacman -Sy
@@ -1065,6 +1081,14 @@ install_system_dependencies() {
             pacman -S --noconfirm mariadb
             pacman -S --noconfirm nginx
             pacman -S --noconfirm git curl wget base-devel
+            
+            # 安装MySQL开发库
+            log_info "安装MySQL开发库..."
+            if pacman -S --noconfirm libmariadbclient 2>/dev/null; then
+                log_success "MySQL开发库安装成功"
+            else
+                log_warning "MySQL开发库安装失败，mysqlclient可能无法编译"
+            fi
             ;;
         "zypper")
             zypper refresh
@@ -1423,8 +1447,21 @@ install_python_dependencies() {
     
     # 安装MySQL驱动（优先安装）
     log_info "安装MySQL Python驱动..."
-    pip install pymysql aiomysql mysqlclient
-    log_success "MySQL驱动安装完成"
+    
+    # 先尝试安装不需要编译的驱动
+    pip install pymysql aiomysql
+    log_success "基础MySQL驱动安装完成"
+    
+    # 尝试安装mysqlclient，如果失败则跳过
+    log_info "尝试安装mysqlclient（可能需要编译）..."
+    if pip install mysqlclient 2>/dev/null; then
+        log_success "mysqlclient安装成功"
+    else
+        log_warning "mysqlclient安装失败，跳过（pymysql和aiomysql已足够）"
+        log_info "如果需要mysqlclient，请安装MySQL开发库："
+        log_info "  Ubuntu/Debian: sudo apt-get install libmysqlclient-dev pkg-config"
+        log_info "  CentOS/RHEL: sudo yum install mysql-devel pkgconfig"
+    fi
     
     # 安装依赖
     if [[ -f "backend/requirements.txt" ]]; then
