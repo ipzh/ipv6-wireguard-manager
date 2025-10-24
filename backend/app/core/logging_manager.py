@@ -8,6 +8,7 @@ import sys
 import json
 import logging
 import logging.handlers
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional, Union
 from pathlib import Path
@@ -65,7 +66,7 @@ class SecurityFilter(logging.Filter):
         for pattern in self.SENSITIVE_PATTERNS:
             if pattern in message:
                 # 在生产环境中完全过滤敏感日志
-                if settings.is_production():
+                if settings.ENVIRONMENT == "production":
                     return False
                 # 在开发环境中替换敏感信息
                 else:
@@ -121,7 +122,7 @@ class LogManager:
         """设置标准日志"""
         
         # 创建日志目录
-        log_dir = Path(settings.LOG_DIR or "logs")
+        log_dir = Path("logs")  # 使用默认日志目录
         log_dir.mkdir(exist_ok=True)
         
         # 配置根日志器
@@ -397,6 +398,3 @@ class AuditLogger:
 
 # 全局审计日志器
 audit_logger = AuditLogger()
-
-# 导入asyncio用于装饰器
-import asyncio
