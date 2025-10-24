@@ -1,64 +1,74 @@
-# IPv6 WireGuard Manager - 生产环境MySQL优化配置
-# 适用于MySQL 8.0+
-
 [mysqld]
-# 基本设置
-default-storage-engine = InnoDB
-character-set-server = utf8mb4
-collation-server = utf8mb4_unicode_ci
-init_connect = 'SET NAMES utf8mb4'
+# IPv6 WireGuard Manager 生产环境优化配置
 
-# 网络设置
-max_connections = 500
-max_connect_errors = 10000
-wait_timeout = 28800
-interactive_timeout = 28800
+# 基础配置
+innodb_buffer_pool_size = 256M
+innodb_log_file_size = 64M
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
 
-# 缓冲区设置
-key_buffer_size = 32M
-max_allowed_packet = 64M
-table_open_cache = 512
+# 查询缓存
+query_cache_size = 32M
+query_cache_type = 1
+
+# 连接配置
+max_connections = 100
+thread_cache_size = 8
+table_open_cache = 400
+
+# 临时表配置
+tmp_table_size = 32M
+max_heap_table_size = 32M
+
+# 慢查询日志
+slow_query_log = 1
+long_query_time = 1.0
+log_queries_not_using_indexes = 1
+
+# 字符集
+character_set_server = utf8mb4
+collation_server = utf8mb4_unicode_ci
+
+# 安全配置
+local_infile = 0
+skip_show_database
+
+# 网络配置
+bind-address = 0.0.0.0
+port = 3306
+
+# 日志配置
+general_log = 0
+error_log = /var/log/mysql/error.log
+
+# 性能优化
+innodb_file_per_table = 1
+innodb_open_files = 400
+innodb_io_capacity = 200
+innodb_read_io_threads = 4
+innodb_write_io_threads = 4
+
+# 内存优化
+key_buffer_size = 16M
 sort_buffer_size = 2M
 read_buffer_size = 2M
 read_rnd_buffer_size = 8M
-myisam_sort_buffer_size = 64M
-thread_cache_size = 8
-query_cache_size = 16M
-query_cache_limit = 1M
-
-# InnoDB设置
-innodb_buffer_pool_size = 256M  # 根据服务器内存调整，建议为物理内存的60-70%
-innodb_log_file_size = 64M
-innodb_log_buffer_size = 8M
-innodb_flush_log_at_trx_commit = 1  # 生产环境设为1确保数据安全
-innodb_lock_wait_timeout = 50
-innodb_file_per_table = 1
-innodb_flush_method = O_DIRECT
+myisam_sort_buffer_size = 8M
 
 # 二进制日志
-log-bin = mysql-bin
+log_bin = mysql-bin
 binlog_format = ROW
 expire_logs_days = 7
 max_binlog_size = 100M
 
-# 慢查询日志
-slow_query_log = 1
-slow_query_log_file = /var/log/mysql/slow.log
-long_query_time = 2
+# 复制配置（如果需要）
+server_id = 1
+log_slave_updates = 1
 
-# 错误日志
-log_error = /var/log/mysql/error.log
-
-# 安全设置
-local-infile = 0
+# 时区
+default_time_zone = '+00:00'
 
 # 其他优化
-sql_mode = STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
-tmp_table_size = 32M
-max_heap_table_size = 32M
-
-[mysql]
-default-character-set = utf8mb4
-
-[client]
-default-character-set = utf8mb4
+innodb_autoinc_lock_mode = 2
+innodb_large_prefix = 1
+innodb_file_format = Barracuda

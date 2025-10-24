@@ -1,0 +1,234 @@
+# IPv6 WireGuard Manager - Docker配置模板
+# 此文件定义了所有Docker配置的通用设置
+
+version: '3.8'
+
+# 通用环境变量定义
+x-common-variables: &common-variables
+  # 应用配置
+  APP_NAME: IPv6 WireGuard Manager
+  APP_VERSION: 3.1.0
+  APP_ENV: ${ENVIRONMENT:-production}
+  
+  # 数据库配置
+  MYSQL_DATABASE: ipv6wgm
+  MYSQL_USER: ipv6wgm
+  MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}
+  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}
+  
+  # Redis配置
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-CHANGE_ME_REDIS_PASSWORD}
+  
+  # 安全配置
+  SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_SECRET_KEY}
+  FIRST_SUPERUSER: ${FIRST_SUPERUSER:-admin}
+  FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:-CHANGE_ME_ADMIN_PASSWORD}
+  FIRST_SUPERUSER_EMAIL: ${FIRST_SUPERUSER_EMAIL:-admin@example.com}
+  
+  # 网络配置
+  SERVER_HOST: ${SERVER_HOST:-0.0.0.0}
+  SERVER_PORT: ${SERVER_PORT:-8000}
+  API_PORT: ${API_PORT:-8000}
+  WEB_PORT: ${WEB_PORT:-80}
+  WEB_SSL_PORT: ${WEB_SSL_PORT:-443}
+  
+  # 数据库端口
+  DB_PORT: ${DB_PORT:-3306}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  
+  # WireGuard配置
+  WIREGUARD_PORT: ${WIREGUARD_PORT:-51820}
+  WIREGUARD_INTERFACE: ${WIREGUARD_INTERFACE:-wg0}
+  WIREGUARD_NETWORK: ${WIREGUARD_NETWORK:-10.0.0.0/24}
+  WIREGUARD_IPV6_NETWORK: ${WIREGUARD_IPV6_NETWORK:-fd00::/64}
+
+# 通用健康检查配置
+x-healthcheck: &healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+# 通用重启策略
+x-restart-policy: &restart-policy
+  restart: unless-stopped
+
+# 通用网络配置
+x-network-config: &network-config
+  networks:
+    - wireguard-network
+
+# 通用卷配置
+x-volume-config: &volume-config
+  volumes:
+    - mysql_data:/var/lib/mysql
+    - redis_data:/data
+    - app_logs:/app/logs
+    - app_data:/app/data
+
+# 服务定义
+services:
+  # MySQL数据库服务
+  mysql:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: ipv6-wireguard-mysql
+    <<: *restart-policy
+    <<: *network-config
+    environment:
+      <<: *common-variables
+      # MySQL特定配置
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+      MYSQL_INNODB_BUFFER_POOL_SIZE: ${MYSQL_INNODB_BUFFER_POOL_SIZE:-256M}
+      MYSQL_INNODB_LOG_FILE_SIZE: ${MYSQL_INNODB_LOG_FILE_SIZE:-64M}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/mysql/low-memory.cnf:/etc/mysql/conf.d/my.cnf
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}"]
+    command: --default-authentication-plugin=mysql_native_password
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Redis缓存服务
+  redis:
+    image: redis:${REDIS_VERSION:-7}-alpine
+    container_name: ipv6-wireguard-redis
+    <<: *restart-policy
+    <<: *network-config
+    environment:
+      <<: *common-variables
+      # Redis特定配置
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-256mb}
+      REDIS_MAXMEMORY_POLICY: ${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-CHANGE_ME_REDIS_PASSWORD}", "ping"]
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:-CHANGE_ME_REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # 后端API服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile${DOCKERFILE_SUFFIX:-}
+    container_name: ipv6-wireguard-backend
+    <<: *restart-policy
+    <<: *network-config
+    environment:
+      <<: *common-variables
+      # 后端特定配置
+      DATABASE_URL: mysql://${MYSQL_USER:-ipv6wgm}:${MYSQL_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}@mysql:${DB_PORT:-3306}/${MYSQL_DATABASE:-ipv6wgm}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-CHANGE_ME_REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}/0
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      METRICS_PORT: ${METRICS_PORT:-9090}
+      ENABLE_HEALTH_CHECK: ${ENABLE_HEALTH_CHECK:-true}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - app_logs:/app/logs
+      - app_data:/app/data
+      - /etc/wireguard:/etc/wireguard:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-8000}/api/v1/health"]
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # 前端Web服务
+  frontend:
+    build:
+      context: ./php-frontend
+      dockerfile: Dockerfile
+    container_name: ipv6-wireguard-frontend
+    <<: *restart-policy
+    <<: *network-config
+    environment:
+      <<: *common-variables
+      # 前端特定配置
+      API_BASE_URL: http://backend:${API_PORT:-8000}
+      API_VERSION: v1
+      API_TIMEOUT: ${API_TIMEOUT:-30}
+      FRONTEND_DIR: /var/www/html
+      LOG_DIR: /var/log/nginx
+    ports:
+      - "${WEB_PORT:-80}:80"
+      - "${WEB_SSL_PORT:-443}:443"
+    volumes:
+      - ./php-frontend:/var/www/html
+      - ./logs/nginx:/var/log/nginx
+      - ./php-frontend/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+# 网络定义
+networks:
+  wireguard-network:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+        - subnet: 2001:db8::/64
+          gateway: 2001:db8::1
+
+# 卷定义
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_data:
+    driver: local

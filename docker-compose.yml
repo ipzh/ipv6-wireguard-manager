@@ -148,10 +148,10 @@ services:
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}
       - MYSQL_DATABASE=ipv6wgm
       - MYSQL_USER=ipv6wgm
-      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}
       
       # MySQL配置
       - MYSQL_CHARACTER_SET_SERVER=utf8mb4
@@ -166,7 +166,7 @@ services:
       - wireguard-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-password}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD:-CHANGE_ME_STRONG_PASSWORD}"]
       interval: 30s
       timeout: 30s
       retries: 5

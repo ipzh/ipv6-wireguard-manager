@@ -1,299 +1,262 @@
 """
-统一的数据库连接管理器
+数据库连接和错误处理模块
+提供健壮的数据库连接管理和错误处理
 """
+
+import asyncio
 import logging
-from typing import Optional, Dict, Any, Union, AsyncGenerator
-from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from typing import Optional, Dict, Any
+from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, IntegrityError
 from sqlalchemy.pool import QueuePool
-from contextlib import asynccontextmanager, contextmanager
-from enum import Enum
+from sqlalchemy import event, text
+import structlog
 
 from .unified_config import settings
+from .exception_handlers import DatabaseError, ErrorCodes
 
-logger = logging.getLogger(__name__)
-
-class DatabaseMode(Enum):
-    """数据库模式枚举"""
-    ASYNC = "async"
-    SYNC = "sync"
-    HYBRID = "hybrid"  # 混合模式，同时支持异步和同步
-
-class DatabaseType(Enum):
-    """数据库类型枚举"""
-    MYSQL = "mysql"
-    POSTGRESQL = "postgresql"
-    # 不再支持SQLite
+logger = structlog.get_logger()
 
 class DatabaseManager:
-    """统一的数据库连接管理器"""
+    """数据库管理器"""
     
-    def __init__(self, mode: DatabaseMode = DatabaseMode.HYBRID):
-        self.mode = mode
-        self.async_engine: Optional[Any] = None
-        self.sync_engine: Optional[Any] = None
-        self.async_session_factory: Optional[async_sessionmaker] = None
-        self.sync_session_factory: Optional[sessionmaker] = None
-        self.database_type = self._detect_database_type()
-        self._initialize_engines()
+    def __init__(self):
+        self.engine = None
+        self.session_factory = None
+        self._connection_pool = None
+        self._is_connected = False
+        self._retry_count = 0
+        self._max_retries = 3
     
-    def _detect_database_type(self) -> DatabaseType:
-        """检测数据库类型 - 强制使用MySQL，仅支持mysql://前缀"""
-        if not settings.DATABASE_URL.startswith("mysql://"):
-            logger.error("仅支持mysql://前缀的数据库URL")
-            logger.info("请将DATABASE_URL修改为mysql://格式")
-            raise ValueError(f"仅支持mysql://前缀的数据库URL: {settings.DATABASE_URL}")
-        return DatabaseType.MYSQL
-    
-    def _get_connection_args(self, is_async: bool = False) -> Dict[str, Any]:
-        """获取连接参数 - 强制使用MySQL"""
-        # 获取连接超时参数并确保类型为整数
-        connect_timeout = getattr(settings, 'DATABASE_CONNECT_TIMEOUT', 30)
+    async def initialize(self) -> bool:
+        """初始化数据库连接"""
         try:
-            connect_timeout = int(connect_timeout) if connect_timeout is not None else 30
-        except (ValueError, TypeError):
-            connect_timeout = 30
-            
-        # 仅保留通用连接参数，避免驱动兼容性问题
-        base_args = {
-            "connect_timeout": connect_timeout,
-            "charset": "utf8mb4",
-            "use_unicode": True,
-        }
-        
-        return base_args
-    
-    def _get_pool_args(self, is_async: bool = False) -> Dict[str, Any]:
-        """获取连接池参数"""
-        # 根据模式调整连接池大小
-        pool_size = getattr(settings, 'DATABASE_POOL_SIZE', 10)
-        max_overflow = getattr(settings, 'DATABASE_MAX_OVERFLOW', 15)
-        
-        # 确保类型为整数
-        try:
-            pool_size = int(pool_size) if pool_size is not None else 10
-            max_overflow = int(max_overflow) if max_overflow is not None else 15
-        except (ValueError, TypeError):
-            pool_size = 10
-            max_overflow = 15
-        
-        # 异步模式通常可以支持更多连接
-        if is_async:
-            pool_size = min(pool_size, 20)
-            max_overflow = min(max_overflow, 10)
-            # 异步引擎不使用QueuePool
-            return {
-                "pool_size": pool_size,
-                "max_overflow": max_overflow,
-                "pool_pre_ping": getattr(settings, 'DATABASE_POOL_PRE_PING', True),
-                "pool_recycle": getattr(settings, 'DATABASE_POOL_RECYCLE', 3600),
-                "pool_timeout": 30,
-                "pool_reset_on_return": "commit"
-            }
-        else:
-            pool_size = min(pool_size, 10)
-            max_overflow = min(max_overflow, 5)
-            # 同步引擎使用QueuePool
-            return {
-                "pool_size": pool_size,
-                "max_overflow": max_overflow,
-                "pool_pre_ping": getattr(settings, 'DATABASE_POOL_PRE_PING', True),
-                "pool_recycle": getattr(settings, 'DATABASE_POOL_RECYCLE', 3600),
-                "pool_timeout": 30,
-                "poolclass": QueuePool,
-                "pool_reset_on_return": "commit"
-            }
-    
-    def _initialize_engines(self):
-        """初始化数据库引擎"""
-        try:
-            # 初始化异步引擎
-            if self.mode in [DatabaseMode.ASYNC, DatabaseMode.HYBRID]:
-                self._initialize_async_engine()
-            
-            # 初始化同步引擎
-            if self.mode in [DatabaseMode.SYNC, DatabaseMode.HYBRID]:
-                self._initialize_sync_engine()
-                
-        except Exception as e:
-            logger.error(f"数据库引擎初始化失败: {e}")
-            raise
-    
-    def _initialize_async_engine(self):
-        """初始化异步数据库引擎 - 强制使用MySQL"""
-        # 仅支持MySQL数据库
-        if self.database_type != DatabaseType.MYSQL:
-            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
-            return
-        
-        try:
-            import aiomysql
-        except ImportError:
-            logger.error("aiomysql驱动未安装，异步引擎初始化失败")
-            return
-        
-        # 强制使用mysql://前缀并转换为异步格式
-        if not settings.DATABASE_URL.startswith("mysql://"):
-            logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
-            return
-            
-        # 转换URL为异步格式，统一使用aiomysql驱动
-        async_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
-        logger.info(f"使用MySQL异步驱动初始化数据库引擎: {async_url}")
-        
-        try:
-            self.async_engine = create_async_engine(
-                async_url,
-                echo=getattr(settings, 'DEBUG', False),
-                connect_args=self._get_connection_args(is_async=True),
-                **self._get_pool_args(is_async=True)
+            # 创建异步引擎
+            self.engine = create_async_engine(
+                settings.DATABASE_URL,
+                poolclass=QueuePool,
+                pool_size=settings.DATABASE_POOL_SIZE,
+                max_overflow=settings.DATABASE_MAX_OVERFLOW,
+                pool_timeout=settings.DATABASE_CONNECT_TIMEOUT,
+                pool_recycle=settings.DATABASE_POOL_RECYCLE,
+                pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+                echo=settings.DEBUG,
+                echo_pool=settings.DEBUG,
             )
             
-            self.async_session_factory = async_sessionmaker(
-                bind=self.async_engine,
+            # 创建会话工厂
+            self.session_factory = async_sessionmaker(
+                self.engine,
                 class_=AsyncSession,
-                expire_on_commit=False,
-                autoflush=False,
-                autocommit=False
+                expire_on_commit=False
             )
             
-            logger.info("MySQL异步数据库引擎初始化成功")
+            # 测试连接
+            await self.test_connection()
+            
+            # 注册事件监听器
+            self._register_event_listeners()
+            
+            self._is_connected = True
+            logger.info("数据库连接初始化成功")
+            return True
             
         except Exception as e:
-            logger.error(f"MySQL异步数据库引擎初始化失败: {e}")
-            self.async_engine = None
-            self.async_session_factory = None
+            logger.error("数据库连接初始化失败", error=str(e))
+            raise DatabaseError(f"数据库初始化失败: {str(e)}", e)
     
-    def _initialize_sync_engine(self):
-        """初始化同步数据库引擎 - 强制使用MySQL"""
-        # 仅支持MySQL数据库
-        if self.database_type != DatabaseType.MYSQL:
-            logger.error(f"不支持的数据库类型: {self.database_type}，仅支持MySQL数据库")
-            return
-        
+    async def test_connection(self) -> bool:
+        """测试数据库连接"""
         try:
-            import pymysql
-        except ImportError:
-            logger.error("pymysql驱动未安装，同步引擎初始化失败")
-            return
-        
-        # 强制使用mysql://前缀并转换为pymysql格式
-        if not settings.DATABASE_URL.startswith("mysql://"):
-            logger.error(f"无效的数据库URL格式: {settings.DATABASE_URL}，必须以mysql://开头")
-            return
-        
-        # 转换URL为pymysql格式，统一使用pymysql驱动
-        sync_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
-        logger.info(f"使用MySQL同步驱动初始化数据库引擎: {sync_url}")
-        
-        try:
-            self.sync_engine = create_engine(
-                sync_url,
-                echo=getattr(settings, 'DEBUG', False),
-                connect_args=self._get_connection_args(is_async=False),
-                **self._get_pool_args(is_async=False)
-            )
-            
-            self.sync_session_factory = sessionmaker(
-                bind=self.sync_engine,
-                autocommit=False,
-                autoflush=False
-            )
-            
-            logger.info("MySQL同步数据库引擎初始化成功")
-            
+            async with self.engine.begin() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.debug("数据库连接测试成功")
+            return True
         except Exception as e:
-            logger.error(f"MySQL同步数据库引擎初始化失败: {e}")
-            self.sync_engine = None
-            self.sync_session_factory = None
+            logger.error("数据库连接测试失败", error=str(e))
+            raise DatabaseError(f"数据库连接测试失败: {str(e)}", e)
+    
+    def _register_event_listeners(self):
+        """注册数据库事件监听器"""
+        
+        @event.listens_for(self.engine.sync_engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            """设置数据库连接参数"""
+            if "sqlite" in str(dbapi_connection):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+        
+        @event.listens_for(self.engine.sync_engine, "checkout")
+        def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+            """连接检出事件"""
+            logger.debug("数据库连接检出")
+        
+        @event.listens_for(self.engine.sync_engine, "checkin")
+        def receive_checkin(dbapi_connection, connection_record):
+            """连接检入事件"""
+            logger.debug("数据库连接检入")
     
     @asynccontextmanager
-    async def get_async_session(self) -> AsyncGenerator[AsyncSession, None]:
-        """获取异步数据库会话"""
-        if not self.async_session_factory:
-            raise RuntimeError("异步数据库会话工厂不可用")
+    async def get_session(self):
+        """获取数据库会话上下文管理器"""
+        if not self._is_connected:
+            await self.initialize()
         
-        async with self.async_session_factory() as session:
-            try:
-                yield session
-            except Exception:
-                await session.rollback()
-                raise
-            finally:
-                await session.close()
-    
-    @contextmanager
-    def get_sync_session(self) -> Session:
-        """获取同步数据库会话"""
-        if not self.sync_session_factory:
-            raise RuntimeError("同步数据库会话工厂不可用")
-        
-        session = self.sync_session_factory()
+        session = self.session_factory()
         try:
             yield session
-        except Exception:
-            session.rollback()
-            raise
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.error("数据库会话错误", error=str(e))
+            raise DatabaseError(f"数据库操作失败: {str(e)}", e)
         finally:
-            session.close()
+            await session.close()
     
-    async def check_connection(self, is_async: bool = True) -> Dict[str, Any]:
-        """检查数据库连接状态"""
-        result = {
-            "status": "unknown",
-            "database_type": self.database_type.value,
-            "connection_ok": False,
-            "error": None,
-            "details": {}
-        }
-        
+    async def execute_with_retry(self, operation, *args, **kwargs):
+        """带重试的数据库操作"""
+        for attempt in range(self._max_retries):
+            try:
+                return await operation(*args, **kwargs)
+            except OperationalError as e:
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        "数据库操作失败，正在重试",
+                        attempt=attempt + 1,
+                        max_retries=self._max_retries,
+                        error=str(e)
+                    )
+                    await asyncio.sleep(2 ** attempt)  # 指数退避
+                    continue
+                else:
+                    logger.error("数据库操作重试失败", error=str(e))
+                    raise DatabaseError(f"数据库操作失败: {str(e)}", e)
+            except IntegrityError as e:
+                logger.error("数据完整性错误", error=str(e))
+                raise DatabaseError(f"数据完整性约束违反: {str(e)}", e)
+            except SQLAlchemyError as e:
+                logger.error("SQLAlchemy错误", error=str(e))
+                raise DatabaseError(f"数据库错误: {str(e)}", e)
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """数据库健康检查"""
         try:
-            if is_async and self.async_engine:
-                async with self.async_engine.begin() as conn:
-                    await conn.execute(text("SELECT 1"))
-                    result["connection_ok"] = True
-                    result["status"] = "healthy"
-            elif not is_async and self.sync_engine:
-                with self.sync_engine.begin() as conn:
-                    conn.execute(text("SELECT 1"))
-                    result["connection_ok"] = True
-                    result["status"] = "healthy"
-            else:
-                result["error"] = f"{'异步' if is_async else '同步'}数据库引擎不可用"
-                result["status"] = "engine_unavailable"
+            async with self.get_session() as session:
+                # 检查连接
+                result = await session.execute(text("SELECT 1 as health"))
+                health_status = result.scalar()
+                
+                # 检查连接池状态
+                pool = self.engine.pool
+                pool_status = {
+                    "size": pool.size(),
+                    "checked_in": pool.checkedin(),
+                    "checked_out": pool.checkedout(),
+                    "overflow": pool.overflow(),
+                    "invalid": pool.invalid()
+                }
+                
+                return {
+                    "status": "healthy" if health_status == 1 else "unhealthy",
+                    "connection_test": health_status,
+                    "pool_status": pool_status,
+                    "database_url": settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else "hidden"
+                }
                 
         except Exception as e:
-            result["error"] = str(e)
-            result["status"] = "connection_failed"
-            logger.error(f"数据库连接检查失败: {e}")
-            
-        return result
+            logger.error("数据库健康检查失败", error=str(e))
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "database_url": "hidden"
+            }
     
     async def close(self):
         """关闭数据库连接"""
-        if self.async_engine:
-            await self.async_engine.dispose()
-        if self.sync_engine:
-            self.sync_engine.dispose()
-        logger.info("数据库连接已关闭")
+        if self.engine:
+            await self.engine.dispose()
+            self._is_connected = False
+            logger.info("数据库连接已关闭")
 
-# 创建全局数据库管理器实例
-database_manager = DatabaseManager(
-    mode=DatabaseMode.HYBRID  # 默认使用混合模式
-)
+# 全局数据库管理器实例
+db_manager = DatabaseManager()
 
-# 导出便捷函数
-async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
-    """获取异步数据库会话（便捷函数）"""
-    async with database_manager.get_async_session() as session:
+# 便捷函数
+async def get_db_session():
+    """获取数据库会话"""
+    async with db_manager.get_session() as session:
         yield session
 
-def get_sync_db():
-    """获取同步数据库会话（便捷函数）"""
-    with database_manager.get_sync_session() as session:
-        yield session
+async def init_database():
+    """初始化数据库"""
+    await db_manager.initialize()
 
-# 创建基础模型类
-Base = declarative_base()
+async def close_database():
+    """关闭数据库连接"""
+    await db_manager.close()
+
+async def check_database_health():
+    """检查数据库健康状态"""
+    return await db_manager.health_check()
+
+# 数据库操作装饰器
+def with_db_session(func):
+    """数据库会话装饰器"""
+    async def wrapper(*args, **kwargs):
+        async with db_manager.get_session() as session:
+            kwargs['db'] = session
+            return await func(*args, **kwargs)
+    return wrapper
+
+def with_db_retry(max_retries: int = 3):
+    """数据库重试装饰器"""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            return await db_manager.execute_with_retry(func, *args, **kwargs)
+        return wrapper
+    return decorator
+
+# 数据库事务管理
+class TransactionManager:
+    """事务管理器"""
+    
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self._transaction_started = False
+    
+    async def begin(self):
+        """开始事务"""
+        if not self._transaction_started:
+            await self.session.begin()
+            self._transaction_started = True
+    
+    async def commit(self):
+        """提交事务"""
+        if self._transaction_started:
+            await self.session.commit()
+            self._transaction_started = False
+    
+    async def rollback(self):
+        """回滚事务"""
+        if self._transaction_started:
+            await self.session.rollback()
+            self._transaction_started = False
+    
+    async def __aenter__(self):
+        await self.begin()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            await self.rollback()
+        else:
+            await self.commit()
+
+@asynccontextmanager
+async def database_transaction():
+    """数据库事务上下文管理器"""
+    async with db_manager.get_session() as session:
+        async with TransactionManager(session) as tx:
+            yield tx

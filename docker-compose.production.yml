@@ -9,8 +9,8 @@ services:
     environment:
       MYSQL_DATABASE: ipv6wgm
       MYSQL_USER: ipv6wgm
-      MYSQL_PASSWORD: password
-      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_PASSWORD: CHANGE_ME_STRONG_PASSWORD
+      MYSQL_ROOT_PASSWORD: CHANGE_ME_STRONG_PASSWORD
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -19,7 +19,7 @@ services:
     networks:
       - ipv6-wireguard-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pCHANGE_ME_STRONG_PASSWORD"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -31,7 +31,7 @@ services:
     image: redis:7-alpine
     container_name: ipv6-wireguard-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass redis123
+    command: redis-server --appendonly yes --requirepass CHANGE_ME_REDIS_PASSWORD
     volumes:
       - redis_data:/data
     ports:
@@ -39,7 +39,7 @@ services:
     networks:
       - ipv6-wireguard-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      test: ["CMD", "redis-cli", "-a", "CHANGE_ME_REDIS_PASSWORD", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -52,8 +52,8 @@ services:
     container_name: ipv6-wireguard-backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=mysql://ipv6wgm:password@mysql:${DB_PORT}/ipv6wgm
-      - REDIS_URL=redis://:redis123@redis:${REDIS_PORT}/0
+      - DATABASE_URL=mysql://ipv6wgm:CHANGE_ME_STRONG_PASSWORD@mysql:${DB_PORT}/ipv6wgm
+      - REDIS_URL=redis://:CHANGE_ME_REDIS_PASSWORD@redis:${REDIS_PORT}/0
       - DEBUG=false
       - LOG_LEVEL=INFO
     volumes:

@@ -98,7 +98,7 @@ async def create_admin_user():
             admin_user = User(
                 username="admin",
                 email="admin@example.com",
-                hashed_password=security_manager.get_password_hash("admin123"),
+                hashed_password=security_manager.get_password_hash("CHANGE_ME_ADMIN_PASSWORD"),
                 full_name="系统管理员",
                 is_active=True,
                 is_superuser=True,
