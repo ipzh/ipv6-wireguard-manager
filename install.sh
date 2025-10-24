@@ -1,14 +1,42 @@
 #!/bin/bash
 
+#=============================================================================
 # IPv6 WireGuard Manager - 智能安装脚本
-# 支持多种安装方式，自动检测系统环境，增强兼容性
-# 企业级VPN管理平台
+#=============================================================================
+# 
+# 功能说明:
+#   - 支持多种安装方式：Docker、原生安装、最小化安装
+#   - 自动检测系统环境和资源配置
+#   - 智能选择最佳安装方案
+#   - 完整的错误处理和恢复机制
+#   - 企业级VPN管理平台一键部署
+#
+# 支持的操作系统:
+#   - Ubuntu 18.04+
+#   - Debian 9+
+#   - CentOS 7+
+#   - RHEL 7+
+#   - Fedora 30+
+#   - Arch Linux
+#   - openSUSE 15+
+#
+# 作者: IPv6 WireGuard Manager Team
+# 版本: 3.1.0
+# 许可: MIT
+#
+#=============================================================================
 
-set -e
-set -u
-set -o pipefail
+# Bash严格模式设置
+set -e          # 遇到错误立即退出
+set -u          # 使用未定义变量时报错
+set -o pipefail # 管道命令中任一失败则整体失败
 
+#-----------------------------------------------------------------------------
 # 错误处理函数
+#-----------------------------------------------------------------------------
+# 说明: 捕获脚本执行过程中的错误并提供详细的错误信息
+# 参数: $1 - 错误发生的行号
+#-----------------------------------------------------------------------------
 handle_error() {
     local exit_code=$?
     local line_number=$1
@@ -17,91 +45,134 @@ handle_error() {
     exit $exit_code
 }
 
-# 设置错误陷阱
+# 设置错误陷阱，当发生错误时自动调用错误处理函数
 trap 'handle_error $LINENO' ERR
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+#-----------------------------------------------------------------------------
+# 颜色定义 - 用于美化终端输出
+#-----------------------------------------------------------------------------
+RED='\033[0;31m'      # 红色 - 用于错误信息
+GREEN='\033[0;32m'    # 绿色 - 用于成功信息
+YELLOW='\033[1;33m'   # 黄色 - 用于警告信息
+BLUE='\033[0;34m'     # 蓝色 - 用于普通信息
+PURPLE='\033[0;35m'   # 紫色 - 用于调试信息
+CYAN='\033[0;36m'     # 青色 - 用于步骤信息
+NC='\033[0m'          # 无颜色 - 重置颜色
 
-# 日志函数
+#-----------------------------------------------------------------------------
+# 日志输出函数
+#-----------------------------------------------------------------------------
+# 说明: 提供统一的日志输出格式，支持不同级别的日志
+#-----------------------------------------------------------------------------
+
+# 普通信息日志（蓝色）
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
 
+# 成功信息日志（绿色）
 log_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
+# 警告信息日志（黄色）
 log_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
+# 错误信息日志（红色）
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# 调试信息日志（紫色）
 log_debug() {
     echo -e "${PURPLE}[DEBUG]${NC} $1"
 }
 
+# 步骤信息日志（青色）
 log_step() {
     echo -e "${CYAN}[STEP]${NC} $1"
 }
 
-# 全局变量
-SCRIPT_VERSION="3.1.0"
-PROJECT_NAME="IPv6 WireGuard Manager"
-PROJECT_REPO="https://github.com/ipzh/ipv6-wireguard-manager.git"
-DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
-FRONTEND_DIR="/var/www/html"
-DEFAULT_PORT="80"
-DEFAULT_API_PORT="8000"
+#=============================================================================
+# 全局变量定义
+#=============================================================================
 
-# 系统信息
-OS_ID=""
-OS_VERSION=""
-OS_NAME=""
-ARCH=""
-PACKAGE_MANAGER=""
-MEMORY_MB=""
-CPU_CORES=""
-DISK_SPACE_MB=""
-IPV6_SUPPORT=false
+#-----------------------------------------------------------------------------
+# 基础配置变量
+#-----------------------------------------------------------------------------
+SCRIPT_VERSION="3.1.0"                                                # 脚本版本号
+PROJECT_NAME="IPv6 WireGuard Manager"                                # 项目名称
+PROJECT_REPO="https://github.com/ipzh/ipv6-wireguard-manager.git"   # 项目仓库地址
+DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"                    # 默认安装目录
+FRONTEND_DIR="/var/www/html"                                         # 前端文件目录
+DEFAULT_PORT="80"                                                     # 默认Web端口
+DEFAULT_API_PORT="8000"                                               # 默认API端口
 
-# 安装配置
-INSTALL_TYPE=""
-INSTALL_DIR=""
-WEB_PORT=""
-API_PORT=""
-SERVICE_USER="ipv6wgm"
-SERVICE_GROUP="ipv6wgm"
-PYTHON_VERSION="3.11"
-PHP_VERSION="8.1"
-MYSQL_VERSION="8.0"
+#-----------------------------------------------------------------------------
+# 系统信息变量（由detect_system函数检测并填充）
+#-----------------------------------------------------------------------------
+OS_ID=""                # 操作系统ID (ubuntu, debian, centos等)
+OS_VERSION=""           # 操作系统版本号
+OS_NAME=""              # 操作系统完整名称
+ARCH=""                 # 系统架构 (x86_64, aarch64等)
+PACKAGE_MANAGER=""      # 包管理器 (apt, yum, dnf等)
+MEMORY_MB=""            # 系统内存大小（MB）
+CPU_CORES=""            # CPU核心数
+DISK_SPACE_MB=""        # 可用磁盘空间（MB）
+IPV6_SUPPORT=false      # IPv6支持状态
 
-# 功能开关
-SILENT=false
-PERFORMANCE=false
-PRODUCTION=false
-DEBUG=false
-SKIP_DEPS=false
-SKIP_DB=false
-SKIP_SERVICE=false
-SKIP_FRONTEND=false
-AUTO_EXIT=false
+#-----------------------------------------------------------------------------
+# 安装配置变量（由用户输入或自动检测填充）
+#-----------------------------------------------------------------------------
+INSTALL_TYPE=""         # 安装类型 (docker, native, minimal)
+INSTALL_DIR=""          # 实际安装目录
+WEB_PORT=""             # 实际使用的Web端口
+API_PORT=""             # 实际使用的API端口
+SERVICE_USER="ipv6wgm"  # 系统服务运行用户
+SERVICE_GROUP="ipv6wgm" # 系统服务运行用户组
+PYTHON_VERSION="3.11"   # Python版本
+PHP_VERSION="8.1"       # PHP版本
+MYSQL_VERSION="8.0"     # MySQL版本
 
-# 系统信息检测
+#-----------------------------------------------------------------------------
+# 功能开关（通过命令行参数控制）
+#-----------------------------------------------------------------------------
+SILENT=false            # 静默安装模式（非交互）
+PERFORMANCE=false       # 性能优化模式
+PRODUCTION=false        # 生产环境模式
+DEBUG=false             # 调试模式
+SKIP_DEPS=false         # 跳过依赖安装
+SKIP_DB=false           # 跳过数据库配置
+SKIP_SERVICE=false      # 跳过服务创建
+SKIP_FRONTEND=false     # 跳过前端部署
+AUTO_EXIT=false         # 自动退出模式（安装完成后自动退出）
+
+#=============================================================================
+# 系统检测函数
+#=============================================================================
+
+#-----------------------------------------------------------------------------
+# detect_system - 检测系统信息
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 检测操作系统类型、版本和架构
+#   - 检测包管理器
+#   - 检测系统资源（内存、CPU、磁盘）
+#   - 检测IPv6支持情况
+#   - 检测PHP版本
+# 
+# 输出: 填充全局系统信息变量
+#-----------------------------------------------------------------------------
 detect_system() {
     log_info "检测系统信息..."
     
-    # 检查操作系统
+    #-------------------------------------------------------------------------
+    # 检测操作系统类型和版本
+    #-------------------------------------------------------------------------
     if [[ -f /etc/os-release ]]; then
+        # 现代Linux发行版标准方式
         source /etc/os-release
         OS_ID="$ID"
         OS_VERSION="$VERSION_ID"
@@ -497,10 +568,10 @@ show_help() {
     echo "  --type TYPE          安装类型 (docker|native|minimal)"
     echo "  --dir DIR            安装目录 (默认: $DEFAULT_INSTALL_DIR)"
     echo "  --frontend-dir DIR   前端Web目录 (默认: $FRONTEND_DIR)"
-    echo "  --config-dir DIR     WireGuard配置目录 (默认: $WIREGUARD_CONFIG_DIR)"
-    echo "  --log-dir DIR        日志目录 (默认: $LOG_DIR)"
-    echo "  --nginx-dir DIR      Nginx配置目录 (默认: $NGINX_CONFIG_DIR)"
-    echo "  --systemd-dir DIR    Systemd服务目录 (默认: $SYSTEMD_CONFIG_DIR)"
+    echo "  --config-dir DIR     WireGuard配置目录"
+    echo "  --log-dir DIR        日志目录"
+    echo "  --nginx-dir DIR      Nginx配置目录"
+    echo "  --systemd-dir DIR    Systemd服务目录"
     echo "  --port PORT          Web端口 (默认: $DEFAULT_PORT)"
     echo "  --api-port PORT      API端口 (默认: $DEFAULT_API_PORT)"
     echo "  --silent             静默安装"
@@ -515,24 +586,24 @@ show_help() {
     echo "  --help, -h           显示帮助信息"
     echo "  --version, -v        显示版本信息"
     echo ""
-echo "示例:"
-echo "  $0                           # 交互式安装"
-echo "  $0 --type docker             # Docker安装"
-echo "  $0 --type native             # 原生安装"
-echo "  $0 --type minimal            # 最小化安装"
-echo "  $0 --silent                  # 静默安装（自动选择安装类型）"
-echo "  $0 --auto                    # 智能安装（自动选择参数并退出）"
-echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
-echo "  $0 --frontend-dir /var/www   # 自定义前端目录"
-echo "  $0 --config-dir /etc/wg      # 自定义WireGuard配置目录"
-echo "  $0 --log-dir /var/logs       # 自定义日志目录"
-echo ""
-echo "路径配置说明:"
-echo "  所有路径参数都支持环境变量覆盖，例如:"
-echo "  INSTALL_DIR=/custom/path $0"
-echo "  FRONTEND_DIR=/var/www $0"
-echo "  WIREGUARD_CONFIG_DIR=/etc/wg $0"
-echo ""
+    echo "示例:"
+    echo "  $0                           # 交互式安装"
+    echo "  $0 --type docker             # Docker安装"
+    echo "  $0 --type native             # 原生安装"
+    echo "  $0 --type minimal            # 最小化安装"
+    echo "  $0 --silent                  # 静默安装（自动选择安装类型）"
+    echo "  $0 --auto                    # 智能安装（自动选择参数并退出）"
+    echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
+    echo "  $0 --frontend-dir /var/www   # 自定义前端目录"
+    echo "  $0 --config-dir /etc/wg      # 自定义WireGuard配置目录"
+    echo "  $0 --log-dir /var/logs       # 自定义日志目录"
+    echo ""
+    echo "路径配置说明:"
+    echo "  所有路径参数都支持环境变量覆盖，例如:"
+    echo "  INSTALL_DIR=/custom/path $0"
+    echo "  FRONTEND_DIR=/var/www $0"
+    echo "  WIREGUARD_CONFIG_DIR=/etc/wg $0"
+    echo ""
     echo "支持的Linux系统:"
     echo "  - Ubuntu 18.04+"
     echo "  - Debian 9+"
@@ -545,8 +616,7 @@ echo ""
     echo "安装类型说明:"
     echo "  native   - 原生安装，推荐用于生产环境和开发环境"
     echo "  minimal  - 最小化安装，推荐用于资源受限环境"
-    echo ""
-    echo "docker   - 使用Docker Compose部署（需要docker与docker-compose）"
+    echo "  docker   - 使用Docker Compose部署（需要docker与docker-compose）"
 }
 
 # 选择安装类型
@@ -904,11 +974,27 @@ install_system_dependencies() {
     esac
 }
 
-# 安装PHP和PHP-FPM
+#-----------------------------------------------------------------------------
+# install_php - 安装PHP和PHP-FPM
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 检测并卸载可能冲突的Apache包
+#   - 安装PHP-FPM（避免Apache依赖）
+#   - 安装所需的PHP扩展
+#   - 验证PHP版本和必需扩展
+#   - 启动并启用PHP-FPM服务
+#
+# 支持的包管理器: apt, yum, dnf, pacman, zypper, emerge, apk
+# 依赖: PHP_VERSION全局变量，由detect_php_version设置
+#-----------------------------------------------------------------------------
 install_php() {
     log_info "安装PHP和PHP-FPM..."
     
-    # 首先卸载Apache相关包，避免冲突
+    #-------------------------------------------------------------------------
+    # 第一步：卸载Apache相关包以避免冲突
+    #-------------------------------------------------------------------------
+    # 说明: 某些系统安装PHP时会自动安装Apache作为依赖，
+    #       我们需要先卸载Apache以确保使用Nginx
     case $PACKAGE_MANAGER in
         "apt")
             local apache_packages=(
@@ -1237,11 +1323,27 @@ install_python_dependencies() {
     fi
 }
 
-# 配置数据库
+#-----------------------------------------------------------------------------
+# configure_database - 配置数据库
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 启动MySQL/MariaDB服务
+#   - 创建数据库和用户
+#   - 配置用户权限（localhost和127.0.0.1）
+#   - 生成环境配置文件
+#   - 初始化数据库表结构和超级用户
+#
+# 注意事项:
+#   - 强制使用MySQL/MariaDB，不支持SQLite和PostgreSQL
+#   - 使用mysql_native_password插件确保兼容性
+#   - 支持MariaDB和MySQL不同的语法
+#
+# 依赖全局变量: DB_USER, DB_PASSWORD, DB_NAME, DB_PORT
+#-----------------------------------------------------------------------------
 configure_database() {
     log_info "配置数据库..."
     
-    # 强制使用MySQL/MariaDB，不支持SQLite和PostgreSQL
+    # 强制使用MySQL/MariaDB，确保数据库兼容性
     log_info "强制使用MySQL数据库，不支持SQLite和PostgreSQL"
     
     # 启动MySQL/MariaDB服务
@@ -1577,11 +1679,35 @@ EOF
     fi
 }
 
-# 配置Nginx
+#-----------------------------------------------------------------------------
+# configure_nginx - 配置Nginx反向代理和PHP处理
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 检测PHP-FPM socket路径
+#   - 生成Nginx配置文件
+#   - 配置上游服务器（支持IPv4和IPv6双栈）
+#   - 配置API反向代理
+#   - 配置PHP-FPM处理
+#   - 配置静态文件缓存
+#   - 配置安全头和CORS
+#   - 测试配置并重启Nginx服务
+#
+# 配置特点:
+#   - 支持IPv6和IPv4双栈上游服务器
+#   - API请求反向代理到FastAPI后端
+#   - PHP文件通过PHP-FPM处理
+#   - 静态资源启用缓存和Gzip压缩
+#   - 安全文件访问限制
+#
+# 依赖全局变量: WEB_PORT, API_PORT, PHP_VERSION, IPV6_SUPPORT
+#-----------------------------------------------------------------------------
 configure_nginx() {
     log_info "配置Nginx..."
     
+    #-------------------------------------------------------------------------
     # 检测PHP-FPM socket路径
+    #-------------------------------------------------------------------------
+    # 说明: 不同系统PHP-FPM socket位置不同，需要自动检测
     local php_fpm_socket=""
     local possible_sockets=(
         "/var/run/php/php${PHP_VERSION}-fpm.sock"
@@ -2286,19 +2412,54 @@ show_auto_generated_credentials() {
     fi
 }
 
-# 生成随机字符串
+#-----------------------------------------------------------------------------
+# generate_random_string - 生成随机字符串
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   使用openssl生成安全的随机字符串，用于密码和密钥生成
+#
+# 参数:
+#   $1 - 字符串长度（默认: 16）
+#
+# 输出:
+#   生成的随机字符串（仅包含字母和数字）
+#
+# 示例:
+#   password=$(generate_random_string 24)  # 生成24位随机密码
+#-----------------------------------------------------------------------------
 generate_random_string() {
     local length=${1:-16}
     openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
 }
 
-# 创建环境配置文件
+#-----------------------------------------------------------------------------
+# create_env_config - 创建环境配置文件
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 生成安全的随机密钥和密码
+#   - 创建.env配置文件
+#   - 配置应用、数据库、安全等所有参数
+#   - 设置文件权限为600（仅所有者可读写）
+#
+# 配置内容:
+#   - 应用基础设置（名称、版本、调试模式）
+#   - API设置（版本前缀、密钥、令牌过期时间）
+#   - 数据库连接（强制MySQL）
+#   - Redis配置（可选）
+#   - CORS跨域设置
+#   - 安全策略（密码要求、MFA、限流）
+#   - 监控和日志设置
+#   - 路径配置
+#
+# 依赖全局变量: 
+#   INSTALL_DIR, API_PORT, WEB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT
+#-----------------------------------------------------------------------------
 create_env_config() {
     log_info "创建环境配置文件..."
     
-    # 生成随机密钥
+    # 生成随机密钥（64位十六进制）
     local secret_key=$(openssl rand -hex 32)
-    # 生成超级用户强随机密码
+    # 生成超级用户强随机密码（20位字母数字组合）
     local admin_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
     # 数据库密码与创建用户保持一致，避免不一致导致连接失败
     local database_password="${DB_PASSWORD}"
@@ -2648,10 +2809,30 @@ test_api_functionality() {
         log_info "API测试脚本不存在，跳过测试"
     fi
 }
+#-----------------------------------------------------------------------------
+# create_system_service - 创建systemd系统服务
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 验证后端服务所需的关键文件
+#   - 生成systemd服务单元文件
+#   - 配置服务依赖和环境变量
+#   - 启用服务自动启动
+#
+# 服务特点:
+#   - 使用uvicorn运行FastAPI应用
+#   - 配置为系统服务（systemd）
+#   - 依赖MySQL/MariaDB服务
+#   - 自动重启机制
+#   - 日志输出到journal
+#
+# 依赖全局变量: INSTALL_DIR, SERVICE_USER, SERVICE_GROUP, API_PORT, SERVER_HOST
+#-----------------------------------------------------------------------------
 create_system_service() {
     log_info "创建系统服务..."
     
+    #-------------------------------------------------------------------------
     # 验证后端服务启动所需的关键文件
+    #-------------------------------------------------------------------------
     if [[ ! -f "$INSTALL_DIR/venv/bin/uvicorn" ]]; then
         log_error "uvicorn可执行文件不存在: $INSTALL_DIR/venv/bin/uvicorn"
         log_error "请检查Python虚拟环境是否正确安装"
@@ -2778,11 +2959,31 @@ create_directories_and_permissions() {
     
     log_success "目录和权限设置完成"
     
-    # 配置日志轮转
-    configure_log_rotation() {
-        log_info "配置日志轮转..."
-        
-        cat > /etc/logrotate.d/ipv6-wireguard-manager << EOF
+    # 调用日志轮转配置
+    configure_log_rotation
+}
+
+# 配置日志轮转
+configure_log_rotation() {
+    log_info "配置日志轮转..."
+    
+    # 动态检测Web服务用户，确保变量在当前作用域可用
+    local web_user=""
+    local web_group=""
+    if id -u www-data >/dev/null 2>&1; then
+        web_user="www-data"; web_group="www-data"
+    elif id -u nginx >/dev/null 2>&1; then
+        web_user="nginx"; web_group="nginx"
+    elif id -u apache >/dev/null 2>&1; then
+        web_user="apache"; web_group="apache"
+    elif id -u http >/dev/null 2>&1; then
+        web_user="http"; web_group="http"
+    else
+        # 回退到服务用户
+        web_user="$SERVICE_USER"; web_group="$SERVICE_GROUP"
+    fi
+    
+    cat > /etc/logrotate.d/ipv6-wireguard-manager << EOF
 $INSTALL_DIR/logs/*.log {
     daily
     missingok
@@ -2806,11 +3007,8 @@ $FRONTEND_DIR/logs/*.log {
     create 644 $web_user $web_group
 }
 EOF
-        
-        log_success "日志轮转配置完成"
-    }
     
-    configure_log_rotation
+    log_success "日志轮转配置完成"
 }
 
 # 启动服务 - 增强版
@@ -3188,56 +3386,6 @@ check_api_service() {
     generate_report $total_checks $passed_checks
 }
 
-# 显示帮助信息
-show_help() {
-    echo "用法: $0 [选项]"
-    echo ""
-    echo "选项:"
-    echo "  -p, --port PORT      指定API端口 (默认: 8000)"
-    echo "  -w, --web-port PORT  指定Web端口 (默认: 80)"
-    echo "  -h, --hostname HOST  指定主机名 (默认: localhost)"
-    echo "  -i, --install-dir DIR 指定安装目录 (默认: /opt/ipv6-wireguard-manager)"
-    echo "  --help               显示此帮助信息"
-    echo ""
-    echo "示例:"
-    echo "  $0                   # 使用默认参数检查"
-    echo "  $0 -p 8080           # 指定API端口为8080"
-    echo "  $0 -w 8080 -p 8001   # 指定Web端口为8080，API端口为8001"
-}
-
-# 解析命令行参数
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -p|--port)
-            API_PORT="$2"
-            shift 2
-            ;;
-        -w|--web-port)
-            WEB_PORT="$2"
-            shift 2
-            ;;
-        -h|--hostname)
-            HOSTNAME="$2"
-            shift 2
-            ;;
-        -i|--install-dir)
-            INSTALL_DIR="$2"
-            shift 2
-            ;;
-        --help)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "未知选项: $1"
-            show_help
-            exit 1
-            ;;
-    esac
-done
-
-# 运行主函数
-main "$@"
 EOF
     }
     chmod +x "$INSTALL_DIR/scripts/check_api_service.sh"
@@ -3472,12 +3620,48 @@ show_installation_complete() {
     fi
 }
 
+#=============================================================================
 # 主函数
+#=============================================================================
+
+#-----------------------------------------------------------------------------
+# main - 主安装流程控制函数
+#-----------------------------------------------------------------------------
+# 功能说明:
+#   - 检测运行模式（交互/非交互）
+#   - 执行系统检测和路径检测
+#   - 解析命令行参数
+#   - 选择安装类型
+#   - 根据安装类型执行相应的安装流程
+#   - 运行环境检查
+#   - 显示安装完成信息
+#
+# 安装流程:
+#   1. Docker安装: install_docker
+#   2. 原生安装: 
+#      - 安装系统依赖
+#      - 安装PHP
+#      - 创建服务用户
+#      - 下载项目
+#      - 安装Python依赖
+#      - 配置数据库
+#      - 部署前端
+#      - 配置Nginx
+#      - 创建系统服务
+#      - 启动服务
+#   3. 最小化安装: 同原生安装（资源优化版）
+#
+# 参数: $@ - 命令行参数
+#-----------------------------------------------------------------------------
 main() {
     log_info "IPv6 WireGuard Manager - 智能安装脚本 v$SCRIPT_VERSION"
     echo ""
     
-    # 检测是否通过管道执行（curl ... | bash）
+    #-------------------------------------------------------------------------
+    # 检测运行模式：交互模式或非交互模式
+    #-------------------------------------------------------------------------
+    # 说明: 通过检测stdin是否为TTY来判断
+    #       如果通过管道执行（如 curl ... | bash），则为非交互模式
     if [[ -t 0 ]]; then
         # 交互模式 - 终端是TTY
         INTERACTIVE_MODE=true
