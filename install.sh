@@ -2701,7 +2701,7 @@ initialize_database_standard() {
     export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
-    # 创建一个临时的Python脚本来初始化数据库，避免在python -c中使用__file__
+    # 创建一个简化的临时Python脚本来初始化数据库
     cat > /tmp/init_db_temp.py << EOF
 import asyncio
 import sys
@@ -2720,63 +2720,123 @@ if backend_path.exists():
 # 确保Python可以找到app模块
 sys.path.insert(0, str(Path(install_dir) / "backend"))
 
-from app.core.database import init_db, get_async_db
-from app.core.security_enhanced import init_permissions_and_roles, security_manager
-from app.models.models_complete import User, Role, Permission
-from app.schemas.user import UserCreate
-from app.services.user_service import UserService
-from app.core.config_enhanced import settings
-
-async def main():
-    print('Starting database initialization with aiomysql driver...')
-    print(f'Database URL: {os.environ.get("DATABASE_URL")}')
+def init_database_simple():
+    """简化的数据库初始化"""
     try:
-        await init_db()
-        print('Database tables created successfully')
+        print("🔧 开始数据库初始化...")
+        
+        # 读取环境变量
+        database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+        print(f"📊 数据库URL: {database_url}")
+        
+        # 创建数据库连接
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.ext.declarative import declarative_base
+        
+        Base = declarative_base()
+        
+        # 使用同步引擎进行初始化
+        sync_url = database_url.replace("mysql://", "mysql+pymysql://")
+        engine = create_engine(sync_url, echo=True)
+        
+        print("🔗 测试数据库连接...")
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            print("✅ 数据库连接成功")
+        
+        # 创建表
+        print("📋 创建数据库表...")
+        
+        # 定义基础模型
+        from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+        from sqlalchemy.orm import relationship
+        from datetime import datetime
+        
+        class User(Base):
+            __tablename__ = "users"
+            
+            id = Column(Integer, primary_key=True, index=True)
+            username = Column(String(50), unique=True, index=True, nullable=False)
+            email = Column(String(100), unique=True, index=True, nullable=False)
+            hashed_password = Column(String(255), nullable=False)
+            full_name = Column(String(100))
+            is_active = Column(Boolean, default=True)
+            is_superuser = Column(Boolean, default=False)
+            is_verified = Column(Boolean, default=False)
+            created_at = Column(DateTime, default=datetime.utcnow)
+            updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        class Role(Base):
+            __tablename__ = "roles"
+            
+            id = Column(Integer, primary_key=True, index=True)
+            name = Column(String(50), unique=True, index=True, nullable=False)
+            description = Column(Text)
+            created_at = Column(DateTime, default=datetime.utcnow)
+        
+        class Permission(Base):
+            __tablename__ = "permissions"
+            
+            id = Column(Integer, primary_key=True, index=True)
+            name = Column(String(100), unique=True, index=True, nullable=False)
+            description = Column(Text)
+            resource = Column(String(100))
+            action = Column(String(50))
+            created_at = Column(DateTime, default=datetime.utcnow)
+        
+        # 创建所有表
+        Base.metadata.create_all(bind=engine)
+        print("✅ 数据库表创建完成")
+        
+        # 创建管理员用户
+        print("👤 创建管理员用户...")
+        
+        from sqlalchemy.orm import sessionmaker
+        from passlib.context import CryptContext
+        
+        # 密码加密
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        
+        with SessionLocal() as db:
+            # 检查是否已存在管理员用户
+            existing_admin = db.query(User).filter(User.username == "admin").first()
+            
+            if not existing_admin:
+                admin_password = os.environ.get("FIRST_SUPERUSER_PASSWORD", "CHANGE_ME_ADMIN_PASSWORD")
+                admin_user = User(
+                    username="admin",
+                    email="admin@example.com",
+                    hashed_password=pwd_context.hash(admin_password),
+                    full_name="系统管理员",
+                    is_active=True,
+                    is_superuser=True,
+                    is_verified=True
+                )
+                
+                db.add(admin_user)
+                db.commit()
+                print("✅ 管理员用户创建成功")
+                print("🔑 管理员用户名: admin")
+                print(f"🔑 管理员密码: {admin_password}")
+                print("⚠️  请立即修改默认密码！")
+            else:
+                print("ℹ️  管理员用户已存在")
+        
+        print("🎉 数据库初始化完成！")
+        return True
+        
     except Exception as e:
-        print(f'Database initialization failed: {e}')
-        print('MySQL数据库初始化失败，请检查数据库配置和权限')
-        exit(1)
-    
-    async for db in get_async_db():
-        # 初始化权限和角色
-        print('Initializing permissions and roles...')
-        try:
-            await init_permissions_and_roles(db)
-            print('Permissions and roles initialized.')
-        except Exception as e:
-            print(f'Permissions and roles initialization failed: {e}')
-            # 继续执行，这不是致命错误
-        
-        # 创建超级用户
-        user_service = UserService(db)
-        existing_superuser = await user_service.get_user_by_username(settings.FIRST_SUPERUSER)
-        
-        if not existing_superuser:
-            print(f'Creating initial superuser: {settings.FIRST_SUPERUSER}...')
-            superuser_data = UserCreate(
-                username=settings.FIRST_SUPERUSER,
-                email=settings.FIRST_SUPERUSER_EMAIL,
-                password=settings.FIRST_SUPERUSER_PASSWORD,
-                is_active=True,
-                is_superuser=True
-            )
-            try:
-                await user_service.create_user(superuser_data)
-                print('Initial superuser created successfully.')
-            except Exception as e:
-                print(f'Failed to create superuser: {e}')
-        else:
-            print(f'Superuser {settings.FIRST_SUPERUSER} already exists.')
-    
-    print('Database initialization complete.')
+        print(f"❌ 数据库初始化失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
-if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except Exception as e:
-        print(f'Database initialization failed: {e}')
-        exit(1)
+if __name__ == "__main__":
+    success = init_database_simple()
+    if not success:
+        sys.exit(1)
 EOF
 
     # 执行临时脚本，确保在正确的目录下运行
