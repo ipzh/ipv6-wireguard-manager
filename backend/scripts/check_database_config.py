@@ -42,14 +42,21 @@ def check_database_config():
     try:
         parsed_url = urllib.parse.urlparse(settings.DATABASE_URL)
         
-        logger.info(f"🌐 数据库类型: {'MySQL' if parsed_url.scheme == 'mysql' else parsed_url.scheme}")
+        # 规范化数据库协议名称，兼容 mysql+asyncpg 等复合前缀
+        db_scheme = parsed_url.scheme or 'unknown'
+        db_type = 'MySQL' if 'mysql' in db_scheme.lower() else db_scheme
+        
+        logger.info(f"🌐 数据库类型: {db_type}")
         logger.info(f"🏠 主机地址: {parsed_url.hostname}")
-        logger.info(f"🔌 端口号: {parsed_url.port or '默认(3306)'")
+        # 修复 f-string 括号问题
+        default_port = '默认(3306)'
+        logger.info(f"🔌 端口号: {parsed_url.port or default_port}")
         logger.info(f"🗄️ 数据库名: {parsed_url.path.lstrip('/')}")
         logger.info(f"👤 用户名: {parsed_url.username}")
         
         # 检查是否为远程连接
-        if parsed_url.hostname not in ['localhost', '${LOCAL_HOST}', '::1']:
+        local_hosts = ['localhost', '${LOCAL_HOST}', '127.0.0.1', '::1']
+        if parsed_url.hostname not in local_hosts:
             logger.info("🌍 检测到远程数据库连接")
             
             # 检查网络连接
@@ -58,19 +65,13 @@ def check_database_config():
                 hostname = parsed_url.hostname
                 port = parsed_url.port or 3306
                 
-                sock = socket.socket(socket.AF_String(45), socket.SOCK_STREAM)
-                sock.settimeout(10)
-                result = sock.connect_ex((hostname, port))
-                sock.close()
-                
-                if result == 0:
+                # 使用 socket.create_connection 自动处理 IPv4/IPv6
+                with socket.create_connection((hostname, port), timeout=10):
                     logger.info("✅ 网络连接正常")
-                else:
-                    logger.error(f"❌ 网络连接失败 (错误代码: {result})")
-                    logger.info("💡 建议: 检查防火墙设置和网络连接")
                     
             except Exception as e:
                 logger.error(f"❌ 网络连接检查失败: {e}")
+                logger.info("💡 建议: 检查防火墙设置和网络连接")
         else:
             logger.info("💻 检测到本地数据库连接")
             
