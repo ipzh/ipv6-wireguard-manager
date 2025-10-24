@@ -19,7 +19,7 @@ except ImportError:
     pymysql = None
     sql = None
 
-from .config import settings
+from .unified_config import settings
 
 logger = logging.getLogger(__name__)
 
