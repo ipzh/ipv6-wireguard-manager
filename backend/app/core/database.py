@@ -12,7 +12,7 @@ from .database_manager import (
     DatabaseType
 )
 from .unified_config import settings
-from .logging import get_logger
+from .logging_manager import get_logger
 
 logger = get_logger(__name__)
 

@@ -18,6 +18,23 @@ from .exception_handlers import DatabaseError, ErrorCodes
 
 logger = structlog.get_logger()
 
+# 为了向后兼容，添加必要的类和枚举
+from sqlalchemy.ext.declarative import declarative_base
+from enum import Enum
+
+Base = declarative_base()
+
+class DatabaseMode(Enum):
+    """数据库模式枚举"""
+    ASYNC = "async"
+    SYNC = "sync"
+
+class DatabaseType(Enum):
+    """数据库类型枚举"""
+    MYSQL = "mysql"
+    POSTGRESQL = "postgresql"
+    SQLITE = "sqlite"
+
 class DatabaseManager:
     """数据库管理器"""
     
@@ -28,6 +45,12 @@ class DatabaseManager:
         self._is_connected = False
         self._retry_count = 0
         self._max_retries = 3
+        
+        # 为了向后兼容，添加同步引擎和会话工厂
+        self.sync_engine = None
+        self.async_engine = None
+        self.async_session_factory = None
+        self.sync_session_factory = None
     
     async def initialize(self) -> bool:
         """初始化数据库连接"""
@@ -45,12 +68,18 @@ class DatabaseManager:
                 echo_pool=settings.DEBUG,
             )
             
+            # 设置向后兼容属性
+            self.async_engine = self.engine
+            
             # 创建会话工厂
             self.session_factory = async_sessionmaker(
                 self.engine,
                 class_=AsyncSession,
                 expire_on_commit=False
             )
+            
+            # 设置向后兼容属性
+            self.async_session_factory = self.session_factory
             
             # 测试连接
             await self.test_connection()
@@ -182,12 +211,24 @@ class DatabaseManager:
 
 # 全局数据库管理器实例
 db_manager = DatabaseManager()
+database_manager = db_manager  # 别名，用于向后兼容
 
 # 便捷函数
 async def get_db_session():
     """获取数据库会话"""
     async with db_manager.get_session() as session:
         yield session
+
+async def get_async_db():
+    """获取异步数据库会话"""
+    async with db_manager.get_session() as session:
+        yield session
+
+def get_sync_db():
+    """获取同步数据库会话（兼容性函数）"""
+    # 这里需要实现同步数据库会话
+    # 暂时返回None，因为主要使用异步
+    return None
 
 async def init_database():
     """初始化数据库"""
@@ -200,6 +241,17 @@ async def close_database():
 async def check_database_health():
     """检查数据库健康状态"""
     return await db_manager.health_check()
+
+# 添加close方法到DatabaseManager类
+async def close(self):
+    """关闭数据库连接"""
+    if self.engine:
+        await self.engine.dispose()
+        self._is_connected = False
+        logger.info("数据库连接已关闭")
+
+# 将close方法添加到DatabaseManager类
+DatabaseManager.close = close
 
 # 数据库操作装饰器
 def with_db_session(func):

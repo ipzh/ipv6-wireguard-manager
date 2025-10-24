@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
 import os
-from .config_manager import get_config
+from .unified_config import settings
 
 class StructuredFormatter(logging.Formatter):
     """结构化日志格式化器"""
@@ -114,11 +114,11 @@ class ContextFilter(logging.Filter):
 def setup_logging():
     """设置日志系统"""
     # 获取日志配置
-    log_level = get_config("LOG_LEVEL", "INFO")
-    log_format = get_config("LOG_FORMAT", "json")
-    log_file = get_config("LOG_FILE", None)
-    log_rotation = get_config("LOG_ROTATION", "1 day")
-    log_retention = get_config("LOG_RETENTION", "30 days")
+    log_level = getattr(settings, 'LOG_LEVEL', 'INFO')
+    log_format = getattr(settings, 'LOG_FORMAT', 'json')
+    log_file = getattr(settings, 'LOG_FILE', None)
+    log_rotation = getattr(settings, 'LOG_ROTATION', '1 day')
+    log_retention = getattr(settings, 'LOG_RETENTION', '30 days')
     
     # 创建根日志记录器
     root_logger = logging.getLogger()

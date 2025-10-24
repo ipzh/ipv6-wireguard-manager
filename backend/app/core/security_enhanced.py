@@ -11,7 +11,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from .config_enhanced import settings
+from .unified_config import settings
 from ..models.models_complete import User, Role, Permission, UserRole, RolePermission
 
 # 密码加密上下文 - 使用pbkdf2_sha256避免bcrypt版本兼容性问题

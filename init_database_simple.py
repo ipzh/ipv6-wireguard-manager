@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 简化的数据库初始化脚本
-避免复杂的导入依赖
+避免复杂的导入依赖，直接使用SQLAlchemy
 """
 
-import asyncio
-import sys
 import os
+import sys
+import asyncio
 from pathlib import Path
 
-# 添加项目根目录到Python路径
-sys.path.insert(0, str(Path(__file__).parent))
+# 添加项目路径
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 def init_database_simple():
     """简化的数据库初始化"""
@@ -19,7 +20,7 @@ def init_database_simple():
         
         # 读取环境变量
         from dotenv import load_dotenv
-        load_dotenv(Path(__file__).parent.parent / ".env.local")
+        load_dotenv(project_root / ".env.local")
         
         database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
         print(f"📊 数据库URL: {database_url}")
@@ -128,25 +129,8 @@ def init_database_simple():
         traceback.print_exc()
         return False
 
-
-async def main():
-    """主函数"""
-    print("开始数据库初始化...")
-    
-    try:
-        success = init_database_simple()
-        if success:
-            print("数据库初始化完成！")
-            return True
-        else:
-            print("数据库初始化失败！")
-            return False
-        
-    except Exception as e:
-        print(f"数据库初始化失败: {e}")
-        return False
-
-
 if __name__ == "__main__":
-    success = asyncio.run(main())
-    sys.exit(0 if success else 1)
+    success = init_database_simple()
+    if not success:
+        sys.exit(1)
+
