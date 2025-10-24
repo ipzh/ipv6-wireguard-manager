@@ -171,6 +171,66 @@ safe_execute() {
 }
 
 #-----------------------------------------------------------------------------
+# detect_python_version - 检测Python版本
+#-----------------------------------------------------------------------------
+detect_python_version() {
+    log_info "🔍 检测Python版本..."
+    
+    # 检测已安装的Python版本
+    for version in 3.11 3.10 3.9 3.8; do
+        if command -v python$version &>/dev/null; then
+            PYTHON_VERSION=$version
+            log_success "检测到已安装的Python版本: $PYTHON_VERSION"
+            return 0
+        fi
+    done
+    
+    # 检测python3
+    if command -v python3 &>/dev/null; then
+        PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        log_success "检测到Python3版本: $PYTHON_VERSION"
+        return 0
+    fi
+    
+    # 检测可用的Python版本
+    case $PACKAGE_MANAGER in
+        "apt")
+            # 检测可用的Python版本
+            local available_versions=()
+            for version in 3.11 3.10 3.9 3.8; do
+                if apt-cache show python$version &>/dev/null; then
+                    available_versions+=($version)
+                fi
+            done
+            
+            if [[ ${#available_versions[@]} -gt 0 ]]; then
+                PYTHON_VERSION=${available_versions[0]}
+                log_success "检测到可用Python版本: $PYTHON_VERSION"
+            else
+                PYTHON_VERSION="3.9"  # 默认版本
+                log_warning "未检测到Python版本，使用默认版本: $PYTHON_VERSION"
+            fi
+            ;;
+        "yum"|"dnf")
+            # RHEL/CentOS通常使用默认Python版本
+            PYTHON_VERSION="3.9"  # 默认版本
+            log_info "RHEL/CentOS系统，使用默认Python版本: $PYTHON_VERSION"
+            ;;
+        "pacman")
+            # Arch Linux通常使用最新版本
+            PYTHON_VERSION="3.11"  # 默认版本
+            log_info "Arch Linux系统，使用默认Python版本: $PYTHON_VERSION"
+            ;;
+        *)
+            PYTHON_VERSION="3.9"  # 默认版本
+            log_warning "未知系统，使用默认Python版本: $PYTHON_VERSION"
+            ;;
+    esac
+    
+    log_info "选择的Python版本: $PYTHON_VERSION"
+}
+
+#-----------------------------------------------------------------------------
 # generate_secure_password - 生成安全密码
 #-----------------------------------------------------------------------------
 generate_secure_password() {
@@ -324,7 +384,8 @@ detect_system() {
         exit 1
     fi
     
-    # 调用PHP版本检测函数
+    # 调用版本检测函数
+    detect_python_version
     detect_php_version
     
     # 检测系统资源
@@ -376,6 +437,25 @@ detect_system() {
     if ! [[ "$DISK_SPACE_MB" =~ ^[0-9]+$ ]] || [ "$DISK_SPACE_MB" -lt 5120 ]; then
         log_warning "磁盘空间检测异常，使用默认值: 10240MB"
         DISK_SPACE_MB=10240
+    fi
+    
+    # 系统资源警告检查
+    log_info "📊 系统资源信息:"
+    log_info "  - 内存: ${MEMORY_MB}MB"
+    log_info "  - CPU核心: ${CPU_CORES}"
+    log_info "  - 磁盘空间: ${DISK_SPACE_MB}MB"
+    
+    # 资源不足警告
+    if [ "$MEMORY_MB" -lt 1024 ]; then
+        log_warning "⚠️  系统内存不足1GB，可能影响性能"
+    fi
+    
+    if [ "$CPU_CORES" -lt 2 ]; then
+        log_warning "⚠️  CPU核心数少于2个，可能影响性能"
+    fi
+    
+    if [ "$DISK_SPACE_MB" -lt 10240 ]; then
+        log_warning "⚠️  磁盘空间不足10GB，可能影响安装"
     fi
     
     # 检测IPv6支持
@@ -1341,6 +1421,11 @@ install_python_dependencies() {
     # 升级pip
     pip install --upgrade pip
     
+    # 安装MySQL驱动（优先安装）
+    log_info "安装MySQL Python驱动..."
+    pip install pymysql aiomysql mysqlclient
+    log_success "MySQL驱动安装完成"
+    
     # 安装依赖
     if [[ -f "backend/requirements.txt" ]]; then
         pip install -r backend/requirements.txt
@@ -1355,8 +1440,12 @@ install_python_dependencies() {
         pip install -r backend/requirements-simple.txt
         log_success "Python依赖安装成功（使用简化版本）"
     else
-        log_error "requirements.txt文件不存在"
-        exit 1
+        log_warning "requirements.txt文件不存在，安装基础依赖..."
+        # 安装基础依赖
+        pip install fastapi uvicorn sqlalchemy alembic pydantic python-dotenv
+        pip install passlib python-jose[cryptography] python-multipart
+        pip install structlog redis celery
+        log_success "基础依赖安装完成"
     fi
 }
 
@@ -2527,6 +2616,13 @@ DATABASE_PASSWORD="${database_password}"
 DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
 
+# 数据库连接池设置
+DATABASE_POOL_SIZE=10
+DATABASE_MAX_OVERFLOW=20
+DATABASE_CONNECT_TIMEOUT=30
+DATABASE_POOL_RECYCLE=3600
+DATABASE_POOL_PRE_PING=true
+
 # 强制使用MySQL，禁用SQLite和PostgreSQL（驱动由应用自行选择）
 DB_TYPE="mysql"
 DB_ENGINE="mysql"
@@ -2541,6 +2637,25 @@ BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:$WEB_PORT", "http://localhost:$WEB_P
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
 LOG_FORMAT="json"
+LOG_FILE="logs/app.log"
+LOG_ROTATION="1 day"
+LOG_RETENTION="30 days"
+
+# SSL/TLS Settings
+SSL_CERT_PATH=""
+SSL_KEY_PATH=""
+SSL_PROTOCOLS="TLSv1.2 TLSv1.3"
+SSL_CIPHERS="ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS"
+
+# API Security Settings
+API_SSL_VERIFY=true
+API_SSL_CA_PATH="/etc/ssl/certs/ca-certificates.crt"
+
+# CORS Security Settings
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_METHODS="GET,POST,PUT,DELETE,OPTIONS"
+CORS_ALLOW_HEADERS="Content-Type,Authorization,X-Requested-With"
+CORS_MAX_AGE=3600
 
 # Superuser Settings (for initial setup)
 FIRST_SUPERUSER="admin"
@@ -2689,19 +2804,18 @@ async def check_connection():
         return True
     except Exception as e:
         print(f'Database connection failed: {e}')
-        # 尝试使用原始URL连接
+        # 尝试使用pymysql同步驱动作为备用
         try:
-            print('Trying with original URL...')
-            # 即便原始URL为基础mysql://，依然转换为aiomysql以避免MySQLdb依赖
-            fallback_url = db_url.replace('mysql://', 'mysql+aiomysql://', 1) if db_url and db_url.startswith('mysql://') else db_url
-            engine = create_async_engine(fallback_url)
-            async with engine.begin() as conn:
-                result = await conn.execute(text('SELECT 1'))
-                print('Database connection successful with original URL')
-            await engine.dispose()
+            print('Trying with pymysql driver...')
+            from sqlalchemy import create_engine
+            sync_url = db_url.replace('mysql://', 'mysql+pymysql://', 1) if db_url and db_url.startswith('mysql://') else db_url
+            engine = create_engine(sync_url)
+            with engine.connect() as conn:
+                result = conn.execute(text('SELECT 1'))
+                print('Database connection successful with pymysql')
             return True
         except Exception as e2:
-            print(f'Original URL also failed: {e2}')
+            print(f'All connection attempts failed: {e2}')
             return False
 
 # 运行异步检查
@@ -2738,11 +2852,10 @@ initialize_database_standard() {
     export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
-    # 创建一个简化的临时Python脚本来初始化数据库
-    cat > /tmp/init_db_temp.py << EOF
-import asyncio
-import sys
+    # 创建一个更简单的数据库初始化脚本，避免应用层依赖
+    cat > /tmp/init_db_simple.py << EOF
 import os
+import sys
 from pathlib import Path
 
 # 设置工作目录为安装目录
@@ -2753,9 +2866,6 @@ os.chdir(install_dir)
 backend_path = Path(install_dir) / "backend"
 if backend_path.exists():
     sys.path.insert(0, str(backend_path))
-
-# 确保Python可以找到app模块
-sys.path.insert(0, str(Path(install_dir) / "backend"))
 
 def init_database_simple():
     """简化的数据库初始化"""
@@ -2772,8 +2882,9 @@ def init_database_simple():
         
         Base = declarative_base()
         
-        # 使用同步引擎进行初始化
+        # 使用同步引擎进行初始化，确保使用pymysql驱动
         sync_url = database_url.replace("mysql://", "mysql+pymysql://")
+        print(f"🔗 使用驱动: {sync_url}")
         engine = create_engine(sync_url, echo=True)
         
         print("🔗 测试数据库连接...")
@@ -2878,10 +2989,10 @@ EOF
 
     # 执行临时脚本，确保在正确的目录下运行
     cd "$INSTALL_DIR"
-    python /tmp/init_db_temp.py
+    python /tmp/init_db_simple.py
     
     # 清理临时文件
-    rm -f /tmp/init_db_temp.py
+    rm -f /tmp/init_db_simple.py
 }
 
 # 测试API功能
@@ -3532,6 +3643,12 @@ EOF
         if ! "$INSTALL_DIR/venv/bin/python" -c "import fastapi, uvicorn" &>/dev/null; then
             log_error "依赖包缺失，尝试重新安装"
             "$INSTALL_DIR/venv/bin/pip" install fastapi uvicorn
+        fi
+        
+        # 检查MySQL驱动
+        if ! "$INSTALL_DIR/venv/bin/python" -c "import pymysql, aiomysql" &>/dev/null; then
+            log_error "MySQL驱动缺失，尝试重新安装"
+            "$INSTALL_DIR/venv/bin/pip" install pymysql aiomysql mysqlclient
         fi
         
         # 重新启动服务
