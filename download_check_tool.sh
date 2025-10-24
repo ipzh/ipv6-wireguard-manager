@@ -50,6 +50,7 @@ if [ -f "$LOCAL_FILE" ]; then
     if [[ "$choice" =~ ^[Yy]$ ]]; then
         echo
         echo "[INFO] 正在运行一键检查工具..."
+        echo "[INFO] 注意：如果遇到Python包安装问题，工具会自动切换到基础检查模式"
         ./"$LOCAL_FILE"
     else
         echo
