@@ -3457,11 +3457,26 @@ run_environment_check() {
         return 1
     fi
     
-    # 检查数据库连接（避免命令行明文密码）
-    DB_HOST=$(grep -E '^DATABASE_HOST=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "localhost")
-    DB_USER=$(grep -E '^DATABASE_USER=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm")
-    DB_PASS=$(grep -E '^DATABASE_PASSWORD=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "ipv6wgm_password")
-    if env MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -u "$DB_USER" -e "SELECT 1;" &>/dev/null; then
+    # 检查数据库连接（从DATABASE_URL解析）
+    DATABASE_URL=$(grep -E '^DATABASE_URL=' "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"' || echo "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+    
+    # 从DATABASE_URL解析连接参数
+    if [[ "$DATABASE_URL" =~ mysql://([^:]+):([^@]+)@([^:]+):([0-9]+)/(.+) ]]; then
+        DB_USER="${BASH_REMATCH[1]}"
+        DB_PASS="${BASH_REMATCH[2]}"
+        DB_HOST="${BASH_REMATCH[3]}"
+        DB_PORT="${BASH_REMATCH[4]}"
+        DB_NAME="${BASH_REMATCH[5]}"
+    else
+        # 如果解析失败，使用默认值
+        DB_USER="ipv6wgm"
+        DB_PASS="ipv6wgm_password"
+        DB_HOST="127.0.0.1"
+        DB_PORT="3306"
+        DB_NAME="ipv6wgm"
+    fi
+    
+    if env MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "SELECT 1;" &>/dev/null; then
         log_success "✓ 数据库连接正常"
     else
         log_error "✗ 数据库连接异常"
