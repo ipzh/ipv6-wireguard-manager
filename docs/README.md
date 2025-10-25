@@ -1,175 +1,50 @@
-# IPv6 WireGuard Manager 文档中心
-
 ## 📋 欢迎
 
-欢迎来到IPv6 WireGuard Manager文档中心！这里包含了项目的完整文档，帮助您快速上手、深入开发和部署管理。
+欢迎来到 IPv6 WireGuard Manager 文档中心。本页提供现有文档的导航，并汇总安装、运维与排障时常用的辅助脚本，帮助您快速找到所需内容。
 
-## 🚀 快速开始
+## 📚 文档索引
 
-### 新用户
-- [📖 用户手册](USER_MANUAL.md) - 完整的功能使用指南
-- [⚡ 快速开始指南](QUICK_START_GUIDE.md) - 5分钟快速上手
-- [❓ 常见问题](FAQ.md) - 常见问题解答
+| 文档 | 说明 |
+|------|------|
+| [项目概览](../README.md) | 项目的整体介绍、快速开始指引与功能总览 |
+| [快速开始](QUICK_START.md) | 面向新用户的极速体验指南与常用操作示例 |
+| [安装指南](INSTALLATION_GUIDE.md) | 详细的安装流程、环境准备与配置说明 |
+| [部署指南](DEPLOYMENT_GUIDE.md) | 生产环境部署方案、服务管理与性能优化建议 |
+| [API 参考](API_REFERENCE.md) | FastAPI 后端公开的接口说明与示例 |
 
-### 开发者
-- [👨‍💻 开发者指南](DEVELOPER_GUIDE.md) - 开发环境搭建和开发规范
-- [🔧 API参考](API_REFERENCE.md) - 完整的API文档
-- [🏗️ 架构设计](ARCHITECTURE_DESIGN.md) - 系统架构和设计原则
+> 文档会随着功能迭代持续更新，建议在升级或重新部署之前回顾上述文档获取最新信息。
 
-### 管理员
-- [🚀 部署指南](DEPLOYMENT_GUIDE.md) - 生产环境部署
-- [⚙️ 配置管理](CONFIGURATION_GUIDE.md) - 系统配置和优化
-- [🔧 故障排除](TROUBLESHOOTING_GUIDE.md) - 问题诊断和解决
+## 🧰 常用支持脚本
 
-## 📚 文档分类
+| 脚本 | 作用 |
+|------|------|
+| `scripts/basic_check.sh` | 最小化系统巡检，快速确认核心服务和端口状态 |
+| `scripts/verify_installation.sh` | 安装完成后的验证脚本，检查服务、端口、日志与系统资源 |
+| `scripts/one_click_check.py` | 综合诊断工具，生成 JSON 报告并给出修复建议 |
+| `scripts/check_docs_consistency.sh` | 对比安装脚本与文档内容，避免出现过时命令或默认密码 |
 
-### 🏠 用户文档
-| 文档 | 描述 | 适用人群 |
-|------|------|----------|
-| [用户手册](USER_MANUAL.md) | 完整的功能使用指南 | 最终用户 |
-| [快速开始指南](QUICK_START_GUIDE.md) | 快速上手教程 | 新用户 |
-| [常见问题](FAQ.md) | 常见问题解答 | 所有用户 |
+运行脚本前请确保具备相应的执行权限（`chmod +x`）；Python 脚本需要在具备依赖的虚拟环境或系统环境中执行。
 
-### 👨‍💻 开发者文档
-| 文档 | 描述 | 适用人群 |
-|------|------|----------|
-| [开发者指南](DEVELOPER_GUIDE.md) | 开发环境搭建和开发规范 | 开发者 |
-| [API参考](API_REFERENCE.md) | 完整的API文档 | 开发者 |
-| [架构设计](ARCHITECTURE_DESIGN.md) | 系统架构和设计原则 | 架构师 |
-| [贡献指南](CONTRIBUTING.md) | 如何参与项目开发 | 贡献者 |
+## 🔐 安全与凭据
 
-### 🔧 管理员文档
-| 文档 | 描述 | 适用人群 |
-|------|------|----------|
-| [部署指南](DEPLOYMENT_GUIDE.md) | 生产环境部署 | 系统管理员 |
-| [配置管理](CONFIGURATION_GUIDE.md) | 系统配置和优化 | 系统管理员 |
-| [故障排除](TROUBLESHOOTING_GUIDE.md) | 问题诊断和解决 | 技术支持 |
-| [维护指南](MAINTENANCE_GUIDE.md) | 系统维护和监控 | 运维人员 |
+- 使用 `install.sh` 安装时，会自动生成 `.env` 文件和 `setup_credentials.txt`。文件中包含超级用户以及数据库账户的随机强密码，请务必妥善保管。
+- 首次登录后台后，请立即修改超级用户密码，并根据需要调整 `.env` 中的密钥与安全相关配置。
+- 防火墙与反向代理的示例配置可在部署指南中找到，并可结合自身安全策略进行强化。
 
-### 📊 技术文档
-| 文档 | 描述 | 适用人群 |
-|------|------|----------|
-| [API设计标准](API_DESIGN_STANDARD.md) | API设计规范和标准 | 开发者 |
-| [数据库设计](DATABASE_DESIGN.md) | 数据库结构和设计 | 开发者 |
-| [安全指南](SECURITY_GUIDE.md) | 安全配置和最佳实践 | 安全管理员 |
-| [性能优化](PERFORMANCE_GUIDE.md) | 性能调优和优化 | 运维人员 |
+## 🔄 文档维护与校验
 
-## 🎯 按使用场景
+为了保持文档与代码的一致性，建议在提交前执行以下检查：
 
-### 🚀 快速部署
-1. [快速开始指南](QUICK_START_GUIDE.md) - 了解基本概念
-2. [部署指南](DEPLOYMENT_GUIDE.md) - 选择部署方式
-3. [配置管理](CONFIGURATION_GUIDE.md) - 完成系统配置
-4. [用户手册](USER_MANUAL.md) - 开始使用系统
+```bash
+python scripts/docs/check_consistency.py
+```
 
-### 🔧 开发集成
-1. [开发者指南](DEVELOPER_GUIDE.md) - 搭建开发环境
-2. [API参考](API_REFERENCE.md) - 了解API接口
-3. [架构设计](ARCHITECTURE_DESIGN.md) - 理解系统架构
-4. [贡献指南](CONTRIBUTING.md) - 参与项目开发
+脚本会检查安装说明、默认参数和禁用词（例如过时的默认密码），并输出修复建议。
 
-### 🛠️ 问题解决
-1. [常见问题](FAQ.md) - 查看常见问题
-2. [故障排除](TROUBLESHOOTING_GUIDE.md) - 诊断具体问题
-3. [安全指南](SECURITY_GUIDE.md) - 解决安全问题
-4. [性能优化](PERFORMANCE_GUIDE.md) - 优化系统性能
+## ❓ 反馈与支持
 
-## 📋 文档标准
+- 发现文档问题或需要新增内容？请提交 [GitHub Issues](https://github.com/ipzh/ipv6-wireguard-manager/issues)。
+- 需要技术讨论或经验分享，可以前往 [GitHub Discussions](https://github.com/ipzh/ipv6-wireguard-manager/discussions)。
+- 紧急问题可结合 `scripts/one_click_check.py` 生成的诊断报告，加速定位与解决。
 
-### 📝 文档规范
-- [文档标准](DOCUMENTATION_STANDARD.md) - 文档编写规范
-- [API设计标准](API_DESIGN_STANDARD.md) - API设计规范
-- [代码规范](CODE_STANDARD.md) - 代码编写规范
-
-### 🔄 版本管理
-- [变更日志](CHANGELOG.md) - 版本变更记录
-- [升级指南](UPGRADE_GUIDE.md) - 版本升级说明
-- [兼容性说明](COMPATIBILITY.md) - 版本兼容性
-
-## 🛠️ 工具和资源
-
-### 📚 开发工具
-- **IDE推荐**: VS Code, PyCharm, PhpStorm
-- **API测试**: Postman, Insomnia
-- **数据库**: MySQL Workbench, phpMyAdmin
-- **版本控制**: Git, GitHub
-
-### 🔧 部署工具
-- **容器化**: Docker, Docker Compose
-- **编排**: Kubernetes, Docker Swarm
-- **监控**: Prometheus, Grafana
-- **日志**: ELK Stack, Fluentd
-
-### 📊 监控和运维
-- **系统监控**: Prometheus, Grafana
-- **日志管理**: ELK Stack, Fluentd
-- **性能分析**: APM工具
-- **安全扫描**: 安全扫描工具
-
-## 🎯 最佳实践
-
-### 📖 阅读建议
-1. **新用户**: 从快速开始指南开始
-2. **开发者**: 先阅读开发者指南，再查看API参考
-3. **管理员**: 重点关注部署和配置文档
-4. **问题解决**: 先查看常见问题，再使用故障排除指南
-
-### 🔍 搜索技巧
-- 使用文档内的搜索功能
-- 查看相关文档的交叉引用
-- 使用目录快速定位内容
-- 查看示例和代码片段
-
-### 📝 反馈建议
-- 发现文档问题请创建Issue
-- 提供改进建议和反馈
-- 参与文档的完善和更新
-- 分享使用经验和最佳实践
-
-## 📞 获取帮助
-
-### 🆘 技术支持
-- **GitHub Issues**: 报告问题和bug
-- **讨论区**: 技术讨论和经验分享
-- **邮件支持**: 联系技术支持团队
-- **社区论坛**: 参与社区讨论
-
-### 📚 学习资源
-- **官方文档**: 完整的项目文档
-- **示例代码**: 丰富的代码示例
-- **视频教程**: 视频学习资源
-- **博客文章**: 技术文章和教程
-
-### 🤝 社区参与
-- **贡献代码**: 参与项目开发
-- **文档贡献**: 完善项目文档
-- **问题反馈**: 报告问题和建议
-- **经验分享**: 分享使用经验
-
-## 📊 文档统计
-
-### 📈 文档概览
-- **总文档数**: 25+ 篇
-- **用户文档**: 8 篇
-- **开发者文档**: 10 篇
-- **管理员文档**: 7 篇
-
-### 🔄 更新频率
-- **主要文档**: 每月更新
-- **API文档**: 随代码更新
-- **用户手册**: 季度更新
-- **技术文档**: 半年更新
-
-### 📋 质量保证
-- **内容审核**: 技术团队审核
-- **格式检查**: 自动化检查
-- **链接验证**: 定期验证
-- **用户反馈**: 持续改进
-
----
-
-**文档版本**: 3.1.0  
-**最后更新**: 2024-01-01  
-**维护团队**: IPv6 WireGuard Manager团队
-
-> 💡 **提示**: 如果您在使用过程中遇到问题，请先查看[常见问题](FAQ.md)和[故障排除指南](TROUBLESHOOTING_GUIDE.md)。如果问题仍未解决，请创建GitHub Issue或联系技术支持团队。
+感谢您使用 IPv6 WireGuard Manager，祝使用顺利！

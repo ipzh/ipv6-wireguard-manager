@@ -43,11 +43,11 @@ docker-compose -f docker-compose.microservices.yml ps
 
 #### 1. 使用安装脚本
 ```bash
-# 运行完整安装
-./scripts/install.sh
+# 运行完整安装（原生部署）
+./install.sh --type native
 
-# 分步安装
-./scripts/install.sh environment dependencies configuration deployment
+# 按需跳过步骤示例
+./install.sh --type native --skip-db --skip-service --skip-frontend
 ```
 
 #### 2. 手动部署

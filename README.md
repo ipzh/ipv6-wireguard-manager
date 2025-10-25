@@ -180,7 +180,7 @@ sudo systemctl restart nginx
 - **用户名**: admin
 - **密码**: .env 文件中设置的 FIRST_SUPERUSER_PASSWORD
 
-**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志获取实际密码。
+**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志或安装目录中的 `setup_credentials.txt` 获取实际密码，并在首次登录后立即更新。
 
 ### 故障排除
 
@@ -278,22 +278,17 @@ free -h
 - ✅ 数据备份恢复
 - ✅ 安全审计日志
 
-## 📚 文档中心
+## 📚 文档资源
 
-### 用户文档
-- [用户手册](docs/USER_MANUAL.md) - 完整功能使用指南
-- [快速开始](docs/QUICK_START_GUIDE.md) - 5分钟快速上手
-- [常见问题](docs/FAQ.md) - 问题解答
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| 📘 文档索引 | [docs/README.md](docs/README.md) | 文档导航与说明 |
+| ⚡ 快速开始 | [docs/QUICK_START.md](docs/QUICK_START.md) | 快速安装与基础操作 |
+| 🛠️ 安装指南 | [docs/INSTALLATION_GUIDE.md](docs/INSTALLATION_GUIDE.md) | 详细安装与配置步骤 |
+| 🚀 部署指南 | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | 生产环境部署方案 |
+| 🔌 API参考 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | 后端 API 详情 |
 
-### 开发者文档
-- [开发者指南](docs/DEVELOPER_GUIDE.md) - 开发环境搭建
-- [API参考](docs/API_REFERENCE.md) - 完整API文档
-- [架构设计](docs/ARCHITECTURE_DESIGN.md) - 系统架构说明
-
-### 管理员文档
-- [部署指南](docs/DEPLOYMENT_GUIDE.md) - 生产环境部署
-- [配置管理](docs/CONFIGURATION_GUIDE.md) - 系统配置说明
-- [故障排除](docs/TROUBLESHOOTING_GUIDE.md) - 问题诊断解决
+文档内容会随着功能演进持续更新，建议在每次升级后查阅文档索引获取最新信息。
 
 ## 🔧 开发指南
 
@@ -313,19 +308,16 @@ cd php-frontend
 
 ### 运行测试
 ```bash
-# 运行所有测试
-python scripts/run_tests.py --all
-
-# 运行特定测试
-python scripts/run_tests.py --unit
-python scripts/run_tests.py --integration
-python scripts/run_tests.py --performance
+cd backend
+pytest
 ```
 
 ### 代码检查
 ```bash
-# 运行代码检查
-python scripts/run_tests.py --lint
+# 静态代码检查（需要预先安装 ruff 和 mypy）
+cd backend
+ruff check app
+mypy app
 
 # 运行安全扫描
 python scripts/security/security_scan.py
@@ -350,8 +342,8 @@ docker-compose -f docker-compose.microservices.yml up -d
 
 ### 系统服务部署
 ```bash
-# 使用安装脚本
-./scripts/install.sh
+# 使用安装脚本完成完整部署
+./install.sh --type native
 
 # 手动部署
 sudo systemctl start ipv6-wireguard-manager
