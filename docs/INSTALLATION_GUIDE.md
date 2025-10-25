@@ -27,21 +27,32 @@ chmod +x install.sh
 ```
 
 ### 安装选项
+
 ```bash
-# 仅Docker部署
-./install.sh --docker-only
+# 指定安装类型
+./install.sh --type docker          # Docker安装
+./install.sh --type native           # 原生安装
+./install.sh --type minimal          # 最小化安装
 
-# 仅原生部署
-./install.sh --native-only
+# 智能安装模式
+./install.sh --auto                  # 自动选择参数并退出
+./install.sh --silent                # 静默安装（非交互）
 
-# 跳过依赖检查
-./install.sh --skip-deps
+# 跳过特定步骤
+./install.sh --skip-deps             # 跳过依赖安装
+./install.sh --skip-db               # 跳过数据库配置
+./install.sh --skip-service          # 跳过服务创建
+./install.sh --skip-frontend         # 跳过前端部署
 
-# 跳过配置步骤
-./install.sh --skip-config
+# 生产环境配置
+./install.sh --production            # 生产环境安装
+./install.sh --performance           # 性能优化安装
+./install.sh --debug                 # 调试模式
 
-# 强制安装（覆盖现有配置）
-./install.sh --force
+# 自定义配置
+./install.sh --dir /opt/custom       # 自定义安装目录
+./install.sh --port 8080             # 自定义Web端口
+./install.sh --api-port 9000         # 自定义API端口
 ```
 
 ## 🐳 方式二：Docker部署
@@ -87,12 +98,13 @@ docker-compose up -d
 ## 🖥️ 方式三：原生安装
 
 ### 系统要求
-- **操作系统**: Ubuntu 20.04+, CentOS 8+, Debian 11+
-- **架构**: x86_64, ARM64
-- **CPU**: 2核心以上
-- **内存**: 4GB以上
-- **存储**: 20GB以上可用空间
-- **网络**: 支持IPv6的网络环境
+
+- **操作系统**: Ubuntu 18.04+, Debian 9+, CentOS 7+, RHEL 7+, Fedora 30+, Arch Linux, openSUSE 15+
+- **架构**: x86_64, ARM64, ARM32
+- **CPU**: 1核心以上（推荐2核心以上）
+- **内存**: 1GB以上（推荐4GB以上）
+- **存储**: 5GB以上可用空间（推荐20GB以上）
+- **网络**: 支持IPv6的网络环境（可选）
 
 ### 快速原生安装
 ```bash
@@ -100,32 +112,29 @@ docker-compose up -d
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
-# 运行原生安装脚本
-./scripts/install_native.sh
+# 使用主安装脚本进行原生安装
+./install.sh --type native
 
-# 或使用模块化安装脚本
-./install.sh --native-only
+# 或使用智能模式
+./install.sh --auto --type native
 ```
 
-### 分步安装
+### 分步安装（使用跳过选项）
 ```bash
-# 1. 环境检查
-./install.sh environment
+# 1. 仅安装依赖
+./install.sh --type native --skip-db --skip-service --skip-frontend
 
-# 2. 安装依赖
-./install.sh dependencies
+# 2. 仅配置数据库
+./install.sh --type native --skip-deps --skip-service --skip-frontend
 
-# 3. 配置系统
-./install.sh configuration
+# 3. 仅部署前端
+./install.sh --type native --skip-deps --skip-db --skip-service
 
-# 4. 部署应用
-./install.sh deployment
+# 4. 仅创建服务
+./install.sh --type native --skip-deps --skip-db --skip-frontend
 
-# 5. 启动服务
-./install.sh service
-
-# 6. 验证安装
-./install.sh verification
+# 5. 完整安装
+./install.sh --type native
 ```
 
 ### 依赖安装
@@ -293,16 +302,32 @@ sudo systemctl restart redis
 - **指标收集**: http://localhost/metrics
 
 ### 默认凭据
-- **管理员用户名**: admin
-- **管理员密码**: admin123 (首次登录后请修改)
-- **数据库用户**: ipv6wgm
-- **数据库密码**: ipv6wgm_password
+
+**自动生成模式（推荐）：**
+- **用户名**: admin
+- **密码**: 查看启动日志获取
+  ```bash
+  # Docker环境
+  docker-compose logs backend | grep "自动生成的超级用户密码"
+  
+  # 原生环境
+  sudo journalctl -u ipv6-wireguard-manager | grep "自动生成的超级用户密码"
+  ```
+
+**手动配置模式：**
+- **用户名**: admin
+- **密码**: .env 文件中设置的 FIRST_SUPERUSER_PASSWORD
+
+**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志获取实际密码。
 
 ## 🔧 故障排除
 
 ### 常见问题
 
 #### 1. 端口冲突
+**问题**: 端口被其他服务占用
+
+**解决方案**:
 ```bash
 # 检查端口占用
 netstat -tulpn | grep :80
@@ -311,10 +336,13 @@ netstat -tulpn | grep :8000
 
 # 修改端口配置
 vim .env
-# 修改 SERVER_PORT=8080
+# 修改 SERVER_PORT=8080, API_PORT=9000
 ```
 
 #### 2. 数据库连接失败
+**问题**: 无法连接到数据库
+
+**解决方案**:
 ```bash
 # 检查数据库服务
 docker-compose logs mysql
@@ -329,6 +357,9 @@ docker-compose up -d
 ```
 
 #### 3. 权限问题
+**问题**: 文件权限不正确
+
+**解决方案**:
 ```bash
 # 修复文件权限
 sudo chown -R www-data:www-data /var/www/html
@@ -340,6 +371,9 @@ sudo chmod 600 /etc/wireguard/*.key
 ```
 
 #### 4. 网络问题
+**问题**: 网络连接或IPv6支持问题
+
+**解决方案**:
 ```bash
 # 检查防火墙
 sudo ufw status
@@ -355,6 +389,9 @@ sudo systemctl status wg-quick@wg0
 ```
 
 #### 5. 服务启动失败
+**问题**: 服务无法正常启动
+
+**解决方案**:
 ```bash
 # 检查依赖
 python3 --version
@@ -367,6 +404,24 @@ python3 -c "from backend.app.core.unified_config import settings; print('Config 
 
 # 检查数据库迁移
 cd backend && alembic upgrade head
+```
+
+#### 6. 安装脚本问题
+**问题**: 安装脚本执行失败
+
+**解决方案**:
+```bash
+# 查看安装日志
+tail -f /tmp/install_errors.log
+
+# 检查脚本权限
+chmod +x install.sh
+
+# 重新运行安装
+./install.sh --type native --skip-deps
+
+# 检查系统兼容性
+./install.sh --help
 ```
 
 ### 日志分析

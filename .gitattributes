@@ -1,0 +1,46 @@
+# 设置默认行为，以防人们没有设置core.autocrlf
+* text=auto
+
+# 明确声明文本文件，确保它们使用LF换行符
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.conf text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.php text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.xml text eol=lf
+
+# 声明始终具有CRLF行结尾的文件
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 声明始终具有LF行结尾的文件
+*.sh text eol=lf
+*.py text eol=lf
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# 确保这些文件始终被视为文本文件
+*.md text
+*.txt text
+*.log text

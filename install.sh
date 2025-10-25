@@ -154,20 +154,61 @@ AUTO_EXIT=false         # 自动退出模式（安装完成后自动退出）
 #=============================================================================
 
 #-----------------------------------------------------------------------------
-# safe_execute - 安全执行函数
+# safe_execute - 安全执行函数（增强版）
 #-----------------------------------------------------------------------------
 safe_execute() {
     local description="$1"
     shift
     
     log_info "执行: $description"
+    log_debug "命令: $*"
+    log_debug "工作目录: $(pwd)"
+    
     if "$@"; then
         log_success "$description 完成"
         return 0
     else
-        log_error "$description 失败"
-        return 1
+        local exit_code=$?
+        log_error "$description 失败，退出码: $exit_code"
+        log_error "命令: $*"
+        log_error "工作目录: $(pwd)"
+        
+        # 记录详细错误信息到日志
+        echo "$(date): ERROR - $description failed with exit code $exit_code" >> /tmp/install_errors.log
+        echo "$(date): Command: $*" >> /tmp/install_errors.log
+        echo "$(date): Working directory: $(pwd)" >> /tmp/install_errors.log
+        
+        return $exit_code
     fi
+}
+
+#-----------------------------------------------------------------------------
+# safe_execute_with_retry - 带重试的安全执行函数
+#-----------------------------------------------------------------------------
+safe_execute_with_retry() {
+    local description="$1"
+    local max_retries="${2:-3}"
+    local retry_delay="${3:-5}"
+    shift 3
+    
+    local attempt=1
+    while [[ $attempt -le $max_retries ]]; do
+        log_info "执行: $description (尝试 $attempt/$max_retries)"
+        
+        if safe_execute "$description" "$@"; then
+            return 0
+        fi
+        
+        if [[ $attempt -lt $max_retries ]]; then
+            log_warning "执行失败，${retry_delay}秒后重试..."
+            sleep $retry_delay
+        fi
+        
+        ((attempt++))
+    done
+    
+    log_error "$description 在 $max_retries 次尝试后仍然失败"
+    return 1
 }
 
 #-----------------------------------------------------------------------------
@@ -231,17 +272,45 @@ detect_python_version() {
 }
 
 #-----------------------------------------------------------------------------
-# generate_secure_password - 生成安全密码
+# generate_secure_password - 生成安全密码（增强版）
 #-----------------------------------------------------------------------------
 generate_secure_password() {
     local length=${1:-16}
-    # 使用openssl生成随机密码，如果不可用则使用/dev/urandom
-    if command -v openssl &> /dev/null; then
-        openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
-    else
-        # 备用方法：使用/dev/urandom
-        tr -dc 'A-Za-z0-9!@#$%^&*' < /dev/urandom | head -c $length
-    fi
+    local password=""
+    local attempts=0
+    local max_attempts=10
+    
+    # 密码强度要求
+    local has_upper=false
+    local has_lower=false
+    local has_digit=false
+    local has_special=false
+    
+    while [[ $attempts -lt $max_attempts ]]; do
+        # 使用openssl生成随机密码，包含特殊字符
+        password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-$length)
+        
+        # 验证密码强度
+        if [[ "$password" =~ [A-Z] ]]; then has_upper=true; fi
+        if [[ "$password" =~ [a-z] ]]; then has_lower=true; fi
+        if [[ "$password" =~ [0-9] ]]; then has_digit=true; fi
+        if [[ "$password" =~ [^A-Za-z0-9] ]]; then has_special=true; fi
+        
+        # 如果密码强度满足要求，返回
+        if [[ "$has_upper" == true && "$has_lower" == true && "$has_digit" == true && "$has_special" == true ]]; then
+            log_success "生成强密码成功（长度: ${#password}）"
+            echo "$password"
+            return 0
+        fi
+        
+        ((attempts++))
+    done
+    
+    # 如果无法生成强密码，使用备用方法
+    log_warning "无法生成强密码，使用备用方法"
+    password=$(openssl rand -hex 16 | cut -c1-$length)
+    echo "$password"
+    return 0
 }
 
 #-----------------------------------------------------------------------------
@@ -476,9 +545,6 @@ detect_system() {
         IPV6_SUPPORT=false
     fi
     
-    # 检测PHP版本
-    detect_php_version
-    
     log_success "系统信息检测完成:"
     log_info "  操作系统: $OS_NAME"
     log_info "  版本: $OS_VERSION"
@@ -702,6 +768,21 @@ show_help() {
     echo "  --help, -h           显示帮助信息"
     echo "  --version, -v        显示版本信息"
     echo ""
+    echo "安装类型说明:"
+    echo "  docker               Docker容器化安装（推荐生产环境）"
+    echo "  native               原生系统安装（推荐开发环境）"
+    echo "  minimal              最小化安装（资源受限环境）"
+    echo ""
+    echo "智能模式说明:"
+    echo "  --auto               自动检测系统环境并选择最佳安装类型"
+    echo "  --silent             非交互式安装，使用默认参数"
+    echo ""
+    echo "跳过选项说明:"
+    echo "  --skip-deps          跳过系统依赖安装"
+    echo "  --skip-db            跳过数据库配置和创建"
+    echo "  --skip-service       跳过系统服务创建"
+    echo "  --skip-frontend      跳过前端部署和Nginx配置"
+    echo ""
     echo "示例:"
     echo "  $0                           # 交互式安装"
     echo "  $0 --type docker             # Docker安装"
@@ -712,18 +793,26 @@ show_help() {
     echo "  $0 --type docker --dir /opt  # Docker安装到指定目录"
     echo "  $0 --frontend-dir /var/www   # 自定义前端目录"
     echo "  $0 --config-dir /etc/wg      # 自定义WireGuard配置目录"
-    echo "  $0 --log-dir /var/logs       # 自定义日志目录"
+    echo "  $0 --production --performance # 生产环境性能优化安装"
     echo ""
-    echo "路径配置说明:"
-    echo "  所有路径参数都支持环境变量覆盖，例如:"
-    echo "  INSTALL_DIR=/custom/path $0"
-    echo "  FRONTEND_DIR=/var/www $0"
-    echo "  WIREGUARD_CONFIG_DIR=/etc/wg $0"
+    echo "系统要求:"
+    echo "  操作系统: Ubuntu 18.04+, Debian 9+, CentOS 7+, RHEL 7+, Fedora 30+, Arch Linux, openSUSE 15+"
+    echo "  架构: x86_64, ARM64, ARM32"
+    echo "  CPU: 1核心以上（推荐2核心以上）"
+    echo "  内存: 1GB以上（推荐4GB以上）"
+    echo "  存储: 5GB以上可用空间（推荐20GB以上）"
+    echo "  网络: 支持IPv6的网络环境（可选）"
     echo ""
-    echo "支持的Linux系统:"
-    echo "  - Ubuntu 18.04+"
-    echo "  - Debian 9+"
-    echo "  - CentOS 7+"
+    echo "故障排除:"
+    echo "  查看安装日志: tail -f /tmp/install_errors.log"
+    echo "  检查服务状态: systemctl status ipv6-wireguard-manager"
+    echo "  查看服务日志: journalctl -u ipv6-wireguard-manager -f"
+    echo "  重新安装: $0 --type native --skip-deps"
+    echo ""
+    echo "获取帮助:"
+    echo "  文档: https://github.com/ipzh/ipv6-wireguard-manager/docs"
+    echo "  问题反馈: https://github.com/ipzh/ipv6-wireguard-manager/issues"
+    echo "  讨论: https://github.com/ipzh/ipv6-wireguard-manager/discussions"
     echo "  - RHEL 7+"
     echo "  - Fedora 30+"
     echo "  - Arch Linux"
@@ -964,8 +1053,8 @@ set_defaults() {
     fi
 }
 
-# 安装系统依赖
-install_system_dependencies() {
+# 安装基础系统依赖
+install_basic_dependencies() {
     log_info "安装系统依赖..."
     
     case $PACKAGE_MANAGER in
@@ -1003,39 +1092,47 @@ install_system_dependencies() {
                 
                 # 策略1: 尝试安装MySQL 8.0
                 log_info "尝试安装MySQL 8.0..."
-                if apt-get install -y mysql-server-8.0 mysql-client-8.0 2>/dev/null; then
+                if safe_execute "安装MySQL 8.0" apt-get install -y mysql-server-8.0 mysql-client-8.0; then
                     log_success "✅ MySQL 8.0安装成功"
                     mysql_installed=true
                     db_install_success=true
+                else
+                    log_warning "MySQL 8.0安装失败，尝试其他版本"
                 fi
                 
                 # 策略2: 尝试安装默认MySQL
                 if [[ "$db_install_success" = false ]]; then
                     log_info "尝试安装默认MySQL版本..."
-                    if apt-get install -y mysql-server mysql-client 2>/dev/null; then
+                    if safe_execute "安装默认MySQL" apt-get install -y mysql-server mysql-client; then
                         log_success "✅ MySQL默认版本安装成功"
                         mysql_installed=true
                         db_install_success=true
+                    else
+                        log_warning "默认MySQL安装失败，尝试MariaDB"
                     fi
                 fi
                 
                 # 策略3: 尝试安装MariaDB
                 if [[ "$db_install_success" = false ]]; then
                     log_info "尝试安装MariaDB（MySQL替代方案）..."
-                    if apt-get install -y mariadb-server mariadb-client 2>/dev/null; then
+                    if safe_execute "安装MariaDB" apt-get install -y mariadb-server mariadb-client; then
                         log_success "✅ MariaDB安装成功"
                         mysql_installed=true
                         db_install_success=true
+                    else
+                        log_warning "MariaDB安装失败，尝试MySQL 5.7"
                     fi
                 fi
                 
                 # 策略4: 尝试安装MySQL 5.7
                 if [[ "$db_install_success" = false ]]; then
                     log_info "尝试安装MySQL 5.7..."
-                    if apt-get install -y mysql-server-5.7 mysql-client-5.7 2>/dev/null; then
+                    if safe_execute "安装MySQL 5.7" apt-get install -y mysql-server-5.7 mysql-client-5.7; then
                         log_success "✅ MySQL 5.7安装成功"
                         mysql_installed=true
                         db_install_success=true
+                    else
+                        log_warning "MySQL 5.7安装失败"
                     fi
                 fi
                 
@@ -1050,29 +1147,33 @@ install_system_dependencies() {
                 fi
             fi
             
-            apt-get install -y nginx
-            apt-get install -y git curl wget build-essential net-tools
+            # 使用安全执行函数安装依赖
+            safe_execute "安装Nginx" apt-get install -y nginx
+            safe_execute "安装基础工具" apt-get install -y git curl wget build-essential net-tools
             
             # 安装MySQL开发库（用于编译mysqlclient）
             log_info "安装MySQL开发库..."
-            if apt-get install -y libmysqlclient-dev pkg-config 2>/dev/null; then
+            if safe_execute "安装MySQL开发库" apt-get install -y libmysqlclient-dev pkg-config; then
                 log_success "MySQL开发库安装成功"
             else
                 log_warning "MySQL开发库安装失败，mysqlclient可能无法编译"
+                log_info "尝试安装替代包..."
+                safe_execute "安装替代MySQL开发库" apt-get install -y default-libmysqlclient-dev || true
             fi
             ;;
         "yum"|"dnf")
-            $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
-            $PACKAGE_MANAGER install -y mariadb-server mariadb
-            $PACKAGE_MANAGER install -y nginx
-            $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
+            safe_execute "安装Python" $PACKAGE_MANAGER install -y python$PYTHON_VERSION python$PYTHON_VERSION-pip python$PYTHON_VERSION-devel
+            safe_execute "安装MariaDB" $PACKAGE_MANAGER install -y mariadb-server mariadb
+            safe_execute "安装Nginx" $PACKAGE_MANAGER install -y nginx
+            safe_execute "安装开发工具" $PACKAGE_MANAGER install -y git curl wget gcc gcc-c++ make
             
             # 安装MySQL开发库
             log_info "安装MySQL开发库..."
-            if $PACKAGE_MANAGER install -y mysql-devel pkgconfig 2>/dev/null; then
+            if safe_execute "安装MySQL开发库" $PACKAGE_MANAGER install -y mysql-devel pkgconfig; then
                 log_success "MySQL开发库安装成功"
             else
-                log_warning "MySQL开发库安装失败，mysqlclient可能无法编译"
+                log_warning "MySQL开发库安装失败，尝试替代包"
+                safe_execute "安装替代MySQL开发库" $PACKAGE_MANAGER install -y mariadb-devel || true
             fi
             ;;
         "pacman")
@@ -1619,11 +1720,56 @@ deploy_php_frontend() {
         log_warning "未检测到常见Web用户，使用服务用户: ${web_user}:${web_group}"
     fi
 
-    chown -R "$web_user":"$web_group" "$FRONTEND_DIR" 2>/dev/null || true
-    chmod -R 755 "$FRONTEND_DIR"
-    # 优化日志目录权限，避免777过于宽松
-    chmod 750 "$FRONTEND_DIR/logs"
-    chown "$web_user":"$web_group" "$FRONTEND_DIR/logs"
+    # 安全的权限设置函数
+    set_secure_permissions() {
+        local target_dir="$1"
+        local owner="$2"
+        local group="$3"
+        
+        log_info "设置安全权限: $target_dir"
+        
+        # 设置目录权限
+        if ! find "$target_dir" -type d -exec chmod 750 {} \; 2>/dev/null; then
+            log_error "目录权限设置失败: $target_dir"
+            return 1
+        fi
+        
+        # 设置文件权限
+        if ! find "$target_dir" -type f -exec chmod 640 {} \; 2>/dev/null; then
+            log_error "文件权限设置失败: $target_dir"
+            return 1
+        fi
+        
+        # 设置可执行文件权限
+        find "$target_dir" -name "*.py" -exec chmod 750 {} \; 2>/dev/null || true
+        find "$target_dir" -name "*.sh" -exec chmod 750 {} \; 2>/dev/null || true
+        
+        # 设置敏感文件权限
+        find "$target_dir" -name "*.env" -exec chmod 600 {} \; 2>/dev/null || true
+        find "$target_dir" -name "*.key" -exec chmod 600 {} \; 2>/dev/null || true
+        find "$target_dir" -name "*.pem" -exec chmod 600 {} \; 2>/dev/null || true
+        
+        # 验证权限设置
+        if ! chown -R "$owner:$group" "$target_dir" 2>/dev/null; then
+            log_error "所有者设置失败: $target_dir"
+            return 1
+        fi
+        
+        log_success "权限设置成功: $target_dir"
+        return 0
+    }
+    
+    # 应用安全权限设置
+    if ! set_secure_permissions "$FRONTEND_DIR" "$web_user" "$web_group"; then
+        log_error "前端目录权限设置失败"
+        exit 1
+    fi
+    
+    # 特别处理日志目录权限
+    if [[ -d "$FRONTEND_DIR/logs" ]]; then
+        chmod 700 "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录权限设置失败"
+        chown "$web_user:$web_group" "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录所有者设置失败"
+    fi
     
     # 修复原生安装的API路径配置问题
     log_info "配置前端API路径..."
@@ -2620,15 +2766,84 @@ generate_random_string() {
 create_env_config() {
     log_info "创建环境配置文件..."
     
-    # 生成随机密钥（64位十六进制）
+    # 生成安全的随机密钥和密码
+    log_info "生成安全密钥和密码..."
+    
+    # 生成64位十六进制密钥
     local secret_key=$(openssl rand -hex 32)
-    # 生成超级用户强随机密码（20位字母数字组合）
-    local admin_password=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
-    # 数据库密码与创建用户保持一致，避免不一致导致连接失败
-    local database_password="${DB_PASSWORD}"
+    if [[ -z "$secret_key" || ${#secret_key} -lt 32 ]]; then
+        log_error "密钥生成失败"
+        exit 1
+    fi
+    
+    # 生成强随机密码（20位）
+    local admin_password=$(generate_secure_password 20)
+    if [[ -z "$admin_password" || ${#admin_password} -lt 12 ]]; then
+        log_error "管理员密码生成失败"
+        exit 1
+    fi
+    
+    # 生成数据库强密码（16位）
+    local database_password=$(generate_secure_password 16)
+    if [[ -z "$database_password" || ${#database_password} -lt 12 ]]; then
+        log_error "数据库密码生成失败"
+        exit 1
+    fi
+    
+    # 更新全局变量
+    DB_PASSWORD="$database_password"
+    
+    log_success "安全密钥和密码生成完成"
+    
+    # 验证环境变量配置
+    validate_env_config() {
+        local env_file="$1"
+        
+        log_info "验证环境变量配置..."
+        
+        # 检查必需的环境变量
+        local required_vars=(
+            "SECRET_KEY"
+            "DATABASE_URL"
+            "FIRST_SUPERUSER_PASSWORD"
+            "DATABASE_PASSWORD"
+        )
+        
+        for var in "${required_vars[@]}"; do
+            if ! grep -q "^${var}=" "$env_file"; then
+                log_error "缺少必需的环境变量: $var"
+                return 1
+            fi
+            
+            local value=$(grep "^${var}=" "$env_file" | cut -d'=' -f2- | tr -d '"')
+            if [[ -z "$value" ]]; then
+                log_error "环境变量 $var 为空"
+                return 1
+            fi
+            
+            # 验证密码强度
+            if [[ "$var" == "FIRST_SUPERUSER_PASSWORD" || "$var" == "DATABASE_PASSWORD" ]]; then
+                if [[ ${#value} -lt 12 ]]; then
+                    log_error "密码 $var 长度不足12位"
+                    return 1
+                fi
+            fi
+            
+            # 验证密钥长度
+            if [[ "$var" == "SECRET_KEY" ]]; then
+                if [[ ${#value} -lt 32 ]]; then
+                    log_error "密钥 $var 长度不足32位"
+                    return 1
+                fi
+            fi
+        done
+        
+        log_success "环境变量配置验证通过"
+        return 0
+    }
     
     # 创建.env文件
-    cat > "$INSTALL_DIR/.env" << EOF
+    log_info "创建环境配置文件..."
 # Application Settings
 APP_NAME="IPv6 WireGuard Manager"
 APP_VERSION="3.0.0"
@@ -2775,9 +2990,22 @@ MAX_LOGIN_ATTEMPTS=5
 LOCKOUT_DURATION=15
 EOF
     
+    # 验证环境变量配置
+    if ! validate_env_config "$INSTALL_DIR/.env"; then
+        log_error "环境变量配置验证失败"
+        exit 1
+    fi
+    
     # 设置权限
-    chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env"
-    chmod 600 "$INSTALL_DIR/.env"
+    if ! chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env" 2>/dev/null; then
+        log_error "环境文件所有者设置失败"
+        exit 1
+    fi
+    
+    if ! chmod 600 "$INSTALL_DIR/.env" 2>/dev/null; then
+        log_error "环境文件权限设置失败"
+        exit 1
+    fi
     
     log_success "环境配置文件创建完成"
 }
@@ -3114,11 +3342,29 @@ create_system_service() {
     
     log_success "后端服务启动环境验证通过"
     
+    # 动态计算worker数量
+    local worker_count=1
+    if [[ $CPU_CORES -ge 4 ]]; then
+        worker_count=2
+    elif [[ $CPU_CORES -ge 8 ]]; then
+        worker_count=4
+    fi
+    
+    # 动态计算内存限制
+    local memory_limit="512M"
+    if [[ $MEMORY_MB -ge 2048 ]]; then
+        memory_limit="1G"
+    elif [[ $MEMORY_MB -ge 4096 ]]; then
+        memory_limit="2G"
+    fi
+    
     cat > /etc/systemd/system/ipv6-wireguard-manager.service << EOF
 [Unit]
 Description=IPv6 WireGuard Manager Backend
 After=network.target mysql.service mariadb.service mysqld.service
 Wants=mysql.service mariadb.service mysqld.service
+StartLimitInterval=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -3127,21 +3373,50 @@ Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers 1
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers $worker_count --access-log --log-level info
+ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=ipv6-wireguard-manager
 
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=32768
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$INSTALL_DIR
+
+# 健康检查
+ExecStartPost=/bin/sleep 5
+ExecStartPost=/bin/bash -c 'curl -f http://${SERVER_HOST}:$API_PORT/api/v1/health || exit 1'
+
 [Install]
 WantedBy=multi-user.target
 EOF
     
     systemctl daemon-reload
-    systemctl enable ipv6-wireguard-manager
+    
+    # 验证服务配置
+    if ! systemctl cat ipv6-wireguard-manager >/dev/null 2>&1; then
+        log_error "服务配置验证失败"
+        exit 1
+    fi
+    
+    # 启用服务
+    if ! systemctl enable ipv6-wireguard-manager; then
+        log_error "服务启用失败"
+        exit 1
+    fi
     
     log_success "系统服务创建完成"
+    log_info "Worker数量: $worker_count"
+    log_info "内存限制: $memory_limit"
 }
 
 # 安装CLI管理工具
@@ -3193,23 +3468,33 @@ create_directories_and_permissions() {
         log_info "✓ 创建目录: $directory"
     done
     
-    # 设置安装目录权限
-    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR"
-    find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
-    find "$INSTALL_DIR" -type f -exec chmod 644 {} \;
-    find "$INSTALL_DIR" -name "*.py" -exec chmod 755 {} \;
-    find "$INSTALL_DIR" -name "*.sh" -exec chmod 755 {} \;
-    find "$INSTALL_DIR/venv/bin" -type f -exec chmod 755 {} \;
+    # 使用安全权限设置函数
+    if ! set_secure_permissions "$INSTALL_DIR" "$SERVICE_USER" "$SERVICE_GROUP"; then
+        log_error "安装目录权限设置失败"
+        exit 1
+    fi
+    
+    # 特别处理虚拟环境权限
+    if [[ -d "$INSTALL_DIR/venv/bin" ]]; then
+        find "$INSTALL_DIR/venv/bin" -type f -exec chmod 755 {} \; 2>/dev/null || log_warning "虚拟环境权限设置失败"
+    fi
     
     # 设置敏感文件的安全权限
     if [[ -f "$INSTALL_DIR/.env" ]]; then
-        chmod 600 "$INSTALL_DIR/.env"
-        chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env"
+        if ! chmod 600 "$INSTALL_DIR/.env" 2>/dev/null; then
+            log_error "环境文件权限设置失败"
+            exit 1
+        fi
+        if ! chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env" 2>/dev/null; then
+            log_error "环境文件所有者设置失败"
+            exit 1
+        fi
+        log_success "环境文件权限设置成功"
     fi
     
     # 设置配置文件权限
-    find "$INSTALL_DIR" -name "*.json" -exec chmod 644 {} \;
-    find "$INSTALL_DIR" -name "*.conf" -exec chmod 644 {} \;
+    find "$INSTALL_DIR" -name "*.json" -exec chmod 640 {} \; 2>/dev/null || true
+    find "$INSTALL_DIR" -name "*.conf" -exec chmod 640 {} \; 2>/dev/null || true
     
     log_success "目录和权限设置完成"
     
@@ -4001,7 +4286,7 @@ main() {
                 log_step "开始原生安装..."
             fi
             if [[ "$SKIP_DEPS" = false ]]; then
-                install_system_dependencies
+                install_basic_dependencies
                 install_php
             fi
             create_service_user
@@ -4028,7 +4313,7 @@ main() {
                 log_step "开始最小化安装..."
             fi
             if [[ "$SKIP_DEPS" = false ]]; then
-                install_system_dependencies
+                install_basic_dependencies
                 install_php
             fi
             create_service_user

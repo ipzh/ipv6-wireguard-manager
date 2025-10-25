@@ -17,12 +17,12 @@ IPv6 WireGuard Manager是一个功能完整、架构先进的企业级VPN管理�
 - **容器**: Docker & Docker Compose
 
 #### 系统要求
-- **操作系统**: Ubuntu 20.04+, CentOS 8+, Debian 11+, macOS 10.15+
-- **架构**: x86_64, ARM64
-- **CPU**: 2核心以上
-- **内存**: 4GB以上
-- **存储**: 20GB以上可用空间
-- **网络**: 支持IPv6的网络环境
+- **操作系统**: Ubuntu 18.04+, Debian 9+, CentOS 7+, RHEL 7+, Fedora 30+, Arch Linux, openSUSE 15+, macOS 10.15+
+- **架构**: x86_64, ARM64, ARM32
+- **CPU**: 1核心以上（推荐2核心以上）
+- **内存**: 1GB以上（推荐4GB以上）
+- **存储**: 5GB以上可用空间（推荐20GB以上）
+- **网络**: 支持IPv6的网络环境（可选）
 
 ### 安装方式
 
@@ -59,11 +59,11 @@ docker-compose logs backend | grep "自动生成的"
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
-# 运行原生安装脚本
-./scripts/install_native.sh
+# 使用主安装脚本进行原生安装
+./install.sh --type native
 
-# 或使用模块化安装脚本
-./scripts/install.sh --native-only
+# 或使用智能模式
+./install.sh --auto --type native
 ```
 
 #### 方式四：手动配置
@@ -76,52 +76,41 @@ cd ipv6-wireguard-manager
 cp env.template .env
 # 编辑 .env 文件，设置您的密钥和密码
 
-# 运行模块化安装脚本
-./scripts/install.sh
+# 使用主安装脚本
+./install.sh --type native
 
-# 或分步安装
-./scripts/install.sh environment dependencies configuration deployment
+# 或分步安装（使用跳过选项）
+./install.sh --type native --skip-deps --skip-db --skip-service --skip-frontend
 ```
 
 ### 安装选项
 
-#### Docker安装选项
+#### 安装类型选项
 ```bash
-# 仅Docker部署
-./scripts/install.sh --docker-only
+# 指定安装类型
+./install.sh --type docker          # Docker安装
+./install.sh --type native           # 原生安装
+./install.sh --type minimal          # 最小化安装
 
-# 仅原生部署
-./scripts/install.sh --native-only
+# 智能安装模式
+./install.sh --auto                  # 自动选择参数并退出
+./install.sh --silent                # 静默安装（非交互）
 
-# 跳过依赖检查
-./scripts/install.sh --skip-deps
+# 跳过特定步骤
+./install.sh --skip-deps             # 跳过依赖安装
+./install.sh --skip-db               # 跳过数据库配置
+./install.sh --skip-service          # 跳过服务创建
+./install.sh --skip-frontend         # 跳过前端部署
 
-# 跳过配置步骤
-./scripts/install.sh --skip-config
+# 生产环境配置
+./install.sh --production            # 生产环境安装
+./install.sh --performance           # 性能优化安装
+./install.sh --debug                 # 调试模式
 
-# 强制安装（覆盖现有配置）
-./scripts/install.sh --force
-```
-
-#### 分步安装选项
-```bash
-# 1. 环境检查
-./scripts/install.sh environment
-
-# 2. 安装依赖
-./scripts/install.sh dependencies
-
-# 3. 配置系统
-./scripts/install.sh configuration
-
-# 4. 部署应用
-./scripts/install.sh deployment
-
-# 5. 启动服务
-./scripts/install.sh service
-
-# 6. 验证安装
-./scripts/install.sh verification
+# 自定义配置
+./install.sh --dir /opt/custom       # 自定义安装目录
+./install.sh --port 8080             # 自定义Web端口
+./install.sh --api-port 9000         # 自定义API端口
 ```
 
 ### 服务管理
@@ -175,10 +164,23 @@ sudo systemctl restart nginx
 - **指标收集**: http://localhost/metrics
 
 #### 默认凭据
-- **管理员用户名**: admin
-- **管理员密码**: admin123 (首次登录后请修改)
-- **数据库用户**: ipv6wgm
-- **数据库密码**: ipv6wgm_password
+
+**自动生成模式（推荐）：**
+- **用户名**: admin
+- **密码**: 查看启动日志获取
+  ```bash
+  # Docker环境
+  docker-compose logs backend | grep "自动生成的超级用户密码"
+  
+  # 原生环境
+  sudo journalctl -u ipv6-wireguard-manager | grep "自动生成的超级用户密码"
+  ```
+
+**手动配置模式：**
+- **用户名**: admin
+- **密码**: .env 文件中设置的 FIRST_SUPERUSER_PASSWORD
+
+**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志获取实际密码。
 
 ### 故障排除
 

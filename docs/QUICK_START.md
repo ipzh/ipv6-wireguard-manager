@@ -16,6 +16,35 @@ chmod +x install.sh
 ./install.sh
 ```
 
+#### 安装选项
+
+```bash
+# 指定安装类型
+./install.sh --type docker          # Docker安装
+./install.sh --type native           # 原生安装
+./install.sh --type minimal          # 最小化安装
+
+# 智能安装模式
+./install.sh --auto                  # 自动选择参数并退出
+./install.sh --silent                # 静默安装（非交互）
+
+# 跳过特定步骤
+./install.sh --skip-deps             # 跳过依赖安装
+./install.sh --skip-db               # 跳过数据库配置
+./install.sh --skip-service          # 跳过服务创建
+./install.sh --skip-frontend         # 跳过前端部署
+
+# 生产环境配置
+./install.sh --production            # 生产环境安装
+./install.sh --performance           # 性能优化安装
+./install.sh --debug                 # 调试模式
+
+# 自定义配置
+./install.sh --dir /opt/custom       # 自定义安装目录
+./install.sh --port 8080             # 自定义Web端口
+./install.sh --api-port 9000         # 自定义API端口
+```
+
 ### 方式二：Docker Compose 快速启动
 
 如果您已经克隆了项目：
@@ -56,11 +85,14 @@ docker-compose up -d
 git clone https://github.com/ipzh/ipv6-wireguard-manager.git
 cd ipv6-wireguard-manager
 
-# 运行原生安装脚本
-./scripts/install_native.sh
+# 使用主安装脚本进行原生安装
+./install.sh --type native
 
-# 或使用模块化安装
-./scripts/install.sh --native-only
+# 或使用智能模式
+./install.sh --auto --type native
+
+# 跳过某些步骤的原生安装
+./install.sh --type native --skip-deps --skip-frontend
 ```
 
 ## 🔍 检查服务状态
@@ -110,16 +142,22 @@ sudo tail -f /var/log/nginx/error.log
 
 ### 默认凭据
 
-**自动生成模式：**
+**自动生成模式（推荐）：**
 - **用户名**: admin
 - **密码**: 查看启动日志获取
   ```bash
+  # Docker环境
   docker-compose logs backend | grep "自动生成的超级用户密码"
+  
+  # 原生环境
+  sudo journalctl -u ipv6-wireguard-manager | grep "自动生成的超级用户密码"
   ```
 
 **手动配置模式：**
 - **用户名**: admin
-- **密码**: .env 文件中设置的 ADMIN_PASSWORD
+- **密码**: .env 文件中设置的 FIRST_SUPERUSER_PASSWORD
+
+**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志获取实际密码。
 
 ## 🔧 常见操作
 
