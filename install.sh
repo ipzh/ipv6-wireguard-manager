@@ -309,6 +309,10 @@ generate_secure_password() {
     # 如果无法生成强密码，使用备用方法
     log_warning "无法生成强密码，使用备用方法"
     password=$(openssl rand -hex 16 | cut -c1-$length)
+    # 确保密码不为空且长度正确
+    if [[ -z "$password" || ${#password} -lt $length ]]; then
+        password=$(openssl rand -base64 32 | tr -d '=+/!@#$%^&*()[]{}|;:'"'"'",.<>?~`' | cut -c1-$length)
+    fi
     echo "$password"
     return 0
 }
@@ -1045,7 +1049,13 @@ set_defaults() {
     
     if [[ -z "${DB_PASSWORD:-}" ]]; then
         DB_PASSWORD=$(generate_secure_password 16)
-        log_info "生成随机数据库密码"
+        # 确保密码生成成功
+        if [[ -z "$DB_PASSWORD" || ${#DB_PASSWORD} -lt 12 ]]; then
+            log_error "数据库密码生成失败，使用默认密码"
+            DB_PASSWORD="ipv6wgm_password_$(date +%s)"
+        else
+            log_info "生成随机数据库密码"
+        fi
     fi
     
     if [[ -z "${DB_NAME:-}" ]]; then
@@ -2747,11 +2757,35 @@ show_auto_generated_credentials() {
 #-----------------------------------------------------------------------------
 url_encode() {
     local string="$1"
+    
+    # 检查输入是否为空
+    if [[ -z "$string" ]]; then
+        echo ""
+        return 0
+    fi
+    
     # 使用Python进行URL编码，确保特殊字符被正确处理
-    # 使用临时文件避免引号嵌套问题
+    # 使用临时文件避免引号嵌套问题，并处理换行符
     local temp_file=$(mktemp)
-    echo "import urllib.parse; print(urllib.parse.quote('$string', safe=''))" > "$temp_file"
-    python3 "$temp_file"
+    
+    # 将字符串写入临时文件，然后读取进行编码
+    printf '%s' "$string" > "$temp_file"
+    
+    # 使用Python进行URL编码
+    python3 -c "
+import urllib.parse
+import sys
+try:
+    with open('$temp_file', 'r', encoding='utf-8') as f:
+        content = f.read().strip()
+        if content:
+            print(urllib.parse.quote(content, safe=''))
+        else:
+            print('')
+except Exception as e:
+    print('')
+" 2>/dev/null || echo ""
+    
     rm -f "$temp_file"
 }
 
