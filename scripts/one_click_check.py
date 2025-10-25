@@ -165,39 +165,47 @@ class OneClickChecker:
         # 尝试连接数据库
         try:
             import pymysql
-            import re
+            from urllib.parse import urlparse, unquote
             
             # 解析数据库URL
-            pattern = r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)'
-            match = re.match(pattern, db_info['url'])
+            parsed = urlparse(db_info['url'])
+            if parsed.scheme != 'mysql':
+                db_info['error'] = "仅支持MySQL数据库"
+                self.log_error("✗ 数据库URL格式错误，仅支持mysql://")
+                return db_info
             
-            if match:
-                user, password, host, port, database = match.groups()
-                
-                connection = pymysql.connect(
-                    host=host,
-                    port=int(port),
-                    user=user,
-                    password=password,
-                    database=database,
-                    connect_timeout=10
-                )
-                
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT 1")
-                    result = cursor.fetchone()
-                
-                connection.close()
-                
-                if result:
-                    db_info['connection'] = True
-                    self.log_success("✓ 数据库连接正常")
-                else:
-                    db_info['error'] = "数据库查询失败"
-                    self.log_error("✗ 数据库查询失败")
+            user = unquote(parsed.username) if parsed.username else None
+            password = unquote(parsed.password) if parsed.password else None
+            host = parsed.hostname or '127.0.0.1'
+            port = parsed.port or 3306
+            database = parsed.path.lstrip('/')
+            if not database:
+                db_info['error'] = "未指定数据库名称"
+                self.log_error("✗ 数据库URL缺少数据库名称")
+                return db_info
+            
+            connection = pymysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database,
+                connect_timeout=10,
+                charset='utf8mb4'
+            )
+            
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+            
+            connection.close()
+            
+            if result:
+                db_info['connection'] = True
+                self.log_success("✓ 数据库连接正常")
             else:
-                db_info['error'] = "数据库URL格式错误"
-                self.log_error("✗ 数据库URL格式错误")
+                db_info['error'] = "数据库查询失败"
+                self.log_error("✗ 数据库查询失败")
                 
         except Exception as e:
             db_info['error'] = str(e)

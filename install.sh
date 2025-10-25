@@ -2954,7 +2954,7 @@ SERVER_PORT=${API_PORT}
 # Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
 # 对密码进行URL编码，避免特殊字符导致的编码问题
 DB_PASSWORD_ENCODED="${DB_PASSWORD_ENCODED}"
-DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
 DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
@@ -3212,7 +3212,7 @@ initialize_database_standard() {
     # 使用基础 mysql://，应用层会自动转换为 mysql+aiomysql://
     # 对密码进行URL编码，避免特殊字符导致的编码问题
     DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
     # 创建一个更简单的数据库初始化脚本，避免应用层依赖
@@ -3236,7 +3236,7 @@ def init_database_simple():
         print("🔧 开始数据库初始化...")
         
         # 读取环境变量
-        database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+        database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm?charset=utf8mb4")
         print(f"📊 数据库URL: {database_url}")
         
         # 确保数据库URL使用正确的编码
@@ -3262,8 +3262,12 @@ def init_database_simple():
         
         # 使用同步引擎进行初始化，确保使用pymysql驱动
         sync_url = database_url.replace("mysql://", "mysql+pymysql://")
+        if "?" not in sync_url:
+            sync_url += "?charset=utf8mb4"
+        elif "charset=" not in sync_url:
+            sync_url += "&charset=utf8mb4"
         print(f"🔗 使用驱动: {sync_url}")
-        engine = create_engine(sync_url, echo=True)
+        engine = create_engine(sync_url, echo=True, connect_args={"charset": "utf8mb4"})
         
         print("🔗 测试数据库连接...")
         with engine.connect() as conn:

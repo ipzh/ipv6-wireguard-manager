@@ -22,7 +22,7 @@ def init_mysql_database():
         from urllib.parse import urlparse
         
         # 从环境变量获取数据库连接信息
-        database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm')
+        database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm?charset=utf8mb4')
         
         # 解析数据库URL
         parsed = urlparse(database_url)
@@ -33,7 +33,8 @@ def init_mysql_database():
             port=parsed.port or 3306,
             user=parsed.username,
             password=parsed.password,
-            database='mysql'  # 连接到默认数据库
+            database='mysql',  # 连接到默认数据库
+            charset='utf8mb4'
         )
         cursor = conn.cursor()
         
@@ -52,7 +53,14 @@ def init_mysql_database():
         conn.close()
         
         # 连接到新创建的数据库
-        conn = pymysql.connect(database_url)
+        conn = pymysql.connect(
+            host=parsed.hostname,
+            port=parsed.port or 3306,
+            user=parsed.username,
+            password=parsed.password,
+            database=db_name,
+            charset='utf8mb4'
+        )
         cursor = conn.cursor()
         
         # 创建基本表结构
@@ -114,7 +122,7 @@ def main():
     print("🚀 开始初始化数据库...")
     
     # 检查环境变量
-    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm')
+    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm?charset=utf8mb4')
     
     # 强制使用MySQL，不再支持PostgreSQL
     if database_url.startswith('mysql://'):

@@ -190,13 +190,18 @@ class MultiDatabaseManager:
             if db_type == DatabaseType.MYSQL:
                 # MySQL异步引擎
                 async_url = database_url.replace("mysql://", "mysql+aiomysql://")
+                if "?" not in async_url:
+                    async_url += "?charset=utf8mb4"
+                elif "charset=" not in async_url:
+                    async_url += "&charset=utf8mb4"
                 engine = create_async_engine(
                     async_url,
                     pool_size=20,
                     max_overflow=30,
                     pool_timeout=30,
                     pool_recycle=3600,
-                    echo=False
+                    echo=False,
+                    connect_args={"charset": "utf8mb4"}
                 )
             elif db_type == DatabaseType.POSTGRESQL:
                 # PostgreSQL异步引擎
@@ -314,6 +319,10 @@ if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql
 else:
     # MySQL数据库
     async_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
+    if "?" not in async_db_url:
+        async_db_url += "?charset=utf8mb4"
+    elif "charset=" not in async_db_url:
+        async_db_url += "&charset=utf8mb4"
     logger.info(f"强制使用MySQL异步驱动: {async_db_url}")
     
     # 检查是否安装了aiomysql驱动
@@ -337,7 +346,8 @@ else:
                 pool_recycle=3600,  # 连接回收时间
                 pool_pre_ping=True,  # 连接前ping检查
                 echo=False,  # 不打印SQL语句
-                future=True
+                future=True,
+                connect_args={"charset": "utf8mb4"}
             )
             logger.info("MySQL异步引擎创建成功")
         else:
@@ -354,6 +364,10 @@ if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql
 else:
     # MySQL数据库
     sync_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
+    if "?" not in sync_db_url:
+        sync_db_url += "?charset=utf8mb4"
+    elif "charset=" not in sync_db_url:
+        sync_db_url += "&charset=utf8mb4"
     logger.info(f"强制使用MySQL同步驱动: {sync_db_url}")
     
     try:
@@ -366,7 +380,8 @@ else:
             pool_recycle=3600,
             pool_pre_ping=True,
             echo=False,
-            future=True
+            future=True,
+            connect_args={"charset": "utf8mb4"}
         )
         logger.info("MySQL同步引擎创建成功")
     except Exception as e:
