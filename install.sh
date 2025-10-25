@@ -228,7 +228,7 @@ detect_python_version() {
     
     # 检测python3
     if command -v python3 &>/dev/null; then
-        PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
         log_success "检测到Python3版本: $PYTHON_VERSION"
         return 0
     fi
@@ -288,7 +288,7 @@ generate_secure_password() {
     
     while [[ $attempts -lt $max_attempts ]]; do
         # 使用openssl生成随机密码，避免特殊字符以避免数据库连接问题
-        password=$(openssl rand -base64 32 | tr -d "=+/!@#$%^&*()[]{}|;:'\",.<>?~`" | cut -c1-$length)
+        password=$(openssl rand -base64 32 | tr -d '=+/!@#$%^&*()[]{}|;:'"'"'",.<>?~`' | cut -c1-$length)
         
         # 验证密码强度
         if [[ "$password" =~ [A-Z] ]]; then has_upper=true; fi
@@ -1065,7 +1065,7 @@ install_basic_dependencies() {
             else
                 log_warning "未找到 Python $PYTHON_VERSION，回退到系统默认Python3"
                 apt-get install -y python3 python3-venv python3-dev python3-pip
-                PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+                PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
             fi
             
             # 安装MySQL/MariaDB
@@ -2748,7 +2748,11 @@ show_auto_generated_credentials() {
 url_encode() {
     local string="$1"
     # 使用Python进行URL编码，确保特殊字符被正确处理
-    python3 -c "import urllib.parse; print(urllib.parse.quote('$string', safe=''))"
+    # 使用临时文件避免引号嵌套问题
+    local temp_file=$(mktemp)
+    echo "import urllib.parse; print(urllib.parse.quote('$string', safe=''))" > "$temp_file"
+    python3 "$temp_file"
+    rm -f "$temp_file"
 }
 
 #-----------------------------------------------------------------------------
@@ -2769,7 +2773,7 @@ url_encode() {
 generate_random_string() {
     local length=${1:-16}
     # 生成安全的随机字符串，避免特殊字符以避免数据库连接问题
-    openssl rand -base64 $length | tr -d "=+/!@#$%^&*()[]{}|;:'\",.<>?~`" | cut -c1-$length
+    openssl rand -base64 $length | tr -d '=+/!@#$%^&*()[]{}|;:'"'"'",.<>?~`' | cut -c1-$length
 }
 
 #-----------------------------------------------------------------------------
