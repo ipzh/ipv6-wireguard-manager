@@ -21,7 +21,7 @@ def init_database_simple():
         from dotenv import load_dotenv
         load_dotenv(Path(__file__).parent.parent / ".env.local")
         
-        database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+        database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm?charset=utf8mb4")
         print(f"📊 数据库URL: {database_url}")
         
         # 创建数据库连接
@@ -32,7 +32,11 @@ def init_database_simple():
         
         # 使用同步引擎进行初始化
         sync_url = database_url.replace("mysql://", "mysql+pymysql://")
-        engine = create_engine(sync_url, echo=True)
+        if "?" not in sync_url:
+            sync_url += "?charset=utf8mb4"
+        elif "charset=" not in sync_url:
+            sync_url += "&charset=utf8mb4"
+        engine = create_engine(sync_url, echo=True, connect_args={"charset": "utf8mb4"})
         
         print("🔗 测试数据库连接...")
         with engine.connect() as conn:

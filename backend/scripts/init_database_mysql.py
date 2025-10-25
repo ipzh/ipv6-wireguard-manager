@@ -21,7 +21,7 @@ def init_mysql_database():
         import pymysql
         
         # 从环境变量获取数据库连接信息
-        database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm')
+        database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm?charset=utf8mb4')
         
         # 解析数据库URL
         from urllib.parse import urlparse
@@ -116,7 +116,7 @@ def main():
     print("🚀 开始初始化数据库...")
     
     # 检查环境变量
-    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm')
+    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:${DB_PORT}/ipv6wgm?charset=utf8mb4')
     
     # 强制使用MySQL，不再支持PostgreSQL
     if database_url.startswith('mysql://'):

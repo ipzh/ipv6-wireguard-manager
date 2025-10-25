@@ -92,7 +92,13 @@ class DatabaseConfig(BaseModel):
     def get_async_url(self) -> str:
         """获取异步数据库URL"""
         if self.database_type == DatabaseType.MYSQL:
-            return self.database_url.replace("mysql://", "mysql+aiomysql://")
+            url = self.database_url.replace("mysql://", "mysql+aiomysql://")
+            # 确保使用UTF-8编码
+            if "?" not in url:
+                url += "?charset=utf8mb4"
+            elif "charset=" not in url:
+                url += "&charset=utf8mb4"
+            return url
         elif self.database_type == DatabaseType.POSTGRESQL:
             return self.database_url.replace("postgresql://", "postgresql+asyncpg://")
         return self.database_url
@@ -100,7 +106,13 @@ class DatabaseConfig(BaseModel):
     def get_sync_url(self) -> str:
         """获取同步数据库URL"""
         if self.database_type == DatabaseType.MYSQL:
-            return self.database_url.replace("mysql://", "mysql+pymysql://")
+            url = self.database_url.replace("mysql://", "mysql+pymysql://")
+            # 确保使用UTF-8编码
+            if "?" not in url:
+                url += "?charset=utf8mb4"
+            elif "charset=" not in url:
+                url += "&charset=utf8mb4"
+            return url
         elif self.database_type == DatabaseType.POSTGRESQL:
             return self.database_url.replace("postgresql://", "postgresql+psycopg2://")
         return self.database_url

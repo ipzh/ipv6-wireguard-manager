@@ -92,10 +92,14 @@ class DatabaseHealthChecker:
             
             # 强制使用pymysql驱动
             sync_db_url = self.database_url.replace("mysql://", "mysql+pymysql://")
+            if "?" not in sync_db_url:
+                sync_db_url += "?charset=utf8mb4"
+            elif "charset=" not in sync_db_url:
+                sync_db_url += "&charset=utf8mb4"
             logger.info(f"使用MySQL同步驱动检查连接: {sync_db_url}")
             
             # 尝试连接数据库
-            engine = create_engine(sync_db_url, pool_pre_ping=True)
+            engine = create_engine(sync_db_url, pool_pre_ping=True, connect_args={"charset": "utf8mb4"})
             
             with engine.connect() as conn:
                 # 检查基本连接
@@ -188,10 +192,10 @@ class DatabaseHealthChecker:
             parsed = urlparse(self.database_url)
             
             # 连接到默认数据库 - 强制使用pymysql驱动
-            default_db_url = f"mysql+pymysql://root@localhost:3306/mysql"
+            default_db_url = "mysql+pymysql://root@localhost:3306/mysql?charset=utf8mb4"
             logger.info(f"使用MySQL同步驱动创建数据库: {default_db_url}")
             
-            engine = create_engine(default_db_url)
+            engine = create_engine(default_db_url, connect_args={"charset": "utf8mb4"})
             
             with engine.connect() as conn:
                 # 检查数据库是否存在
@@ -205,7 +209,7 @@ class DatabaseHealthChecker:
                     
                     if not result.fetchone():
                         # 创建数据库
-                        conn.execute(text(f"CREATE DATABASE {db_name}"))
+                        conn.execute(text(f"CREATE DATABASE {db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
                         conn.execute(text(f"USE {db_name}"))
                         conn.commit()
                         logger.info(f"数据库 {db_name} 创建成功")

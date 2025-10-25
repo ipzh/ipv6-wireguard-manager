@@ -32,6 +32,12 @@ if db_url.startswith("mysql://"):
 elif db_url.startswith("mysql+aiomysql://"):
     db_url = db_url.replace("mysql+aiomysql://", "mysql+pymysql://", 1)
 
+# 确保使用UTF-8编码
+if "?" not in db_url:
+    db_url += "?charset=utf8mb4"
+elif "charset=" not in db_url:
+    db_url += "&charset=utf8mb4"
+
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
