@@ -287,8 +287,8 @@ generate_secure_password() {
     local has_special=false
     
     while [[ $attempts -lt $max_attempts ]]; do
-        # 使用openssl生成随机密码，包含特殊字符
-        password=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-$length)
+        # 使用openssl生成随机密码，避免特殊字符以避免数据库连接问题
+        password=$(openssl rand -base64 32 | tr -d "=+/!@#$%^&*()[]{}|;:'\",.<>?~`" | cut -c1-$length)
         
         # 验证密码强度
         if [[ "$password" =~ [A-Z] ]]; then has_upper=true; fi
@@ -2743,6 +2743,15 @@ show_auto_generated_credentials() {
 }
 
 #-----------------------------------------------------------------------------
+# url_encode - URL编码函数
+#-----------------------------------------------------------------------------
+url_encode() {
+    local string="$1"
+    # 使用Python进行URL编码，确保特殊字符被正确处理
+    python3 -c "import urllib.parse; print(urllib.parse.quote('$string', safe=''))"
+}
+
+#-----------------------------------------------------------------------------
 # generate_random_string - 生成随机字符串
 #-----------------------------------------------------------------------------
 # 功能说明:
@@ -2759,7 +2768,8 @@ show_auto_generated_credentials() {
 #-----------------------------------------------------------------------------
 generate_random_string() {
     local length=${1:-16}
-    openssl rand -base64 $length | tr -d "=+/" | cut -c1-$length
+    # 生成安全的随机字符串，避免特殊字符以避免数据库连接问题
+    openssl rand -base64 $length | tr -d "=+/!@#$%^&*()[]{}|;:'\",.<>?~`" | cut -c1-$length
 }
 
 #-----------------------------------------------------------------------------
@@ -2882,7 +2892,9 @@ SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=${API_PORT}
 
 # Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
-DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+# 对密码进行URL编码，避免特殊字符导致的编码问题
+DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
+DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
@@ -3040,7 +3052,9 @@ initialize_database() {
     source venv/bin/activate
     
     # 设置数据库环境变量 - 以基础 mysql:// 提供，应用层自动选择异步驱动
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+    # 对密码进行URL编码，避免特殊字符导致的编码问题
+    DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
     
@@ -3136,7 +3150,9 @@ exit(0 if success else 1)
 # 标准数据库初始化函数
 initialize_database_standard() {
     # 使用基础 mysql://，应用层会自动转换为 mysql+aiomysql://
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+    # 对密码进行URL编码，避免特殊字符导致的编码问题
+    DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
     log_info "使用基础驱动初始化数据库（应用层自动选择异步驱动）: ${DATABASE_URL}"
     
     # 创建一个更简单的数据库初始化脚本，避免应用层依赖
@@ -3162,6 +3178,21 @@ def init_database_simple():
         # 读取环境变量
         database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
         print(f"📊 数据库URL: {database_url}")
+        
+        # 确保数据库URL使用正确的编码
+        import urllib.parse
+        if "://" in database_url and "@" in database_url:
+            # 解析URL并重新编码用户名和密码
+            try:
+                parsed = urllib.parse.urlparse(database_url)
+                if parsed.username and parsed.password:
+                    # 对用户名和密码进行URL编码
+                    username_encoded = urllib.parse.quote(parsed.username, safe='')
+                    password_encoded = urllib.parse.quote(parsed.password, safe='')
+                    database_url = f"{parsed.scheme}://{username_encoded}:{password_encoded}@{parsed.hostname}:{parsed.port}{parsed.path}"
+                    print(f"🔧 编码后的数据库URL: {database_url}")
+            except Exception as e:
+                print(f"⚠️ URL编码处理失败，使用原始URL: {e}")
         
         # 创建数据库连接
         from sqlalchemy import create_engine, text
