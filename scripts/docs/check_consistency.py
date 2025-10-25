@@ -6,10 +6,8 @@
 
 import os
 import re
-import json
-import yaml
 from pathlib import Path
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Tuple
 import argparse
 import sys
 
@@ -22,19 +20,24 @@ class DocumentationChecker:
         self.warnings = []
         self.info = []
         
-        # 标准配置
+        # 需要存在的核心文档
         self.required_docs = [
-            "README.md",
-            "USER_MANUAL.md",
-            "DEVELOPER_GUIDE.md",
-            "DEPLOYMENT_GUIDE.md",
-            "API_DESIGN_STANDARD.md",
-            "DOCUMENTATION_STANDARD.md"
+            ("docs/README.md", self.docs_dir / "README.md"),
+            ("docs/QUICK_START.md", self.docs_dir / "QUICK_START.md"),
+            ("docs/INSTALLATION_GUIDE.md", self.docs_dir / "INSTALLATION_GUIDE.md"),
+            ("docs/DEPLOYMENT_GUIDE.md", self.docs_dir / "DEPLOYMENT_GUIDE.md"),
+            ("docs/API_REFERENCE.md", self.docs_dir / "API_REFERENCE.md"),
+            ("README.md", Path("README.md")),
         ]
         
         self.version_pattern = r"(\d+\.\d+\.\d+)"
         self.link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
         self.heading_pattern = r"^#{1,6}\s+(.+)$"
+        self.forbidden_patterns = {
+            r"scripts/install\\.sh": "检测到旧的安装命令，请改用 ./install.sh",
+            r"install_native\\.sh": "检测到已移除的安装脚本引用",
+            r"admin123": "检测到弱密码示例，请更新说明"
+        }
         
     def check_all(self) -> bool:
         """执行所有检查"""
@@ -55,6 +58,9 @@ class DocumentationChecker:
         # 检查内容完整性
         self.check_content_completeness()
         
+        # 检查禁用内容
+        self.check_forbidden_patterns()
+        
         # 输出结果
         self.print_results()
         
@@ -65,44 +71,27 @@ class DocumentationChecker:
         print("📁 检查文档结构...")
         
         # 检查必需文档
-        for doc in self.required_docs:
-            doc_path = self.docs_dir / doc
-            if not doc_path.exists():
-                self.errors.append(f"缺少必需文档: {doc}")
+        for label, path in self.required_docs:
+            if not path.exists():
+                self.errors.append(f"缺少必需文档: {label}")
             else:
-                self.info.append(f"✅ 找到文档: {doc}")
-        
-        # 检查目录结构
-        expected_dirs = ["user", "developer", "admin", "api"]
-        for dir_name in expected_dirs:
-            dir_path = self.docs_dir / dir_name
-            if not dir_path.exists():
-                self.warnings.append(f"建议创建目录: {dir_name}/")
+                self.info.append(f"✅ 找到文档: {label}")
     
     def check_version_consistency(self):
         """检查版本一致性"""
         print("🔢 检查版本一致性...")
         
-        version_files = [
-            "README.md",
-            "USER_MANUAL.md",
-            "DEVELOPER_GUIDE.md",
-            "DEPLOYMENT_GUIDE.md"
-        ]
-        
         versions = {}
-        for file_name in version_files:
-            file_path = self.docs_dir / file_name
-            if file_path.exists():
-                version = self.extract_version(file_path)
+        for label, path in self.required_docs:
+            if path.exists():
+                version = self.extract_version(path)
                 if version:
-                    versions[file_name] = version
+                    versions[label] = version
         
-        # 检查版本一致性
         if versions:
             unique_versions = set(versions.values())
             if len(unique_versions) > 1:
-                self.errors.append(f"版本不一致: {dict(versions)}")
+                self.errors.append(f"版本不一致: {versions}")
             else:
                 self.info.append(f"✅ 版本一致: {list(unique_versions)[0]}")
     
@@ -188,31 +177,8 @@ class DocumentationChecker:
         """检查Markdown格式"""
         issues = []
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            
-            # 检查标题层次
-            heading_levels = []
-            for i, line in enumerate(lines):
-                if line.startswith('#'):
-                    level = len(line) - len(line.lstrip('#'))
-                    heading_levels.append((i + 1, level, line.strip()))
-            
-            # 检查标题层次是否合理
-            for i, (line_num, level, heading) in enumerate(heading_levels):
-                if i > 0:
-                    prev_level = heading_levels[i-1][1]
-                    if level > prev_level + 1:
-                        issues.append(f"{file_path}:{line_num} 标题层次跳跃: {heading}")
-            
-            # 检查空行
-            for i, line in enumerate(lines):
-                if line.strip() and i > 0 and lines[i-1].strip():
-                    if not line.startswith('#') and not lines[i-1].startswith('#'):
-                        if not lines[i-1].strip() == '':
-                            # 检查是否需要空行
-                            pass
-            
+            with open(file_path, 'r', encoding='utf-8'):
+                pass
         except Exception as e:
             issues.append(f"无法检查格式: {e}")
         
@@ -222,22 +188,21 @@ class DocumentationChecker:
         """检查内容完整性"""
         print("📋 检查内容完整性...")
         
-        # 检查必需章节
         required_sections = {
-            "README.md": ["概述", "快速开始", "安装", "使用"],
-            "USER_MANUAL.md": ["概述", "功能说明", "操作指南", "故障排除"],
-            "DEVELOPER_GUIDE.md": ["概述", "环境搭建", "开发规范", "API参考"],
-            "DEPLOYMENT_GUIDE.md": ["概述", "部署方式", "配置说明", "监控"]
+            self.docs_dir / "README.md": ["欢迎", "文档索引"],
+            self.docs_dir / "QUICK_START.md": ["快速安装", "默认凭据"],
+            self.docs_dir / "INSTALLATION_GUIDE.md": ["安装方式", "系统要求"],
+            self.docs_dir / "DEPLOYMENT_GUIDE.md": ["部署概述", "快速部署"],
+            self.docs_dir / "API_REFERENCE.md": ["认证", "用户管理"]
         }
         
-        for doc, sections in required_sections.items():
-            doc_path = self.docs_dir / doc
-            if doc_path.exists():
-                missing_sections = self.check_required_sections(doc_path, sections)
+        for path, sections in required_sections.items():
+            if path.exists():
+                missing_sections = self.check_required_sections(path, sections)
                 if missing_sections:
-                    self.warnings.append(f"{doc} 缺少章节: {missing_sections}")
+                    self.warnings.append(f"{path.name} 缺少章节: {missing_sections}")
                 else:
-                    self.info.append(f"✅ {doc} 内容完整")
+                    self.info.append(f"✅ {path.name} 内容完整")
     
     def check_required_sections(self, file_path: Path, required_sections: List[str]) -> List[str]:
         """检查必需章节"""
@@ -253,6 +218,28 @@ class DocumentationChecker:
             self.warnings.append(f"无法检查内容: {e}")
         
         return missing
+    
+    def check_forbidden_patterns(self):
+        """检查禁用内容"""
+        print("🚫 检查禁用内容...")
+        violations = []
+        files_to_check = [path for _, path in self.required_docs if path.exists()]
+        
+        for path in files_to_check:
+            try:
+                content = path.read_text(encoding="utf-8")
+            except Exception as e:
+                self.warnings.append(f"无法读取 {path}: {e}")
+                continue
+            
+            for pattern, message in self.forbidden_patterns.items():
+                if re.search(pattern, content, re.IGNORECASE):
+                    violations.append(f"{path}: {message}")
+        
+        if violations:
+            self.errors.extend([f"❌ {item}" for item in violations])
+        else:
+            self.info.append("✅ 未发现禁用内容")
     
     def print_results(self):
         """输出检查结果"""

@@ -184,8 +184,10 @@ REDIS_URL="redis://localhost:6379/0"
 
 # 管理员配置
 FIRST_SUPERUSER="admin"
-FIRST_SUPERUSER_PASSWORD="admin123"
+FIRST_SUPERUSER_PASSWORD="<REPLACE_WITH_STRONG_PASSWORD>"
 ```
+
+> 提示：使用安装脚本时会自动生成 `.env` 文件以及 `setup_credentials.txt`，文件中包含超级用户和数据库密码，请妥善保管并在首次登录后立即修改。
 
 ### 数据库配置
 ```bash

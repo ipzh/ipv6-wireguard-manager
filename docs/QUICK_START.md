@@ -157,7 +157,7 @@ sudo tail -f /var/log/nginx/error.log
 - **用户名**: admin
 - **密码**: .env 文件中设置的 FIRST_SUPERUSER_PASSWORD
 
-**注意**: 脚本会自动生成强密码，不会使用默认的弱密码。请查看安装日志获取实际密码。
+**注意**: 脚本会自动生成强密码，并将凭据写入安装目录中的 `setup_credentials.txt`。请查看安装日志或该文件获取实际密码，并在首次登录后立即修改。
 
 ## 🔧 常见操作
 
@@ -256,17 +256,17 @@ sudo chmod -R 755 logs/
 
 ## 📋 下一步
 
-1. [部署指南](DEPLOYMENT_GUIDE.md) - 生产环境部署
-2. [API参考](API_REFERENCE.md) - API接口文档
-3. [配置指南](CONFIGURATION_GUIDE.md) - 系统配置说明
-4. [故障排除](TROUBLESHOOTING_GUIDE.md) - 常见问题解决
+1. [安装指南](INSTALLATION_GUIDE.md) - 深入了解更多配置选项
+2. [部署指南](DEPLOYMENT_GUIDE.md) - 生产环境部署与优化
+3. [API 参考](API_REFERENCE.md) - 集成与二次开发接口
+4. [文档索引](README.md) - 浏览全部文档资源
 
 ## 📞 获取帮助
 
 如果遇到问题：
 
-1. 检查 [故障排除指南](TROUBLESHOOTING_GUIDE.md)
-2. 查看 [文档中心](README.md)
+1. 查看 [部署指南](DEPLOYMENT_GUIDE.md) 中的排障章节
+2. 查阅 [文档索引](README.md) 获取最新资料
 3. 提交 [Issue](https://github.com/ipzh/ipv6-wireguard-manager/issues)
 4. 参与 [讨论](https://github.com/ipzh/ipv6-wireguard-manager/discussions)
 

@@ -33,9 +33,44 @@ log_error() {
 INSTALL_DIR="/opt/ipv6-wireguard-manager"
 SERVICE_USER="ipv6wgm"
 SERVICE_GROUP="ipv6wgm"
+WEB_PORT="80"
 API_PORT="8000"
+FRONTEND_ROOT="/var/www/html"
+PHP_FPM_SOCKET="/var/run/php/php8.1-fpm.sock"
 MYSQL_PORT="3306"
 REDIS_PORT="6379"
+WIREGUARD_PORT="51820"
+NGINX_SITE_NAME="ipv6-wireguard-manager"
+MYSQL_APP_USER="ipv6wgm"
+
+SECRET_KEY=""
+MYSQL_PASSWORD=""
+SUPERUSER_PASSWORD=""
+
+generate_password() {
+    local length="${1:-32}"
+    local password=""
+    local attempts=0
+
+    while [[ $attempts -lt 5 ]]; do
+        if command -v openssl >/dev/null 2>&1; then
+            password=$(openssl rand -base64 64 | LC_ALL=C tr -dc 'A-Za-z0-9@#%+=_' | head -c "$length")
+        else
+            password=$(LC_ALL=C tr -dc 'A-Za-z0-9@#%+=_' < /dev/urandom | head -c "$length")
+        fi
+
+        if [[ -n "$password" && ${#password} -ge $length ]]; then
+            echo "$password"
+            return 0
+        fi
+
+        attempts=$((attempts + 1))
+    done
+
+    log_warning "无法生成足够长度的随机字符串，使用回退方案"
+    password=$(date +%s%N | sha256sum | head -c "$length")
+    echo "$password"
+}
 
 # 创建用户和组
 create_user() {
@@ -71,7 +106,7 @@ create_directories() {
         "$INSTALL_DIR/cache"
         "/etc/wireguard"
         "/etc/wireguard/clients"
-        "/var/www/html"
+        "$FRONTEND_ROOT"
         "/etc/nginx/sites-available"
         "/etc/nginx/sites-enabled"
     )
@@ -95,14 +130,34 @@ create_directories() {
 # 创建环境配置文件
 create_env_config() {
     log_info "创建环境配置文件..."
-    
-    # 生成随机密钥
-    SECRET_KEY=$(openssl rand -hex 32)
-    MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
-    MYSQL_PASSWORD=$(openssl rand -base64 32)
-    
-    # 创建.env文件
-    cat > "$INSTALL_DIR/.env" << EOF
+
+    if [[ -f "$INSTALL_DIR/.env" && "${FORCE:-false}" != "true" ]]; then
+        log_warning ".env 文件已存在，使用现有配置（使用 FORCE=true 可覆盖）"
+
+        local value=""
+        value=$( { grep -E '^MYSQL_PASSWORD=' "$INSTALL_DIR/.env" | tail -1 || true; } )
+        if [[ -n "$value" ]]; then
+            MYSQL_PASSWORD="${value#*=}"
+        fi
+
+        value=$( { grep -E '^FIRST_SUPERUSER_PASSWORD=' "$INSTALL_DIR/.env" | tail -1 || true; } )
+        if [[ -n "$value" ]]; then
+            SUPERUSER_PASSWORD="${value#*=}"
+        fi
+
+        value=$( { grep -E '^SECRET_KEY=' "$INSTALL_DIR/.env" | tail -1 || true; } )
+        if [[ -n "$value" ]]; then
+            SECRET_KEY="${value#*=}"
+        fi
+
+        return 0
+    fi
+
+    SECRET_KEY=$(generate_password 64)
+    MYSQL_PASSWORD=$(generate_password 32)
+    SUPERUSER_PASSWORD=$(generate_password 24)
+
+    cat > "$INSTALL_DIR/.env" <<EOF
 # IPv6 WireGuard Manager 环境配置
 # 生成时间: $(date)
 
@@ -115,12 +170,14 @@ ENVIRONMENT=production
 # 服务器配置
 SERVER_HOST=0.0.0.0
 SERVER_PORT=$API_PORT
+API_PORT=$API_PORT
+WEB_PORT=$WEB_PORT
 
 # 数据库配置
-DATABASE_URL=mysql://ipv6wgm:$MYSQL_PASSWORD@localhost:$MYSQL_PORT/ipv6wgm
+DATABASE_URL=mysql://$MYSQL_APP_USER:$MYSQL_PASSWORD@localhost:$MYSQL_PORT/ipv6wgm
 DATABASE_HOST=localhost
 DATABASE_PORT=$MYSQL_PORT
-DATABASE_USER=ipv6wgm
+DATABASE_USER=$MYSQL_APP_USER
 DATABASE_PASSWORD=$MYSQL_PASSWORD
 DATABASE_NAME=ipv6wgm
 
@@ -130,11 +187,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 # 超级用户配置
 FIRST_SUPERUSER=admin
-FIRST_SUPERUSER_PASSWORD=admin123
+FIRST_SUPERUSER_PASSWORD=$SUPERUSER_PASSWORD
 FIRST_SUPERUSER_EMAIL=admin@example.com
 
 # WireGuard配置
-WIREGUARD_PORT=51820
+WIREGUARD_PORT=$WIREGUARD_PORT
 WIREGUARD_INTERFACE=wg0
 WIREGUARD_NETWORK=10.0.0.0/24
 WIREGUARD_IPV6_NETWORK=fd00::/64
@@ -155,74 +212,113 @@ USE_REDIS=false
 INSTALL_DIR=$INSTALL_DIR
 WIREGUARD_CONFIG_DIR=/etc/wireguard
 WIREGUARD_CLIENTS_DIR=/etc/wireguard/clients
-FRONTEND_DIR=/var/www/html
+FRONTEND_DIR=$FRONTEND_ROOT
 NGINX_CONFIG_DIR=/etc/nginx/sites-available
 NGINX_LOG_DIR=/var/log/nginx
 SYSTEMD_CONFIG_DIR=/etc/systemd/system
 
 # MySQL配置
-MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
 MYSQL_DATABASE=ipv6wgm
-MYSQL_USER=ipv6wgm
+MYSQL_USER=$MYSQL_APP_USER
 MYSQL_PASSWORD=$MYSQL_PASSWORD
 EOF
-    
-    # 设置权限
+
     sudo chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/.env"
     sudo chmod 600 "$INSTALL_DIR/.env"
-    
+
+    local credentials_file="$INSTALL_DIR/setup_credentials.txt"
+    cat > "$credentials_file" <<EOF
+# IPv6 WireGuard Manager 安装凭据
+# 生成时间: $(date)
+FIRST_SUPERUSER_PASSWORD=$SUPERUSER_PASSWORD
+MYSQL_PASSWORD=$MYSQL_PASSWORD
+EOF
+
+    sudo chown "$SERVICE_USER:$SERVICE_GROUP" "$credentials_file"
+    sudo chmod 600 "$credentials_file"
+
     log_success "环境配置文件已创建: $INSTALL_DIR/.env"
+    log_info "生成的凭据已保存至 $credentials_file"
 }
 
 # 配置数据库
 configure_database() {
     log_info "配置数据库..."
-    
-    # 检查MySQL是否运行
-    if ! systemctl is-active --quiet mysql; then
-        log_info "启动MySQL服务..."
-        sudo systemctl start mysql
-        sudo systemctl enable mysql
+
+    if ! command -v mysql >/dev/null 2>&1; then
+        log_warning "未检测到 mysql 命令，跳过数据库配置"
+        return 0
     fi
-    
-    # 创建数据库和用户
-    mysql -u root -p"$MYSQL_ROOT_PASSWORD" << EOF
+
+    if [[ -z "$MYSQL_PASSWORD" ]]; then
+        log_warning "未获取到数据库密码，跳过自动配置"
+        return 0
+    fi
+
+    if command -v systemctl >/dev/null 2>&1; then
+        if ! systemctl is-active --quiet mysql 2>/dev/null; then
+            log_info "启动MySQL服务..."
+            if command -v sudo >/dev/null 2>&1; then
+                sudo systemctl start mysql 2>/dev/null || true
+                sudo systemctl enable mysql 2>/dev/null || true
+            else
+                systemctl start mysql 2>/dev/null || true
+                systemctl enable mysql 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    local mysql_cmd=(mysql -u root)
+    if command -v sudo >/dev/null 2>&1; then
+        mysql_cmd=(sudo mysql -u root)
+    fi
+
+    if ! "${mysql_cmd[@]}" -e "SELECT 1" >/dev/null 2>&1; then
+        log_warning "通过 socket 连接 MySQL 失败，尝试不使用 sudo"
+        mysql_cmd=(mysql -u root)
+    fi
+
+    if ! "${mysql_cmd[@]}" -e "SELECT 1" >/dev/null 2>&1; then
+        log_warning "无法连接到 MySQL，跳过自动创建数据库和用户"
+        return 0
+    fi
+
+    "${mysql_cmd[@]}" <<EOF
 CREATE DATABASE IF NOT EXISTS ipv6wgm CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'ipv6wgm'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD';
-GRANT ALL PRIVILEGES ON ipv6wgm.* TO 'ipv6wgm'@'localhost';
+CREATE USER IF NOT EXISTS '$MYSQL_APP_USER'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD';
+ALTER USER '$MYSQL_APP_USER'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD';
+GRANT ALL PRIVILEGES ON ipv6wgm.* TO '$MYSQL_APP_USER'@'localhost';
 FLUSH PRIVILEGES;
 EOF
-    
-    log_success "数据库配置完成"
+
+    log_success "数据库配置完成 (用户: $MYSQL_APP_USER)"
 }
 
 # 配置Nginx
 configure_nginx() {
     log_info "配置Nginx..."
-    
-    # 创建Nginx配置
-    cat > "/etc/nginx/sites-available/ipv6-wireguard-manager" << EOF
+
+    local site_available="/etc/nginx/sites-available/$NGINX_SITE_NAME"
+    local site_enabled="/etc/nginx/sites-enabled/$NGINX_SITE_NAME"
+
+    cat > "$site_available" <<EOF
 server {
-    listen 80;
+    listen $WEB_PORT;
     server_name _;
-    
-    # 前端
+    root $FRONTEND_ROOT;
+    index index.php index.html;
+
     location / {
-        root /var/www/html;
-        index index.php index.html;
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
-    
-    # PHP处理
+
     location ~ \.php$ {
-        root /var/www/html;
-        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_pass unix:$PHP_FPM_SOCKET;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
     }
-    
-    # API代理
+
     location /api/ {
         proxy_pass http://127.0.0.1:$API_PORT;
         proxy_set_header Host \$host;
@@ -230,8 +326,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
-    # 健康检查
+
     location /health {
         proxy_pass http://127.0.0.1:$API_PORT;
         proxy_set_header Host \$host;
@@ -241,14 +336,12 @@ server {
     }
 }
 EOF
-    
-    # 启用站点
-    sudo ln -sf /etc/nginx/sites-available/ipv6-wireguard-manager /etc/nginx/sites-enabled/
-    
-    # 测试配置
+
+    sudo ln -sf "$site_available" "$site_enabled"
+
     if sudo nginx -t; then
         sudo systemctl reload nginx
-        log_success "Nginx配置完成"
+        log_success "Nginx配置完成 ($NGINX_SITE_NAME)"
     else
         log_error "Nginx配置测试失败"
         exit 1
@@ -299,7 +392,7 @@ configure_firewall() {
     if command -v ufw &> /dev/null; then
         if ufw status | grep -q "Status: active"; then
             log_info "配置UFW防火墙规则..."
-            sudo ufw allow 80/tcp
+            sudo ufw allow $WEB_PORT/tcp
             sudo ufw allow 443/tcp
             sudo ufw allow $API_PORT/tcp
             sudo ufw allow $WIREGUARD_PORT/udp
@@ -308,10 +401,10 @@ configure_firewall() {
     elif command -v firewall-cmd &> /dev/null; then
         if systemctl is-active --quiet firewalld; then
             log_info "配置firewalld防火墙规则..."
-            sudo firewall-cmd --permanent --add-port=80/tcp
+            sudo firewall-cmd --permanent --add-port=${WEB_PORT}/tcp
             sudo firewall-cmd --permanent --add-port=443/tcp
-            sudo firewall-cmd --permanent --add-port=$API_PORT/tcp
-            sudo firewall-cmd --permanent --add-port=$WIREGUARD_PORT/udp
+            sudo firewall-cmd --permanent --add-port=${API_PORT}/tcp
+            sudo firewall-cmd --permanent --add-port=${WIREGUARD_PORT}/udp
             sudo firewall-cmd --reload
             log_success "firewalld防火墙规则已配置"
         fi
