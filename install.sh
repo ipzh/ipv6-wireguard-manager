@@ -2865,6 +2865,7 @@ create_env_config() {
     
     # 创建.env文件
     log_info "创建环境配置文件..."
+    cat > "$INSTALL_DIR/.env" <<EOF
 # Application Settings
 APP_NAME="IPv6 WireGuard Manager"
 APP_VERSION="3.0.0"
@@ -2905,7 +2906,7 @@ USE_REDIS=False
 REDIS_URL="redis://:redis123@${LOCAL_HOST}:${REDIS_PORT}/0"
 
 # CORS Origins
-BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:${WEB_PORT}", "http://localhost:${WEB_PORT}", "http://${LOCAL_HOST}", "http://localhost"]
+BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:${WEB_PORT}","http://localhost:${WEB_PORT}","http://${LOCAL_HOST}","http://localhost"]
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
