@@ -2377,6 +2377,27 @@ create_docker_env_file() {
     MYSQL_PASSWORD=$(generate_random_string 16)
     MYSQL_ROOT_PASSWORD=$(generate_random_string 20)
     
+    # 确保所有变量都已设置
+    if [[ -z "${WEB_PORT:-}" ]]; then
+        WEB_PORT="${DEFAULT_PORT:-80}"
+    fi
+    
+    if [[ -z "${LOCAL_HOST:-}" ]]; then
+        LOCAL_HOST="::1"
+    fi
+    
+    if [[ -z "${API_PORT:-}" ]]; then
+        API_PORT="${DEFAULT_API_PORT:-8000}"
+    fi
+    
+    if [[ -z "${DB_PORT:-}" ]]; then
+        DB_PORT="3306"
+    fi
+    
+    if [[ -z "${REDIS_PORT:-}" ]]; then
+        REDIS_PORT="6379"
+    fi
+    
     # 创建自动生成模式的 .env 文件
     cat > "$INSTALL_DIR/.env" << EOF
 # IPv6 WireGuard Manager 环境配置文件
@@ -2856,16 +2877,16 @@ SECRET_KEY="${secret_key}"
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 # Server Settings
-SERVER_HOST="${SERVER_HOST:-::}"
-SERVER_PORT=${API_PORT:-8000}
+SERVER_HOST="${SERVER_HOST}"
+SERVER_PORT=${API_PORT}
 
 # Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
-DATABASE_URL="mysql://${DB_USER:-ipv6wgm}:${DB_PASSWORD}@127.0.0.1:${DB_PORT:-3306}/${DB_NAME:-ipv6wgm}"
+DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
-DATABASE_PORT=${DB_PORT:-3306}
-DATABASE_USER=${DB_USER:-ipv6wgm}
+DATABASE_PORT=${DB_PORT}
+DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
-DATABASE_NAME=${DB_NAME:-ipv6wgm}
+DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
 
 # 数据库连接池设置
@@ -2881,10 +2902,10 @@ DB_ENGINE="mysql"
 
 # Redis Settings (Optional)
 USE_REDIS=False
-REDIS_URL="redis://:redis123@${LOCAL_HOST:-localhost}:${REDIS_PORT:-6379}/0"
+REDIS_URL="redis://:redis123@${LOCAL_HOST}:${REDIS_PORT}/0"
 
 # CORS Origins
-BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:${WEB_PORT:-80}", "http://localhost:${WEB_PORT:-80}", "http://${LOCAL_HOST}", "http://localhost"]
+BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:${WEB_PORT}", "http://localhost:${WEB_PORT}", "http://${LOCAL_HOST}", "http://localhost"]
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
