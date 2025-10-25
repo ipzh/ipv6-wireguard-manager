@@ -1581,9 +1581,27 @@ install_python_dependencies() {
         
         # 安装额外的功能依赖
         log_info "安装增强功能依赖..."
-        pip install pytest pytest-cov pytest-xdist pytest-html pytest-mock pytest-asyncio
-        pip install flake8 black isort mypy
-        log_success "增强功能依赖安装完成"
+        local optional_install_success=true
+
+        if pip install pytest pytest-cov pytest-xdist pytest-html pytest-mock pytest-asyncio; then
+            log_success "测试依赖安装完成"
+        else
+            log_warning "测试依赖安装失败，继续安装流程"
+            optional_install_success=false
+        fi
+
+        if pip install flake8 black isort mypy; then
+            log_success "代码质量工具安装完成"
+        else
+            log_warning "代码质量工具安装失败，继续安装流程"
+            optional_install_success=false
+        fi
+
+        if [[ "$optional_install_success" == true ]]; then
+            log_success "增强功能依赖安装完成"
+        else
+            log_warning "部分增强功能依赖安装失败，核心功能不受影响"
+        fi
     elif [[ -f "backend/requirements-simple.txt" ]]; then
         pip install -r backend/requirements-simple.txt
         log_success "Python依赖安装成功（使用简化版本）"
@@ -2861,6 +2879,10 @@ create_env_config() {
     
     # 更新全局变量
     DB_PASSWORD="$database_password"
+    DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
+    if [[ -z "$DB_PASSWORD_ENCODED" ]]; then
+        DB_PASSWORD_ENCODED="$DB_PASSWORD"
+    fi
     
     log_success "安全密钥和密码生成完成"
     
@@ -2931,7 +2953,7 @@ SERVER_PORT=${API_PORT}
 
 # Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
 # 对密码进行URL编码，避免特殊字符导致的编码问题
-DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
+DB_PASSWORD_ENCODED="${DB_PASSWORD_ENCODED}"
 DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
 DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
 DATABASE_PORT=${DB_PORT}
