@@ -12,6 +12,9 @@ from pathlib import Path
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent))
 
+from app.core.database_url_utils import ensure_mysql_connect_args, prepare_sqlalchemy_mysql_url
+
+
 def init_database_simple():
     """简化的数据库初始化"""
     try:
@@ -21,8 +24,9 @@ def init_database_simple():
         from dotenv import load_dotenv
         load_dotenv(Path(__file__).parent.parent / ".env.local")
         
-        database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
-        print(f"📊 数据库URL: {database_url}")
+        raw_database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+        database_url_obj = prepare_sqlalchemy_mysql_url(raw_database_url)
+        print(f"📊 数据库URL: {database_url_obj.render_as_string(hide_password=True)}")
         
         # 创建数据库连接
         from sqlalchemy import create_engine, text
@@ -31,8 +35,12 @@ def init_database_simple():
         Base = declarative_base()
         
         # 使用同步引擎进行初始化
-        sync_url = database_url.replace("mysql://", "mysql+pymysql://")
-        engine = create_engine(sync_url, echo=True)
+        drivername = (database_url_obj.drivername or "").lower()
+        if drivername.startswith("mysql") and "+pymysql" not in drivername:
+            sync_url_obj = database_url_obj.set(drivername="mysql+pymysql")
+        else:
+            sync_url_obj = database_url_obj
+        engine = create_engine(sync_url_obj, echo=True, connect_args=ensure_mysql_connect_args())
         
         print("🔗 测试数据库连接...")
         with engine.connect() as conn:

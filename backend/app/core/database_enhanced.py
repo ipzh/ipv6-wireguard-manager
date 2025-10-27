@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict, deque
 
+from .database_url_utils import ensure_mysql_connect_args, prepare_sqlalchemy_mysql_url
 from .unified_config import settings
 
 logger = logging.getLogger(__name__)
@@ -189,14 +190,19 @@ class MultiDatabaseManager:
         try:
             if db_type == DatabaseType.MYSQL:
                 # MySQL异步引擎
-                async_url = database_url.replace("mysql://", "mysql+aiomysql://")
+                url_obj = prepare_sqlalchemy_mysql_url(database_url)
+                async_url = url_obj
+                drivername = (async_url.drivername or "").lower()
+                if drivername.startswith("mysql") and "+aiomysql" not in drivername:
+                    async_url = async_url.set(drivername="mysql+aiomysql")
                 engine = create_async_engine(
                     async_url,
                     pool_size=20,
                     max_overflow=30,
                     pool_timeout=30,
                     pool_recycle=3600,
-                    echo=False
+                    echo=False,
+                    connect_args=ensure_mysql_connect_args(),
                 )
             elif db_type == DatabaseType.POSTGRESQL:
                 # PostgreSQL异步引擎
@@ -308,13 +314,20 @@ aiomysql_available = False
 
 # 创建异步数据库引擎 - 强制使用MySQL
 # 仅支持MySQL数据库，不支持PostgreSQL和SQLite
-if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
+normalized_mysql_url = prepare_sqlalchemy_mysql_url(settings.DATABASE_URL)
+drivername = (normalized_mysql_url.drivername or "").lower()
+if not drivername.startswith("mysql"):
     logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
     async_engine = None
 else:
     # MySQL数据库
-    async_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+aiomysql://")
-    logger.info(f"强制使用MySQL异步驱动: {async_db_url}")
+    async_db_url = normalized_mysql_url
+    if "+aiomysql" not in drivername:
+        async_db_url = async_db_url.set(drivername="mysql+aiomysql")
+    logger.info(
+        "强制使用MySQL异步驱动: %s",
+        async_db_url.render_as_string(hide_password=True),
+    )
     
     # 检查是否安装了aiomysql驱动
     try:
@@ -337,7 +350,8 @@ else:
                 pool_recycle=3600,  # 连接回收时间
                 pool_pre_ping=True,  # 连接前ping检查
                 echo=False,  # 不打印SQL语句
-                future=True
+                future=True,
+                connect_args=ensure_mysql_connect_args(),
             )
             logger.info("MySQL异步引擎创建成功")
         else:
@@ -348,14 +362,20 @@ else:
 
 # 创建同步数据库引擎 - 强制使用MySQL
 # 仅支持MySQL数据库，不支持PostgreSQL和SQLite
-if not settings.DATABASE_URL.startswith(("mysql://", "mysql+aiomysql://", "mysql+pymysql://")):
+sync_driver = (normalized_mysql_url.drivername or "").lower()
+if not sync_driver.startswith("mysql"):
     logger.error(f"不支持的数据库类型，仅支持MySQL。当前URL: {settings.DATABASE_URL}")
     sync_engine = None
 else:
     # MySQL数据库
-    sync_db_url = settings.DATABASE_URL.replace("mysql://", "mysql+pymysql://")
-    logger.info(f"强制使用MySQL同步驱动: {sync_db_url}")
-    
+    sync_db_url = normalized_mysql_url
+    if "+pymysql" not in sync_driver:
+        sync_db_url = sync_db_url.set(drivername="mysql+pymysql")
+    logger.info(
+        "强制使用MySQL同步驱动: %s",
+        sync_db_url.render_as_string(hide_password=True),
+    )
+
     try:
         # 优化的连接参数
         sync_engine = create_engine(
@@ -366,7 +386,8 @@ else:
             pool_recycle=3600,
             pool_pre_ping=True,
             echo=False,
-            future=True
+            future=True,
+            connect_args=ensure_mysql_connect_args(),
         )
         logger.info("MySQL同步引擎创建成功")
     except Exception as e:

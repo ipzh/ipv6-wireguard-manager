@@ -13,6 +13,7 @@ from sqlalchemy.pool import QueuePool
 from sqlalchemy import event, text
 import structlog
 
+from .database_url_utils import ensure_mysql_connect_args, prepare_sqlalchemy_mysql_url
 from .unified_config import settings
 from .exception_handlers import DatabaseError, ErrorCodes
 
@@ -56,8 +57,13 @@ class DatabaseManager:
         """初始化数据库连接"""
         try:
             # 创建异步引擎
+            database_url = prepare_sqlalchemy_mysql_url(settings.DATABASE_URL)
+            drivername = (database_url.drivername or "").lower()
+            connect_args = ensure_mysql_connect_args() if drivername.startswith("mysql") else {}
+            if drivername.startswith("mysql") and "+aiomysql" not in drivername:
+                database_url = database_url.set(drivername="mysql+aiomysql")
             self.engine = create_async_engine(
-                settings.DATABASE_URL,
+                database_url,
                 poolclass=QueuePool,
                 pool_size=settings.DATABASE_POOL_SIZE,
                 max_overflow=settings.DATABASE_MAX_OVERFLOW,
@@ -66,6 +72,7 @@ class DatabaseManager:
                 pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
                 echo=settings.DEBUG,
                 echo_pool=settings.DEBUG,
+                connect_args=connect_args,
             )
             
             # 设置向后兼容属性
