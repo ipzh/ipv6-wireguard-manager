@@ -4,6 +4,9 @@
 # HTTP请求库
 requests>=2.28.0
 
+# 系统资源监控
+psutil>=5.9.0
+
 # 命令行参数解析（Python标准库，但列出以确保兼容性）
 argparse
 
