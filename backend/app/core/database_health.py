@@ -9,6 +9,8 @@ from typing import Optional, Dict, Any
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
+from .database_url_utils import ensure_mysql_connect_args, prepare_sqlalchemy_mysql_url
+
 # 可选导入MySQL
 try:
     import pymysql

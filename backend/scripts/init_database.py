@@ -15,6 +15,13 @@ except NameError:
     project_root = Path.cwd().parent
 sys.path.insert(0, str(project_root))
 
+from app.core.database_url_utils import (
+    MYSQL_CHARSET,
+    ensure_mysql_url_compat,
+    get_mysql_driver_password,
+)
+
+
 def init_mysql_database():
     """初始化MySQL数据库"""
     try:
@@ -22,39 +29,51 @@ def init_mysql_database():
         from urllib.parse import urlparse
         
         # 从环境变量获取数据库连接信息
-        database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm')
-        
+        raw_database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:password@localhost:3306/ipv6wgm')
+        database_url = ensure_mysql_url_compat(raw_database_url)
+
         # 解析数据库URL
         parsed = urlparse(database_url)
-        
-        # 连接到MySQL服务器
-        conn = pymysql.connect(
-            host=parsed.hostname,
-            port=parsed.port or 3306,
-            user=parsed.username,
-            password=parsed.password,
-            database='mysql'  # 连接到默认数据库
-        )
-        cursor = conn.cursor()
-        
-        # 检查数据库是否存在
         db_name = parsed.path[1:]  # 移除开头的 '/'
-        cursor.execute(f"SHOW DATABASES LIKE '{db_name}'")
-        
+
+        driver_password = None
+        if parsed.password is not None:
+            driver_password = get_mysql_driver_password(parsed.password)
+
+        connection_kwargs = {
+            'host': parsed.hostname or '127.0.0.1',
+            'port': parsed.port or 3306,
+            'user': parsed.username or 'root',
+            'charset': MYSQL_CHARSET,
+            'use_unicode': True,
+            'autocommit': False,
+        }
+        if parsed.password is not None:
+            connection_kwargs['password'] = driver_password
+
+        # 连接到MySQL服务器
+        conn = pymysql.connect(database='mysql', **connection_kwargs)
+        cursor = conn.cursor()
+
+        # 检查数据库是否存在
+        cursor.execute("SHOW DATABASES LIKE %s", (db_name,))
+
         if not cursor.fetchone():
             # 创建数据库
             cursor.execute(f'CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
             print(f"✅ 数据库 {db_name} 创建成功")
         else:
             print(f"ℹ️ 数据库 {db_name} 已存在")
-        
+
         cursor.close()
         conn.close()
-        
+
         # 连接到新创建的数据库
-        conn = pymysql.connect(database_url)
+        db_connection_kwargs = dict(connection_kwargs)
+        db_connection_kwargs['database'] = db_name
+        conn = pymysql.connect(**db_connection_kwargs)
         cursor = conn.cursor()
-        
+
         # 创建基本表结构
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
