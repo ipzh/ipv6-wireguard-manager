@@ -109,6 +109,7 @@ DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"                    # 默认安
 FRONTEND_DIR="/var/www/html"                                         # 前端文件目录
 DEFAULT_PORT="80"                                                     # 默认Web端口
 DEFAULT_API_PORT="8000"                                               # 默认API端口
+NGINX_CONFIG_DIR=""                                                   # 可选自定义Nginx配置目录
 
 #-----------------------------------------------------------------------------
 # 系统信息变量（由detect_system函数检测并填充）
@@ -2080,8 +2081,8 @@ configure_nginx() {
         nginx_conf_path="$nginx_sites_available/$nginx_site_name"
     elif [[ -d "$nginx_conf_d" ]]; then
         nginx_conf_path="$nginx_conf_d/${nginx_site_name}.conf"
-    elif [[ -d "$NGINX_CONFIG_DIR" ]]; then
-        nginx_conf_path="$NGINX_CONFIG_DIR/${nginx_site_name}.conf"
+    elif [[ -n "${NGINX_CONFIG_DIR}" && -d "${NGINX_CONFIG_DIR}" ]]; then
+        nginx_conf_path="${NGINX_CONFIG_DIR%/}/${nginx_site_name}.conf"
     else
         mkdir -p "$INSTALL_DIR/config/nginx"
         nginx_conf_path="$INSTALL_DIR/config/nginx/${nginx_site_name}.conf"

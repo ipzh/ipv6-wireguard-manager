@@ -9,13 +9,24 @@ import sys
 import json
 import subprocess
 import platform
-import psutil
-import requests
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import argparse
+from urllib import error as urllib_error, request as urllib_request
+
+try:  # 可选依赖
+    import psutil  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover - 在未安装psutil时使用降级模式
+    psutil = None  # type: ignore[assignment]
+
+try:  # 可选依赖
+    import requests  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover - 在未安装requests时使用降级模式
+    requests = None  # type: ignore[assignment]
+
 
 class OneClickChecker:
     """一键检查器"""
@@ -24,9 +35,13 @@ class OneClickChecker:
         self.system = platform.system().lower()
         self.project_root = Path(__file__).parent.parent
         self.log_dir = self.project_root / "logs"
-        self.issues = []
-        self.warnings = []
-        self.successes = []
+        self.issues: List[str] = []
+        self.warnings: List[str] = []
+        self.successes: List[str] = []
+        self.psutil_available = psutil is not None
+        self.requests_available = requests is not None
+        self._psutil_warning_emitted = False
+        self._requests_warning_emitted = False
         
     def log_info(self, message: str):
         """信息日志"""
@@ -51,10 +66,10 @@ class OneClickChecker:
         """运行命令并返回结果"""
         try:
             result = subprocess.run(
-                command, 
-                shell=shell, 
-                capture_output=True, 
-                text=True, 
+                command,
+                shell=shell,
+                capture_output=True,
+                text=True,
                 timeout=30
             )
             return result.returncode, result.stdout, result.stderr
@@ -62,6 +77,198 @@ class OneClickChecker:
             return -1, "", "命令执行超时"
         except Exception as e:
             return -1, "", str(e)
+    
+    def _warn_psutil_missing(self) -> None:
+        """在缺少psutil时输出提示信息（仅提示一次）"""
+        if not self._psutil_warning_emitted:
+            self.log_warning("psutil 未安装，相关检查将使用降级模式。建议执行: pip install psutil")
+            self._psutil_warning_emitted = True
+    
+    def _warn_requests_missing(self) -> None:
+        """在缺少requests时输出提示信息（仅提示一次）"""
+        if not self._requests_warning_emitted:
+            self.log_warning("requests 未安装，HTTP 检查将使用 urllib 降级模式。建议执行: pip install requests")
+            self._requests_warning_emitted = True
+    
+    def http_get(self, url: str, timeout: int = 5) -> Tuple[Optional[int], str, Optional[str]]:
+        """执行 HTTP GET 请求，兼容 requests 缺失时的降级模式"""
+        if self.requests_available and requests is not None:
+            try:
+                response = requests.get(url, timeout=timeout)
+                return response.status_code, response.text, None
+            except Exception as exc:  # pragma: no cover - 捕获网络异常
+                return None, "", str(exc)
+        else:
+            self._warn_requests_missing()
+            try:
+                with urllib_request.urlopen(url, timeout=timeout) as response:
+                    body = response.read().decode('utf-8', errors='ignore')
+                    return response.getcode(), body, None
+            except urllib_error.URLError as exc:  # pragma: no cover - 网络异常
+                return None, "", str(exc)
+            except Exception as exc:  # pragma: no cover - 其他异常
+                return None, "", str(exc)
+    
+    def _check_process_with_pgrep(self, pattern: str, display_name: str) -> Dict[str, Any]:
+        """使用 pgrep 命令检查进程状态"""
+        command = f"pgrep -fl {pattern}"
+        code, stdout, stderr = self.run_command(command)
+        if code == 0 and stdout.strip():
+            lines = [line.strip() for line in stdout.strip().splitlines() if line.strip()]
+            processes = []
+            for line in lines:
+                parts = line.split(None, 1)
+                pid = int(parts[0]) if parts and parts[0].isdigit() else None
+                cmdline = parts[1] if len(parts) > 1 else ''
+                processes.append({'pid': pid, 'cmdline': cmdline})
+            self.log_success(f"✓ {display_name}进程运行正常 ({len(processes)}个)")
+            return {
+                'status': 'running',
+                'count': len(processes),
+                'processes': processes
+            }
+        if stderr:
+            self.log_warning(f"⚠️ 无法通过 pgrep 检查 {display_name} 进程: {stderr.strip()}")
+        else:
+            self.log_error(f"✗ {display_name}进程未运行")
+        return {
+            'status': 'unknown' if code == 127 else 'stopped',
+            'reason': stderr.strip() if stderr else 'process not found'
+        }
+    
+    def _collect_listening_ports(self, expected_ports: List[int]) -> List[Dict[str, Any]]:
+        """收集监听端口信息，优先使用 psutil，必要时回退到系统命令"""
+        if self.psutil_available and psutil is not None:
+            listening_ports = []
+            for conn in psutil.net_connections(kind='inet'):
+                if conn.status == 'LISTEN' and conn.laddr:
+                    port = conn.laddr.port
+                    if port in expected_ports:
+                        listening_ports.append({
+                            'port': port,
+                            'address': conn.laddr.ip,
+                            'pid': conn.pid
+                        })
+            return listening_ports
+        self._warn_psutil_missing()
+        return self._collect_listening_ports_from_command(expected_ports)
+    
+    def _collect_listening_ports_from_command(self, expected_ports: List[int]) -> List[Dict[str, Any]]:
+        """使用 netstat 或 ss 命令搜集监听端口"""
+        commands = [
+            ("netstat -tuln", "netstat"),
+            ("ss -tuln", "ss"),
+        ]
+        for command, label in commands:
+            code, stdout, stderr = self.run_command(command)
+            if code != 0 or not stdout.strip():
+                continue
+            listening_ports: List[Dict[str, Any]] = []
+            for line in stdout.splitlines():
+                line = line.strip()
+                if not line or line.startswith('Proto'):
+                    continue
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                local_address = parts[3]
+                address = local_address
+                port = None
+                if '[' in local_address and ']' in local_address:
+                    # 处理 [::]:80 类格式
+                    addr_part, _, rest = local_address.partition(']')
+                    address = addr_part.strip('[]')
+                    port_str = rest.lstrip(':')
+                elif ':' in local_address:
+                    address, port_str = local_address.rsplit(':', 1)
+                else:
+                    continue
+                try:
+                    port = int(port_str)
+                except (TypeError, ValueError):
+                    continue
+                if port not in expected_ports:
+                    continue
+                pid = None
+                if parts[-1] and '/' in parts[-1]:
+                    pid_token = parts[-1].split('/', 1)[0]
+                    if pid_token.isdigit():
+                        pid = int(pid_token)
+                listening_ports.append({
+                    'port': port,
+                    'address': address or '*',
+                    'pid': pid
+                })
+            if listening_ports:
+                self.log_info(f"使用 {label} 收集到 {len(listening_ports)} 个监听端口")
+                return listening_ports
+        self.log_warning("⚠️ 未能通过系统命令获取监听端口信息")
+        return []
+    
+    def _read_memory_info_without_psutil(self) -> Optional[Dict[str, float]]:
+        """在缺少 psutil 时读取内存信息"""
+        meminfo_path = Path('/proc/meminfo')
+        if not meminfo_path.exists():
+            return None
+        data: Dict[str, int] = {}
+        try:
+            with meminfo_path.open() as fh:
+                for line in fh:
+                    if ':' not in line:
+                        continue
+                    key, value = line.split(':', 1)
+                    parts = value.strip().split()
+                    if not parts:
+                        continue
+                    # /proc/meminfo 以 kB 为单位
+                    data[key.strip()] = int(parts[0]) * 1024
+        except Exception as exc:  # pragma: no cover - 文件读取异常
+            self.log_warning(f"无法读取 /proc/meminfo: {exc}")
+            return None
+        total = data.get('MemTotal')
+        available = data.get('MemAvailable', data.get('MemFree'))
+        if total is None or available is None:
+            return None
+        used = total - available
+        percent = round((used / total) * 100, 1) if total else 0.0
+        return {
+            'total': float(total),
+            'available': float(available),
+            'used': float(used),
+            'percent': percent
+        }
+    
+    def _read_cpu_usage_without_psutil(self, interval: float = 1.0) -> Optional[float]:
+        """使用 /proc/stat 估算 CPU 使用率"""
+        stat_path = Path('/proc/stat')
+        if not stat_path.exists():
+            return None
+        def read_cpu_times() -> Optional[Tuple[int, int]]:
+            try:
+                with stat_path.open() as fh:
+                    first_line = fh.readline()
+                parts = first_line.split()
+                if len(parts) < 5:
+                    return None
+                values = [int(value) for value in parts[1:]]
+                idle = values[3]
+                total = sum(values)
+                return total, idle
+            except Exception:  # pragma: no cover - 文件读取异常
+                return None
+        first = read_cpu_times()
+        if not first:
+            return None
+        time.sleep(interval)
+        second = read_cpu_times()
+        if not second:
+            return None
+        total_diff = second[0] - first[0]
+        idle_diff = second[1] - first[1]
+        if total_diff <= 0:
+            return None
+        usage = (1 - idle_diff / total_diff) * 100
+        return round(usage, 1)
     
     def check_python_environment(self) -> Dict[str, Any]:
         """检查Python环境"""
@@ -96,56 +303,72 @@ class OneClickChecker:
         """检查服务状态"""
         self.log_info("检查服务状态...")
         
-        services = {}
+        services: Dict[str, Any] = {}
         
-        # 检查Python进程
-        python_processes = [p for p in psutil.process_iter(['pid', 'name', 'cmdline']) 
-                           if 'python' in p.info['name'].lower()]
+        if self.psutil_available and psutil is not None:
+            python_processes = [
+                p for p in psutil.process_iter(['pid', 'name', 'cmdline'])
+                if p.info.get('name') and 'python' in p.info['name'].lower()
+            ]
+            if python_processes:
+                services['python'] = {
+                    'status': 'running',
+                    'count': len(python_processes),
+                    'processes': [
+                        {
+                            'pid': p.info['pid'],
+                            'cmdline': ' '.join(p.info.get('cmdline') or []) if p.info.get('cmdline') else p.info.get('name', '')
+                        }
+                        for p in python_processes
+                    ]
+                }
+                self.log_success(f"✓ Python进程运行正常 ({len(python_processes)}个)")
+            else:
+                services['python'] = {'status': 'stopped'}
+                self.log_error("✗ Python进程未运行")
+            
+            mysql_processes = [
+                p for p in psutil.process_iter(['pid', 'name'])
+                if p.info.get('name') and 'mysql' in p.info['name'].lower()
+            ]
+            if mysql_processes:
+                services['mysql'] = {
+                    'status': 'running',
+                    'count': len(mysql_processes),
+                    'processes': [
+                        {'pid': p.info['pid'], 'name': p.info.get('name')}
+                        for p in mysql_processes
+                    ]
+                }
+                self.log_success(f"✓ MySQL进程运行正常 ({len(mysql_processes)}个)")
+            else:
+                services['mysql'] = {'status': 'stopped'}
+                self.log_error("✗ MySQL进程未运行")
+            
+            nginx_processes = [
+                p for p in psutil.process_iter(['pid', 'name'])
+                if p.info.get('name') and 'nginx' in p.info['name'].lower()
+            ]
+            if nginx_processes:
+                services['nginx'] = {
+                    'status': 'running',
+                    'count': len(nginx_processes),
+                    'processes': [
+                        {'pid': p.info['pid'], 'name': p.info.get('name')}
+                        for p in nginx_processes
+                    ]
+                }
+                self.log_success(f"✓ Nginx进程运行正常 ({len(nginx_processes)}个)")
+            else:
+                services['nginx'] = {'status': 'stopped'}
+                self.log_error("✗ Nginx进程未运行")
+            
+            return services
         
-        if python_processes:
-            services['python'] = {
-                'status': 'running',
-                'count': len(python_processes),
-                'processes': [{'pid': p.info['pid'], 'cmdline': ' '.join(p.info['cmdline'])} 
-                             for p in python_processes]
-            }
-            self.log_success(f"✓ Python进程运行正常 ({len(python_processes)}个)")
-        else:
-            services['python'] = {'status': 'stopped'}
-            self.log_error("✗ Python进程未运行")
-        
-        # 检查MySQL进程
-        mysql_processes = [p for p in psutil.process_iter(['pid', 'name']) 
-                          if 'mysql' in p.info['name'].lower()]
-        
-        if mysql_processes:
-            services['mysql'] = {
-                'status': 'running',
-                'count': len(mysql_processes),
-                'processes': [{'pid': p.info['pid'], 'name': p.info['name']} 
-                             for p in mysql_processes]
-            }
-            self.log_success(f"✓ MySQL进程运行正常 ({len(mysql_processes)}个)")
-        else:
-            services['mysql'] = {'status': 'stopped'}
-            self.log_error("✗ MySQL进程未运行")
-        
-        # 检查Nginx进程
-        nginx_processes = [p for p in psutil.process_iter(['pid', 'name']) 
-                          if 'nginx' in p.info['name'].lower()]
-        
-        if nginx_processes:
-            services['nginx'] = {
-                'status': 'running',
-                'count': len(nginx_processes),
-                'processes': [{'pid': p.info['pid'], 'name': p.info['name']} 
-                             for p in nginx_processes]
-            }
-            self.log_success(f"✓ Nginx进程运行正常 ({len(nginx_processes)}个)")
-        else:
-            services['nginx'] = {'status': 'stopped'}
-            self.log_error("✗ Nginx进程未运行")
-        
+        self._warn_psutil_missing()
+        services['python'] = self._check_process_with_pgrep('python', 'Python')
+        services['mysql'] = self._check_process_with_pgrep('mysql', 'MySQL')
+        services['nginx'] = self._check_process_with_pgrep('nginx', 'Nginx')
         return services
     
     def check_database_connection(self) -> Dict[str, Any]:
@@ -164,16 +387,20 @@ class OneClickChecker:
         
         # 尝试连接数据库
         try:
-            import pymysql
-            import re
-            
-            # 解析数据库URL
+            import pymysql  # type: ignore[import-not-found]
+        except ImportError:
+            db_info['error'] = "PyMySQL 未安装"
+            self.log_error("✗ 未安装PyMySQL，无法执行数据库连接检查。请运行: pip install PyMySQL")
+            return db_info
+        
+        import re
+        
+        try:
             pattern = r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)'
             match = re.match(pattern, db_info['url'])
             
             if match:
                 user, password, host, port, database = match.groups()
-                
                 connection = pymysql.connect(
                     host=host,
                     port=int(port),
@@ -182,12 +409,12 @@ class OneClickChecker:
                     database=database,
                     connect_timeout=10
                 )
-                
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT 1")
-                    result = cursor.fetchone()
-                
-                connection.close()
+                try:
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT 1")
+                        result = cursor.fetchone()
+                finally:
+                    connection.close()
                 
                 if result:
                     db_info['connection'] = True
@@ -198,7 +425,6 @@ class OneClickChecker:
             else:
                 db_info['error'] = "数据库URL格式错误"
                 self.log_error("✗ 数据库URL格式错误")
-                
         except Exception as e:
             db_info['error'] = str(e)
             self.log_error(f"✗ 数据库连接失败: {e}")
@@ -216,46 +442,37 @@ class OneClickChecker:
             'expected_ports': [80, 443, 8000, 3306, 9000]
         }
         
-        # 检查端口监听
-        listening_ports = []
-        for conn in psutil.net_connections(kind='inet'):
-            if conn.status == 'LISTEN':
-                port = conn.laddr.port
-                if port in ports_info['expected_ports']:
-                    listening_ports.append({
-                        'port': port,
-                        'address': conn.laddr.ip,
-                        'pid': conn.pid
-                    })
-        
+        listening_ports = self._collect_listening_ports(ports_info['expected_ports'])
         ports_info['listening_ports'] = listening_ports
         
         print("=== 端口监听情况 ===")
-        for port_info in listening_ports:
-            print(f"  端口 {port_info['port']}: {port_info['address']} (PID: {port_info['pid']})")
+        if listening_ports:
+            for port_info in listening_ports:
+                pid_display = port_info['pid'] if port_info.get('pid') is not None else '未知'
+                print(f"  端口 {port_info['port']}: {port_info['address']} (PID: {pid_display})")
+        else:
+            print("  未检测到预期端口的监听")
         
-        # 检查Web服务连接
-        print(f"\n=== 本地连接测试 ===")
-        try:
-            response = requests.get('http://localhost/', timeout=5)
-            if response.status_code == 200:
+        print("\n=== 本地连接测试 ===")
+        status_code, _, error = self.http_get('http://localhost/', timeout=5)
+        if status_code is not None:
+            if status_code == 200:
                 ports_info['web_accessible'] = True
                 self.log_success("✓ Web服务可访问")
             else:
-                self.log_warning(f"⚠️ Web服务返回状态码: {response.status_code}")
-        except Exception as e:
-            self.log_error(f"✗ Web服务不可访问: {e}")
+                self.log_warning(f"⚠️ Web服务返回状态码: {status_code}")
+        else:
+            self.log_error(f"✗ Web服务不可访问: {error or '未知错误'}")
         
-        # 检查API服务连接
-        try:
-            response = requests.get('http://localhost:8000/', timeout=5)
-            if response.status_code == 200:
+        status_code, _, error = self.http_get('http://localhost:8000/', timeout=5)
+        if status_code is not None:
+            if status_code == 200:
                 ports_info['api_accessible'] = True
                 self.log_success("✓ API服务可访问")
             else:
-                self.log_warning(f"⚠️ API服务返回状态码: {response.status_code}")
-        except Exception as e:
-            self.log_error(f"✗ API服务不可访问: {e}")
+                self.log_warning(f"⚠️ API服务返回状态码: {status_code}")
+        else:
+            self.log_error(f"✗ API服务不可访问: {error or '未知错误'}")
         
         return ports_info
     
@@ -383,75 +600,107 @@ class OneClickChecker:
         """检查系统资源"""
         self.log_info("检查系统资源...")
         
-        resources = {
+        resources: Dict[str, Any] = {
             'memory': {},
             'disk': {},
             'cpu': {},
             'load_average': None
         }
         
-        # 内存信息
-        memory = psutil.virtual_memory()
-        resources['memory'] = {
-            'total': memory.total,
-            'available': memory.available,
-            'used': memory.used,
-            'percent': memory.percent
-        }
+        memory_info: Optional[Dict[str, float]] = None
+        if self.psutil_available and psutil is not None:
+            vm = psutil.virtual_memory()
+            memory_info = {
+                'total': float(vm.total),
+                'available': float(vm.available),
+                'used': float(vm.used),
+                'percent': float(vm.percent)
+            }
+        else:
+            self._warn_psutil_missing()
+            memory_info = self._read_memory_info_without_psutil()
         
         print("=== 内存使用情况 ===")
-        print(f"  总内存: {memory.total // (1024**3)} GB")
-        print(f"  可用内存: {memory.available // (1024**3)} GB")
-        print(f"  已用内存: {memory.used // (1024**3)} GB")
-        print(f"  使用率: {memory.percent}%")
-        
-        if memory.percent > 90:
-            self.log_error(f"✗ 内存使用率过高: {memory.percent}%")
-        elif memory.percent > 80:
-            self.log_warning(f"⚠️ 内存使用率较高: {memory.percent}%")
+        if memory_info:
+            resources['memory'] = memory_info
+            total_gb = memory_info['total'] / (1024 ** 3)
+            available_gb = memory_info['available'] / (1024 ** 3)
+            used_gb = memory_info['used'] / (1024 ** 3)
+            percent = memory_info['percent']
+            print(f"  总内存: {total_gb:.2f} GB")
+            print(f"  可用内存: {available_gb:.2f} GB")
+            print(f"  已用内存: {used_gb:.2f} GB")
+            print(f"  使用率: {percent}%")
+            if percent > 90:
+                self.log_error(f"✗ 内存使用率过高: {percent}%")
+            elif percent > 80:
+                self.log_warning(f"⚠️ 内存使用率较高: {percent}%")
+            else:
+                self.log_success(f"✓ 内存使用率正常: {percent}%")
         else:
-            self.log_success(f"✓ 内存使用率正常: {memory.percent}%")
+            print("  无法获取内存信息")
+            self.log_warning("⚠️ 无法获取内存使用情况")
         
-        # 磁盘信息
-        disk = psutil.disk_usage('/')
-        resources['disk'] = {
-            'total': disk.total,
-            'used': disk.used,
-            'free': disk.free,
-            'percent': (disk.used / disk.total) * 100
-        }
+        try:
+            disk = shutil.disk_usage('/')
+            disk_percent = round((disk.used / disk.total) * 100, 1) if disk.total else 0.0
+            resources['disk'] = {
+                'total': float(disk.total),
+                'used': float(disk.used),
+                'free': float(disk.free),
+                'percent': disk_percent
+            }
+            print(f"\n=== 磁盘使用情况 ===")
+            print(f"  总容量: {disk.total // (1024**3)} GB")
+            print(f"  已使用: {disk.used // (1024**3)} GB")
+            print(f"  可用空间: {disk.free // (1024**3)} GB")
+            print(f"  使用率: {disk_percent:.1f}%")
+            if disk_percent > 90:
+                self.log_error(f"✗ 磁盘使用率过高: {disk_percent:.1f}%")
+            elif disk_percent > 80:
+                self.log_warning(f"⚠️ 磁盘使用率较高: {disk_percent:.1f}%")
+            else:
+                self.log_success(f"✓ 磁盘使用率正常: {disk_percent:.1f}%")
+        except Exception as exc:  # pragma: no cover - 磁盘统计异常
+            self.log_warning(f"⚠️ 无法获取磁盘使用情况: {exc}")
         
-        print(f"\n=== 磁盘使用情况 ===")
-        print(f"  总容量: {disk.total // (1024**3)} GB")
-        print(f"  已使用: {disk.used // (1024**3)} GB")
-        print(f"  可用空间: {disk.free // (1024**3)} GB")
-        print(f"  使用率: {(disk.used / disk.total) * 100:.1f}%")
-        
-        if (disk.used / disk.total) * 100 > 90:
-            self.log_error(f"✗ 磁盘使用率过高: {(disk.used / disk.total) * 100:.1f}%")
-        elif (disk.used / disk.total) * 100 > 80:
-            self.log_warning(f"⚠️ 磁盘使用率较高: {(disk.used / disk.total) * 100:.1f}%")
+        cpu_percent: Optional[float] = None
+        cpu_count: Optional[int] = None
+        if self.psutil_available and psutil is not None:
+            cpu_percent = float(psutil.cpu_percent(interval=1))
+            cpu_count = psutil.cpu_count()
         else:
-            self.log_success(f"✓ 磁盘使用率正常: {(disk.used / disk.total) * 100:.1f}%")
+            cpu_percent = self._read_cpu_usage_without_psutil()
+            cpu_count = os.cpu_count()
         
-        # CPU信息
-        cpu_percent = psutil.cpu_percent(interval=1)
-        cpu_count = psutil.cpu_count()
         resources['cpu'] = {
             'percent': cpu_percent,
             'count': cpu_count
         }
         
-        print(f"\n=== CPU使用情况 ===")
-        print(f"  CPU核心数: {cpu_count}")
-        print(f"  CPU使用率: {cpu_percent}%")
-        
-        if cpu_percent > 90:
-            self.log_error(f"✗ CPU使用率过高: {cpu_percent}%")
-        elif cpu_percent > 80:
-            self.log_warning(f"⚠️ CPU使用率较高: {cpu_percent}%")
+        print("\n=== CPU使用情况 ===")
+        print(f"  CPU核心数: {cpu_count if cpu_count is not None else '未知'}")
+        if cpu_percent is not None:
+            print(f"  CPU使用率: {cpu_percent}%")
+            if cpu_percent > 90:
+                self.log_error(f"✗ CPU使用率过高: {cpu_percent}%")
+            elif cpu_percent > 80:
+                self.log_warning(f"⚠️ CPU使用率较高: {cpu_percent}%")
+            else:
+                self.log_success(f"✓ CPU使用率正常: {cpu_percent}%")
         else:
-            self.log_success(f"✓ CPU使用率正常: {cpu_percent}%")
+            print("  CPU使用率: 未知")
+            self.log_warning("⚠️ 无法计算CPU使用率")
+        
+        try:
+            load_avg = os.getloadavg()
+            resources['load_average'] = load_avg
+            print("\n=== 系统平均负载 ===")
+            print(f"  1分钟: {load_avg[0]:.2f}")
+            print(f"  5分钟: {load_avg[1]:.2f}")
+            print(f"  15分钟: {load_avg[2]:.2f}")
+        except (AttributeError, OSError):
+            resources['load_average'] = None
         
         return resources
     
