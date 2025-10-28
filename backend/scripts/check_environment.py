@@ -69,7 +69,7 @@ def check_database_connection():
     print("\n🗄️ 检查数据库连接...")
     
     # 检查环境变量
-    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm')
+    database_url = os.getenv('DATABASE_URL', 'mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm?charset=utf8mb4')
     print(f"   数据库URL: {database_url}")
     
     # 强制使用MySQL，不再支持PostgreSQL
@@ -96,7 +96,9 @@ def check_mysql_connection(database_url):
             port=parsed.port or 3306,
             user=parsed.username,
             password=parsed.password,
-            database=parsed.path[1:]  # 移除开头的 '/'
+            database=parsed.path[1:],  # 移除开头的 '/'
+            charset='utf8mb4',
+            use_unicode=True,
         )
         conn.close()
         print("   ✅ MySQL连接成功")
