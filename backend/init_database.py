@@ -24,7 +24,7 @@ def init_database_simple():
         from dotenv import load_dotenv
         load_dotenv(Path(__file__).parent.parent / ".env.local")
         
-        raw_database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
+        raw_database_url = os.getenv("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm?charset=utf8mb4")
         database_url_obj = prepare_sqlalchemy_mysql_url(raw_database_url)
         print(f"📊 数据库URL: {database_url_obj.render_as_string(hide_password=True)}")
         

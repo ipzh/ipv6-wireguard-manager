@@ -3115,7 +3115,8 @@ initialize_database() {
     # 设置数据库环境变量 - 以基础 mysql:// 提供，应用层自动选择异步驱动
     # 对密码进行URL编码，避免特殊字符导致的编码问题
     DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
+    # 添加 charset=utf8mb4 参数确保正确的字符编码
+    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
     
@@ -3141,48 +3142,72 @@ initialize_database() {
     
     if ! python -c "
 import os
+import sys
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from pathlib import Path
+
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
+sys.path.insert(0, str(Path.cwd() / 'backend'))
+
+from app.core.database_url_utils import prepare_sqlalchemy_mysql_url, ensure_mysql_connect_args
+
+
 async def check_connection():
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        raise RuntimeError('DATABASE_URL environment variable not set')
+
+    url_obj = prepare_sqlalchemy_mysql_url(db_url)
+
+    drivername = (url_obj.drivername or '').lower()
+    if drivername.startswith('mysql') and '+aiomysql' not in drivername:
+        async_url_obj = url_obj.set(drivername='mysql+aiomysql')
+    else:
+        async_url_obj = url_obj
+
+    engine = None
     try:
-        # 获取数据库URL并确保使用正确的异步驱动
-        db_url = os.environ.get('DATABASE_URL')
-        # 规范为 aiomysql 异步驱动
-        if db_url.startswith('mysql://'):
-            async_db_url = db_url.replace('mysql://', 'mysql+aiomysql://', 1)
-        elif db_url.startswith('mysql+pymysql://'):
-            async_db_url = db_url.replace('mysql+pymysql://', 'mysql+aiomysql://', 1)
-        else:
-            async_db_url = db_url
-            
-        # 使用异步引擎检查连接
-        engine = create_async_engine(async_db_url)
+        engine = create_async_engine(
+            async_url_obj.render_as_string(hide_password=False),
+            connect_args=ensure_mysql_connect_args(),
+        )
         async with engine.begin() as conn:
-            result = await conn.execute(text('SELECT 1'))
-            print('Database connection successful')
-        await engine.dispose()
+            await conn.execute(text('SELECT 1'))
+        print('Database connection successful')
         return True
     except Exception as e:
         print(f'Database connection failed: {e}')
-        # 尝试使用pymysql同步驱动作为备用
         try:
             print('Trying with pymysql driver...')
             from sqlalchemy import create_engine
-            sync_url = db_url.replace('mysql://', 'mysql+pymysql://', 1) if db_url and db_url.startswith('mysql://') else db_url
-            engine = create_engine(sync_url)
-            with engine.connect() as conn:
-                result = conn.execute(text('SELECT 1'))
-                print('Database connection successful with pymysql')
+
+            sync_drivername = (url_obj.drivername or '').lower()
+            if sync_drivername.startswith('mysql') and '+pymysql' not in sync_drivername:
+                sync_url_obj = url_obj.set(drivername='mysql+pymysql')
+            else:
+                sync_url_obj = url_obj
+
+            sync_engine = create_engine(
+                sync_url_obj.render_as_string(hide_password=False),
+                connect_args=ensure_mysql_connect_args(),
+            )
+            with sync_engine.connect() as conn:
+                conn.execute(text('SELECT 1'))
+            sync_engine.dispose()
+            print('Database connection successful with pymysql')
             return True
         except Exception as e2:
             print(f'All connection attempts failed: {e2}')
             return False
+    finally:
+        if engine is not None:
+            await engine.dispose()
 
-# 运行异步检查
+
 success = asyncio.run(check_connection())
-exit(0 if success else 1)
+sys.exit(0 if success else 1)
 " 2>/dev/null; then
         log_error "数据库连接失败，请检查MySQL配置和用户权限"
         log_error "安装终止，需要有效的MySQL数据库连接"
@@ -3233,27 +3258,19 @@ if backend_path.exists():
 
 def init_database_simple():
     """简化的数据库初始化"""
+    engine = None
     try:
         print("🔧 开始数据库初始化...")
         
-        # 读取环境变量
-        database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm")
-        print(f"📊 数据库URL: {database_url}")
+        # 导入数据库URL工具
+        from app.core.database_url_utils import prepare_sqlalchemy_mysql_url, ensure_mysql_connect_args
         
-        # 确保数据库URL使用正确的编码
-        import urllib.parse
-        if "://" in database_url and "@" in database_url:
-            # 解析URL并重新编码用户名和密码
-            try:
-                parsed = urllib.parse.urlparse(database_url)
-                if parsed.username and parsed.password:
-                    # 对用户名和密码进行URL编码
-                    username_encoded = urllib.parse.quote(parsed.username, safe='')
-                    password_encoded = urllib.parse.quote(parsed.password, safe='')
-                    database_url = f"{parsed.scheme}://{username_encoded}:{password_encoded}@{parsed.hostname}:{parsed.port}{parsed.path}"
-                    print(f"🔧 编码后的数据库URL: {database_url}")
-            except Exception as e:
-                print(f"⚠️ URL编码处理失败，使用原始URL: {e}")
+        # 读取环境变量
+        database_url = os.environ.get("DATABASE_URL", "mysql://ipv6wgm:ipv6wgm_password@127.0.0.1:3306/ipv6wgm?charset=utf8mb4")
+        
+        # 使用数据库URL工具确保MySQL编码兼容性并输出脱敏信息
+        url_obj = prepare_sqlalchemy_mysql_url(database_url)
+        print(f"📊 处理后的数据库URL: {url_obj.render_as_string(hide_password=True)}")
         
         # 创建数据库连接
         from sqlalchemy import create_engine, text
@@ -3261,10 +3278,16 @@ def init_database_simple():
         
         Base = declarative_base()
         
-        # 使用同步引擎进行初始化，确保使用pymysql驱动
-        sync_url = database_url.replace("mysql://", "mysql+pymysql://")
-        print(f"🔗 使用驱动: {sync_url}")
-        engine = create_engine(sync_url, echo=True)
+        # 确保使用pymysql驱动
+        if '+' not in url_obj.drivername:
+            url_obj = url_obj.set(drivername=url_obj.drivername + '+pymysql')
+        elif '+aiomysql' in url_obj.drivername:
+            url_obj = url_obj.set(drivername=url_obj.drivername.replace('+aiomysql', '+pymysql'))
+        
+        print(f"🔗 使用驱动: {url_obj.drivername}")
+        
+        # 创建引擎，使用正确的连接参数确保UTF-8编码
+        engine = create_engine(url_obj, echo=True, connect_args=ensure_mysql_connect_args())
         
         print("🔗 测试数据库连接...")
         with engine.connect() as conn:
@@ -3359,6 +3382,9 @@ def init_database_simple():
         import traceback
         traceback.print_exc()
         return False
+    finally:
+        if engine is not None:
+            engine.dispose()
 
 if __name__ == "__main__":
     success = init_database_simple()

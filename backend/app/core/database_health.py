@@ -87,17 +87,22 @@ class DatabaseHealthChecker:
             result["status"] = "driver_missing"
             return result
         
+        engine = None
         try:
-            # 解析数据库URL
-            from urllib.parse import urlparse
-            parsed = urlparse(self.database_url)
+            url_obj = prepare_sqlalchemy_mysql_url(self.database_url)
+            drivername = (url_obj.drivername or "").lower()
+            if drivername.startswith("mysql") and "+pymysql" not in drivername:
+                sync_url_obj = url_obj.set(drivername="mysql+pymysql")
+            else:
+                sync_url_obj = url_obj
+            sync_url_log = sync_url_obj.render_as_string(hide_password=True)
+            logger.info(f"使用MySQL同步驱动检查连接: {sync_url_log}")
             
-            # 强制使用pymysql驱动
-            sync_db_url = self.database_url.replace("mysql://", "mysql+pymysql://")
-            logger.info(f"使用MySQL同步驱动检查连接: {sync_db_url}")
-            
-            # 尝试连接数据库
-            engine = create_engine(sync_db_url, pool_pre_ping=True)
+            engine = create_engine(
+                sync_url_obj,
+                pool_pre_ping=True,
+                connect_args=ensure_mysql_connect_args(),
+            )
             
             with engine.connect() as conn:
                 # 检查基本连接
@@ -158,6 +163,9 @@ class DatabaseHealthChecker:
             result["error"] = f"未知错误: {str(e)}"
             result["status"] = "error"
             logger.error(f"MySQL检查失败: {e}")
+        finally:
+            if engine is not None:
+                engine.dispose()
             
         return result
     
@@ -193,32 +201,38 @@ class DatabaseHealthChecker:
             default_db_url = f"mysql+pymysql://root@localhost:3306/mysql"
             logger.info(f"使用MySQL同步驱动创建数据库: {default_db_url}")
             
-            engine = create_engine(default_db_url)
+            engine = create_engine(
+                default_db_url,
+                connect_args=ensure_mysql_connect_args(),
+            )
             
-            with engine.connect() as conn:
-                # 检查数据库是否存在
-                db_name = parsed.path[1:]  # 移除开头的 '/'
-                
-                try:
-                    result = conn.execute(text("""
-                        SELECT 1 FROM information_schema.schemata 
-                        WHERE schema_name = :db_name
-                    """), {"db_name": db_name})
+            try:
+                with engine.connect() as conn:
+                    # 检查数据库是否存在
+                    db_name = parsed.path[1:]  # 移除开头的 '/'
                     
-                    if not result.fetchone():
-                        # 创建数据库
-                        conn.execute(text(f"CREATE DATABASE {db_name}"))
-                        conn.execute(text(f"USE {db_name}"))
-                        conn.commit()
-                        logger.info(f"数据库 {db_name} 创建成功")
-                        return True
-                    else:
-                        logger.info(f"数据库 {db_name} 已存在")
-                        return True
+                    try:
+                        result = conn.execute(text("""
+                            SELECT 1 FROM information_schema.schemata 
+                            WHERE schema_name = :db_name
+                        """), {"db_name": db_name})
                         
-                except Exception as e:
-                    logger.error(f"检查或创建数据库失败: {e}")
-                    return False
+                        if not result.fetchone():
+                            # 创建数据库
+                            conn.execute(text(f"CREATE DATABASE {db_name}"))
+                            conn.execute(text(f"USE {db_name}"))
+                            conn.commit()
+                            logger.info(f"数据库 {db_name} 创建成功")
+                            return True
+                        else:
+                            logger.info(f"数据库 {db_name} 已存在")
+                            return True
+                            
+                    except Exception as e:
+                        logger.error(f"检查或创建数据库失败: {e}")
+                        return False
+            finally:
+                engine.dispose()
                 
         except Exception as e:
             logger.error(f"连接到MySQL服务器失败: {e}")
