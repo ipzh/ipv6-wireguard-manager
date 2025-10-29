@@ -3534,7 +3534,7 @@ StartLimitInterval=60
 StartLimitBurst=3
 
 [Service]
-Type=notify
+Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
