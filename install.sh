@@ -3371,8 +3371,8 @@ def init_database_simple():
         from sqlalchemy.orm import sessionmaker
         from passlib.context import CryptContext
         
-        # 密码加密
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        # 密码加密（使用 pbkdf2_sha256，避免 bcrypt 后端/长度限制问题）
+        pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
         
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         
