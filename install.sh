@@ -531,22 +531,39 @@ detect_system() {
         log_warning "⚠️  磁盘空间不足10GB，可能影响安装"
     fi
     
-    # 检测IPv6支持
-    if command -v ping6 &> /dev/null; then
-        if ping6 -c 1 2001:4860:4860::8888 &> /dev/null 2>&1; then
+    # 检测IPv6支持 - 改进检测逻辑
+    # 1. 检查是否有IPv6地址（优先检查::1，因为需要本地连接）
+    # 2. 如果无法ping通外部，但本地有IPv6地址，也认为支持IPv6
+    IPV6_SUPPORT=false
+    if command -v ip >/dev/null 2>&1; then
+        # 检查lo接口是否有::1地址（最可靠的方法）
+        if ip -6 addr show lo 2>/dev/null | grep -q "inet6.*::1"; then
             IPV6_SUPPORT=true
-        else
-            IPV6_SUPPORT=false
-        fi
-    elif command -v ping &> /dev/null; then
-        if ping -6 -c 1 2001:4860:4860::8888 &> /dev/null 2>&1; then
+            log_info "检测到本地IPv6地址（::1），启用IPv6支持"
+        # 检查是否有其他IPv6地址（排除本地链路地址）
+        elif ip -6 addr show 2>/dev/null | grep "inet6" | grep -v "fe80::" | grep -v "::1" | grep -q "inet6"; then
             IPV6_SUPPORT=true
-        else
-            IPV6_SUPPORT=false
+            log_info "检测到IPv6地址，启用IPv6支持"
         fi
-    else
-        log_warning "无法检测IPv6支持"
-        IPV6_SUPPORT=false
+    fi
+    
+    # 如果上述方法都没检测到，尝试连接性测试（备选方案）
+    if [[ "$IPV6_SUPPORT" == "false" ]]; then
+        if command -v ping6 &> /dev/null; then
+            if ping6 -c 1 -W 2 2001:4860:4860::8888 &> /dev/null 2>&1; then
+                IPV6_SUPPORT=true
+                log_info "IPv6连接性测试成功，启用IPv6支持"
+            fi
+        elif command -v ping &> /dev/null; then
+            if ping -6 -c 1 -W 2 2001:4860:4860::8888 &> /dev/null 2>&1; then
+                IPV6_SUPPORT=true
+                log_info "IPv6连接性测试成功，启用IPv6支持"
+            fi
+        fi
+    fi
+    
+    if [[ "$IPV6_SUPPORT" == "false" ]]; then
+        log_info "未检测到IPv6支持，将仅使用IPv4"
     fi
     
     log_success "系统信息检测完成:"
@@ -2150,21 +2167,24 @@ configure_nginx() {
     # 创建Nginx配置
     # IPv6与IPv4上游行（根据IPV6_SUPPORT条件渲染）
     local backend_ipv6_line=""
+    local backend_ipv4_line=""
+    
     if [[ "${IPV6_SUPPORT}" == "true" ]]; then
+        # IPv6可用：IPv6作为主服务器，IPv4作为backup
         backend_ipv6_line="    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;"
-        log_info "使用IPv6上游服务器地址: [::1]:${API_PORT}"
+        backend_ipv4_line="    server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
+        log_info "使用IPv6上游服务器地址: [::1]:${API_PORT} (IPv4作为backup)"
     else
-        log_info "未启用IPv6或不可用，跳过IPv6上游配置"
+        # IPv6不可用：IPv4作为主服务器（不是backup）
+        backend_ipv4_line="    server 127.0.0.1:${API_PORT} max_fails=3 fail_timeout=30s;"
+        log_info "使用IPv4上游服务器地址: 127.0.0.1:${API_PORT}"
     fi
-    # IPv4备选固定为127.0.0.1，避免 ::1 在仅IPv4 环境下失败
-    local backend_ipv4_line="    server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
 
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
 $( [[ -n "$backend_ipv6_line" ]] && echo "$backend_ipv6_line" )
-    # IPv4作为备选
-$backend_ipv4_line
+$( [[ -n "$backend_ipv4_line" ]] && echo "$backend_ipv4_line" )
     
     # 健康检查
     keepalive 32;
@@ -2340,9 +2360,10 @@ EOF
         log_success "Nginx配置完成 (配置路径: $nginx_conf_path)"
         log_info "使用的PHP-FPM socket: $php_fpm_socket"
         if [[ "${IPV6_SUPPORT}" == "true" ]]; then
-            log_info "IPv6上游服务器地址: [::1]:${API_PORT}"
+            log_info "IPv6上游服务器地址: [::1]:${API_PORT} (主服务器)"
+            log_info "IPv4上游服务器地址: 127.0.0.1:${API_PORT} (backup)"
         else
-            log_info "IPv6上游服务器地址: 已禁用"
+            log_info "IPv4上游服务器地址: 127.0.0.1:${API_PORT} (主服务器)"
         fi
     else
         log_error "Nginx配置错误"
