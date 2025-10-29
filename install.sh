@@ -1673,27 +1673,86 @@ configure_database() {
             ;;
     esac
     
-    # 创建数据库和用户（根据数据库类型选择兼容语法）
-    mysql -u root -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    DB_SERVER_VERSION=$(mysql -V 2>/dev/null || true)
-    if echo "$DB_SERVER_VERSION" | grep -qi "mariadb"; then
-        # MariaDB: 使用 IDENTIFIED BY 语法
-        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" || \
-        mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';"
-        # 追加为127.0.0.1主机的账户，确保TCP访问
-        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';" || \
-        mysql -u root -e "ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';"
-    else
-        # MySQL: 使用 mysql_native_password 明确插件
-        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || \
-        mysql -u root -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
-        # 追加为127.0.0.1主机的账户，确保TCP访问
-        mysql -u root -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || \
-        mysql -u root -e "ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+    # 检查MySQL root用户是否需要密码
+    log_info "检查数据库服务状态..."
+    if ! mysql -u root -e "SELECT 1;" 2>/dev/null; then
+        log_warning "MySQL root用户需要密码，尝试无密码连接..."
+        # 尝试无密码连接
+        if ! mysql -u root -e "SELECT 1;" 2>/dev/null; then
+            log_error "无法连接到MySQL，请检查MySQL服务状态和root密码"
+            log_info "请手动设置MySQL root密码后重试："
+            log_info "sudo mysql_secure_installation"
+            exit 1
+        fi
     fi
-    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
-    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';"
-    mysql -u root -e "FLUSH PRIVILEGES;"
+    
+    # 创建数据库和用户（根据数据库类型选择兼容语法）
+    log_info "创建数据库: ${DB_NAME}"
+    mysql -u root -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" || {
+        log_error "数据库创建失败"
+        exit 1
+    }
+    
+    DB_SERVER_VERSION=$(mysql -V 2>/dev/null || true)
+    log_info "数据库服务器版本: $DB_SERVER_VERSION"
+    
+    # 删除可能存在的旧用户
+    mysql -u root -e "DROP USER IF EXISTS '${DB_USER}'@'localhost';" 2>/dev/null || true
+    mysql -u root -e "DROP USER IF EXISTS '${DB_USER}'@'127.0.0.1';" 2>/dev/null || true
+    
+    if echo "$DB_SERVER_VERSION" | grep -qi "mariadb"; then
+        log_info "检测到MariaDB，使用MariaDB语法创建用户"
+        # MariaDB: 使用 IDENTIFIED BY 语法
+        mysql -u root -e "CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';" || {
+            log_error "创建用户失败 (localhost)"
+            exit 1
+        }
+        mysql -u root -e "CREATE USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';" || {
+            log_error "创建用户失败 (127.0.0.1)"
+            exit 1
+        }
+    else
+        log_info "检测到MySQL，使用MySQL语法创建用户"
+        # MySQL: 使用 mysql_native_password 明确插件
+        mysql -u root -e "CREATE USER '${DB_USER}'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || {
+            log_error "创建用户失败 (localhost)"
+            exit 1
+        }
+        mysql -u root -e "CREATE USER '${DB_USER}'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';" || {
+            log_error "创建用户失败 (127.0.0.1)"
+            exit 1
+        }
+    fi
+    
+    # 授予权限
+    log_info "授予数据库权限..."
+    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';" || {
+        log_error "权限授予失败 (localhost)"
+        exit 1
+    }
+    mysql -u root -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';" || {
+        log_error "权限授予失败 (127.0.0.1)"
+        exit 1
+    }
+    mysql -u root -e "FLUSH PRIVILEGES;" || {
+        log_error "权限刷新失败"
+        exit 1
+    }
+    
+    # 测试用户连接
+    log_info "测试数据库用户连接..."
+    if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -h localhost -e "SELECT 1;" 2>/dev/null; then
+        log_success "数据库用户连接测试成功 (localhost)"
+    else
+        log_warning "localhost连接测试失败，尝试127.0.0.1..."
+        if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -h 127.0.0.1 -e "SELECT 1;" 2>/dev/null; then
+            log_success "数据库用户连接测试成功 (127.0.0.1)"
+        else
+            log_error "数据库用户连接测试失败"
+            log_info "请检查用户创建和权限设置"
+            exit 1
+        fi
+    fi
     
     # 确保数据库用户权限立即生效
     mysql -u root -e "FLUSH PRIVILEGES;"
@@ -3112,11 +3171,12 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    # 设置数据库环境变量 - 以基础 mysql:// 提供，应用层自动选择异步驱动
+    # 设置数据库环境变量 - 使用127.0.0.1而不是localhost避免解析问题
     # 对密码进行URL编码，避免特殊字符导致的编码问题
     DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
     # 添加 charset=utf8mb4 参数确保正确的字符编码
     export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
+    log_info "数据库连接URL: mysql://${DB_USER}:***@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
     
@@ -3140,77 +3200,17 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    if ! python -c "
-import os
-import sys
-import asyncio
-from pathlib import Path
-
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-
-sys.path.insert(0, str(Path.cwd() / 'backend'))
-
-from app.core.database_url_utils import prepare_sqlalchemy_mysql_url, ensure_mysql_connect_args
-
-
-async def check_connection():
-    db_url = os.environ.get('DATABASE_URL')
-    if not db_url:
-        raise RuntimeError('DATABASE_URL environment variable not set')
-
-    url_obj = prepare_sqlalchemy_mysql_url(db_url)
-
-    drivername = (url_obj.drivername or '').lower()
-    if drivername.startswith('mysql') and '+aiomysql' not in drivername:
-        async_url_obj = url_obj.set(drivername='mysql+aiomysql')
-    else:
-        async_url_obj = url_obj
-
-    engine = None
-    try:
-        engine = create_async_engine(
-            async_url_obj.render_as_string(hide_password=False),
-            connect_args=ensure_mysql_connect_args(),
-        )
-        async with engine.begin() as conn:
-            await conn.execute(text('SELECT 1'))
-        print('Database connection successful')
-        return True
-    except Exception as e:
-        print(f'Database connection failed: {e}')
-        try:
-            print('Trying with pymysql driver...')
-            from sqlalchemy import create_engine
-
-            sync_drivername = (url_obj.drivername or '').lower()
-            if sync_drivername.startswith('mysql') and '+pymysql' not in sync_drivername:
-                sync_url_obj = url_obj.set(drivername='mysql+pymysql')
-            else:
-                sync_url_obj = url_obj
-
-            sync_engine = create_engine(
-                sync_url_obj.render_as_string(hide_password=False),
-                connect_args=ensure_mysql_connect_args(),
-            )
-            with sync_engine.connect() as conn:
-                conn.execute(text('SELECT 1'))
-            sync_engine.dispose()
-            print('Database connection successful with pymysql')
-            return True
-        except Exception as e2:
-            print(f'All connection attempts failed: {e2}')
-            return False
-    finally:
-        if engine is not None:
-            await engine.dispose()
-
-
-success = asyncio.run(check_connection())
-sys.exit(0 if success else 1)
-" 2>/dev/null; then
+    # 使用简单的mysql命令测试连接，避免复杂的Python依赖
+    if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -h 127.0.0.1 -e "SELECT 1;" 2>/dev/null; then
+        log_success "数据库连接测试成功"
+    else
         log_error "数据库连接失败，请检查MySQL配置和用户权限"
-        log_error "安装终止，需要有效的MySQL数据库连接"
+        log_info "尝试手动连接测试："
+        log_info "mysql -u ${DB_USER} -p -h 127.0.0.1"
+        log_info "如果连接失败，请检查："
+        log_info "1. MySQL服务是否运行: systemctl status mysql"
+        log_info "2. 用户是否存在: mysql -u root -e \"SELECT User,Host FROM mysql.user WHERE User='${DB_USER}';\""
+        log_info "3. 用户权限: mysql -u root -e \"SHOW GRANTS FOR '${DB_USER}'@'127.0.0.1';\""
         exit 1
     fi
     
