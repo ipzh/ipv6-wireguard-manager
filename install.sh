@@ -2929,15 +2929,19 @@ create_env_config() {
         exit 1
     fi
     
-    # 生成数据库强密码（16位）
-    local database_password=$(generate_secure_password 16 | tail -n 1)
-    if [[ -z "$database_password" || ${#database_password} -lt 12 ]]; then
-        log_error "数据库密码生成失败"
-        exit 1
+    # 数据库密码：如果前面已用于创建DB账户，则复用，避免与账户不一致
+    local database_password=""
+    if [[ -n "${DB_PASSWORD:-}" ]]; then
+        database_password="$DB_PASSWORD"
+        log_info "复用已生成的数据库密码"
+    else
+        database_password=$(generate_secure_password 16 | tail -n 1)
+        if [[ -z "$database_password" || ${#database_password} -lt 12 ]]; then
+            log_error "数据库密码生成失败"
+            exit 1
+        fi
+        DB_PASSWORD="$database_password"
     fi
-    
-    # 更新全局变量
-    DB_PASSWORD="$database_password"
     DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
     if [[ -z "$DB_PASSWORD_ENCODED" ]]; then
         DB_PASSWORD_ENCODED="$DB_PASSWORD"
