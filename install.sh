@@ -292,38 +292,26 @@ generate_secure_password() {
     local attempts=0
     local max_attempts=10
     
-    # 密码强度要求
-    local has_upper=false
-    local has_lower=false
-    local has_digit=false
-    local has_special=false
-    
+    # 仅要求包含大写/小写/数字，避免对"特殊字符"强制要求（兼容URL/数据库）
     while [[ $attempts -lt $max_attempts ]]; do
-        # 使用openssl生成随机密码，避免特殊字符以避免数据库连接问题
-        password=$(openssl rand -base64 32 | tr -d '=+/!@#$%^&*()[]{}|;:'"'"'",.<>?~`' | cut -c1-$length)
+        # 生成候选密码（剔除易引起转义/URL问题的字符）
+        password=$(openssl rand -base64 48 | tr -cd 'A-Za-z0-9._-' | head -c $length)
         
-        # 验证密码强度
-        if [[ "$password" =~ [A-Z] ]]; then has_upper=true; fi
-        if [[ "$password" =~ [a-z] ]]; then has_lower=true; fi
-        if [[ "$password" =~ [0-9] ]]; then has_digit=true; fi
-        if [[ "$password" =~ [^A-Za-z0-9] ]]; then has_special=true; fi
-        
-        # 如果密码强度满足要求，返回
-        if [[ "$has_upper" == true && "$has_lower" == true && "$has_digit" == true && "$has_special" == true ]]; then
-            log_success "生成强密码成功（长度: ${#password}）"
+        # 强度校验
+        if [[ "$password" =~ [A-Z] ]] && [[ "$password" =~ [a-z] ]] && [[ "$password" =~ [0-9] ]]; then
+            # 将日志输出到stderr，确保stdout仅输出密码
+            log_success "生成强密码成功（长度: ${#password}）" 1>&2
             echo "$password"
             return 0
         fi
-        
         ((attempts++))
     done
     
-    # 如果无法生成强密码，使用备用方法
-    log_warning "无法生成强密码，使用备用方法"
-    password=$(openssl rand -hex 16 | cut -c1-$length)
-    # 确保密码不为空且长度正确
+    # 备用方法（十六进制+混合），并同样仅向stdout输出密码
+    log_warning "无法生成强密码，使用备用方法" 1>&2
+    password=$(openssl rand -hex 32 | head -c $length)
     if [[ -z "$password" || ${#password} -lt $length ]]; then
-        password=$(openssl rand -base64 32 | tr -d '=+/!@#$%^&*()[]{}|;:'"'"'",.<>?~`' | cut -c1-$length)
+        password=$(date +%s%N | sha256sum | tr -d ' -' | head -c $length)
     fi
     echo "$password"
     return 0
@@ -1060,7 +1048,7 @@ set_defaults() {
     fi
     
     if [[ -z "${DB_PASSWORD:-}" ]]; then
-        DB_PASSWORD=$(generate_secure_password 16)
+        DB_PASSWORD=$(generate_secure_password 16 | tail -n 1)
         # 确保密码生成成功
         if [[ -z "$DB_PASSWORD" || ${#DB_PASSWORD} -lt 12 ]]; then
             log_error "数据库密码生成失败，使用默认密码"
@@ -2935,14 +2923,14 @@ create_env_config() {
     fi
     
     # 生成强随机密码（20位）
-    local admin_password=$(generate_secure_password 20)
+    local admin_password=$(generate_secure_password 20 | tail -n 1)
     if [[ -z "$admin_password" || ${#admin_password} -lt 12 ]]; then
         log_error "管理员密码生成失败"
         exit 1
     fi
     
     # 生成数据库强密码（16位）
-    local database_password=$(generate_secure_password 16)
+    local database_password=$(generate_secure_password 16 | tail -n 1)
     if [[ -z "$database_password" || ${#database_password} -lt 12 ]]; then
         log_error "数据库密码生成失败"
         exit 1
