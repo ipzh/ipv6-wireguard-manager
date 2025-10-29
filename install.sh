@@ -3539,6 +3539,7 @@ User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin
+Environment=PYTHONPATH=$INSTALL_DIR
 EnvironmentFile=$INSTALL_DIR/.env
 ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers $worker_count --access-log --log-level info
 ExecReload=/bin/kill -HUP \$MAINPID
