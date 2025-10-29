@@ -3559,9 +3559,9 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=$INSTALL_DIR
 
-# 健康检查
+# 健康检查：IPv6/IPv4 兼容
 ExecStartPost=/bin/sleep 5
-ExecStartPost=/bin/bash -c 'curl -f http://${SERVER_HOST}:$API_PORT/api/v1/health || exit 1'
+ExecStartPost=/bin/bash -c 'curl -f http://[::1]:$API_PORT/api/v1/health || curl -f http://127.0.0.1:$API_PORT/api/v1/health || exit 1'
 
 [Install]
 WantedBy=multi-user.target
