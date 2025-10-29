@@ -219,7 +219,7 @@ detect_python_version() {
     log_info "🔍 检测Python版本..."
     
     # 检测已安装的Python版本
-    for version in 3.11 3.10 3.9 3.8; do
+    for version in 3.12 3.11 3.10 3.9 3.8; do
         if command -v python$version &>/dev/null; then
             PYTHON_VERSION=$version
             log_success "检测到已安装的Python版本: $PYTHON_VERSION"
@@ -231,6 +231,17 @@ detect_python_version() {
     if command -v python3 &>/dev/null; then
         PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
         log_success "检测到Python3版本: $PYTHON_VERSION"
+        # 避免使用3.13，优先回退到3.12/3.11 以获得更好的依赖兼容性
+        if [[ "$PYTHON_VERSION" == "3.13" ]]; then
+            log_warning "检测到Python 3.13，部分依赖尚无预编译轮子，尝试使用3.12/3.11"
+            for version in 3.12 3.11; do
+                if command -v python$version &>/dev/null; then
+                    PYTHON_VERSION=$version
+                    log_success "切换到更兼容的Python版本: $PYTHON_VERSION"
+                    return 0
+                fi
+            done
+        fi
         return 0
     fi
     
@@ -239,7 +250,7 @@ detect_python_version() {
         "apt")
             # 检测可用的Python版本
             local available_versions=()
-            for version in 3.11 3.10 3.9 3.8; do
+            for version in 3.12 3.11 3.10 3.9 3.8; do
                 if apt-cache show python$version &>/dev/null; then
                     available_versions+=($version)
                 fi
