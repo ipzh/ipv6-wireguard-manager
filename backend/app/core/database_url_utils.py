@@ -131,12 +131,45 @@ def ensure_mysql_url_compat(database_url: str) -> str:
 
 
 def ensure_mysql_connect_args(connect_args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Merge default MySQL connection arguments with the provided mapping."""
+    """Merge default MySQL connection arguments with the provided mapping.
+
+    Note: This function does not inspect the DATABASE_URL. If you need to
+    derive options like unix_socket from the URL, use
+    :func:`get_mysql_connect_args_from_url`.
+    """
 
     merged: Dict[str, Any] = dict(connect_args or {})
     merged.setdefault("charset", MYSQL_CHARSET)
     merged.setdefault("use_unicode", True)
     return merged
+
+
+def get_mysql_connect_args_from_url(database_url: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Return driver connect_args derived from a MySQL SQLAlchemy URL string.
+
+    - Preserves existing connect_args from ``extra``
+    - Ensures ``charset=utf8mb4`` and ``use_unicode=True``
+    - If the URL query contains ``unix_socket=...``, propagates it to connect_args
+    """
+
+    args = dict(extra or {})
+    args.setdefault("charset", MYSQL_CHARSET)
+    args.setdefault("use_unicode", True)
+
+    if not database_url:
+        return args
+
+    parsed = urlparse(database_url if isinstance(database_url, str) else str(database_url))
+    if not _is_mysql_scheme(parsed.scheme):
+        return args
+
+    query_pairs = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    # sqlalchemy+pymysql supports passing unix_socket in connect_args
+    unix_socket = query_pairs.get("unix_socket") or query_pairs.get("unix-socket")
+    if unix_socket:
+        args.setdefault("unix_socket", unix_socket)
+
+    return args
 
 
 def get_mysql_driver_password(password: str) -> str:
@@ -173,6 +206,7 @@ def prepare_sqlalchemy_mysql_url(database_url: str):
 __all__ = [
     "MYSQL_CHARSET",
     "ensure_mysql_connect_args",
+    "get_mysql_connect_args_from_url",
     "ensure_mysql_url_compat",
     "get_mysql_driver_password",
     "prepare_sqlalchemy_mysql_url",

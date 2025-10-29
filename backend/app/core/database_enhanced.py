@@ -16,7 +16,11 @@ from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict, deque
 
-from .database_url_utils import ensure_mysql_connect_args, prepare_sqlalchemy_mysql_url
+from .database_url_utils import (
+    ensure_mysql_connect_args,
+    get_mysql_connect_args_from_url,
+    prepare_sqlalchemy_mysql_url,
+)
 from .unified_config import settings
 
 logger = logging.getLogger(__name__)
@@ -351,7 +355,7 @@ else:
                 pool_pre_ping=True,  # 连接前ping检查
                 echo=False,  # 不打印SQL语句
                 future=True,
-                connect_args=ensure_mysql_connect_args(),
+                connect_args=get_mysql_connect_args_from_url(async_db_url.render_as_string(hide_password=False)),
             )
             logger.info("MySQL异步引擎创建成功")
         else:
