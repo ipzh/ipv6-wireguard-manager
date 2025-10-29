@@ -3534,14 +3534,14 @@ StartLimitInterval=60
 StartLimitBurst=3
 
 [Service]
-Type=simple
+Type=notify
 User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
-Environment=PATH=$INSTALL_DIR/venv/bin
-Environment=PYTHONPATH=$INSTALL_DIR
+Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=$INSTALL_DIR"
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host ${SERVER_HOST} --port $API_PORT --workers $worker_count --access-log --log-level info
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn backend.app.main:app --host "::" --port $API_PORT --workers $worker_count --access-log --log-level info
 ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=10
@@ -3549,20 +3549,17 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=ipv6-wireguard-manager
 
-# 资源限制
+# Resource Limits
 LimitNOFILE=65536
 LimitNPROC=32768
+MemoryMax=$memory_limit
 
-# 安全设置
+# Security Settings
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=$INSTALL_DIR
-
-# Health check: IPv6/IPv4 compatible (use which/command to check if curl exists)
-ExecStartPost=/bin/sleep 5
-ExecStartPost=/bin/bash -c 'if command -v curl >/dev/null 2>&1; then curl -f http://[::1]:$API_PORT/api/v1/health || curl -f http://127.0.0.1:$API_PORT/api/v1/health || true; fi'
 
 [Install]
 WantedBy=multi-user.target
