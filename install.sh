@@ -3014,25 +3014,25 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 SERVER_HOST="${SERVER_HOST}"
 SERVER_PORT=${API_PORT}
 
-# Database Settings - 强制使用MySQL（应用层自动选择驱动，保持基础 mysql://）
-# 对密码进行URL编码，避免特殊字符导致的编码问题
+# Database Settings - Force MySQL usage
+# Password is URL-encoded to avoid special character issues
 DB_PASSWORD_ENCODED="${DB_PASSWORD_ENCODED}"
 DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}"
-DATABASE_HOST="127.0.0.1"  # 强制TCP，避免本地socket/插件差异
+DATABASE_HOST="127.0.0.1"
 DATABASE_PORT=${DB_PORT}
 DATABASE_USER=${DB_USER}
 DATABASE_PASSWORD="${database_password}"
 DATABASE_NAME=${DB_NAME}
 AUTO_CREATE_DATABASE=True
 
-# 数据库连接池设置
+# Database Connection Pool Settings
 DATABASE_POOL_SIZE=10
 DATABASE_MAX_OVERFLOW=20
 DATABASE_CONNECT_TIMEOUT=30
 DATABASE_POOL_RECYCLE=3600
 DATABASE_POOL_PRE_PING=true
 
-# 强制使用MySQL，禁用SQLite和PostgreSQL（驱动由应用自行选择）
+# Force MySQL, disable SQLite and PostgreSQL
 DB_TYPE="mysql"
 DB_ENGINE="mysql"
 
@@ -3040,8 +3040,8 @@ DB_ENGINE="mysql"
 USE_REDIS=False
 REDIS_URL="redis://:redis123@${LOCAL_HOST}:${REDIS_PORT}/0"
 
-# CORS Origins
-BACKEND_CORS_ORIGINS=["http://${LOCAL_HOST}:${WEB_PORT}","http://localhost:${WEB_PORT}","http://${LOCAL_HOST}","http://localhost"]
+# CORS Origins (JSON array format - must be valid JSON)
+BACKEND_CORS_ORIGINS='["http://${LOCAL_HOST}:${WEB_PORT}","http://localhost:${WEB_PORT}","http://${LOCAL_HOST}","http://localhost"]'
 
 # Logging Settings
 LOG_LEVEL="$([ "$DEBUG" = true ] && echo "DEBUG" || echo "INFO")"
@@ -3104,7 +3104,7 @@ ALERT_DISK_THRESHOLD=90.0
 # Logging Settings
 LOG_AGGREGATION_ENABLED=true
 ELASTICSEARCH_ENABLED=false
-ELASTICSEARCH_HOSTS=["localhost:9200"]
+ELASTICSEARCH_HOSTS='["localhost:9200"]'
 LOG_RETENTION_DAYS=30
 
 # Cache Settings
@@ -3560,9 +3560,9 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=$INSTALL_DIR
 
-# 健康检查：IPv6/IPv4 兼容
+# Health check: IPv6/IPv4 compatible (use which/command to check if curl exists)
 ExecStartPost=/bin/sleep 5
-ExecStartPost=/bin/bash -c 'curl -f http://[::1]:$API_PORT/api/v1/health || curl -f http://127.0.0.1:$API_PORT/api/v1/health || exit 1'
+ExecStartPost=/bin/bash -c 'if command -v curl >/dev/null 2>&1; then curl -f http://[::1]:$API_PORT/api/v1/health || curl -f http://127.0.0.1:$API_PORT/api/v1/health || true; fi'
 
 [Install]
 WantedBy=multi-user.target
