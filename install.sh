@@ -3591,15 +3591,29 @@ EOF
 install_cli_tool() {
     log_info "安装CLI管理工具..."
     
-    # 复制CLI工具到系统路径
-    cp "$INSTALL_DIR/ipv6-wireguard-manager" "/usr/local/bin/"
+    # 兼容多种CLI来源：优先使用安装目录中的 cli/ipv6-wireguard-manager.py
+    local cli_source=""
+    if [[ -f "$INSTALL_DIR/cli/ipv6-wireguard-manager.py" ]]; then
+        cli_source="$INSTALL_DIR/cli/ipv6-wireguard-manager.py"
+    elif [[ -f "$INSTALL_DIR/ipv6-wireguard-manager.py" ]]; then
+        cli_source="$INSTALL_DIR/ipv6-wireguard-manager.py"
+    else
+        log_warning "未找到CLI脚本，跳过安装CLI（预期路径: $INSTALL_DIR/cli/ipv6-wireguard-manager.py 或 $INSTALL_DIR/ipv6-wireguard-manager.py）"
+        return 0
+    fi
+
+    # 创建可执行包装脚本到系统路径
+    cat > "/usr/local/bin/ipv6-wireguard-manager" << EOF
+#!/bin/bash
+exec python3 "$cli_source" "$@"
+EOF
     chmod +x "/usr/local/bin/ipv6-wireguard-manager"
-    
+
     # 创建符号链接（可选）
     ln -sf "/usr/local/bin/ipv6-wireguard-manager" "/usr/bin/ipv6-wireguard-manager" 2>/dev/null || true
     
     log_success "CLI管理工具安装完成"
-    log_info "使用方法: ipv6-wireguard-manager help"
+    log_info "使用方法: ipv6-wireguard-manager --help"
 }
 
 # 创建必要的目录并设置权限
@@ -4240,11 +4254,37 @@ show_installation_complete() {
     echo ""
     log_success "🎉 安装完成！"
     echo ""
-    log_info "访问地址:"
-    log_info "  前端: http://localhost:$WEB_PORT"
-    log_info "  API文档: http://localhost:$API_PORT/docs"
-    log_info "  API健康检查: http://localhost:$API_PORT/api/v1/health"
-    log_info "  API根端点: http://localhost:$API_PORT/"
+    
+    # 获取服务器的 IPv4 和 IPv6 地址
+    local ipv4_addr=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+    local ipv6_addr=$(ip -6 addr show | grep -oP '(?<=inet6\s)[0-9a-f:]+' | grep -v '^::1' | grep -v '^fe80' | head -1)
+    
+    log_info "=========================================="
+    log_info "📡 访问地址:"
+    echo ""
+    
+    if [[ -n "$ipv4_addr" ]]; then
+        log_info "  🌐 IPv4 访问:"
+        log_info "     前端:        http://$ipv4_addr:$WEB_PORT"
+        log_info "     API文档:     http://$ipv4_addr:$API_PORT/docs"
+        log_info "     API健康检查: http://$ipv4_addr:$API_PORT/api/v1/health"
+        echo ""
+    fi
+    
+    if [[ -n "$ipv6_addr" ]]; then
+        log_info "  🌐 IPv6 访问:"
+        log_info "     前端:        http://[$ipv6_addr]:$WEB_PORT"
+        log_info "     API文档:     http://[$ipv6_addr]:$API_PORT/docs"
+        log_info "     API健康检查: http://[$ipv6_addr]:$API_PORT/api/v1/health"
+        echo ""
+    fi
+    
+    log_info "  🏠 本地访问:"
+    log_info "     前端:        http://localhost:$WEB_PORT"
+    log_info "     API文档:     http://localhost:$API_PORT/docs"
+    log_info "     API健康检查: http://localhost:$API_PORT/api/v1/health"
+    echo ""
+    log_info "=========================================="
     echo ""
     
     if [[ "$INSTALL_TYPE" = "docker" ]]; then
