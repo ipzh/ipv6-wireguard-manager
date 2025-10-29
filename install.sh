@@ -3182,11 +3182,12 @@ initialize_database() {
     cd "$INSTALL_DIR"
     source venv/bin/activate
     
-    # 设置数据库环境变量 - 使用127.0.0.1而不是localhost避免解析问题
+    # 设置数据库环境变量 - 优先走127.0.0.1:TCP，如失败则自动回退到unix_socket
     # 对密码进行URL编码，避免特殊字符导致的编码问题
     DB_PASSWORD_ENCODED=$(url_encode "$DB_PASSWORD")
-    # 添加 charset=utf8mb4 参数确保正确的字符编码
-    export DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
+    # 先构造TCP形式
+    local db_url_tcp="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
+    export DATABASE_URL="$db_url_tcp"
     log_info "数据库连接URL: mysql://${DB_USER}:***@127.0.0.1:${DB_PORT}/${DB_NAME}?charset=utf8mb4"
     export DB_TYPE="mysql"
     export DB_ENGINE="mysql"
@@ -3212,17 +3213,40 @@ initialize_database() {
     source venv/bin/activate
     
     # 使用简单的mysql命令测试连接，避免复杂的Python依赖
-    if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -h 127.0.0.1 -e "SELECT 1;" 2>/dev/null; then
-        log_success "数据库连接测试成功"
+    if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -h 127.0.0.1 -P ${DB_PORT} -e "SELECT 1;" 2>/dev/null; then
+        log_success "数据库连接测试成功 (TCP 127.0.0.1:${DB_PORT})"
     else
-        log_error "数据库连接失败，请检查MySQL配置和用户权限"
-        log_info "尝试手动连接测试："
-        log_info "mysql -u ${DB_USER} -p -h 127.0.0.1"
-        log_info "如果连接失败，请检查："
-        log_info "1. MySQL服务是否运行: systemctl status mysql"
-        log_info "2. 用户是否存在: mysql -u root -e \"SELECT User,Host FROM mysql.user WHERE User='${DB_USER}';\""
-        log_info "3. 用户权限: mysql -u root -e \"SHOW GRANTS FOR '${DB_USER}'@'127.0.0.1';\""
-        exit 1
+        log_warning "TCP连接 127.0.0.1:${DB_PORT} 失败，尝试本地unix_socket..."
+        # 尝试socket（不指定 -h）
+        if mysql -u "${DB_USER}" -p"${DB_PASSWORD}" -e "SELECT 1;" 2>/dev/null; then
+            log_success "数据库连接测试成功 (本地unix_socket)"
+            # 常见socket路径
+            local default_socket="/var/run/mysqld/mysqld.sock"
+            if [[ -S "$default_socket" ]]; then
+                local db_url_socket="mysql://${DB_USER}:${DB_PASSWORD_ENCODED}@localhost/${DB_NAME}?unix_socket=${default_socket}&charset=utf8mb4"
+                export DATABASE_URL="$db_url_socket"
+                log_info "切换为unix_socket连接: mysql://${DB_USER}:***@localhost/${DB_NAME}?unix_socket=${default_socket}&charset=utf8mb4"
+                # 同步更新 .env 中的 DATABASE_URL（若存在）
+                if [[ -f "$INSTALL_DIR/.env" ]]; then
+                    if grep -q '^DATABASE_URL=' "$INSTALL_DIR/.env"; then
+                        sed -i "s|^DATABASE_URL=.*$|DATABASE_URL=\"${DATABASE_URL}\"|" "$INSTALL_DIR/.env"
+                    else
+                        echo "DATABASE_URL=\"${DATABASE_URL}\"" >> "$INSTALL_DIR/.env"
+                    fi
+                fi
+            else
+                log_warning "未找到默认unix_socket路径 ${default_socket}，请确认数据库socket路径"
+            fi
+        else
+            log_error "数据库连接失败，请检查MySQL配置和用户权限"
+            log_info "尝试手动连接测试："
+            log_info "mysql -u ${DB_USER} -p -h 127.0.0.1 -P ${DB_PORT}"
+            log_info "如果连接失败，请检查："
+            log_info "1. MySQL服务是否运行: systemctl status mysql"
+            log_info "2. 用户是否存在: mysql -u root -e \"SELECT User,Host FROM mysql.user WHERE User='${DB_USER}';\""
+            log_info "3. 用户权限: mysql -u root -e \"SHOW GRANTS FOR '${DB_USER}'@'127.0.0.1';\""
+            exit 1
+        fi
     fi
     
     # 尝试使用简化的数据库初始化脚本
