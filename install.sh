@@ -2283,11 +2283,12 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
     # PHP文件处理 - 使用动态检测的PHP-FPM socket，放在API处理之后
     location ~ \.php$ {
         try_files \$uri =404;
+        include fastcgi_params;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         fastcgi_pass php_backend;
         fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
         
         # 超时设置
         fastcgi_connect_timeout 60s;
@@ -2302,7 +2303,7 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
     
     # 前端路由处理 - 支持单页应用路由
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
+        try_files \$uri \$uri/ /index.html /index.php?\$query_string;
     }
     
     # 禁止访问敏感文件

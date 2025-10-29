@@ -13,8 +13,8 @@ api_router = APIRouter()
 # 导入各模块路由
 try:
     from .api_v1.api import api_router as v1_router
-    # 包含v1版本路由
-    api_router.include_router(v1_router, prefix="/v1")
+    # 包含v1版本路由（统一挂载到 /api/v1）
+    api_router.include_router(v1_router, prefix="/api/v1")
     logger.info("✅ API v1 路由加载成功")
 except ImportError as e:
     logger.error(f"❌ API v1 路由加载失败: {e}")
