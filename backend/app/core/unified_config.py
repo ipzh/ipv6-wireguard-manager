@@ -290,7 +290,15 @@ class UnifiedSettings(BaseSettings):
         wg_config_path = Path(self.WIREGUARD_CONFIG_DIR)
         if wg_config_path.exists():
             if not os.access(wg_config_path, os.R_OK | os.W_OK):
-                raise PermissionError(f"Cannot access WireGuard config directory: {self.WIREGUARD_CONFIG_DIR}")
+                # 记录警告并降级到临时目录，避免阻断服务启动
+                import logging
+                logging.warning(
+                    f"WireGuard配置目录不可访问(需读写): {self.WIREGUARD_CONFIG_DIR}，将降级使用 /tmp 目录"
+                )
+                self.WIREGUARD_CONFIG_DIR = "/tmp/ipv6-wireguard-config"
+                self.WIREGUARD_CLIENTS_DIR = "/tmp/ipv6-wireguard-clients"
+                Path(self.WIREGUARD_CONFIG_DIR).mkdir(parents=True, exist_ok=True)
+                Path(self.WIREGUARD_CLIENTS_DIR).mkdir(parents=True, exist_ok=True)
     
     def _validate_network_config(self):
         """验证网络配置"""
