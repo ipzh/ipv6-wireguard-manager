@@ -86,9 +86,18 @@ require_once 'controllers/SystemController.php';
 require_once 'controllers/NetworkController.php';
 require_once 'controllers/ErrorController.php';
 
-// 初始化安全增强
-SecurityEnhancer::startSecureSession();
-SecurityEnhancer::setSecurityHeaders();
+// 初始化安全增强 - 使用错误处理
+try {
+    SecurityEnhancer::startSecureSession();
+    SecurityEnhancer::setSecurityHeaders();
+} catch (Exception $e) {
+    // 如果会话启动失败，记录错误但不阻止执行
+    error_log("SecurityEnhancer 初始化失败: " . $e->getMessage());
+    // 尝试基本会话启动
+    if (session_status() === PHP_SESSION_NONE) {
+        @session_start();
+    }
+}
 
 // 初始化错误处理器
 ErrorHandlerJWT::getInstance();
