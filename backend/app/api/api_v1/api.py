@@ -63,7 +63,7 @@ ROUTE_CONFIGS = [
     {
         "module": ".endpoints.health",
         "router_attr": "router",
-        "prefix": "",
+        "prefix": "/health",
         "tags": ['健康检查'],
         "description": "health相关接口"
     }
@@ -73,6 +73,7 @@ def register_routes():
     """注册所有API路由"""
     logger = logging.getLogger(__name__)
     registered_count = 0
+    failed_routes = []
     
     for config in ROUTE_CONFIGS:
         try:
@@ -88,16 +89,27 @@ def register_routes():
             )
             
             registered_count += 1
-            logger.info(f"✅ 成功注册路由: {config['prefix']} - {config['description']}")
+            prefix_display = config["prefix"] if config["prefix"] else "(根路径)"
+            logger.info(f"✅ 成功注册路由: {prefix_display} - {config['description']}")
             
         except ImportError as e:
-            logger.warning(f"⚠️ 模块导入失败 {config['module']}: {e}")
+            error_msg = f"模块导入失败 {config['module']}: {e}"
+            logger.warning(f"⚠️ {error_msg}")
+            failed_routes.append(f"{config['description']}: {error_msg}")
         except AttributeError as e:
-            logger.warning(f"⚠️ 路由器属性未找到 {config['module']}.{config['router_attr']}: {e}")
+            error_msg = f"路由器属性未找到 {config['module']}.{config['router_attr']}: {e}"
+            logger.warning(f"⚠️ {error_msg}")
+            failed_routes.append(f"{config['description']}: {error_msg}")
         except Exception as e:
-            logger.error(f"❌ 注册路由失败 {config['prefix']}: {e}")
+            error_msg = f"注册路由失败 {config['prefix']}: {e}"
+            logger.error(f"❌ {error_msg}", exc_info=True)
+            failed_routes.append(f"{config['description']}: {error_msg}")
     
     logger.info(f"📊 路由注册完成: {registered_count}/{len(ROUTE_CONFIGS)} 个模块成功注册")
+    if failed_routes:
+        logger.warning(f"⚠️ {len(failed_routes)} 个路由注册失败:")
+        for failed in failed_routes:
+            logger.warning(f"  - {failed}")
 
 # 注册所有路由
 register_routes()

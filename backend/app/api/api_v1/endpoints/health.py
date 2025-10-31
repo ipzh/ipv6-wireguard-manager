@@ -4,38 +4,45 @@
 import time
 from fastapi import APIRouter
 from typing import Dict, Any
-from ...core.unified_config import settings
-from ...schemas.common import HealthCheckResponse
+
+try:
+    from ...core.unified_config import settings
+    APP_VERSION = settings.APP_VERSION
+    APP_NAME = "IPv6 WireGuard Manager"
+except ImportError:
+    # 降级方案：如果导入失败，使用默认值
+    APP_VERSION = "3.0.0"
+    APP_NAME = "IPv6 WireGuard Manager"
 
 router = APIRouter()
 
-@router.get("/", response_model=HealthCheckResponse)
-async def health_check() -> HealthCheckResponse:
-    """基础健康检查"""
-    return HealthCheckResponse(
-        status="healthy",
-        service="IPv6 WireGuard Manager",
-        version=settings.APP_VERSION,
-        timestamp=time.time()
-    )
-
-@router.get("/health", response_model=HealthCheckResponse)
-async def health_check_alt() -> HealthCheckResponse:
-    """基础健康检查（备用路径）"""
-    return HealthCheckResponse(
-        status="healthy",
-        service="IPv6 WireGuard Manager",
-        version=settings.APP_VERSION,
-        timestamp=time.time()
-    )
-
-@router.get("/health/detailed", response_model=None)
-async def detailed_health_check() -> Dict[str, Any]:
-    """详细健康检查"""
+@router.get("/")
+async def health_check() -> Dict[str, Any]:
+    """基础健康检查 - 映射到 /api/v1/health"""
     return {
         "status": "healthy",
-        "service": "IPv6 WireGuard Manager",
-        "version": settings.APP_VERSION,
+        "service": APP_NAME,
+        "version": APP_VERSION,
+        "timestamp": time.time()
+    }
+
+@router.get("/alt")
+async def health_check_alt() -> Dict[str, Any]:
+    """基础健康检查（备用路径）- 映射到 /api/v1/health/alt"""
+    return {
+        "status": "healthy",
+        "service": APP_NAME,
+        "version": APP_VERSION,
+        "timestamp": time.time()
+    }
+
+@router.get("/detailed", response_model=None)
+async def detailed_health_check() -> Dict[str, Any]:
+    """详细健康检查 - 映射到 /api/v1/health/detailed"""
+    return {
+        "status": "healthy",
+        "service": APP_NAME,
+        "version": APP_VERSION,
         "components": {
             "database": {"status": "simulated", "message": "Database simulation mode"},
             "cache": {"status": "disabled", "message": "Cache disabled"},
@@ -44,21 +51,21 @@ async def detailed_health_check() -> Dict[str, Any]:
         "timestamp": time.time()
     }
 
-@router.get("/health/readiness", response_model=None)
+@router.get("/readiness", response_model=None)
 async def readiness_check() -> Dict[str, Any]:
-    """就绪检查"""
+    """就绪检查 - 映射到 /api/v1/health/readiness"""
     return {
         "status": "ready",
-        "service": "IPv6 WireGuard Manager",
+        "service": APP_NAME,
         "timestamp": time.time()
     }
 
-@router.get("/health/liveness", response_model=None)
+@router.get("/liveness", response_model=None)
 async def liveness_check() -> Dict[str, Any]:
-    """存活检查"""
+    """存活检查 - 映射到 /api/v1/health/liveness"""
     return {
         "status": "alive",
-        "service": "IPv6 WireGuard Manager",
+        "service": APP_NAME,
         "timestamp": time.time()
     }
 

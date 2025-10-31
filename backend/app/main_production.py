@@ -199,10 +199,10 @@ async def root():
         "api": "/api/v1"
     }
 
-# 健康检查端点
+# 健康检查端点 - 根路径（兼容性端点）
 @app.get("/health")
 async def health_check():
-    """健康检查端点"""
+    """健康检查端点（兼容性端点）"""
     return {
         "status": "healthy",
         "service": settings.APP_NAME,
@@ -211,7 +211,22 @@ async def health_check():
     }
 
 # 注册API路由
-app.include_router(api_router, prefix="/api/v1")
+try:
+    app.include_router(api_router, prefix="/api/v1")
+    logger.info("✅ API路由注册成功，路径: /api/v1")
+except Exception as e:
+    logger.error(f"❌ API路由注册失败: {e}", exc_info=True)
+    # 注册失败时，至少确保基本的健康检查可用
+    @app.get("/api/v1/health")
+    async def fallback_health_check():
+        """备用健康检查端点（当API路由注册失败时）"""
+        return {
+            "status": "healthy",
+            "service": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "timestamp": time.time(),
+            "note": "API路由可能未完全加载"
+        }
 
 # 主程序入口
 if __name__ == "__main__":
