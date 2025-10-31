@@ -19,7 +19,7 @@ IPv6 WireGuard Manager 提供完整的 RESTful API，支持 IPv6 地址管理、
 
 - **Swagger UI**: `/docs`
 - **ReDoc**: `/redoc`
-- **健康检查**: `/health`
+- **健康检查**: `/health` 或 `/api/v1/health`
 
 ## 📐 统一响应格式
 
@@ -460,7 +460,9 @@ Authorization: Bearer <access_token>
 
 #### 健康检查
 
-**端点**: `GET /api/v1/health` 或 `GET /health`
+**端点**: 
+- `GET /api/v1/health` - 主要健康检查端点（推荐）
+- `GET /health` - 兼容性健康检查端点
 
 **响应**:
 ```json

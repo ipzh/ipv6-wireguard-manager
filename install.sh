@@ -2201,7 +2201,7 @@ upstream php_backend {
 
 server {
     listen $WEB_PORT;
-$( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
+$( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || echo "    # IPv6 support not enabled" )
     server_name _;
     root $FRONTEND_DIR;
     index index.php index.html;
@@ -2302,8 +2302,9 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" )
     }
     
     # 前端路由处理 - 支持单页应用路由
+    # 修复: 优先使用 index.php，避免 index.html 不存在时的 404 问题
     location / {
-        try_files \$uri \$uri/ /index.html /index.php?\$query_string;
+        try_files \$uri \$uri/ /index.php\$is_args\$args;
     }
     
     # 禁止访问敏感文件

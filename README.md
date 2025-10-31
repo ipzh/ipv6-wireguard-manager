@@ -156,7 +156,7 @@ sudo systemctl restart nginx
 - **Web界面**: http://localhost
 - **API接口**: http://localhost/api/v1
 - **API文档**: http://localhost/docs
-- **健康检查**: http://localhost/health
+- **健康检查**: http://localhost/health 或 http://localhost/api/v1/health
 
 #### 监控面板
 - **Grafana**: http://localhost:3000 (admin/admin)

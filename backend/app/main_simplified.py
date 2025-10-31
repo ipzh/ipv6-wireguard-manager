@@ -14,7 +14,7 @@ import logging
 from .core.unified_config import settings
 from .core.logging import setup_logging, get_logger
 from .core.database import init_db, close_db
-from .api.api_v1.api import api_router
+from .api import api_router
 
 # 设置日志
 setup_logging()
