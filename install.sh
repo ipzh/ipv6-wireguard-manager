@@ -2945,7 +2945,7 @@ create_env_config() {
     fi
     
     # 生成强随机密码（20位）
-    local admin_password=$(generate_secure_password 20 | tail -n 1)
+    admin_password=$(generate_secure_password 20 | tail -n 1)
     if [[ -z "$admin_password" || ${#admin_password} -lt 12 ]]; then
         log_error "管理员密码生成失败"
         exit 1
