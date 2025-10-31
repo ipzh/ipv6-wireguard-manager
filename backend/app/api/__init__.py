@@ -23,16 +23,5 @@ except ImportError as e:
 # from app.api.v2 import api_router as v2_router
 # api_router.include_router(v2_router, prefix="/v2")
 
-# 简单的API信息端点
-@api_router.get("/", tags=["API信息"])
-async def api_root():
-    """获取API基本信息"""
-    return {
-        "name": "IPv6 WireGuard Manager API",
-        "version": "v1",
-        "documentation": "/docs",
-        "health": "/health"
-    }
-
 # 导出API路由器
 __all__ = ["api_router"]

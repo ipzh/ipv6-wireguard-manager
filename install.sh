@@ -2783,13 +2783,17 @@ wait_for_docker_services() {
     while [[ $api_wait_count -lt $api_max_wait ]]; do
         # 根据SERVER_HOST配置选择检查地址
         if [[ "${SERVER_HOST}" == "::" ]]; then
-            # 优先检查IPv6，回退到IPv4
-            if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+            # 优先检查IPv6，回退到IPv4 - 支持 /api/v1/health 和 /health 两个路径
+            if curl -f http://[::1]:$API_PORT/api/v1/health &>/dev/null || \
+               curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null || \
+               curl -f http://[::1]:$API_PORT/health &>/dev/null || \
+               curl -f http://127.0.0.1:$API_PORT/health &>/dev/null; then
                 log_success "后端API已启动"
                 break
             fi
         else
-            if curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+            if curl -f http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null || \
+               curl -f http://127.0.0.1:$API_PORT/health &>/dev/null; then
                 log_success "后端API已启动"
                 break
             fi
@@ -3914,17 +3918,26 @@ check_ipv6_connectivity() {
 check_api_health() {
     log_info "检查API健康状态..."
     
-    # 根据SERVER_HOST配置选择检查地址
+    # 根据SERVER_HOST配置选择检查地址 - 支持 /api/v1/health 和 /health 两个路径
     local health_url=""
     if [[ "${SERVER_HOST}" == "::" ]]; then
-        # 优先检查IPv6，回退到IPv4
+        # 优先检查IPv6，回退到IPv4，优先检查 /api/v1/health，失败则尝试 /health
         if curl -s --connect-timeout 5 "http://[::1]:$API_PORT/api/v1/health" 2>/dev/null; then
             health_url="http://[::1]:$API_PORT/api/v1/health"
-        else
+        elif curl -s --connect-timeout 5 "http://127.0.0.1:$API_PORT/api/v1/health" 2>/dev/null; then
             health_url="http://127.0.0.1:$API_PORT/api/v1/health"
+        elif curl -s --connect-timeout 5 "http://[::1]:$API_PORT/health" 2>/dev/null; then
+            health_url="http://[::1]:$API_PORT/health"
+        else
+            health_url="http://127.0.0.1:$API_PORT/health"
         fi
     else
-        health_url="http://127.0.0.1:$API_PORT/api/v1/health"
+        # IPv4优先，支持两个路径
+        if curl -s --connect-timeout 5 "http://127.0.0.1:$API_PORT/api/v1/health" 2>/dev/null; then
+            health_url="http://127.0.0.1:$API_PORT/api/v1/health"
+        else
+            health_url="http://127.0.0.1:$API_PORT/health"
+        fi
     fi
     
     local response=$(curl -s --connect-timeout 10 "$health_url" 2>/dev/null)
@@ -4264,16 +4277,20 @@ run_environment_check() {
     local api_check_ok=false
     
     while [[ $api_retry_count -lt $api_max_retries ]]; do
-        # 尝试多种方法检查API服务
+        # 尝试多种方法检查API服务 - 支持 /health 和 /api/v1/health 两个路径
         if command -v curl >/dev/null 2>&1; then
+            # 优先检查 /api/v1/health，如果失败则检查 /health
             if curl -f -s --connect-timeout 5 http://[::1]:$API_PORT/api/v1/health &>/dev/null || \
-               curl -f -s --connect-timeout 5 http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null; then
+               curl -f -s --connect-timeout 5 http://127.0.0.1:$API_PORT/api/v1/health &>/dev/null || \
+               curl -f -s --connect-timeout 5 http://[::1]:$API_PORT/health &>/dev/null || \
+               curl -f -s --connect-timeout 5 http://127.0.0.1:$API_PORT/health &>/dev/null; then
                 log_success "✓ API服务正常 (curl检查)"
                 api_check_ok=true
                 break
             fi
         elif command -v wget >/dev/null 2>&1; then
-            if wget -q --spider --timeout=5 http://127.0.0.1:$API_PORT/api/v1/health 2>/dev/null; then
+            if wget -q --spider --timeout=5 http://127.0.0.1:$API_PORT/api/v1/health 2>/dev/null || \
+               wget -q --spider --timeout=5 http://127.0.0.1:$API_PORT/health 2>/dev/null; then
                 log_success "✓ API服务正常 (wget检查)"
                 api_check_ok=true
                 break
