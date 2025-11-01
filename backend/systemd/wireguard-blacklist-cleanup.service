@@ -1,0 +1,13 @@
+[Unit]
+Description=WireGuard Manager Token Blacklist Cleanup
+After=network.target
+ConditionPathExists=/opt/ipv6-wireguard-manager
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ipv6-wireguard-manager/backend
+ExecStart=/usr/bin/python3 /opt/ipv6-wireguard-manager/backend/scripts/cleanup_blacklist.py --schedule
+StandardOutput=journal
+StandardError=journal

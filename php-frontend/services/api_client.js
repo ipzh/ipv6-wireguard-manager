@@ -11,11 +11,15 @@ const apiClient = axios.create({
   timeout: API_CONFIG.TIMEOUT,
   headers: API_CONFIG.DEFAULT_HEADERS,
   baseURL: API_CONFIG.BASE_URL,
+  withCredentials: true, // 启用Cookie支持，用于HttpOnly Cookie方案
 });
 
 // 请求拦截器 - 添加认证token
 apiClient.interceptors.request.use(
   (config) => {
+    // 优先从Cookie获取令牌（HttpOnly Cookie方案）
+    // 注意：HttpOnly Cookie无法通过JavaScript访问，所以这里不需要手动添加
+    // 保留localStorage作为备用方案（向后兼容）
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -40,25 +44,42 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
+        // 优先从Cookie获取刷新令牌（HttpOnly Cookie方案）
+        // 如果使用Cookie方案，刷新令牌会自动通过Cookie发送
         const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          const refreshUrl = apiPathBuilder.buildUrl('auth.refresh');
+        
+        // 创建不带认证头的axios实例用于刷新令牌
+        const refreshClient = axios.create({
+          timeout: API_CONFIG.TIMEOUT,
+          headers: API_CONFIG.DEFAULT_HEADERS,
+          baseURL: API_CONFIG.BASE_URL,
+          withCredentials: true, // 启用Cookie支持
+        });
+        
+        const refreshUrl = apiPathBuilder.buildUrl('auth.refresh');
+        
+        // 如果有localStorage中的刷新令牌，则使用它（向后兼容）
+        const requestData = refreshToken ? { refresh_token: refreshToken } : {};
+        
+        const response = await refreshClient.post(refreshUrl, requestData);
+        
+        if (response.data.success) {
+          const { access_token, refresh_token } = response.data.data;
           
-          const response = await axios.post(refreshUrl, {
-            refresh_token: refreshToken,
-          });
-          
-          if (response.data.success) {
-            const { access_token, refresh_token } = response.data.data;
+          // 如果返回了令牌数据（兼容旧客户端），则保存到localStorage
+          if (access_token) {
             localStorage.setItem('access_token', access_token);
-            if (refresh_token) {
-              localStorage.setItem('refresh_token', refresh_token);
-            }
-            
-            // 重试原始请求
-            originalRequest.headers.Authorization = `Bearer ${access_token}`;
-            return apiClient(originalRequest);
           }
+          if (refresh_token) {
+            localStorage.setItem('refresh_token', refresh_token);
+          }
+          
+          // 重试原始请求
+          // 如果有新的访问令牌，添加到请求头
+          if (access_token) {
+            originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          }
+          return apiClient(originalRequest);
         }
       } catch (refreshError) {
         // 刷新失败，清除token并重定向到登录页
@@ -129,19 +150,106 @@ export class ApiClient {
 
   // 认证相关方法
   async login(credentials) {
-    return this.post('auth.login', credentials);
+    // 创建专用的axios实例用于登录，启用Cookie支持
+    const loginClient = axios.create({
+      timeout: API_CONFIG.TIMEOUT,
+      headers: API_CONFIG.DEFAULT_HEADERS,
+      baseURL: API_CONFIG.BASE_URL,
+      withCredentials: true, // 启用Cookie支持，用于接收HttpOnly Cookie
+    });
+    
+    const loginUrl = this.apiPathBuilder.buildUrl('auth.login');
+    const response = await loginClient.post(loginUrl, credentials);
+    
+    // 如果返回了令牌数据（兼容旧客户端），则保存到localStorage
+    if (response.data.success && response.data.data) {
+      const { access_token, refresh_token } = response.data.data;
+      if (access_token) {
+        localStorage.setItem('access_token', access_token);
+      }
+      if (refresh_token) {
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+    }
+    
+    return response.data;
   }
 
   async logout() {
-    return this.post('auth.logout');
+    // 创建专用的axios实例用于登出，启用Cookie支持
+    const logoutClient = axios.create({
+      timeout: API_CONFIG.TIMEOUT,
+      headers: API_CONFIG.DEFAULT_HEADERS,
+      baseURL: API_CONFIG.BASE_URL,
+      withCredentials: true, // 启用Cookie支持
+    });
+    
+    // 添加认证头（如果localStorage中有令牌）
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      logoutClient.defaults.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const logoutUrl = this.apiPathBuilder.buildUrl('auth.logout');
+    const response = await logoutClient.post(logoutUrl);
+    
+    // 清除localStorage中的令牌
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    
+    return response.data;
   }
 
   async refreshToken(refreshToken) {
-    return this.post('auth.refresh', { refresh_token: refreshToken });
+    // 创建专用的axios实例用于刷新令牌，启用Cookie支持
+    const refreshClient = axios.create({
+      timeout: API_CONFIG.TIMEOUT,
+      headers: API_CONFIG.DEFAULT_HEADERS,
+      baseURL: API_CONFIG.BASE_URL,
+      withCredentials: true, // 启用Cookie支持
+    });
+    
+    const refreshUrl = this.apiPathBuilder.buildUrl('auth.refresh');
+    
+    // 如果提供了刷新令牌参数，则使用它（向后兼容）
+    // 否则依赖Cookie自动发送
+    const requestData = refreshToken ? { refresh_token: refreshToken } : {};
+    
+    const response = await refreshClient.post(refreshUrl, requestData);
+    
+    // 如果返回了令牌数据（兼容旧客户端），则保存到localStorage
+    if (response.data.success && response.data.data) {
+      const { access_token, refresh_token } = response.data.data;
+      if (access_token) {
+        localStorage.setItem('access_token', access_token);
+      }
+      if (refresh_token) {
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+    }
+    
+    return response.data;
   }
 
   async getCurrentUser() {
-    return this.get('auth.me');
+    // 创建专用的axios实例用于获取用户信息，启用Cookie支持
+    const userClient = axios.create({
+      timeout: API_CONFIG.TIMEOUT,
+      headers: API_CONFIG.DEFAULT_HEADERS,
+      baseURL: API_CONFIG.BASE_URL,
+      withCredentials: true, // 启用Cookie支持
+    });
+    
+    // 添加认证头（如果localStorage中有令牌）
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      userClient.defaults.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const userUrl = this.apiPathBuilder.buildUrl('auth.me');
+    const response = await userClient.get(userUrl);
+    
+    return response.data;
   }
 
   // 用户管理方法

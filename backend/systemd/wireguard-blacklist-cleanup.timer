@@ -1,0 +1,11 @@
+[Unit]
+Description=Run WireGuard Manager Token Blacklist Cleanup periodically
+Requires=wireguard-blacklist-cleanup.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=1800  # 随机延迟0-30分钟，避免多个服务同时运行
+
+[Install]
+WantedBy=timers.target

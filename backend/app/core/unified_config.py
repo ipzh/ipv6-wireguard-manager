@@ -50,6 +50,7 @@ class UnifiedSettings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60 * 24 * 8, ge=1, le=525600)  # 8 days, max 1 year
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30, ge=1, le=365)  # 30 days, max 1 year
     
     # 服务器配置
     SERVER_NAME: Optional[str] = None

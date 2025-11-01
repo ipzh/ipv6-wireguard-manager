@@ -691,18 +691,35 @@
                 }
             });
             
-            // 表单提交处理 - 使用服务器端提交，不依赖API
+            // 表单提交处理 - 防止双重提交
             const loginForm = document.getElementById('loginForm');
             const loginBtn = document.getElementById('loginBtn');
             const loginSpinner = document.getElementById('loginSpinner');
             const loginText = document.getElementById('loginText');
+            let isSubmitting = false; // 防止重复提交标志
             
             loginForm.addEventListener('submit', function(e) {
-                // 不阻止默认提交，让服务器端处理登录
-                // 只添加加载状态提示
+                // 如果正在提交，阻止重复提交
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // 标记为正在提交
+                isSubmitting = true;
+                
+                // 更新UI状态
                 loginBtn.disabled = true;
                 loginSpinner.classList.remove('d-none');
                 loginText.textContent = '登录中...';
+                
+                // 设置超时恢复（防止网络问题导致按钮永久禁用）
+                setTimeout(() => {
+                    if (isSubmitting) {
+                        isSubmitting = false;
+                        resetLoginButton();
+                    }
+                }, 30000); // 30秒超时
                 
                 // 允许表单正常提交到服务器
                 // 服务器端AuthController会处理登录逻辑
@@ -710,10 +727,19 @@
             
             // 重置登录按钮状态
             function resetLoginButton() {
+                isSubmitting = false; // 重置提交标志
                 loginBtn.disabled = false;
                 loginSpinner.classList.add('d-none');
                 loginText.textContent = '登录';
             }
+            
+            // 页面加载时重置状态（防止页面返回时按钮仍处于禁用状态）
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    // 页面从缓存中恢复
+                    resetLoginButton();
+                }
+            });
             
             // 显示MFA表单
             function showMfaForm(sessionId) {
@@ -749,9 +775,11 @@
                 
                 const formData = new FormData(mfaForm);
                 
+                // 使用fetch API发送请求，启用Cookie支持
                 fetch(`${API_BASE_URL}/mfa/verify`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    credentials: 'include' // 启用Cookie支持，用于HttpOnly Cookie方案
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -827,71 +855,54 @@
         });
 
         function checkApiStatus() {
-            // 异步检查API状态，不影响登录表单显示
-            // 确保即使出错也不会阻止页面显示
-            try {
-                // 使用PHP代理端点而不是直接调用API
-                fetch('/api/status')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        const statusDiv = document.getElementById('apiStatus');
-                        if (!statusDiv) return; // 如果元素不存在，直接返回
-                        
-                        // 修复：status可能在data.status或data.data.status中
-                        // 也检查data.http_code === 200作为成功条件
-                        const apiStatus = data.status || (data.data && data.data.status) || 'unknown';
-                        const httpCode = data.http_code || (data.data && data.data.http_code) || 0;
-                        const isSuccess = data.success || (data.data && data.data.success) || false;
-                        
-                        // 多种条件判断API是否正常
-                        const isHealthy = (isSuccess && (apiStatus === 'healthy' || httpCode === 200)) || 
-                                         (httpCode === 200) || 
-                                         (apiStatus === 'healthy');
-                        
-                        if (isHealthy) {
-                            statusDiv.innerHTML = `
-                                <i class="bi bi-check-circle status-success"></i>
-                                <span class="status-success">API连接正常</span>
-                            `;
-                            window.apiConnected = true;
-                        } else {
-                            statusDiv.innerHTML = `
-                                <i class="bi bi-x-circle status-error"></i>
-                                <span class="status-error">API状态异常（登录仍可使用）</span>
-                            `;
-                            // 即使API不可用，也允许登录（使用本地认证）
-                            window.apiConnected = true;
-                        }
-                    })
-                    .catch(error => {
-                        const statusDiv = document.getElementById('apiStatus');
-                        if (!statusDiv) return; // 如果元素不存在，直接返回
-                        
+            // 简化API状态检查逻辑 - 统一判断条件
+            const statusDiv = document.getElementById('apiStatus');
+            if (!statusDiv) return;
+            
+            // 使用PHP代理端点检查API状态，启用Cookie支持
+            fetch('/api/status', {
+                credentials: 'include' // 启用Cookie支持，用于HttpOnly Cookie方案
+            })
+                .then(response => {
+                    // 检查HTTP状态码
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 统一提取状态信息 - 支持多种响应格式
+                    const status = data?.status || data?.data?.status || 'unknown';
+                    const httpCode = data?.http_code || data?.data?.http_code || 0;
+                    const success = data?.success ?? false;
+                    
+                    // 简化的判断逻辑：HTTP 200 且 status为healthy或success为true
+                    const isHealthy = httpCode === 200 && (status === 'healthy' || success === true);
+                    
+                    if (isHealthy) {
+                        statusDiv.innerHTML = `
+                            <i class="bi bi-check-circle status-success"></i>
+                            <span class="status-success">API连接正常</span>
+                        `;
+                    } else {
+                        statusDiv.innerHTML = `
+                            <i class="bi bi-x-circle status-error"></i>
+                            <span class="status-error">API状态异常（登录仍可使用）</span>
+                        `;
+                    }
+                    window.apiConnected = true; // 始终允许登录尝试
+                })
+                .catch(error => {
+                    // 错误处理：显示友好提示，但不阻止登录
+                    if (statusDiv) {
                         statusDiv.innerHTML = `
                             <i class="bi bi-exclamation-triangle status-error"></i>
                             <span class="status-error">API连接失败（可尝试本地登录）</span>
                         `;
-                        // 即使API检查失败，也允许表单提交（服务器端可能可以处理）
-                        window.apiConnected = true;
-                        console.warn('API状态检查失败，但不阻止登录:', error);
-                    });
-            } catch (error) {
-                // 捕获所有可能的错误，确保不影响页面显示
-                console.warn('API状态检查异常，但不阻止登录:', error);
-                const statusDiv = document.getElementById('apiStatus');
-                if (statusDiv) {
-                    statusDiv.innerHTML = `
-                        <i class="bi bi-exclamation-triangle status-error"></i>
-                        <span class="status-error">API状态检查异常（登录仍可用）</span>
-                    `;
-                }
-                window.apiConnected = true;
-            }
+                    }
+                    window.apiConnected = true; // 允许登录尝试
+                    console.warn('API状态检查失败:', error);
+                });
         }
 
         function showMessage(message, type = 'info') {

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any, Union, Optional, List, Dict
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,11 +14,24 @@ from sqlalchemy import select
 from .unified_config import settings
 from ..models.models_complete import User, Role, Permission, UserRole, RolePermission
 
-# 密码加密上下文 - 使用pbkdf2_sha256避免bcrypt版本兼容性问题
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+# 密码加密上下文 - 使用bcrypt进行密码哈希（推荐方案）
+# bcrypt是专门为密码哈希设计的算法，具有自适应成本因子
+try:
+    # 尝试使用bcrypt
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception as e:
+    # 如果bcrypt不可用，回退到pbkdf2_sha256
+    import warnings
+    warnings.warn(f"bcrypt不可用，使用pbkdf2_sha256作为备选方案: {e}")
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # JWT令牌安全方案
-security = HTTPBearer()
+# 使用可选的HTTPBearer，因为我们也支持从Cookie读取令牌
+try:
+    security = HTTPBearer(auto_error=False)
+except TypeError:
+    # 如果FastAPI版本不支持auto_error参数，使用默认值
+    security = HTTPBearer()
 
 
 class SecurityManager:
@@ -26,12 +39,25 @@ class SecurityManager:
     
     def __init__(self):
         self.pwd_context = pwd_context
+        self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        self.refresh_token_expire_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
     
     def get_password_hash(self, password: str) -> str:
-        """获取密码哈希"""
-        # 确保密码长度不超过72字节（bcrypt限制）
-        if len(password.encode('utf-8')) > 72:
-            password = password[:72]
+        """获取密码哈希
+        
+        使用bcrypt时需要注意：
+        - bcrypt最大支持72字节的密码
+        - 如果密码超过72字节，会截断（不推荐）或使用pbkdf2_sha256
+        """
+        # bcrypt有72字节的限制
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            # 对于超长密码，使用pbkdf2_sha256处理
+            # 或者截断（不推荐，但为了兼容性）
+            import warnings
+            warnings.warn("密码长度超过72字节，bcrypt会自动截断")
+            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        
         return self.pwd_context.hash(password)
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
@@ -40,27 +66,65 @@ class SecurityManager:
     
     def create_access_token(self, data: Union[str, Any], expires_delta: timedelta = None) -> str:
         """创建访问令牌"""
+        if isinstance(data, dict):
+            to_encode = data.copy()
+        else:
+            to_encode = {"sub": str(data)}
+            
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
             expire = datetime.utcnow() + timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+                minutes=self.access_token_expire_minutes
             )
         
-        to_encode = {"exp": expire, "sub": str(data)}
+        to_encode["exp"] = expire
+        to_encode["type"] = "access"
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
     
-    def verify_token(self, token: str) -> Optional[str]:
-        """验证令牌并返回用户ID"""
+    def create_refresh_token(self, user_id: str, expires_delta: timedelta = None) -> str:
+        """创建刷新令牌"""
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+        
+        to_encode = {
+            "exp": expire,
+            "sub": str(user_id),
+            "type": "refresh"
+        }
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        return encoded_jwt
+    
+    def verify_token(self, token: str, token_type: str = "access") -> Optional[Dict[str, Any]]:
+        """验证令牌并返回载荷
+        
+        Args:
+            token: JWT令牌
+            token_type: 令牌类型 ('access' 或 'refresh')
+            
+        Returns:
+            令牌载荷字典，包含 'sub' (用户ID) 等字段，验证失败返回None
+        """
         try:
+            # 检查令牌是否在黑名单中（仅对access token检查）
+            if token_type == "access":
+                from .token_blacklist import is_blacklisted
+                if is_blacklisted(token):
+                    return None
+            
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
             )
-            user_id: str = payload.get("sub")
-            if user_id is None:
+            
+            # 验证令牌类型
+            token_type_in_payload = payload.get("type", "access")
+            if token_type_in_payload != token_type:
                 return None
-            return user_id
+            
+            return payload
         except JWTError:
             return None
 
@@ -69,19 +133,37 @@ class SecurityManager:
 security_manager = SecurityManager()
 
 
+async def _get_token_from_request(request: Request) -> Optional[str]:
+    """从请求中提取令牌（内部辅助函数）"""
+    # 1. 优先从Authorization Header获取（向后兼容）
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]  # 移除 "Bearer " 前缀
+    
+    # 2. 如果header中没有，从Cookie获取（HttpOnly Cookie方案）
+    return request.cookies.get("access_token")
+
+
 async def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = security
+    request: Request
 ) -> str:
-    """获取当前用户ID"""
+    """获取当前用户ID - 支持从Cookie或Authorization Header获取令牌"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
+    token = await _get_token_from_request(request)
+    
+    if not token:
+        raise credentials_exception
+    
     try:
-        token = credentials.credentials
-        user_id = security_manager.verify_token(token)
+        payload = security_manager.verify_token(token, "access")
+        if payload is None:
+            raise credentials_exception
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
         return user_id
@@ -273,9 +355,9 @@ def create_access_token(data: Union[str, Any], expires_delta: timedelta = None) 
     return security_manager.create_access_token(data, expires_delta)
 
 
-def verify_token(token: str) -> Optional[str]:
+def verify_token(token: str, token_type: str = "access") -> Optional[Dict[str, Any]]:
     """验证令牌（兼容性函数）"""
-    return security_manager.verify_token(token)
+    return security_manager.verify_token(token, token_type)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

@@ -45,7 +45,7 @@ class ApiClientJWT {
             $this->refreshToken = $refreshToken;
         }
         
-        // 保存到会话
+        // 保存到会话（向后兼容）
         $_SESSION['access_token'] = $this->accessToken;
         if ($this->refreshToken) {
             $_SESSION['refresh_token'] = $this->refreshToken;
@@ -109,13 +109,57 @@ class ApiClientJWT {
         }
         
         try {
-            $response = $this->post('/auth/refresh-json', [
-                'refresh_token' => $this->refreshToken
-            ], false); // 不自动刷新令牌，避免无限循环
+            $url = $this->apiPathBuilder->buildUrl('auth', 'refresh-json');
             
-            if ($response['success'] && isset($response['data']['access_token'])) {
-                $newAccessToken = $response['data']['access_token'];
-                $newRefreshToken = $response['data']['refresh_token'] ?? $this->refreshToken;
+            // 创建专用的cURL会话，启用Cookie支持
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode([
+                    'refresh_token' => $this->refreshToken
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json'
+                ],
+                CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+                CURLOPT_HEADER => true, // 包含响应头，用于处理Set-Cookie
+                CURLOPT_TIMEOUT => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT => 10
+            ]);
+            
+            // 应用安全的SSL配置
+            applySecureSSLConfig($ch);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            curl_close($ch);
+            
+            if ($response === false) {
+                throw new Exception('CURL错误: ' . $error);
+            }
+            
+            // 解析响应头和响应体
+            $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $headerSize);
+            $responseBody = substr($response, $headerSize);
+            
+            // 处理Set-Cookie头
+            $this->handleSetCookieHeaders($responseHeaders);
+            
+            // 解析JSON响应
+            $decodedResponse = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('响应格式错误');
+            }
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($decodedResponse['access_token'])) {
+                $newAccessToken = $decodedResponse['access_token'];
+                $newRefreshToken = $decodedResponse['refresh_token'] ?? $this->refreshToken;
                 
                 $this->setTokens($newAccessToken, $newRefreshToken);
                 
@@ -291,13 +335,15 @@ class ApiClientJWT {
                 'Content-Type: application/json',
                 'Accept: application/json',
                 'Cache-Control: no-cache'
-            ]
+            ],
+            CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+            CURLOPT_HEADER => true // 包含响应头，用于处理Set-Cookie
         ]);
         
         // 应用安全的SSL配置
         applySecureSSLConfig($ch);
         
-        // 添加JWT认证头
+        // 添加JWT认证头（向后兼容）
         if ($this->accessToken) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/json',
@@ -347,37 +393,69 @@ class ApiClientJWT {
             ];
         }
         
-        // 解析JSON响应（如果是JSON或可解析）
-        $decodedResponse = json_decode($response, true);
-        $jsonOk = (json_last_error() === JSON_ERROR_NONE);
+        // 解析响应头和响应体
+        $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $responseHeaders = substr($response, 0, $headerSize);
+        $responseBody = substr($response, $headerSize);
         
-        // 检查HTTP状态码
-        if ($httpCode >= 200 && $httpCode < 300) {
-            if ($jsonOk) {
-                return [
-                    'success' => true,
-                    'http_code' => $httpCode,
-                    'data' => $decodedResponse
-                ];
-            } else {
-                // 非JSON内容（如 /metrics 文本），直接返回原始内容
-                return [
-                    'success' => true,
-                    'http_code' => $httpCode,
-                    'data' => $response
-                ];
-            }
-        } else {
-            if ($jsonOk) {
-                $errorMessage = $decodedResponse['detail'] ?? $decodedResponse['message'] ?? 'HTTP错误';
-            } else {
-                $errorMessage = 'HTTP错误';
-            }
+        // 处理Set-Cookie头
+        $this->handleSetCookieHeaders($responseHeaders);
+        
+        // 尝试解析JSON响应
+        $decodedResponse = json_decode($responseBody, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
             return [
-                'success' => false,
+                'success' => true,
                 'http_code' => $httpCode,
-                'error' => "HTTP {$httpCode}: {$errorMessage}"
+                'data' => $decodedResponse
             ];
+        } else {
+            return [
+                'success' => true,
+                'http_code' => $httpCode,
+                'data' => $responseBody
+            ];
+        }
+    }
+    
+    /**
+     * 构建Cookie字符串
+     */
+    private function buildCookieString() {
+        $cookieString = '';
+        
+        // 添加所有可用的Cookie
+        foreach ($_COOKIE as $name => $value) {
+            if (!empty($cookieString)) {
+                $cookieString .= '; ';
+            }
+            $cookieString .= $name . '=' . urlencode($value);
+        }
+        
+        return $cookieString;
+    }
+    
+    /**
+     * 处理Set-Cookie头
+     */
+    private function handleSetCookieHeaders($responseHeaders) {
+        // 提取Set-Cookie头
+        preg_match_all('/^Set-Cookie:\s*(.*)$/mi', $responseHeaders, $matches);
+        
+        foreach ($matches[1] as $cookie) {
+            // 解析Cookie
+            $parts = explode('=', $cookie, 2);
+            if (count($parts) >= 2) {
+                $name = trim($parts[0]);
+                $value = trim($parts[1]);
+                
+                // 提取值部分（忽略其他属性如路径、过期等）
+                $valueParts = explode(';', $value);
+                $cookieValue = trim($valueParts[0]);
+                
+                // 设置到$_COOKIE数组
+                $_COOKIE[$name] = $cookieValue;
+            }
         }
     }
     
@@ -499,31 +577,81 @@ class ApiClientJWT {
     public function login($username, $password) {
         try {
             $url = $this->apiPathBuilder->buildUrl('auth', 'login');
-            $response = $this->post($url, [
-                'username' => $username,
-                'password' => $password
+            
+            // 创建专用的cURL会话，启用Cookie支持
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode([
+                    'username' => $username,
+                    'password' => $password
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json'
+                ],
+                CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+                CURLOPT_HEADER => true, // 包含响应头，用于处理Set-Cookie
+                CURLOPT_TIMEOUT => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT => 10
             ]);
             
-            if ($response['success'] && isset($response['data']['access_token'])) {
+            // 应用安全的SSL配置
+            applySecureSSLConfig($ch);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            curl_close($ch);
+            
+            if ($response === false) {
+                return [
+                    'success' => false,
+                    'error' => 'CURL错误: ' . $error
+                ];
+            }
+            
+            // 解析响应头和响应体
+            $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $headerSize);
+            $responseBody = substr($response, $headerSize);
+            
+            // 处理Set-Cookie头
+            $this->handleSetCookieHeaders($responseHeaders);
+            
+            // 解析JSON响应
+            $decodedResponse = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return [
+                    'success' => false,
+                    'error' => '响应格式错误'
+                ];
+            }
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($decodedResponse['access_token'])) {
+                // 保存令牌到会话（向后兼容）
                 $this->setTokens(
-                    $response['data']['access_token'],
-                    $response['data']['refresh_token']
+                    $decodedResponse['access_token'],
+                    $decodedResponse['refresh_token'] ?? null
                 );
                 
                 // 保存用户信息到会话
-                if (isset($response['data']['user'])) {
-                    $_SESSION['user'] = $response['data']['user'];
+                if (isset($decodedResponse['user'])) {
+                    $_SESSION['user'] = $decodedResponse['user'];
                 }
                 
                 return [
                     'success' => true,
-                    'user' => $response['data']['user'] ?? null
+                    'user' => $decodedResponse['user'] ?? null
                 ];
             }
             
             return [
                 'success' => false,
-                'error' => $response['error'] ?? '登录失败'
+                'error' => $decodedResponse['detail'] ?? $decodedResponse['message'] ?? '登录失败'
             ];
             
         } catch (Exception $e) {
@@ -540,7 +668,38 @@ class ApiClientJWT {
     public function logout() {
         try {
             if ($this->accessToken) {
-                $this->post('/auth/logout');
+                $url = $this->apiPathBuilder->buildUrl('auth', 'logout');
+                
+                // 创建专用的cURL会话，启用Cookie支持
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $url,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST => true,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: application/json',
+                        'Accept: application/json'
+                    ],
+                    CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+                    CURLOPT_HEADER => true, // 包含响应头，用于处理Set-Cookie
+                    CURLOPT_TIMEOUT => $this->timeout,
+                    CURLOPT_CONNECTTIMEOUT => 10
+                ]);
+                
+                // 应用安全的SSL配置
+                applySecureSSLConfig($ch);
+                
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                
+                curl_close($ch);
+                
+                // 解析响应头和响应体
+                $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+                $responseHeaders = substr($response, 0, $headerSize);
+                
+                // 处理Set-Cookie头（清除Cookie）
+                $this->handleSetCookieHeaders($responseHeaders);
             }
         } catch (Exception $e) {
             // 忽略登出错误
@@ -555,11 +714,53 @@ class ApiClientJWT {
      */
     public function getCurrentUser() {
         try {
-            $response = $this->get('/auth/me');
+            $url = $this->apiPathBuilder->buildUrl('auth', 'me');
             
-            if ($response['success']) {
-                $_SESSION['user'] = $response['data'];
-                return $response['data'];
+            // 创建专用的cURL会话，启用Cookie支持
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json'
+                ],
+                CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+                CURLOPT_HEADER => true, // 包含响应头，用于处理Set-Cookie
+                CURLOPT_TIMEOUT => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT => 10
+            ]);
+            
+            // 应用安全的SSL配置
+            applySecureSSLConfig($ch);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            curl_close($ch);
+            
+            if ($response === false) {
+                throw new Exception('CURL错误: ' . $error);
+            }
+            
+            // 解析响应头和响应体
+            $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $headerSize);
+            $responseBody = substr($response, $headerSize);
+            
+            // 处理Set-Cookie头
+            $this->handleSetCookieHeaders($responseHeaders);
+            
+            // 解析JSON响应
+            $decodedResponse = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('响应格式错误');
+            }
+            
+            if ($httpCode >= 200 && $httpCode < 300) {
+                $_SESSION['user'] = $decodedResponse;
+                return $decodedResponse;
             }
             
             return null;
@@ -574,10 +775,55 @@ class ApiClientJWT {
      */
     public function verifyToken() {
         try {
-            $response = $this->post('/auth/verify-token', [
-                'token' => $this->accessToken
+            $url = $this->apiPathBuilder->buildUrl('auth', 'verify-token');
+            
+            // 创建专用的cURL会话，启用Cookie支持
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode([
+                    'token' => $this->accessToken
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json'
+                ],
+                CURLOPT_COOKIE => $this->buildCookieString(), // 添加Cookie支持
+                CURLOPT_HEADER => true, // 包含响应头，用于处理Set-Cookie
+                CURLOPT_TIMEOUT => $this->timeout,
+                CURLOPT_CONNECTTIMEOUT => 10
             ]);
-            return $response['success'] && $response['data']['valid'];
+            
+            // 应用安全的SSL配置
+            applySecureSSLConfig($ch);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            curl_close($ch);
+            
+            if ($response === false) {
+                throw new Exception('CURL错误: ' . $error);
+            }
+            
+            // 解析响应头和响应体
+            $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+            $responseHeaders = substr($response, 0, $headerSize);
+            $responseBody = substr($response, $headerSize);
+            
+            // 处理Set-Cookie头
+            $this->handleSetCookieHeaders($responseHeaders);
+            
+            // 解析JSON响应
+            $decodedResponse = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('响应格式错误');
+            }
+            
+            return $httpCode >= 200 && $httpCode < 300 && isset($decodedResponse['valid']) && $decodedResponse['valid'];
         } catch (Exception $e) {
             return false;
         }
