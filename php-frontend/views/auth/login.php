@@ -69,6 +69,9 @@
         .login-container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
+            display: block !important; /* 确保登录容器始终显示 */
+            visibility: visible !important;
+            opacity: 1 !important;
             border-radius: 24px;
             box-shadow: var(--shadow-xl);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -527,7 +530,7 @@
         <?php endif; ?>
 
         <!-- 登录表单 -->
-        <form method="POST" action="/login" id="loginForm" novalidate>
+        <form method="POST" action="/login" id="loginForm" novalidate style="display: block !important; visibility: visible !important;">
             <input type="hidden" name="_token" value="<?= isset($csrfToken) ? htmlspecialchars($csrfToken) : (isset($auth) ? htmlspecialchars($auth->generateCsrfToken()) : '') ?>">
             
             <!-- 用户名输入 -->
@@ -839,7 +842,18 @@
                         const statusDiv = document.getElementById('apiStatus');
                         if (!statusDiv) return; // 如果元素不存在，直接返回
                         
-                        if (data.success && data.status === 'healthy') {
+                        // 修复：status可能在data.status或data.data.status中
+                        // 也检查data.http_code === 200作为成功条件
+                        const apiStatus = data.status || (data.data && data.data.status) || 'unknown';
+                        const httpCode = data.http_code || (data.data && data.data.http_code) || 0;
+                        const isSuccess = data.success || (data.data && data.data.success) || false;
+                        
+                        // 多种条件判断API是否正常
+                        const isHealthy = (isSuccess && (apiStatus === 'healthy' || httpCode === 200)) || 
+                                         (httpCode === 200) || 
+                                         (apiStatus === 'healthy');
+                        
+                        if (isHealthy) {
                             statusDiv.innerHTML = `
                                 <i class="bi bi-check-circle status-success"></i>
                                 <span class="status-success">API连接正常</span>
