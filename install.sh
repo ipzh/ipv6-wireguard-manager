@@ -582,43 +582,58 @@ detect_system() {
 detect_system_paths() {
     log_info "检测系统路径..."
     
-    # 检测安装目录
-    if [[ -d "/opt" ]]; then
-        DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
-    elif [[ -d "/usr/local" ]]; then
-        DEFAULT_INSTALL_DIR="/usr/local/ipv6-wireguard-manager"
+    # 检测安装目录（仅当未通过参数设置时）
+    if [[ -z "${INSTALL_DIR:-}" ]]; then
+        if [[ -d "/opt" ]]; then
+            DEFAULT_INSTALL_DIR="/opt/ipv6-wireguard-manager"
+        elif [[ -d "/usr/local" ]]; then
+            DEFAULT_INSTALL_DIR="/usr/local/ipv6-wireguard-manager"
+        else
+            DEFAULT_INSTALL_DIR="$HOME/ipv6-wireguard-manager"
+        fi
     else
-        DEFAULT_INSTALL_DIR="$HOME/ipv6-wireguard-manager"
+        DEFAULT_INSTALL_DIR="$INSTALL_DIR"
     fi
     
-    # 检测Web目录
-    if [[ -d "/var/www/html" ]]; then
-        FRONTEND_DIR="/var/www/html"
-    elif [[ -d "/usr/share/nginx/html" ]]; then
-        FRONTEND_DIR="/usr/share/nginx/html"
+    # 检测Web目录（仅当未通过参数设置时）
+    if [[ -z "${FRONTEND_DIR:-}" ]]; then
+        if [[ -d "/var/www/html" ]]; then
+            FRONTEND_DIR="/var/www/html"
+        elif [[ -d "/usr/share/nginx/html" ]]; then
+            FRONTEND_DIR="/usr/share/nginx/html"
+        else
+            FRONTEND_DIR="${DEFAULT_INSTALL_DIR}/web"
+        fi
+        log_info "自动检测前端目录: $FRONTEND_DIR"
     else
-        FRONTEND_DIR="${DEFAULT_INSTALL_DIR}/web"
+        log_info "使用自定义前端目录: $FRONTEND_DIR"
     fi
     
-    # 检测WireGuard配置目录
-    if [[ -d "/etc/wireguard" ]]; then
-        WIREGUARD_CONFIG_DIR="/etc/wireguard"
-    else
-        WIREGUARD_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/wireguard"
+    # 检测WireGuard配置目录（仅当未通过参数设置时）
+    if [[ -z "${WIREGUARD_CONFIG_DIR:-}" ]]; then
+        if [[ -d "/etc/wireguard" ]]; then
+            WIREGUARD_CONFIG_DIR="/etc/wireguard"
+        else
+            WIREGUARD_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/wireguard"
+        fi
     fi
     
-    # 检测Nginx配置目录
-    if [[ -d "/etc/nginx/sites-available" ]]; then
-        NGINX_CONFIG_DIR="/etc/nginx/sites-available"
-    else
-        NGINX_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/nginx"
+    # 检测Nginx配置目录（仅当未通过参数设置时）
+    if [[ -z "${NGINX_CONFIG_DIR:-}" ]]; then
+        if [[ -d "/etc/nginx/sites-available" ]]; then
+            NGINX_CONFIG_DIR="/etc/nginx/sites-available"
+        else
+            NGINX_CONFIG_DIR="${DEFAULT_INSTALL_DIR}/config/nginx"
+        fi
     fi
     
-    # 检测日志目录
-    if [[ -d "/var/log" ]]; then
-        LOG_DIR="/var/log/ipv6-wireguard-manager"
-    else
-        LOG_DIR="${DEFAULT_INSTALL_DIR}/logs"
+    # 检测日志目录（仅当未通过参数设置时）
+    if [[ -z "${LOG_DIR:-}" ]]; then
+        if [[ -d "/var/log" ]]; then
+            LOG_DIR="/var/log/ipv6-wireguard-manager"
+        else
+            LOG_DIR="${DEFAULT_INSTALL_DIR}/logs"
+        fi
     fi
     
     # 检测其他目录
@@ -1788,23 +1803,106 @@ deploy_php_frontend() {
     
     # 创建前端目录
     if [[ ! -d "$FRONTEND_DIR" ]]; then
-        mkdir -p "$FRONTEND_DIR"
+        sudo mkdir -p "$FRONTEND_DIR"
+        log_info "创建前端目录: $FRONTEND_DIR"
     fi
     
-    # 复制前端文件到 /var/www/html
-    if [[ -d "$INSTALL_DIR/php-frontend" ]]; then
-        cp -r "$INSTALL_DIR/php-frontend"/* "$FRONTEND_DIR/"
-        log_success "前端文件复制到 $FRONTEND_DIR"
-    else
-        log_error "前端源码目录不存在: $INSTALL_DIR/php-frontend"
+    # 查找PHP前端源码目录（支持多种情况）
+    local SOURCE_DIR=""
+    local SCRIPT_DIR=""
+    
+    # 获取脚本所在目录
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    # 检查可能的源码路径（按优先级）
+    local possible_paths=(
+        "$INSTALL_DIR/php-frontend"                    # 从git clone安装
+        "$SCRIPT_DIR/php-frontend"                     # 从脚本目录安装
+        "$(dirname "$SCRIPT_DIR")/php-frontend"        # 项目根目录
+        "./php-frontend"                                # 当前目录
+        "../php-frontend"                               # 上级目录
+    )
+    
+    for path in "${possible_paths[@]}"; do
+        if [[ -d "$path" && -f "$path/index.php" ]]; then
+            SOURCE_DIR="$path"
+            log_info "找到PHP前端源码目录: $SOURCE_DIR"
+            break
+        fi
+    done
+    
+    # 如果找不到源码目录，尝试从INSTALL_DIR查找
+    if [[ -z "$SOURCE_DIR" ]]; then
+        if [[ -d "$INSTALL_DIR" ]]; then
+            # 检查INSTALL_DIR下的所有可能位置
+            for dir in "$INSTALL_DIR"/*; do
+                if [[ -d "$dir" && -f "$dir/index.php" ]]; then
+                    # 检查是否包含PHP前端特征文件
+                    if [[ -f "$dir/config/config.php" ]] || [[ -f "$dir/classes/Router.php" ]]; then
+                        SOURCE_DIR="$dir"
+                        log_info "在安装目录中找到PHP前端: $SOURCE_DIR"
+                        break
+                    fi
+                fi
+            done
+        fi
+    fi
+    
+    # 验证源码目录
+    if [[ -z "$SOURCE_DIR" ]]; then
+        log_error "无法找到PHP前端源码目录"
+        log_error "已检查以下路径:"
+        for path in "${possible_paths[@]}"; do
+            log_error "  - $path"
+        done
+        log_error ""
+        log_error "请确保:"
+        log_error "  1. 从Git仓库克隆项目时包含 php-frontend 目录"
+        log_error "  2. 或在当前目录/脚本目录存在 php-frontend 目录"
+        log_error "  3. 或手动指定源码路径"
         exit 1
     fi
     
-    # 创建日志目录
-    mkdir -p "$FRONTEND_DIR/logs"
-    touch "$FRONTEND_DIR/logs/error.log"
-    touch "$FRONTEND_DIR/logs/access.log"
-    touch "$FRONTEND_DIR/logs/debug.log"
+    # 复制前端文件到 /var/www/html
+    log_info "从 $SOURCE_DIR 复制文件到 $FRONTEND_DIR..."
+    
+    # 使用rsync如果可用，否则使用cp
+    if command -v rsync >/dev/null 2>&1; then
+        if sudo rsync -av --delete "$SOURCE_DIR/" "$FRONTEND_DIR/"; then
+            log_success "前端文件复制到 $FRONTEND_DIR (使用rsync)"
+        else
+            log_error "rsync复制失败，尝试使用cp..."
+            if ! sudo cp -r "$SOURCE_DIR"/* "$FRONTEND_DIR/"; then
+                log_error "文件复制失败"
+                exit 1
+            fi
+        fi
+    else
+        if sudo cp -r "$SOURCE_DIR"/* "$FRONTEND_DIR/"; then
+            log_success "前端文件复制到 $FRONTEND_DIR (使用cp)"
+        else
+            log_error "文件复制失败"
+            exit 1
+        fi
+    fi
+    
+    # 验证文件是否成功复制
+    if [[ ! -f "$FRONTEND_DIR/index.php" ]]; then
+        log_error "复制后未找到 index.php，部署可能失败"
+        log_error "请检查:"
+        log_error "  1. 源码目录 $SOURCE_DIR 是否完整"
+        log_error "  2. 目标目录 $FRONTEND_DIR 权限是否正确"
+        log_error "  3. 磁盘空间是否充足"
+        exit 1
+    fi
+    
+    log_success "前端文件部署完成: $FRONTEND_DIR"
+    
+    # 创建日志目录（使用sudo）
+    sudo mkdir -p "$FRONTEND_DIR/logs"
+    sudo touch "$FRONTEND_DIR/logs/error.log"
+    sudo touch "$FRONTEND_DIR/logs/access.log"
+    sudo touch "$FRONTEND_DIR/logs/debug.log"
     
     # 设置权限
     # 动态检测Web服务用户，兼容不同发行版
@@ -1824,42 +1922,45 @@ deploy_php_frontend() {
         log_warning "未检测到常见Web用户，使用服务用户: ${web_user}:${web_group}"
     fi
 
-    # 安全的权限设置函数
+    # 安全的权限设置函数（使用sudo）
     set_secure_permissions() {
         local target_dir="$1"
         local owner="$2"
         local group="$3"
         
-        log_info "设置安全权限: $target_dir"
+        log_info "设置安全权限: $target_dir (所有者: $owner:$group)"
         
-        # 设置目录权限
-        if ! find "$target_dir" -type d -exec chmod 750 {} \; 2>/dev/null; then
-            log_error "目录权限设置失败: $target_dir"
-            return 1
+        # 设置目录权限（使用sudo）
+        if ! sudo find "$target_dir" -type d -exec chmod 755 {} \; 2>/dev/null; then
+            log_warning "目录权限设置失败，尝试直接设置..."
+            sudo chmod -R 755 "$target_dir" 2>/dev/null || true
         fi
         
-        # 设置文件权限
-        if ! find "$target_dir" -type f -exec chmod 640 {} \; 2>/dev/null; then
-            log_error "文件权限设置失败: $target_dir"
-            return 1
+        # 设置文件权限（使用sudo）
+        if ! sudo find "$target_dir" -type f -exec chmod 644 {} \; 2>/dev/null; then
+            log_warning "文件权限设置失败，使用默认权限..."
         fi
         
-        # 设置可执行文件权限
-        find "$target_dir" -name "*.py" -exec chmod 750 {} \; 2>/dev/null || true
-        find "$target_dir" -name "*.sh" -exec chmod 750 {} \; 2>/dev/null || true
+        # 设置可执行文件权限（PHP文件需要可执行，但实际上不需要）
+        # 保留.sh和.py文件的可执行权限
+        sudo find "$target_dir" -name "*.sh" -exec chmod 755 {} \; 2>/dev/null || true
+        sudo find "$target_dir" -name "*.py" -exec chmod 755 {} \; 2>/dev/null || true
+        
+        # PHP文件应该是可读的
+        sudo find "$target_dir" -name "*.php" -exec chmod 644 {} \; 2>/dev/null || true
         
         # 设置敏感文件权限
-        find "$target_dir" -name "*.env" -exec chmod 600 {} \; 2>/dev/null || true
-        find "$target_dir" -name "*.key" -exec chmod 600 {} \; 2>/dev/null || true
-        find "$target_dir" -name "*.pem" -exec chmod 600 {} \; 2>/dev/null || true
+        sudo find "$target_dir" -name "*.env" -exec chmod 600 {} \; 2>/dev/null || true
+        sudo find "$target_dir" -name "*.key" -exec chmod 600 {} \; 2>/dev/null || true
+        sudo find "$target_dir" -name "*.pem" -exec chmod 600 {} \; 2>/dev/null || true
         
-        # 验证权限设置
-        if ! chown -R "$owner:$group" "$target_dir" 2>/dev/null; then
+        # 设置所有者（使用sudo）
+        if ! sudo chown -R "$owner:$group" "$target_dir" 2>/dev/null; then
             log_error "所有者设置失败: $target_dir"
             return 1
         fi
         
-        log_success "权限设置成功: $target_dir"
+        log_success "权限设置成功: $target_dir (所有者: $owner:$group)"
         return 0
     }
     
@@ -1869,10 +1970,10 @@ deploy_php_frontend() {
         exit 1
     fi
     
-    # 特别处理日志目录权限
+    # 特别处理日志目录权限（使用sudo）
     if [[ -d "$FRONTEND_DIR/logs" ]]; then
-        chmod 700 "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录权限设置失败"
-        chown "$web_user:$web_group" "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录所有者设置失败"
+        sudo chmod 775 "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录权限设置失败"
+        sudo chown "$web_user:$web_group" "$FRONTEND_DIR/logs" 2>/dev/null || log_warning "日志目录所有者设置失败"
     fi
     
     # 修复原生安装的API路径配置问题
@@ -4535,11 +4636,13 @@ main() {
     
     # 检测系统
     detect_system
+    
+    # 先解析命令行参数（用户自定义路径优先级最高）
+    parse_arguments "$@"
+    
+    # 然后检测系统路径（仅设置未通过参数指定的路径）
     detect_system_paths
     check_requirements
-    
-    # 解析参数
-    parse_arguments "$@"
     
     # 选择安装类型
     select_install_type

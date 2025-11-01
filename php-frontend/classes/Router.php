@@ -42,6 +42,14 @@ class Router {
             }
         }
         
+        // 检查是否是静态文件请求（应该由Nginx处理，但如果进入了PHP，我们也检查）
+        if ($this->isStaticFile($path)) {
+            // 静态文件请求不应该进入PHP路由
+            // 如果进入这里，说明Nginx配置可能有问题，返回404
+            $this->handle404();
+            return;
+        }
+        
         // 查找匹配的路由
         foreach ($this->routes as $route) {
             if ($route['method'] === $method && $this->matchPath($route['path'], $path)) {
@@ -61,10 +69,32 @@ class Router {
     }
     
     /**
+     * 检查是否是静态文件请求
+     */
+    private function isStaticFile($path) {
+        $staticExtensions = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.pdf', '.zip'];
+        foreach ($staticExtensions as $ext) {
+            if (substr($path, -strlen($ext)) === $ext) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
      * 匹配路径
      */
     private function matchPath($routePath, $requestPath) {
-        // 简单的路径匹配，支持参数
+        // 支持通配符 *（匹配任意路径）
+        if (substr($routePath, -2) === '/*') {
+            $basePath = substr($routePath, 0, -2);
+            // 如果请求路径以基础路径开头，则匹配
+            if ($requestPath === $basePath || strpos($requestPath, $basePath . '/') === 0) {
+                return true;
+            }
+        }
+        
+        // 简单的路径匹配，支持参数 {id} 等
         $routePattern = preg_replace('/\{[^}]+\}/', '([^/]+)', $routePath);
         $routePattern = '#^' . $routePattern . '$#';
         

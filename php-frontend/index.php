@@ -115,16 +115,18 @@ $router->addRoute('GET', '/login', 'AuthController@showLogin');
 $router->addRoute('POST', '/login', 'AuthController@login');
 $router->addRoute('GET', '/logout', 'AuthController@logout');
 
-// API代理路由
+// API代理路由 - 精确路由优先于通配符路由
 $router->addRoute('GET', '/api/health', 'AuthController@checkApiStatus');
 $router->addRoute('GET', '/api/status', 'AuthController@checkApiStatus');
 
-// API v1 代理路由
+// API v1 代理路由 - 通配符路由放在最后（路由按添加顺序匹配）
+// 注意：通配符路由应该在精确路由之后添加
 $router->addRoute('GET', '/api/v1/*', 'api_proxy.php');
 $router->addRoute('POST', '/api/v1/*', 'api_proxy.php');
 $router->addRoute('PUT', '/api/v1/*', 'api_proxy.php');
 $router->addRoute('DELETE', '/api/v1/*', 'api_proxy.php');
 $router->addRoute('PATCH', '/api/v1/*', 'api_proxy.php');
+$router->addRoute('OPTIONS', '/api/v1/*', 'api_proxy.php');
 
 // 错误页面路由
 $router->addRoute('GET', '/error', 'ErrorController@showError');
