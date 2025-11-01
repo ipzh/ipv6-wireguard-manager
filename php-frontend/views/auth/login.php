@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= APP_NAME ?> - 登录</title>
+    <title><?= defined('APP_NAME') ? APP_NAME : 'IPv6 WireGuard Manager' ?> - 登录</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -514,7 +514,7 @@
                     <i class="bi bi-shield-lock"></i>
                 </div>
             </div>
-            <h1 class="app-title"><?= APP_NAME ?></h1>
+            <h1 class="app-title"><?= defined('APP_NAME') ? APP_NAME : 'IPv6 WireGuard Manager' ?></h1>
             <p class="app-subtitle">安全登录到您的管理控制台</p>
         </div>
 
@@ -666,8 +666,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // API基础URL
-        const API_BASE_URL = '<?= API_BASE_URL ?>';
+        // API基础URL - 确保有默认值，避免JavaScript错误
+        const API_BASE_URL = '<?= defined("API_BASE_URL") ? API_BASE_URL : "http://localhost:8000" ?>';
         
         document.addEventListener('DOMContentLoaded', function() {
             // 密码显示/隐藏切换
@@ -791,8 +791,17 @@
                 }
             });
             
-            // 检查API状态
-            checkApiStatus();
+            // 延迟检查API状态，确保页面已完全加载
+            // 不阻塞页面渲染
+            setTimeout(function() {
+                try {
+                    checkApiStatus();
+                } catch (error) {
+                    console.warn('API状态检查初始化失败:', error);
+                    // 即使检查失败，也允许登录
+                    window.apiConnected = true;
+                }
+            }, 500);
             
             // 回车键登录
             document.addEventListener('keypress', function(e) {
@@ -816,41 +825,59 @@
 
         function checkApiStatus() {
             // 异步检查API状态，不影响登录表单显示
-            // 使用PHP代理端点而不是直接调用API
-            fetch('/api/status')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    const statusDiv = document.getElementById('apiStatus');
-                    if (data.success && data.status === 'healthy') {
+            // 确保即使出错也不会阻止页面显示
+            try {
+                // 使用PHP代理端点而不是直接调用API
+                fetch('/api/status')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const statusDiv = document.getElementById('apiStatus');
+                        if (!statusDiv) return; // 如果元素不存在，直接返回
+                        
+                        if (data.success && data.status === 'healthy') {
+                            statusDiv.innerHTML = `
+                                <i class="bi bi-check-circle status-success"></i>
+                                <span class="status-success">API连接正常</span>
+                            `;
+                            window.apiConnected = true;
+                        } else {
+                            statusDiv.innerHTML = `
+                                <i class="bi bi-x-circle status-error"></i>
+                                <span class="status-error">API状态异常（登录仍可使用）</span>
+                            `;
+                            // 即使API不可用，也允许登录（使用本地认证）
+                            window.apiConnected = true;
+                        }
+                    })
+                    .catch(error => {
+                        const statusDiv = document.getElementById('apiStatus');
+                        if (!statusDiv) return; // 如果元素不存在，直接返回
+                        
                         statusDiv.innerHTML = `
-                            <i class="bi bi-check-circle status-success"></i>
-                            <span class="status-success">API连接正常</span>
+                            <i class="bi bi-exclamation-triangle status-error"></i>
+                            <span class="status-error">API连接失败（可尝试本地登录）</span>
                         `;
+                        // 即使API检查失败，也允许表单提交（服务器端可能可以处理）
                         window.apiConnected = true;
-                    } else {
-                        statusDiv.innerHTML = `
-                            <i class="bi bi-x-circle status-error"></i>
-                            <span class="status-error">API状态异常（登录仍可使用）</span>
-                        `;
-                        // 即使API不可用，也允许登录（使用本地认证）
-                        window.apiConnected = true;
-                    }
-                })
-                .catch(error => {
-                    const statusDiv = document.getElementById('apiStatus');
+                        console.warn('API状态检查失败，但不阻止登录:', error);
+                    });
+            } catch (error) {
+                // 捕获所有可能的错误，确保不影响页面显示
+                console.warn('API状态检查异常，但不阻止登录:', error);
+                const statusDiv = document.getElementById('apiStatus');
+                if (statusDiv) {
                     statusDiv.innerHTML = `
                         <i class="bi bi-exclamation-triangle status-error"></i>
-                        <span class="status-error">API连接失败（可尝试本地登录）</span>
+                        <span class="status-error">API状态检查异常（登录仍可用）</span>
                     `;
-                    // 即使API检查失败，也允许表单提交（服务器端可能可以处理）
-                    window.apiConnected = true;
-                    console.warn('API状态检查失败，但不阻止登录:', error);
-                });
+                }
+                window.apiConnected = true;
+            }
         }
 
         function showMessage(message, type = 'info') {

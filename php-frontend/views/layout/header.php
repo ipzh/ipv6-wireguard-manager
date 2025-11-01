@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $pageTitle ?? APP_NAME ?></title>
+    <title><?= $pageTitle ?? (defined('APP_NAME') ? APP_NAME : 'IPv6 WireGuard Manager') ?></title>
     
     <!-- 静态资源 -->
     <?= generateCssLinks(true) ?>
@@ -845,8 +845,8 @@
             <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse" id="sidebar">
                 <div class="position-sticky pt-3">
                     <div class="text-center mb-3">
-                        <h5 class="text-white"><?= APP_NAME ?></h5>
-                        <small class="text-muted">v<?= APP_VERSION ?></small>
+                        <h5 class="text-white"><?= defined('APP_NAME') ? APP_NAME : 'IPv6 WireGuard Manager' ?></h5>
+                        <small class="text-muted">v<?= defined('APP_VERSION') ? APP_VERSION : '3.1.0' ?></small>
                     </div>
                     
                     <ul class="nav flex-column">

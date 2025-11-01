@@ -107,8 +107,18 @@ class AuthController {
         header('Cache-Control: no-cache, no-store, must-revalidate');
         
         try {
+            // 确保API_BASE_URL已定义
+            if (!defined('API_BASE_URL')) {
+                // 如果未定义，使用默认值
+                $apiHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $apiHost = preg_replace('/:\d+$/', '', $apiHost);
+                $apiBaseUrl = 'http://' . $apiHost . ':8000';
+            } else {
+                $apiBaseUrl = API_BASE_URL;
+            }
+            
             // 统一从根URL检查健康状态（去掉可能的 /api/v* 前缀）
-            $base = rtrim(API_BASE_URL, '/');
+            $base = rtrim($apiBaseUrl, '/');
             $rootBase = preg_replace('#/api/v\d+$#', '', $base);
             $healthUrl = $rootBase . '/health';
             $ch = curl_init();
@@ -153,7 +163,16 @@ class AuthController {
             }
             
         } catch (Exception $e) {
-            $base = rtrim(API_BASE_URL, '/');
+            // 确保API_BASE_URL已定义
+            if (!defined('API_BASE_URL')) {
+                $apiHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $apiHost = preg_replace('/:\d+$/', '', $apiHost);
+                $apiBaseUrl = 'http://' . $apiHost . ':8000';
+            } else {
+                $apiBaseUrl = API_BASE_URL;
+            }
+            
+            $base = rtrim($apiBaseUrl, '/');
             $rootBase = preg_replace('#/api/v\d+$#', '', $base);
             echo json_encode([
                 'success' => false,

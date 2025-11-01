@@ -8,8 +8,11 @@ define('APP_NAME', getenv('APP_NAME') ?: 'IPv6 WireGuard Manager');
 define('APP_VERSION', getenv('APP_VERSION') ?: '3.1.0');
 define('APP_DEBUG', filter_var(getenv('APP_DEBUG') ?: false, FILTER_VALIDATE_BOOLEAN));
 
-// API配置
-define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . ':8000');
+// API配置 - 确保始终有有效的URL
+$apiHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+// 移除端口号（如果存在）
+$apiHost = preg_replace('/:\d+$/', '', $apiHost);
+define('API_BASE_URL', getenv('API_BASE_URL') ?: 'http://' . $apiHost . ':8000');
 define('API_TIMEOUT', getenv('API_TIMEOUT') ?: 30);
 
 // 会话配置
