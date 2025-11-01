@@ -2335,7 +2335,7 @@ ${ipv6_listen_line}
     # API代理配置 - 代理到后端FastAPI
     # 处理 /api/v1/* 等后端API请求
     location ~ ^/api(/.*)?$ {
-        # $1 匹配的是 /v1/health 等路径
+        # \$1 匹配的是 /v1/health 等路径
         # 需要加上 /api 前缀传递给后端：/api/v1/health
         set \$api_path \$1;
         if (\$api_path = "") {
