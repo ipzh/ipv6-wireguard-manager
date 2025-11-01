@@ -2321,12 +2321,26 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || ech
         try_files \$uri =404;
     }
     
-    # API代理配置 - 统一处理所有API请求
-    # 支持 /api/, /api/v1/, /health 等路径
+    # PHP路由处理（优先级高于通用API代理）
+    # /api/status 和 /api/health 由PHP处理，不代理到后端
+    # 这些路径不存在实际文件，需要由PHP路由系统处理
+    location ~ ^/api/(status|health)$ {
+        fastcgi_pass php_backend;
+        fastcgi_param SCRIPT_FILENAME \$document_root/index_jwt.php;
+        fastcgi_param REQUEST_URI \$request_uri;
+        include fastcgi_params;
+    }
+    
+    # API代理配置 - 代理到后端FastAPI
+    # 处理 /api/v1/* 等后端API请求
     location ~ ^/api(/.*)?$ {
-        # 移除 /api 前缀，直接传递剩余路径给后端
-        # 例如: /api/v1/health -> /api/v1/health
-        proxy_pass http://backend_api\$1\$is_args\$args;
+        # $1 匹配的是 /v1/health 等路径
+        # 需要加上 /api 前缀传递给后端：/api/v1/health
+        set \$api_path \$1;
+        if (\$api_path = "") {
+            set \$api_path "/";
+        }
+        proxy_pass http://backend_api/api\$api_path\$is_args\$args;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';

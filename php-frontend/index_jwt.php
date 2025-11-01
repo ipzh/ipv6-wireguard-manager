@@ -230,10 +230,10 @@ $router->addRoute('DELETE', '/network/routes/{id}', 'NetworkController@deleteRou
 $router->addRoute('GET', '/error', 'ErrorController@index');
 $router->addRoute('GET', '/error/{code}', 'ErrorController@show');
 
-// API路由
-$router->addRoute('GET', '/api/status', 'ApiController@status');
-$router->addRoute('GET', '/api/health', 'ApiController@health');
-$router->addRoute('POST', '/api/upload', 'ApiController@upload');
+// API路由 - 修复：使用AuthController中已有的checkApiStatus方法
+$router->addRoute('GET', '/api/status', 'AuthController@checkApiStatus');
+$router->addRoute('GET', '/api/health', 'AuthController@checkApiStatus');
+$router->addRoute('POST', '/api/upload', 'ErrorController@index'); // TODO: 实现文件上传功能
 
 // 处理请求
 try {

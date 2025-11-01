@@ -107,6 +107,14 @@ class AuthController {
         header('Cache-Control: no-cache, no-store, must-revalidate');
         
         try {
+            // 优先使用Nginx代理路径（通过前端访问，走Nginx代理）
+            // 这样可以避免跨域问题和端口配置问题
+            $healthUrl = null;
+            
+            // 方案1: 尝试通过Nginx代理访问 /api/v1/health
+            $proxyHealthUrl = '/api/v1/health';
+            
+            // 方案2: 如果代理不可用，尝试直接访问后端
             // 确保API_BASE_URL已定义
             if (!defined('API_BASE_URL')) {
                 // 如果未定义，使用默认值
@@ -117,14 +125,24 @@ class AuthController {
                 $apiBaseUrl = API_BASE_URL;
             }
             
-            // 统一从根URL检查健康状态（去掉可能的 /api/v* 前缀）
+            // 构建后端API健康检查URL
             $base = rtrim($apiBaseUrl, '/');
-            $rootBase = preg_replace('#/api/v\d+$#', '', $base);
-            $healthUrl = $rootBase . '/health';
+            // 确保包含 /api/v1 前缀
+            if (strpos($base, '/api/v1') === false) {
+                $base = rtrim($base, '/') . '/api/v1';
+            }
+            $directHealthUrl = $base . '/health';
+            
+            // 尝试通过Nginx代理访问（使用完整URL）
+            $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $proxyUrl = $scheme . '://' . $host . $proxyHealthUrl;
+            
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $healthUrl);
+            curl_setopt($ch, CURLOPT_URL, $proxyUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 快速超时，优先尝试代理
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'Accept: application/json',
                 'Content-Type: application/json'
@@ -138,8 +156,35 @@ class AuthController {
             $error = curl_error($ch);
             curl_close($ch);
             
+            // 如果代理失败，尝试直接访问后端
+            $finalHealthUrl = $proxyUrl;
+            $method = 'proxy';
+            
+            if ($error || $httpCode !== 200) {
+                // 尝试直接访问后端
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $directHealthUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]);
+                
+                // 应用安全的SSL配置
+                applySecureSSLConfig($ch);
+                
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                curl_close($ch);
+                
+                $finalHealthUrl = $directHealthUrl;
+                $method = 'direct';
+            }
+            
             if ($error) {
-                throw new Exception('连接失败: ' . $error);
+                throw new Exception('连接失败: ' . $error . ' (代理URL: ' . $proxyUrl . ', 直接URL: ' . $directHealthUrl . ')');
             }
             
             if ($httpCode === 200) {
@@ -149,7 +194,10 @@ class AuthController {
                     'status' => 'healthy',
                     'data' => $data,
                     'http_code' => $httpCode,
-                    'backend_url' => $healthUrl
+                    'backend_url' => $finalHealthUrl,
+                    'method' => $method,
+                    'proxy_url_tried' => $proxyUrl,
+                    'direct_url_tried' => $directHealthUrl
                 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             } else {
                 echo json_encode([
@@ -158,7 +206,11 @@ class AuthController {
                     'error' => 'HTTP错误: ' . $httpCode,
                     'http_code' => $httpCode,
                     'response' => substr($response, 0, 200),
-                    'backend_url' => $healthUrl
+                    'backend_url' => $finalHealthUrl,
+                    'method' => $method,
+                    'proxy_url_tried' => $proxyUrl,
+                    'direct_url_tried' => $directHealthUrl,
+                    'note' => 'API可通过直接访问，但Nginx代理可能配置有问题'
                 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             }
             
@@ -172,14 +224,26 @@ class AuthController {
                 $apiBaseUrl = API_BASE_URL;
             }
             
+            // 构建正确的健康检查URL
             $base = rtrim($apiBaseUrl, '/');
-            $rootBase = preg_replace('#/api/v\d+$#', '', $base);
+            if (strpos($base, '/api/v1') === false) {
+                $base = rtrim($base, '/') . '/api/v1';
+            }
+            $healthUrl = $base . '/health';
+            
+            // 也尝试代理路径
+            $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $proxyUrl = $scheme . '://' . $host . '/api/v1/health';
+            
             echo json_encode([
                 'success' => false,
                 'status' => 'error',
                 'error' => $e->getMessage(),
                 'message' => '无法连接到后端API服务',
-                'backend_url' => $rootBase . '/health'
+                'tried_proxy_url' => $proxyUrl,
+                'tried_direct_url' => $healthUrl,
+                'suggestion' => '请检查：1) Nginx代理配置 2) 后端API服务是否运行 3) 防火墙设置'
             ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         }
     }
