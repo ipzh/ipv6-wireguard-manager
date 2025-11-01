@@ -2267,25 +2267,23 @@ configure_nginx() {
 
     # 创建Nginx配置
     # IPv6与IPv4上游行（根据IPV6_SUPPORT条件渲染）
-    local backend_ipv6_line=""
-    local backend_ipv4_line=""
+    local backend_upstream_lines=""
     
     if [[ "${IPV6_SUPPORT}" == "true" ]]; then
         # IPv6可用：IPv6作为主服务器，IPv4作为backup
-        backend_ipv6_line="    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;"
-        backend_ipv4_line="    server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
+        backend_upstream_lines="    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
+    server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
         log_info "使用IPv6上游服务器地址: [::1]:${API_PORT} (IPv4作为backup)"
     else
         # IPv6不可用：IPv4作为主服务器（不是backup）
-        backend_ipv4_line="    server 127.0.0.1:${API_PORT} max_fails=3 fail_timeout=30s;"
+        backend_upstream_lines="    server 127.0.0.1:${API_PORT} max_fails=3 fail_timeout=30s;"
         log_info "使用IPv4上游服务器地址: 127.0.0.1:${API_PORT}"
     fi
 
     cat > "$nginx_conf_path" << EOF
 # 上游服务器组，支持IPv4和IPv6双栈
 upstream backend_api {
-$( [[ -n "$backend_ipv6_line" ]] && echo "$backend_ipv6_line" )
-$( [[ -n "$backend_ipv4_line" ]] && echo "$backend_ipv4_line" )
+${backend_upstream_lines}
     
     # 健康检查
     keepalive 32;
