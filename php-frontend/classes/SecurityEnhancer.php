@@ -270,13 +270,25 @@ class SecurityEnhancer {
     }
     
     /**
-     * 设置安全头
+     * 设置安全头（已废弃 - 由Nginx统一设置）
+     * 
+     * 注意：安全头现在由Nginx统一设置，避免重复和冲突
+     * 
+     * 架构说明：
+     * - 生产环境：Nginx统一设置所有安全头（推荐）
+     * - 开发环境：FastAPI中间件会自动添加安全头作为备选
+     * - PHP层：已移除安全头设置，简化架构
+     * 
+     * 如果需要在无Nginx环境中使用，可以通过FastAPI中间件处理
      */
     public static function setSecurityHeaders() {
-        // 防止XSS攻击
-        header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: DENY');
-        header('X-XSS-Protection: 1; mode=block');
+        // 已移除PHP安全头设置
+        // 安全头现在由以下层设置（按优先级）：
+        // 1. Nginx（最高优先级，生产环境推荐）
+        // 2. FastAPI中间件（备选，自动检查避免重复）
+        
+        // 此方法保留作为接口兼容，但不执行任何操作
+        return;
         
         // 内容安全策略
         $csp = "default-src 'self'; " .

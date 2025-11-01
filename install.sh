@@ -2307,11 +2307,12 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || ech
     root $FRONTEND_DIR;
     index index.php index.html;
     
-    # 安全头
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    # 安全头（统一在Nginx层设置，避免与FastAPI和PHP重复）
+    # 注意：已修复与后端FastAPI和前端PHP的冲突
+    add_header X-Frame-Options "DENY" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     
     # 静态文件缓存
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
@@ -2320,22 +2321,12 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || ech
         try_files \$uri =404;
     }
     
-    # API代理配置 - 精确匹配API路径，避免与PHP处理冲突
-    location = /api/ {
-        proxy_pass http://backend_api/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
-    
-    # API子路径处理
-    location /api/ {
-        proxy_pass http://backend_api/;
+    # API代理配置 - 统一处理所有API请求
+    # 支持 /api/, /api/v1/, /health 等路径
+    location ~ ^/api(/.*)?$ {
+        # 移除 /api 前缀，直接传递剩余路径给后端
+        # 例如: /api/v1/health -> /api/v1/health
+        proxy_pass http://backend_api\$1\$is_args\$args;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -2349,6 +2340,16 @@ $( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || ech
         proxy_connect_timeout 30s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
+    }
+    
+    # 健康检查端点（直接代理，不经过/api前缀）
+    location = /health {
+        proxy_pass http://backend_api/api/v1/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         
         # 错误处理
         proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;

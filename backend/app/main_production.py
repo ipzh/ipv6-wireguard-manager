@@ -82,10 +82,11 @@ if settings.BACKEND_CORS_ORIGINS:
 # 安全头中间件
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    """添加安全头"""
+    """添加安全头（仅在未由Nginx设置时）"""
     response = await call_next(request)
     
-    # 基础安全头
+    # 基础安全头（仅当Nginx未设置时）
+    # 注意：如果使用Nginx反向代理，建议在Nginx层统一设置安全头，避免重复
     security_headers = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
@@ -93,12 +94,14 @@ async def add_security_headers(request: Request, call_next):
         "Referrer-Policy": "strict-origin-when-cross-origin",
     }
     
-    # HTTPS环境添加HSTS
-    if request.url.scheme == "https":
-        security_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    
+    # 仅在响应头中不存在时设置（避免与Nginx重复）
     for header, value in security_headers.items():
-        response.headers[header] = value
+        if header not in response.headers:
+            response.headers[header] = value
+    
+    # HTTPS环境添加HSTS（仅当未设置时）
+    if request.url.scheme == "https" and "Strict-Transport-Security" not in response.headers:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
     return response
 

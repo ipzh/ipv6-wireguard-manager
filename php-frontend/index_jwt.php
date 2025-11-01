@@ -62,11 +62,13 @@ date_default_timezone_set('Asia/Shanghai');
 
 // 会话将在SecurityEnhancer中安全启动
 
-// 设置安全头
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('X-XSS-Protection: 1; mode=block');
-header('Referrer-Policy: strict-origin-when-cross-origin');
+// 安全头设置策略：
+// - 生产环境：由Nginx统一设置安全头（推荐）
+// - 开发环境（无Nginx）：由FastAPI/PHP设置作为备选
+// - 注意：避免重复设置，Nginx优先级最高
+// 
+// 当前配置：已移除PHP安全头设置，完全依赖Nginx
+// 如果部署环境没有Nginx，FastAPI中间件会自动添加安全头
 
 // 定义常量
 define('APP_ROOT', __DIR__);
