@@ -7,6 +7,7 @@
 - [服务启动问题](#服务启动问题)
 - [API 路由问题](#api-路由问题)
 - [数据库问题](#数据库问题)
+- [认证和安全问题](#认证和安全问题)
 - [权限问题](#权限问题)
 - [网络问题](#网络问题)
 - [日志分析](#日志分析)
@@ -403,6 +404,184 @@ alembic upgrade head
 # 如果需要，回退迁移
 alembic downgrade -1
 ```
+
+## 🔐 认证和安全问题
+
+### 问题 1: 登录失败 - 429 Too Many Requests
+
+**症状**:
+```json
+{
+  "detail": "登录尝试次数过多，请5分钟后再试"
+}
+```
+
+**原因**: 防暴力破解机制触发
+
+**解决方案**:
+1. **等待5分钟** - 自动解锁
+2. **检查日志** - 确认是否被攻击
+```bash
+sudo journalctl -u ipv6-wireguard-manager | grep "登录尝试次数过多"
+```
+
+3. **配置调整**（如需）:
+```python
+# backend/app/api/api_v1/endpoints/auth.py
+_MAX_LOGIN_ATTEMPTS = 5  # 可调整
+_LOGIN_WINDOW_SECONDS = 300  # 可调整
+```
+
+### 问题 2: Cookie未设置或不工作
+
+**症状**:
+- 登录后浏览器中看不到Cookie
+- 后续请求返回401未授权
+
+**诊断步骤**:
+
+1. **检查Cookie标志**:
+```bash
+# 使用浏览器开发者工具
+# Application -> Cookies
+# 检查Cookie是否设置了HttpOnly, Secure, SameSite标志
+```
+
+2. **检查前端配置**:
+```javascript
+// 确认axios配置
+const apiClient = axios.create({
+  withCredentials: true  // 必须设置为true
+});
+
+// 确认fetch配置
+fetch('/api/v1/endpoint', {
+  credentials: 'include'  // 必须设置
+});
+```
+
+3. **检查API代理**:
+```php
+// php-frontend/api_proxy.php
+// 确认Cookie转发代码存在
+$cookieHeaders = [];
+foreach ($_COOKIE as $name => $value) {
+    $cookieHeaders[] = $name . '=' . urlencode($value);
+}
+```
+
+4. **检查环境配置**:
+```bash
+# 开发环境 - secure应该为false（允许HTTP）
+# 生产环境 - secure应该为true（强制HTTPS）
+```
+
+**解决方案**:
+- 开发环境：确保`DEBUG=true`，使用HTTP
+- 生产环境：必须使用HTTPS，确保`DEBUG=false`
+- 检查CORS配置：确保`Access-Control-Allow-Credentials: true`
+
+### 问题 3: 令牌验证失败 - 401 Unauthorized
+
+**症状**:
+```
+401 Unauthorized
+"Could not validate credentials"
+```
+
+**可能原因**:
+1. 令牌过期
+2. 令牌在黑名单中（已撤销）
+3. 令牌格式错误
+4. Cookie未正确传递
+
+**诊断步骤**:
+
+1. **检查令牌有效性**:
+```bash
+# 检查令牌是否在黑名单中
+python3 << 'EOF'
+from backend.app.core.token_blacklist import is_blacklisted
+token = "your_token_here"
+if is_blacklisted(token):
+    print("令牌在黑名单中")
+else:
+    print("令牌不在黑名单中")
+EOF
+```
+
+2. **检查令牌过期时间**:
+```python
+# 解码JWT查看过期时间
+import jwt
+token = "your_token_here"
+payload = jwt.decode(token, options={"verify_signature": False})
+print(f"过期时间: {payload.get('exp')}")
+```
+
+3. **检查Cookie传递**:
+```bash
+# 使用curl测试
+curl -v -b cookies.txt http://localhost:8000/api/v1/auth/me
+# 查看请求头中是否包含Cookie
+```
+
+**解决方案**:
+- 刷新令牌：调用`/api/v1/auth/refresh`端点
+- 重新登录：如果刷新令牌也过期
+- 检查网络：确认Cookie正确传递
+
+### 问题 4: 登出后令牌仍可使用
+
+**症状**:
+- 登出后，使用原令牌仍能访问API
+
+**原因**: 令牌未正确加入黑名单
+
+**诊断**:
+```bash
+# 检查登出日志
+sudo journalctl -u ipv6-wireguard-manager | grep "已登出"
+
+# 检查黑名单
+python3 << 'EOF'
+from backend.app.core.token_blacklist import get_blacklisted_count
+print(f"黑名单中的令牌数: {get_blacklisted_count()}")
+EOF
+```
+
+**解决方案**:
+- 检查logout端点是否正确调用`add_to_blacklist`
+- 检查黑名单存储是否正常工作
+- 生产环境建议使用Redis存储
+
+### 问题 5: 密码验证失败
+
+**症状**:
+- 密码正确但无法登录
+- 提示"用户名或密码错误"
+
+**可能原因**:
+1. 密码哈希算法变更（从pbkdf2_sha256到bcrypt）
+2. 密码格式问题
+
+**解决方案**:
+1. **重置密码**:
+```python
+from backend.app.core.security_enhanced import security_manager
+hashed = security_manager.get_password_hash("new_password")
+# 更新数据库中的密码哈希
+```
+
+2. **检查密码哈希格式**:
+```bash
+# bcrypt哈希格式: $2b$...
+# pbkdf2_sha256格式: $pbkdf2-sha256$...
+```
+
+3. **迁移现有密码**（如需要）:
+- 用户下次登录时自动更新为bcrypt格式
+- 或批量重置密码
 
 ## 🔒 权限问题
 

@@ -11,6 +11,7 @@
 | [安装指南](INSTALLATION_GUIDE.md) | 详细的安装流程、环境准备与配置说明 |
 | [部署指南](DEPLOYMENT_GUIDE.md) | 生产环境部署方案、服务管理与性能优化建议 |
 | [API 参考](API_REFERENCE.md) | FastAPI 后端公开的接口说明与示例 |
+| [安全特性](SECURITY_FEATURES.md) | 完整的安全特性说明和配置指南 |
 | [故障排除指南](TROUBLESHOOTING_GUIDE.md) | 常见问题诊断与解决方案 |
 
 > 文档会随着功能迭代持续更新，建议在升级或重新部署之前回顾上述文档获取最新信息。

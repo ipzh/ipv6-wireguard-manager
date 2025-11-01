@@ -68,18 +68,26 @@ IPv6 WireGuard Manager 提供完整的 RESTful API，支持 IPv6 地址管理、
 
 ## 🔐 认证机制
 
-### JWT Bearer Token
+### 认证方式
 
-所有需要认证的请求必须在 Header 中包含：
+系统支持两种认证方式（向后兼容）：
 
+#### 1. HttpOnly Cookie（推荐）
+- ✅ **最安全**：防止XSS攻击
+- ✅ **自动管理**：浏览器自动发送Cookie
+- ✅ **配置要求**：前端需要设置 `withCredentials: true` 或 `credentials: 'include'`
+
+#### 2. Authorization Header（兼容）
 ```
 Authorization: Bearer <access_token>
 ```
+- 仍然支持，用于向后兼容
+- 令牌可从登录响应的JSON中获取
 
 ### 令牌生命周期
 
-- **访问令牌 (access_token)**: 30分钟
-- **刷新令牌 (refresh_token)**: 7天
+- **访问令牌 (access_token)**: 8天（11520分钟，可配置）
+- **刷新令牌 (refresh_token)**: 30天（可配置）
 
 ### 认证端点
 
@@ -87,7 +95,11 @@ Authorization: Bearer <access_token>
 
 **端点**: `POST /api/v1/auth/login`
 
-**请求体**:
+**支持的请求格式**:
+- 表单编码 (application/x-www-form-urlencoded)
+- JSON (application/json) - 使用 `/api/v1/auth/login-json`
+
+**请求体（JSON格式）**:
 ```json
 {
   "username": "admin",
@@ -103,30 +115,47 @@ Authorization: Bearer <access_token>
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "token_type": "bearer",
-    "expires_in": 1800,
+    "expires_in": 11520,
     "user": {
       "id": 1,
       "username": "admin",
       "email": "admin@example.com",
       "is_active": true,
-      "is_superuser": true,
-      "role": "admin"
+      "is_superuser": true
     }
   },
   "message": "登录成功"
 }
 ```
 
+**Cookie设置**:
+登录成功后会自动设置HttpOnly Cookie：
+- `access_token`: HttpOnly, Secure, SameSite=Lax
+- `refresh_token`: HttpOnly, Secure, SameSite=Lax
+
+**安全特性**:
+- ✅ 防暴力破解：5分钟内最多5次登录尝试
+- ✅ 超过限制返回429状态码
+- ✅ 失败的登录尝试会被记录
+
 #### 2. 刷新令牌
 
 **端点**: `POST /api/v1/auth/refresh`
 
-**请求体**:
+**支持的请求方式**:
+1. **JSON请求体**:
 ```json
 {
   "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
 }
 ```
+
+2. **查询参数**:
+```
+POST /api/v1/auth/refresh?refresh_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+```
+
+3. **Cookie** (自动使用，无需手动传递)
 
 **响应**:
 ```json
@@ -135,20 +164,26 @@ Authorization: Bearer <access_token>
   "data": {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "token_type": "bearer",
-    "expires_in": 1800
+    "expires_in": 11520
   },
   "message": "令牌刷新成功"
 }
 ```
 
+**Cookie更新**:
+刷新成功后会自动更新 `access_token` Cookie
+
+**注意**: 
+- ✅ 端点已统一，不再需要 `/refresh-json`
+- ✅ 支持多种令牌传递方式
+
 #### 3. 用户登出
 
 **端点**: `POST /api/v1/auth/logout`
 
-**Headers**:
-```
-Authorization: Bearer <access_token>
-```
+**认证方式**（任选其一）:
+- Authorization Header: `Authorization: Bearer <access_token>`
+- HttpOnly Cookie: `access_token` Cookie（自动发送）
 
 **响应**:
 ```json
@@ -157,6 +192,11 @@ Authorization: Bearer <access_token>
   "message": "登出成功"
 }
 ```
+
+**安全特性**:
+- ✅ 令牌自动加入黑名单（撤销）
+- ✅ Cookie自动清除
+- ✅ 黑名单中的令牌无法继续使用
 
 #### 4. 获取当前用户信息
 
@@ -649,25 +689,44 @@ Authorization: Bearer <access_token>
 ## 🔒 安全特性
 
 ### 认证机制
-- JWT 令牌认证
-- 令牌自动刷新机制
-- 会话管理
+- ✅ **JWT令牌认证** - 标准JWT实现
+- ✅ **HttpOnly Cookie存储** - 防止XSS攻击（推荐方式）
+- ✅ **Authorization Header支持** - 向后兼容
+- ✅ **令牌自动刷新机制** - 自动续期
+- ✅ **令牌撤销机制** - 黑名单支持
+
+### 密码安全
+- ✅ **bcrypt密码哈希** - 自适应成本因子
+- ✅ **密码长度限制** - 72字节（bcrypt限制）
+- ✅ **密码验证** - 安全验证流程
+
+### 防暴力破解
+- ✅ **登录尝试限制** - 5分钟内最多5次尝试
+- ✅ **IP地址跟踪** - 基于用户名和IP的组合限制
+- ✅ **自动锁定** - 超过限制返回429状态码
+- ✅ **失败记录** - 记录所有失败的登录尝试
 
 ### 权限控制
-- 基于角色的访问控制 (RBAC)
-- 资源级权限控制
-- API 端点权限验证
+- ✅ **基于角色的访问控制 (RBAC)** - 完整的权限系统
+- ✅ **资源级权限控制** - 细粒度权限
+- ✅ **API端点权限验证** - 自动权限检查
 
 ### 安全头
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `X-XSS-Protection: 1; mode=block`
-- `Strict-Transport-Security: max-age=31536000`
+- ✅ `X-Content-Type-Options: nosniff` - 防止MIME类型嗅探
+- ✅ `X-Frame-Options: DENY` - 防止点击劫持
+- ✅ `X-XSS-Protection: 1; mode=block` - XSS保护
+- ✅ `Strict-Transport-Security: max-age=31536000` - HSTS（HTTPS环境）
+
+### Cookie安全
+- ✅ `HttpOnly=True` - 防止JavaScript访问
+- ✅ `Secure=True` - 仅HTTPS传输（生产环境）
+- ✅ `SameSite=Lax` - CSRF保护
+- ✅ 环境适配 - 开发环境允许HTTP
 
 ### 速率限制
-- 登录: 5次/分钟
-- 一般请求: 60次/分钟
-- 敏感操作: 10次/分钟
+- ✅ **登录**: 5次/5分钟（防暴力破解）
+- ✅ **一般请求**: 60次/分钟
+- ✅ **敏感操作**: 10次/分钟
 
 ## 📈 最佳实践
 
@@ -712,19 +771,25 @@ const totalPages = response.pagination.total_pages;
 
 ### 3. 认证令牌管理
 
+#### HttpOnly Cookie方案（推荐）
+
 ```javascript
-// 登录并保存令牌
+// 配置axios支持Cookie
+const apiClient = axios.create({
+  baseURL: '/api/v1',
+  withCredentials: true,  // 启用Cookie支持
+});
+
+// 登录（Cookie自动设置，无需手动保存）
 const loginResponse = await apiClient.post('/auth/login', {
   username: 'admin',
   password: 'password'
 });
 
-if (loginResponse.success) {
-  localStorage.setItem('access_token', loginResponse.data.access_token);
-  localStorage.setItem('refresh_token', loginResponse.data.refresh_token);
-}
+// Cookie已自动设置，后续请求自动携带
+// 无需手动管理令牌
 
-// 自动刷新令牌
+// 自动刷新令牌（Cookie自动更新）
 apiClient.interceptors.response.use(
   response => response,
   async error => {

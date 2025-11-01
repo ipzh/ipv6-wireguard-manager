@@ -179,6 +179,34 @@ http://localhost:5601
 
 ## 🔒 安全配置
 
+### HttpOnly Cookie配置
+
+系统默认使用HttpOnly Cookie存储JWT令牌，提供更高的安全性。
+
+#### 开发环境配置
+- Cookie的`secure`标志自动适配：HTTP环境下为`false`，HTTPS环境下为`true`
+- 前端需要配置`withCredentials: true`（axios）或`credentials: 'include'`（fetch）
+
+#### 生产环境配置
+**必须使用HTTPS** - Cookie的`Secure`标志需要HTTPS
+
+```bash
+# 1. 配置HTTPS（必须）
+# 使用Let's Encrypt或商业证书
+
+# 2. 更新环境变量
+export APP_ENV=production
+export DEBUG=false
+
+# 3. Cookie将自动使用Secure标志
+```
+
+#### Cookie安全属性
+- ✅ `HttpOnly=True` - 防止JavaScript访问（XSS防护）
+- ✅ `Secure=True` - 仅HTTPS传输（生产环境）
+- ✅ `SameSite=Lax` - CSRF保护
+- ✅ 自动环境适配
+
 ### SSL/TLS配置
 ```bash
 # 生成SSL证书
@@ -186,12 +214,64 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 
 # 配置Nginx SSL
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
+    
+    # 安全头配置
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
     # ... 其他配置
 }
 ```
+
+### 令牌黑名单配置
+
+#### 内存存储（默认，开发环境）
+```bash
+# 无需配置，默认使用内存存储
+# 适合单实例部署
+```
+
+#### 数据库存储（生产环境推荐）
+```bash
+# 设置环境变量
+export USE_DATABASE_BLACKLIST=true
+
+# 系统将自动使用数据库存储令牌黑名单
+# 支持分布式部署和多实例
+```
+
+#### Redis存储（生产环境最佳）
+```bash
+# 设置Redis URL
+export REDIS_URL=redis://localhost:6379/0
+export USE_REDIS=true
+
+# 令牌黑名单将存储在Redis中
+# 支持分布式和高并发场景
+```
+
+### 防暴力破解配置
+
+系统已内置防暴力破解机制：
+- **登录尝试限制**: 5分钟内最多5次尝试
+- **锁定时间**: 5分钟
+- **基于**: 用户名 + IP地址
+
+**当前使用内存存储**（开发环境）：
+```python
+# backend/app/api/api_v1/endpoints/auth.py
+_MAX_LOGIN_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 300  # 5分钟
+```
+
+**生产环境建议使用Redis**：
+- 支持分布式部署
+- 支持多实例共享状态
 
 ### 防火墙配置
 ```bash
@@ -212,6 +292,38 @@ python scripts/security/security_scan.py
 
 # 生成安全报告
 python scripts/security/security_scan.py --output security_report.html --format html
+```
+
+### 密码哈希配置
+
+系统使用**bcrypt**进行密码哈希（推荐方案）：
+- ✅ 自适应成本因子
+- ✅ 自动加盐
+- ✅ 抗暴力破解
+
+**配置**:
+- bcrypt不可用时自动回退到pbkdf2_sha256
+- 密码长度限制：72字节（bcrypt限制）
+
+### 令牌配置
+
+**访问令牌**:
+```bash
+# 默认过期时间：8天
+ACCESS_TOKEN_EXPIRE_MINUTES=11520  # 可配置，范围：1分钟-1年
+```
+
+**刷新令牌**:
+```bash
+# 默认过期时间：30天
+REFRESH_TOKEN_EXPIRE_DAYS=30  # 可配置，范围：1天-1年
+```
+
+**环境变量配置**:
+```bash
+# .env 文件
+ACCESS_TOKEN_EXPIRE_MINUTES=11520
+REFRESH_TOKEN_EXPIRE_DAYS=30
 ```
 
 ## 📈 性能优化

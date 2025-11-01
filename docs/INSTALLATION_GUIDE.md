@@ -290,6 +290,39 @@ sudo systemctl restart mysql
 sudo systemctl restart redis
 ```
 
+## 🔒 安全配置（重要）
+
+### 安装后必须配置
+
+#### 1. 环境变量配置
+```bash
+# 编辑环境变量文件
+vim /opt/ipv6-wireguard-manager/.env
+
+# 生产环境必须设置
+DEBUG=false
+APP_ENV=production
+```
+
+#### 2. HTTPS配置（生产环境必须）
+- 生产环境必须使用HTTPS
+- HttpOnly Cookie的`Secure`标志需要HTTPS
+- 参考 [部署指南](DEPLOYMENT_GUIDE.md#httponly-cookie配置) 配置SSL证书
+
+#### 3. 令牌黑名单配置（生产环境推荐）
+```bash
+# 使用数据库存储（推荐）
+export USE_DATABASE_BLACKLIST=true
+
+# 或使用Redis存储（最佳）
+export REDIS_URL=redis://localhost:6379/0
+export USE_REDIS=true
+```
+
+**详细安全配置请参考**:
+- [部署指南 - 安全配置](DEPLOYMENT_GUIDE.md#-安全配置)
+- [安全特性文档](SECURITY_FEATURES.md)
+
 ## 🌐 访问系统
 
 ### 主要访问地址

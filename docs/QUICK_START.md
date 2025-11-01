@@ -95,6 +95,32 @@ cd ipv6-wireguard-manager
 ./install.sh --type native --skip-deps --skip-frontend
 ```
 
+## 🔒 快速安全配置
+
+### 基本安全配置
+
+系统默认启用了以下安全特性：
+- ✅ HttpOnly Cookie存储令牌（推荐）
+- ✅ 防暴力破解（5次/5分钟）
+- ✅ 令牌撤销机制
+- ✅ bcrypt密码哈希
+
+**生产环境必须配置**:
+```bash
+# 1. 使用HTTPS（必须）
+# 配置SSL证书，参考部署指南
+
+# 2. 设置环境变量
+export DEBUG=false
+export APP_ENV=production
+
+# 3. 配置令牌黑名单（推荐使用Redis）
+export REDIS_URL=redis://localhost:6379/0
+export USE_REDIS=true
+```
+
+**详细安全配置**: 参考 [安全特性文档](SECURITY_FEATURES.md)
+
 ## 🔍 检查服务状态
 
 ### Docker 环境

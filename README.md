@@ -293,6 +293,7 @@ free -h
 | 🛠️ 安装指南 | [docs/INSTALLATION_GUIDE.md](docs/INSTALLATION_GUIDE.md) | 详细安装与配置步骤 |
 | 🚀 部署指南 | [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | 生产环境部署方案 |
 | 🔌 API参考 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | 后端 API 详情 |
+| 🔒 安全特性 | [docs/SECURITY_FEATURES.md](docs/SECURITY_FEATURES.md) | 完整的安全特性说明 |
 
 文档内容会随着功能演进持续更新，建议在每次升级后查阅文档索引获取最新信息。
 
@@ -393,12 +394,15 @@ python scripts/security/security_scan.py --output security_report.html --format 
 ```
 
 ### 安全配置
-- JWT令牌认证
-- 密码强度验证
-- 账户锁定机制
-- 速率限制
-- 安全头配置
-- 审计日志记录
+- ✅ **JWT令牌认证** - 标准JWT实现，支持访问令牌和刷新令牌
+- ✅ **HttpOnly Cookie存储** - 防止XSS攻击，推荐使用（已实现）
+- ✅ **令牌撤销机制** - 黑名单支持，登出即撤销令牌（已实现）
+- ✅ **防暴力破解** - 5分钟内最多5次登录尝试，自动锁定（已实现）
+- ✅ **bcrypt密码哈希** - 自适应成本因子，抗暴力破解（已实现）
+- ✅ **CSRF保护** - SameSite Cookie机制（已实现）
+- ✅ **安全头配置** - XSS、CSRF、点击劫持防护（已实现）
+- ✅ **速率限制** - API请求频率限制（已实现）
+- ✅ **审计日志记录** - 完整的操作日志和安全审计
 
 ## 🤝 贡献指南
 
