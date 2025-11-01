@@ -6,7 +6,7 @@ class ErrorController {
     private $auth;
     
     public function __construct() {
-        $this->auth = new Auth();
+        $this->auth = new AuthJWT();
     }
     
     /**
@@ -28,9 +28,10 @@ class ErrorController {
         $pageTitle = '错误';
         $showSidebar = $this->auth->isLoggedIn();
         
-        include 'views/layout/header.php';
-        include 'views/errors/error.php';
-        include 'views/layout/footer.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/error.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -40,9 +41,10 @@ class ErrorController {
         $pageTitle = '页面未找到';
         $showSidebar = $this->auth->isLoggedIn();
         
-        include 'views/layout/header.php';
-        include 'views/errors/404.php';
-        include 'views/layout/footer.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/404.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -52,9 +54,10 @@ class ErrorController {
         $pageTitle = '权限不足';
         $showSidebar = $this->auth->isLoggedIn();
         
-        include 'views/layout/header.php';
-        include 'views/errors/403.php';
-        include 'views/layout/footer.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/403.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -64,9 +67,10 @@ class ErrorController {
         $pageTitle = '服务器错误';
         $showSidebar = $this->auth->isLoggedIn();
         
-        include 'views/layout/header.php';
-        include 'views/errors/500.php';
-        include 'views/layout/footer.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/500.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -81,9 +85,10 @@ class ErrorController {
             $pageTitle = '错误日志';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/errors/logs.php';
-            include 'views/layout/footer.php';
+            // 使用绝对路径加载视图
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/errors/logs.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             $this->showError();

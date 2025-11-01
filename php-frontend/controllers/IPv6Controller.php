@@ -100,9 +100,9 @@ class IPv6Controller {
             $pageTitle = '创建IPv6前缀池';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/ipv6/create_pool.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/ipv6/create_pool.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             ResponseHandler::showError('创建失败', $e->getMessage());
@@ -164,9 +164,9 @@ class IPv6Controller {
             $pageTitle = '编辑IPv6前缀池';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/ipv6/edit_pool.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/ipv6/edit_pool.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             ResponseHandler::showError('编辑失败', $e->getMessage());
@@ -255,9 +255,9 @@ class IPv6Controller {
             $pageTitle = '分配IPv6前缀';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/ipv6/allocate_prefix.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/ipv6/allocate_prefix.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             ResponseHandler::showError('分配失败', $e->getMessage());
@@ -362,9 +362,9 @@ class IPv6Controller {
             $pageTitle = '编辑IPv6前缀分配';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/ipv6/edit_allocation.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/ipv6/edit_allocation.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             ResponseHandler::showError('编辑失败', $e->getMessage());

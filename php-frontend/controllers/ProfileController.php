@@ -45,9 +45,9 @@ class ProfileController {
         $pageTitle = '个人资料';
         $showSidebar = true;
         
-        include 'views/layout/header.php';
-        include 'views/profile/index.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/profile/index.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -117,9 +117,9 @@ class ProfileController {
      */
     public function changePassword() {
         $pageTitle = '修改密码';
-        include 'views/layout/header.php';
-        include 'views/profile/change_password.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/profile/change_password.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -194,9 +194,9 @@ class ProfileController {
      */
     public function security() {
         $pageTitle = '安全设置';
-        include 'views/layout/header.php';
-        include 'views/profile/security.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/profile/security.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -213,9 +213,9 @@ class ProfileController {
         }
         
         $pageTitle = '账户设置';
-        include 'views/layout/header.php';
-        include 'views/profile/settings.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/profile/settings.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
 }
 ?>

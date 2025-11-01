@@ -528,7 +528,7 @@
 
         <!-- 登录表单 -->
         <form method="POST" action="/login" id="loginForm" novalidate>
-            <input type="hidden" name="_token" value="<?= $this->auth->generateCsrfToken() ?>">
+            <input type="hidden" name="_token" value="<?= isset($csrfToken) ? htmlspecialchars($csrfToken) : (isset($auth) ? htmlspecialchars($auth->generateCsrfToken()) : '') ?>">
             
             <!-- 用户名输入 -->
             <div class="form-group">
@@ -593,7 +593,7 @@
         
         <!-- MFA验证表单 -->
         <form method="POST" action="/mfa-verify" id="mfaForm" class="d-none" novalidate>
-            <input type="hidden" name="_token" value="<?= $this->auth->generateCsrfToken() ?>">
+            <input type="hidden" name="_token" value="<?= isset($csrfToken) ? htmlspecialchars($csrfToken) : (isset($auth) ? htmlspecialchars($auth->generateCsrfToken()) : '') ?>">
             <input type="hidden" name="session_id" id="mfaSessionId">
             
             <div class="form-group">
@@ -688,53 +688,21 @@
                 }
             });
             
-            // 表单提交处理
+            // 表单提交处理 - 使用服务器端提交，不依赖API
             const loginForm = document.getElementById('loginForm');
             const loginBtn = document.getElementById('loginBtn');
             const loginSpinner = document.getElementById('loginSpinner');
             const loginText = document.getElementById('loginText');
             
             loginForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // 显示加载状态
+                // 不阻止默认提交，让服务器端处理登录
+                // 只添加加载状态提示
                 loginBtn.disabled = true;
                 loginSpinner.classList.remove('d-none');
                 loginText.textContent = '登录中...';
                 
-                // 如果API连接失败，阻止提交
-                if (!window.apiConnected) {
-                    showMessage('API服务连接失败，请检查后端服务状态', 'error');
-                    resetLoginButton();
-                    return;
-                }
-                
-                // 提交登录表单
-                const formData = new FormData(loginForm);
-                
-                fetch(`${API_BASE_URL}/auth/login`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.requires_mfa) {
-                            // 需要MFA验证
-                            showMfaForm(data.session_id);
-                        } else {
-                            // 直接登录成功
-                            window.location.href = '/dashboard';
-                        }
-                    } else {
-                        showMessage(data.message || '登录失败', 'error');
-                        resetLoginButton();
-                    }
-                })
-                .catch(error => {
-                    showMessage('登录请求失败: ' + error.message, 'error');
-                    resetLoginButton();
-                });
+                // 允许表单正常提交到服务器
+                // 服务器端AuthController会处理登录逻辑
             });
             
             // 重置登录按钮状态
@@ -847,17 +815,18 @@
         });
 
         function checkApiStatus() {
-            // 使用API代理端点
-            fetch(`${API_BASE_URL}/health`)
+            // 异步检查API状态，不影响登录表单显示
+            // 使用PHP代理端点而不是直接调用API
+            fetch('/api/status')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error(`HTTP ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(data => {
                     const statusDiv = document.getElementById('apiStatus');
-                    if (data.success !== false && data.status === 'healthy') {
+                    if (data.success && data.status === 'healthy') {
                         statusDiv.innerHTML = `
                             <i class="bi bi-check-circle status-success"></i>
                             <span class="status-success">API连接正常</span>
@@ -866,19 +835,21 @@
                     } else {
                         statusDiv.innerHTML = `
                             <i class="bi bi-x-circle status-error"></i>
-                            <span class="status-error">API状态异常</span>
+                            <span class="status-error">API状态异常（登录仍可使用）</span>
                         `;
-                        window.apiConnected = false;
+                        // 即使API不可用，也允许登录（使用本地认证）
+                        window.apiConnected = true;
                     }
                 })
                 .catch(error => {
                     const statusDiv = document.getElementById('apiStatus');
                     statusDiv.innerHTML = `
-                        <i class="bi bi-x-circle status-error"></i>
-                        <span class="status-error">API连接失败: ${error.message}</span>
+                        <i class="bi bi-exclamation-triangle status-error"></i>
+                        <span class="status-error">API连接失败（可尝试本地登录）</span>
                     `;
-                    window.apiConnected = false;
-                    console.error('API连接错误:', error);
+                    // 即使API检查失败，也允许表单提交（服务器端可能可以处理）
+                    window.apiConnected = true;
+                    console.warn('API状态检查失败，但不阻止登录:', error);
                 });
         }
 

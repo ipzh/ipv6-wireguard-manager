@@ -36,9 +36,9 @@ class WireGuardController {
             $pageTitle = 'WireGuard服务器管理';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/wireguard/servers.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/wireguard/servers.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             ErrorHandlerJWT::logCustomError('加载服务器列表失败: ' . $e->getMessage(), [
@@ -71,9 +71,12 @@ class WireGuardController {
             $pageTitle = 'WireGuard客户端管理';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/wireguard/clients.php';
-            include 'views/layout/footer.php';
+            // 传递apiClient到视图，修复视图中$this不可用的问题
+            $apiClient = $this->apiClient;
+            
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/wireguard/clients.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             $this->handleError('加载客户端列表失败: ' . $e->getMessage());
@@ -447,9 +450,9 @@ class WireGuardController {
         $showSidebar = true;
         $error = $message;
         
-        include 'views/layout/header.php';
-        include 'views/errors/error.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/error.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
 }
 ?>

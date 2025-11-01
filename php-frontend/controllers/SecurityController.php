@@ -24,9 +24,9 @@ class SecurityController {
         $pageTitle = '安全设置';
         $showSidebar = true;
         
-        include 'views/layout/header.php';
-        include 'views/security/index.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/security/index.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**

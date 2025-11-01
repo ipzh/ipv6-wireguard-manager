@@ -6,7 +6,7 @@ class PermissionMiddleware {
     private $auth;
     
     public function __construct() {
-        $this->auth = new Auth();
+        $this->auth = new AuthJWT();
     }
     
     /**

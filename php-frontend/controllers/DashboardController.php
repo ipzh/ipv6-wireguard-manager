@@ -40,9 +40,10 @@ class DashboardController {
             $pageTitle = '仪表板';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/dashboard/index.php';
-            include 'views/layout/footer.php';
+            // 使用绝对路径加载视图（修复相对路径问题）
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/dashboard/index.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             $this->handleError('加载仪表板数据失败: ' . $e->getMessage());
@@ -148,7 +149,8 @@ class DashboardController {
         $pageTitle = '需要登录';
         $showSidebar = false;
         
-        include 'views/layout/header.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
         echo '<div class="container mt-5">
             <div class="row justify-content-center">
                 <div class="col-md-6">
@@ -170,7 +172,7 @@ class DashboardController {
                 </div>
             </div>
         </div>';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -181,9 +183,10 @@ class DashboardController {
         $showSidebar = true;
         $error = $message;
         
-        include 'views/layout/header.php';
-        include 'views/errors/error.php';
-        include 'views/layout/footer.php';
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/error.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**

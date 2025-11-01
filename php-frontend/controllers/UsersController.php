@@ -31,9 +31,9 @@ class UsersController {
             $pageTitle = '用户管理';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/users/list.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/users/list.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             $this->handleError('加载用户列表失败: ' . $e->getMessage());
@@ -96,9 +96,9 @@ class UsersController {
             $pageTitle = '创建用户';
             $showSidebar = true;
             
-            include 'views/layout/header.php';
-            include 'views/users/create.php';
-            include 'views/layout/footer.php';
+            include __DIR__ . '/../views/layout/header.php';
+            include __DIR__ . '/../views/users/create.php';
+            include __DIR__ . '/../views/layout/footer.php';
             
         } catch (Exception $e) {
             $this->handleError('创建用户失败: ' . $e->getMessage());
@@ -357,9 +357,9 @@ class UsersController {
         $showSidebar = true;
         $error = $message;
         
-        include 'views/layout/header.php';
-        include 'views/errors/error.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/errors/error.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
 }
 ?>

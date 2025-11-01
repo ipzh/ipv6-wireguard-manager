@@ -27,9 +27,14 @@ class AuthController {
         $pageTitle = '用户登录';
         $showSidebar = false;
         
-        include 'views/layout/header.php';
-        include 'views/auth/login.php';
-        include 'views/layout/footer.php';
+        // 传递auth对象和csrf token到视图（修复视图中的$this问题）
+        $auth = $this->auth;
+        $csrfToken = $this->auth->generateCsrfToken();
+        
+        // 使用绝对路径加载视图（修复相对路径问题）
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/auth/login.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**
@@ -83,9 +88,14 @@ class AuthController {
         $showSidebar = false;
         $error = $errorMessage;
         
-        include 'views/layout/header.php';
-        include 'views/auth/login.php';
-        include 'views/layout/footer.php';
+        // 传递auth对象和csrf token到视图（修复视图中的$this问题）
+        $auth = $this->auth;
+        $csrfToken = $this->auth->generateCsrfToken();
+        
+        // 使用绝对路径加载视图
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/auth/login.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**

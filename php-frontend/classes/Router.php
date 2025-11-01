@@ -34,6 +34,14 @@ class Router {
         // 移除查询字符串
         $path = strtok($path, '?');
         
+        // 规范化路径：移除 /index.php
+        if ($path === '/index.php' || strpos($path, '/index.php') === 0) {
+            $path = str_replace('/index.php', '', $path);
+            if ($path === '') {
+                $path = '/';
+            }
+        }
+        
         // 查找匹配的路由
         foreach ($this->routes as $route) {
             if ($route['method'] === $method && $this->matchPath($route['path'], $path)) {
@@ -70,7 +78,8 @@ class Router {
         if (is_string($handler) && strpos($handler, '@') !== false) {
             list($controller, $method) = explode('@', $handler);
             
-            $controllerFile = "controllers/{$controller}.php";
+            // 使用绝对路径加载控制器（修复相对路径问题）
+            $controllerFile = __DIR__ . "/../controllers/{$controller}.php";
             if (file_exists($controllerFile)) {
                 require_once $controllerFile;
                 
@@ -88,6 +97,14 @@ class Router {
                     }
                 }
             }
+        } elseif (is_callable($handler)) {
+            // 支持闭包函数
+            $handler();
+            return;
+        } elseif (is_string($handler) && file_exists(__DIR__ . "/../{$handler}")) {
+            // 支持直接包含文件（如api_proxy.php）
+            include __DIR__ . "/../{$handler}";
+            return;
         }
         
         // 如果处理器无效，返回404
@@ -100,6 +117,14 @@ class Router {
     private function extractRouteParams($handler) {
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         $path = strtok($path, '?');
+        
+        // 规范化路径
+        if ($path === '/index.php' || strpos($path, '/index.php') === 0) {
+            $path = str_replace('/index.php', '', $path);
+            if ($path === '') {
+                $path = '/';
+            }
+        }
         
         // 查找匹配的路由
         foreach ($this->routes as $route) {
@@ -132,7 +157,14 @@ class Router {
      */
     private function handle404() {
         http_response_code(404);
-        include 'views/errors/404.php';
+        // 使用绝对路径加载404视图（修复相对路径问题）
+        $errorViewPath = __DIR__ . '/../views/errors/404.php';
+        if (file_exists($errorViewPath)) {
+            include $errorViewPath;
+        } else {
+            echo '<h1>404 Not Found</h1>';
+            echo '<p>The requested page could not be found.</p>';
+        }
     }
     
     /**

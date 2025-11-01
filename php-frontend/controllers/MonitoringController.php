@@ -24,9 +24,9 @@ class MonitoringController {
         $pageTitle = '监控仪表板';
         $showSidebar = true;
         
-        include 'views/layout/header.php';
-        include 'views/monitoring/dashboard.php';
-        include 'views/layout/footer.php';
+        include __DIR__ . '/../views/layout/header.php';
+        include __DIR__ . '/../views/monitoring/dashboard.php';
+        include __DIR__ . '/../views/layout/footer.php';
     }
     
     /**

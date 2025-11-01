@@ -43,8 +43,15 @@ class UnifiedAPIPathBuilder {
      */
     public function __construct($configPath = null) {
         if ($configPath === null) {
-            // 默认配置文件路径
-            $this->configPath = __DIR__ . '/../../../config/api_paths.json';
+            // 默认配置文件路径（修复：从../../../改为../../）
+            $this->configPath = __DIR__ . '/../../config/api_paths.json';
+            // 如果文件不存在，尝试其他可能的位置
+            if (!file_exists($this->configPath)) {
+                $altPath = dirname(dirname(dirname(__DIR__))) . '/config/api_paths.json';
+                if (file_exists($altPath)) {
+                    $this->configPath = $altPath;
+                }
+            }
         } else {
             $this->configPath = $configPath;
         }
@@ -57,7 +64,20 @@ class UnifiedAPIPathBuilder {
      */
     private function loadConfig() {
         if (!file_exists($this->configPath)) {
-            throw new Exception("API路径配置文件不存在: " . $this->configPath);
+            // 如果配置文件不存在，使用默认配置，避免抛出异常导致500错误
+            error_log("警告: API路径配置文件不存在: {$this->configPath}，使用默认配置");
+            $this->config = [
+                'api' => [
+                    'base_url' => getenv('API_BASE_URL') ?: 'http://localhost:8000',
+                    'version' => 'v1',
+                    'timeout' => 30
+                ],
+                'endpoints' => []
+            ];
+            $this->baseUrl = $this->config['api']['base_url'];
+            $this->version = $this->config['api']['version'];
+            $this->timeout = $this->config['api']['timeout'];
+            return;
         }
         
         $configContent = file_get_contents($this->configPath);

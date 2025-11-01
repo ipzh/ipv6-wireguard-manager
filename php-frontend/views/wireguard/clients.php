@@ -130,7 +130,9 @@
                                     <?php
                                         // 获取服务器列表
                                         try {
-                                            $serversData = $this->apiClient->get('/wireguard/servers');
+                                            // 使用控制器传递的$apiClient变量（修复$this问题）
+                                            $apiClientForServers = isset($apiClient) ? $apiClient : new ApiClientJWT();
+                                            $serversData = $apiClientForServers->get('/wireguard/servers');
                                             $servers = [];
                                             if (is_array($serversData)) {
                                                 if (isset($serversData['data']) && is_array($serversData['data'])) {
@@ -228,8 +230,10 @@
                                     <option value="">请选择服务器</option>
                                     <?php
                                     try {
-                                        $servers = $this->apiClient->get('/wireguard/servers');
-                                        $servers = $servers['servers'] ?? [];
+                                        // 使用控制器传递的$apiClient变量（修复$this问题）
+                                        $apiClientForServers = isset($apiClient) ? $apiClient : new ApiClientJWT();
+                                        $serversData = $apiClientForServers->get('/wireguard/servers');
+                                        $servers = $serversData['servers'] ?? ($serversData['data'] ?? []);
                                         foreach ($servers as $server) {
                                             echo '<option value="' . $server['id'] . '">' . htmlspecialchars($server['name']) . '</option>';
                                         }
