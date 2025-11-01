@@ -1,4 +1,8 @@
 #!/bin/bash
+# 在服务器上创建诊断脚本
+
+cat > /tmp/check_500_error.sh << 'SCRIPT_EOF'
+#!/bin/bash
 # 80端口500错误快速诊断脚本
 
 echo "=========================================="
@@ -47,11 +51,11 @@ try {
 
 echo ""
 echo "9. 检查PHP-FPM socket权限..."
-ls -lh /var/run/php/php8.2-fpm.sock 2>/dev/null || echo "⚠️ Socket不存在"
+ls -lh /var/run/php/php8.2-fpm.sock
 echo "Nginx运行用户:"
-ps aux | grep nginx | grep -v grep | head -1 | awk '{print $1}' || echo "未知"
+ps aux | grep nginx | grep -v grep | head -1 | awk '{print $1}'
 echo "PHP-FPM运行用户:"
-ps aux | grep php-fpm | grep -v grep | head -1 | awk '{print $1}' || echo "未知"
+ps aux | grep php-fpm | grep -v grep | head -1 | awk '{print $1}'
 
 echo ""
 echo "10. 尝试直接执行index.php（前50行输出）..."
@@ -59,20 +63,12 @@ cd /var/www/html 2>/dev/null
 php -f index.php 2>&1 | head -50 || echo "❌ index.php执行失败"
 
 echo ""
-echo "11. 检查SELinux状态（如果启用）..."
-getenforce 2>/dev/null || echo "SELinux未启用或不可用"
-
-echo ""
 echo "=========================================="
 echo "诊断完成 - 请查看上面的输出查找问题"
 echo "=========================================="
-echo ""
-echo "如果仍无法解决，请运行以下命令获取更详细的错误信息："
-echo "  sudo tail -50 /var/log/php8.2-fpm.log"
-echo "  sudo tail -50 /var/log/nginx/error.log"
-echo "  php -f /var/www/html/index.php"
-echo ""
-echo "提示：如果看到'Permission denied'，检查文件权限："
-echo "  sudo chown -R www-data:www-data /var/www/html"
-echo "  sudo chmod -R 755 /var/www/html"
+SCRIPT_EOF
+
+chmod +x /tmp/check_500_error.sh
+echo "✅ 脚本已创建在 /tmp/check_500_error.sh"
+echo "运行: sudo /tmp/check_500_error.sh"
 
