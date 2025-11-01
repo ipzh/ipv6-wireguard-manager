@@ -2268,15 +2268,18 @@ configure_nginx() {
     # 创建Nginx配置
     # IPv6与IPv4上游行（根据IPV6_SUPPORT条件渲染）
     local backend_upstream_lines=""
+    local ipv6_listen_line=""
     
     if [[ "${IPV6_SUPPORT}" == "true" ]]; then
         # IPv6可用：IPv6作为主服务器，IPv4作为backup
         backend_upstream_lines="    server [::1]:${API_PORT} max_fails=3 fail_timeout=30s;
     server 127.0.0.1:${API_PORT} backup max_fails=3 fail_timeout=30s;"
+        ipv6_listen_line="    listen [::]:${WEB_PORT};"
         log_info "使用IPv6上游服务器地址: [::1]:${API_PORT} (IPv4作为backup)"
     else
         # IPv6不可用：IPv4作为主服务器（不是backup）
         backend_upstream_lines="    server 127.0.0.1:${API_PORT} max_fails=3 fail_timeout=30s;"
+        ipv6_listen_line="    # IPv6 support not enabled"
         log_info "使用IPv4上游服务器地址: 127.0.0.1:${API_PORT}"
     fi
 
@@ -2300,7 +2303,7 @@ upstream php_backend {
 
 server {
     listen $WEB_PORT;
-$( [[ "${IPV6_SUPPORT}" == "true" ]] && echo "    listen [::]:$WEB_PORT;" || echo "    # IPv6 support not enabled" )
+${ipv6_listen_line}
     server_name _;
     root $FRONTEND_DIR;
     index index.php index.html;
