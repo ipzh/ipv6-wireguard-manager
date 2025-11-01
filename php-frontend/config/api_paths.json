@@ -1,6 +1,6 @@
 {
     "api": {
-        "base_url": "http://backend:8000",
+        "base_url": "http://localhost:8000",
         "version": "v1",
         "timeout": 30,
         "retry_attempts": 3,

@@ -60,6 +60,9 @@ require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'config/assets.php';
 
+// 先加载API路径构建器（因为ApiClientJWT依赖它）
+require_once 'includes/ApiPathBuilder/UnifiedAPIPathBuilder.php';
+
 // 引入核心类
 require_once 'classes/ApiClientJWT.php';
 require_once 'classes/AuthJWT.php';
