@@ -32,6 +32,13 @@ except ImportError:
 @router.get("/sessions", response_model=None)
 async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
     """获取BGP会话列表"""
+    if BGPSession is None or BGPSessionSchema is None:
+        return {
+            "sessions": [],
+            "total": 0,
+            "message": "BGP会话功能未启用"
+        }
+    
     try:
         result = await db.execute(select(BGPSession))
         sessions = result.scalars().all()
@@ -62,6 +69,9 @@ async def get_bgp_sessions(db: AsyncSession = Depends(get_db)):
 @router.get("/sessions/{session_id}", response_model=None)
 async def get_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)):
     """获取单个BGP会话"""
+    if BGPSession is None or BGPSessionSchema is None:
+        raise HTTPException(status_code=503, detail="BGP会话功能未启用")
+    
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
         session = result.scalars().first()
@@ -89,6 +99,9 @@ async def get_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/sessions", response_model=None)
 async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """创建BGP会话"""
+    if BGPSession is None or BGPSessionSchema is None:
+        raise HTTPException(status_code=503, detail="BGP会话功能未启用")
+    
     try:
         session = BGPSession(
             name=session_data.name,
@@ -135,6 +148,9 @@ async def create_bgp_session(session_data: BGPSessionSchema, db: AsyncSession = 
 @router.put("/sessions/{session_id}", response_model=None)
 async def update_bgp_session(session_id: int, session_data: BGPSessionSchema, db: AsyncSession = Depends(get_db)):
     """更新BGP会话"""
+    if BGPSession is None or BGPSessionSchema is None or ExaBGPService is None:
+        raise HTTPException(status_code=503, detail="BGP会话功能未启用")
+    
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
         session = result.scalars().first()
@@ -178,6 +194,9 @@ async def update_bgp_session(session_id: int, session_data: BGPSessionSchema, db
 @router.delete("/sessions/{session_id}")
 async def delete_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)):
     """删除BGP会话"""
+    if BGPSession is None or ExaBGPService is None:
+        raise HTTPException(status_code=503, detail="BGP会话功能未启用")
+    
     try:
         result = await db.execute(select(BGPSession).where(BGPSession.id == session_id))
         session = result.scalars().first()
@@ -203,6 +222,13 @@ async def delete_bgp_session(session_id: int, db: AsyncSession = Depends(get_db)
 @router.get("/routes", response_model=None)
 async def get_bgp_routes(db: AsyncSession = Depends(get_db)):
     """获取BGP路由宣告"""
+    if BGPAnnouncement is None or BGPAnnouncementSchema is None:
+        return {
+            "routes": [],
+            "total": 0,
+            "message": "BGP路由功能未启用"
+        }
+    
     try:
         result = await db.execute(select(BGPAnnouncement))
         announcements = result.scalars().all()
@@ -231,6 +257,16 @@ async def get_bgp_routes(db: AsyncSession = Depends(get_db)):
 @router.get("/status", response_model=None)
 async def get_bgp_status(db: AsyncSession = Depends(get_db)):
     """获取BGP服务状态"""
+    if ExaBGPService is None or BGPSession is None or BGPAnnouncement is None:
+        return {
+            "service_status": "disabled",
+            "sessions_count": 0,
+            "routes_count": 0,
+            "enabled_sessions": 0,
+            "enabled_routes": 0,
+            "message": "BGP功能未启用"
+        }
+    
     try:
         exabgp_service = ExaBGPService(db)
         status = await exabgp_service.get_status()

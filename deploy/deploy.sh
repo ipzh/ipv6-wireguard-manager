@@ -201,13 +201,13 @@ set_permissions() {
         # 设置可执行文件权限
         find . -name "*.sh" -exec chmod 755 {} \;
         
-        # 设置日志目录权限
+        # 设置日志目录权限（使用更安全的权限）
         mkdir -p logs
-        chmod 777 logs
+        chmod 775 logs
         
-        # 设置缓存目录权限
+        # 设置缓存目录权限（使用更安全的权限）
         mkdir -p cache
-        chmod 777 cache
+        chmod 775 cache
 EOF
     
     log_success "权限设置完成"

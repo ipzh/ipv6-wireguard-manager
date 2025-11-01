@@ -26,6 +26,13 @@ ROUTE_CONFIGS = [
         "description": "users相关接口"
     },
     {
+        "module": ".endpoints.mfa",
+        "router_attr": "router",
+        "prefix": "/mfa",
+        "tags": ['MFA'],
+        "description": "mfa相关接口"
+    },
+    {
         "module": ".endpoints.wireguard",
         "router_attr": "router",
         "prefix": "/wireguard",
@@ -33,11 +40,32 @@ ROUTE_CONFIGS = [
         "description": "wireguard相关接口"
     },
     {
+        "module": ".endpoints.ipv6",
+        "router_attr": "router",
+        "prefix": "/ipv6",
+        "tags": ['IPv6管理'],
+        "description": "ipv6相关接口"
+    },
+    {
+        "module": ".endpoints.bgp",
+        "router_attr": "router",
+        "prefix": "/bgp",
+        "tags": ['BGP管理'],
+        "description": "bgp相关接口"
+    },
+    {
         "module": ".endpoints.network",
         "router_attr": "router",
         "prefix": "/network",
         "tags": ['网络管理'],
         "description": "network相关接口"
+    },
+    {
+        "module": ".endpoints.status",
+        "router_attr": "router",
+        "prefix": "/status",
+        "tags": ['状态检查'],
+        "description": "status相关接口"
     },
     {
         "module": ".endpoints.monitoring",

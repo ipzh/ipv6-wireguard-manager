@@ -30,6 +30,13 @@ except ImportError:
 @router.get("/pools", response_model=None)
 async def get_ipv6_pools(db: AsyncSession = Depends(get_db)):
     """获取IPv6前缀池列表"""
+    if IPv6PoolService is None:
+        return {
+            "pools": [],
+            "total": 0,
+            "message": "IPv6前缀池功能未启用"
+        }
+    
     try:
         ipv6_service = IPv6PoolService(db)
         pools = await ipv6_service.get_pools()
@@ -66,6 +73,9 @@ async def create_ipv6_pool(
     db: AsyncSession = Depends(get_db)
 ):
     """创建IPv6前缀池"""
+    if IPv6PoolService is None or IPv6PrefixPool is None:
+        raise HTTPException(status_code=503, detail="IPv6前缀池功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         
@@ -93,6 +103,9 @@ async def create_ipv6_pool(
 @router.get("/pools/{pool_id}", response_model=None)
 async def get_ipv6_pool(pool_id: int, db: AsyncSession = Depends(get_db)):
     """获取单个IPv6前缀池"""
+    if IPv6PoolService is None:
+        raise HTTPException(status_code=503, detail="IPv6前缀池功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         pool = await ipv6_service.get_pool(pool_id)
@@ -127,6 +140,9 @@ async def update_ipv6_pool(
     db: AsyncSession = Depends(get_db)
 ):
     """更新IPv6前缀池"""
+    if IPv6PoolService is None or IPv6PrefixPool is None:
+        raise HTTPException(status_code=503, detail="IPv6前缀池功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         
@@ -158,6 +174,9 @@ async def update_ipv6_pool(
 @router.delete("/pools/{pool_id}", response_model=None)
 async def delete_ipv6_pool(pool_id: int, db: AsyncSession = Depends(get_db)):
     """删除IPv6前缀池"""
+    if IPv6PoolService is None or MessageResponse is None:
+        raise HTTPException(status_code=503, detail="IPv6前缀池功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         success = await ipv6_service.delete_pool(pool_id)
@@ -178,6 +197,13 @@ async def get_ipv6_allocations(
     db: AsyncSession = Depends(get_db)
 ):
     """获取IPv6分配列表"""
+    if IPv6PoolService is None:
+        return {
+            "allocations": [],
+            "total": 0,
+            "message": "IPv6分配功能未启用"
+        }
+    
     try:
         ipv6_service = IPv6PoolService(db)
         allocations = await ipv6_service.get_allocations(pool_id)
@@ -213,6 +239,9 @@ async def allocate_ipv6_prefix(
     db: AsyncSession = Depends(get_db)
 ):
     """分配IPv6前缀"""
+    if IPv6PoolService is None:
+        raise HTTPException(status_code=503, detail="IPv6分配功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         
@@ -242,6 +271,9 @@ async def allocate_ipv6_prefix(
 @router.post("/allocations/{allocation_id}/release", response_model=None)
 async def release_ipv6_prefix(allocation_id: int, db: AsyncSession = Depends(get_db)):
     """释放IPv6前缀"""
+    if IPv6PoolService is None or MessageResponse is None:
+        raise HTTPException(status_code=503, detail="IPv6分配功能未启用")
+    
     try:
         ipv6_service = IPv6PoolService(db)
         success = await ipv6_service.release_allocation(allocation_id)

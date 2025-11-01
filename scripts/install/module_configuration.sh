@@ -123,8 +123,10 @@ create_directories() {
     # 设置权限
     sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR"
     sudo chmod 755 "$INSTALL_DIR"
-    sudo chmod 777 "$INSTALL_DIR/logs"
-    sudo chmod 777 "$INSTALL_DIR/cache"
+    
+    # 日志和缓存目录使用更安全的权限
+    sudo chmod 775 "$INSTALL_DIR/logs"
+    sudo chmod 775 "$INSTALL_DIR/cache"
 }
 
 # 创建环境配置文件
@@ -308,6 +310,12 @@ server {
     root $FRONTEND_ROOT;
     index index.php index.html;
 
+    # 安全头配置
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
@@ -333,6 +341,19 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # 禁止访问敏感文件
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ /(config|logs|backup)/ {
+        deny all;
+        access_log off;
+        log_not_found off;
     }
 }
 EOF

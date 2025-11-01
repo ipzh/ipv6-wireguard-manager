@@ -25,6 +25,13 @@ except ImportError:
 @router.get("/", response_model=None)
 async def get_system_status(db: AsyncSession = Depends(get_db)):
     """获取系统状态"""
+    if StatusService is None:
+        return {
+            "status": "degraded",
+            "message": "Status service not available",
+            "services": {}
+        }
+    
     status_service = StatusService(db)
     status_info = await status_service.get_system_status()
     return status_info
@@ -39,6 +46,13 @@ async def health_check():
 @router.get("/services", response_model=None)
 async def get_services_status(db: AsyncSession = Depends(get_db)):
     """获取服务状态"""
+    if StatusService is None:
+        return {
+            "status": "degraded",
+            "message": "Status service not available",
+            "services": {}
+        }
+    
     status_service = StatusService(db)
     services_status = await status_service.get_services_status()
     return services_status

@@ -12,7 +12,7 @@ import base64
 
 from ...core.database import get_async_db
 from ...core.security_enhanced import get_current_user
-from ...core.mfa_manager import MFAManager
+from ...core.mfa_manager import MFAManager, MFAConfig
 from ...models.models_complete import User
 from ...schemas.user import UserResponse
 
@@ -26,7 +26,7 @@ async def setup_mfa(
 ) -> Dict[str, Any]:
     """设置MFA"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         
         # 生成TOTP密钥
         secret = mfa_manager.generate_totp_secret()
@@ -70,7 +70,7 @@ async def verify_mfa(
 ) -> Dict[str, Any]:
     """验证MFA代码"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         
         # 验证TOTP代码
         is_valid = await mfa_manager.verify_totp_code(db, current_user.id, code)
@@ -101,7 +101,7 @@ async def enable_mfa(
 ) -> Dict[str, Any]:
     """启用MFA"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         
         # 验证代码
         totp = pyotp.TOTP(secret)
@@ -132,7 +132,7 @@ async def disable_mfa(
 ) -> Dict[str, Any]:
     """禁用MFA"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         
         # 验证代码
         is_valid = await mfa_manager.verify_totp_code(db, current_user.id, verification_code)
@@ -162,7 +162,7 @@ async def get_mfa_status(
 ) -> Dict[str, Any]:
     """获取MFA状态"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         status = await mfa_manager.get_mfa_status(db, current_user.id)
         
         return {
@@ -185,7 +185,7 @@ async def regenerate_backup_codes(
 ) -> Dict[str, Any]:
     """重新生成备用代码"""
     try:
-        mfa_manager = MFAManager()
+        mfa_manager = MFAManager(config=MFAConfig())
         
         # 验证代码
         is_valid = await mfa_manager.verify_totp_code(db, current_user.id, verification_code)
